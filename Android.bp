@@ -20,7 +20,7 @@ cc_library_static {
 
     srcs: ["utils/worker.cpp"],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: ["hardware/rockchip/hwcomposer/include"],
 
     cflags: [
         "-Wall",
@@ -47,7 +47,10 @@ cc_defaults {
         "libutils",
     ],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: [
+        "hardware/rockchip/hwcomposer/include",
+        "hardware/rockchip/libgralloc/midgard",
+    ],
 
     static_libs: ["libdrmhwc_utils"],
 
@@ -59,6 +62,10 @@ cc_defaults {
     cppflags: [
         "-DHWC2_USE_CPP11",
         "-DHWC2_INCLUDE_STRINGIFICATION",
+        "-DRK_DRM_GRALLOC",
+        "-DUSE_HWC2",
+        "-DMALI_AFBC_GRALLOC",
+
     ],
 
     relative_install_path: "hw",
@@ -92,13 +99,13 @@ cc_library_static {
 }
 
 cc_library_shared {
-    name: "hwcomposer.drm",
+    name: "hwcomposer.rk30board",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
     srcs: ["platform/platformdrmgeneric.cpp"],
     cppflags: ["-DUSE_DRM_GENERIC_IMPORTER"],
 }
-
+/*
 cc_library_shared {
     name: "hwcomposer.drm_minigbm",
     defaults: ["hwcomposer.drm_defaults"],
@@ -120,7 +127,7 @@ cc_library_shared {
     ],
     shared_libs: ["arm.graphics.privatebuffer@1.0", "libhidlbase"],
 }
-
+*/
 // Used by hwcomposer.drm_hikey and hwcomposer.drm_hikey960
 filegroup {
     name: "drm_hwcomposer_platformhisi",
