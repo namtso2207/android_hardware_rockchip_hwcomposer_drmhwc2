@@ -26,27 +26,11 @@
 
 namespace android {
 
-enum DrmPlaneFeatureType{
-      DRM_PLANE_FEARURE_SCALE   = 0,
-      DRM_PLANE_FEARURE_ALPHA   = 1,
-      DRM_PLANE_FEARURE_HDR2SDR = 2,
-      DRM_PLANE_FEARURE_SDR2HDR = 3,
-      DRM_PLANE_FEARURE_AFBDC   = 4,
-};
-
-enum DrmPlaneFeatureTypeBit{
-      DRM_PLANE_FEARURE_BIT_SCALE   = 1 << DRM_PLANE_FEARURE_SCALE,
-      DRM_PLANE_FEARURE_BIT_ALPHA   = 1 << DRM_PLANE_FEARURE_ALPHA,
-      DRM_PLANE_FEARURE_BIT_HDR2SDR = 1 << DRM_PLANE_FEARURE_HDR2SDR,
-      DRM_PLANE_FEARURE_BIT_SDR2HDR = 1 << DRM_PLANE_FEARURE_SDR2HDR,
-      DRM_PLANE_FEARURE_BIT_AFBDC   = 1 << DRM_PLANE_FEARURE_AFBDC,
-};
-
-class DrmDevice;
+class DrmResources;
 
 class DrmPlane {
  public:
-  DrmPlane(DrmDevice *drm, drmModePlanePtr p);
+  DrmPlane(DrmResources *drm, drmModePlanePtr p);
   DrmPlane(const DrmPlane &) = delete;
   DrmPlane &operator=(const DrmPlane &) = delete;
 
@@ -68,15 +52,11 @@ class DrmPlane {
   const DrmProperty &src_y_property() const;
   const DrmProperty &src_w_property() const;
   const DrmProperty &src_h_property() const;
-  const DrmProperty &zpos_property() const;
   const DrmProperty &rotation_property() const;
-  const DrmProperty &alpha_property() const;
   const DrmProperty &eotf_property() const;
-  const DrmProperty &blend_property() const;
+  const DrmProperty &blend_mode_property() const;
   const DrmProperty &colorspace_property() const;
-  const DrmProperty &area_id_property() const;
-  const DrmProperty &share_id_property() const;
-  const DrmProperty &feature_property() const;
+  const DrmProperty &alpha_property() const;
   bool is_use();
   void set_use(bool b_use);
   bool get_scale();
@@ -87,11 +67,22 @@ class DrmPlane {
   bool get_afbc_prop();
   bool get_yuv();
   void set_yuv(bool b_yuv);
+  const DrmProperty &zpos_property() const;
+  const DrmProperty &area_id_property() const;
+  const DrmProperty &share_id_property() const;
+  const DrmProperty &feature_property() const;
   bool is_reserved();
   void set_reserved(bool b_reserved);
+  inline uint32_t get_possible_crtc_mask() const
+  {
+        return possible_crtc_mask_;
+  }
+
+  void dump_plane(std::ostringstream *out) const;
+
 
  private:
-  DrmDevice *drm_;
+  DrmResources *drm_;
   uint32_t id_;
 
   uint32_t possible_crtc_mask_;
@@ -110,15 +101,14 @@ class DrmPlane {
   DrmProperty src_h_property_;
   DrmProperty rotation_property_;
   DrmProperty alpha_property_;
-  DrmProperty blend_mode_property_;
-  DrmProperty zpos_property_;
-  //RK support
   DrmProperty eotf_property_;
+  DrmProperty blend_mode_property_;
   DrmProperty colorspace_property_;
+
+  DrmProperty zpos_property_;
   DrmProperty area_id_property_;
   DrmProperty share_id_property_;
   DrmProperty feature_property_;
-
   bool b_reserved_;
   bool b_use_;
   bool b_yuv_;
@@ -128,7 +118,9 @@ class DrmPlane {
   bool b_sdr2hdr_;
   bool b_afbdc_;
   bool b_afbc_prop_;
+
+  drmModePlanePtr plane_;
 };
-}  // namespace android
+}
 
 #endif  // ANDROID_DRM_PLANE_H_

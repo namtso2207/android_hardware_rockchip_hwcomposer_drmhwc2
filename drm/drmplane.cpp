@@ -118,25 +118,63 @@ int DrmPlane::Init() {
     return ret;
   }
 
-  ret = drm_->GetPlaneProperty(*this, "zpos", &zpos_property_);
-  if (ret)
-    ALOGE("Could not get zpos property for plane %u", id());
-
   ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
   if (ret)
     ALOGE("Could not get rotation property");
 
-  ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
+  ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
   if (ret)
     ALOGI("Could not get alpha property");
 
-  ret = drm_->GetPlaneProperty(*this, "pixel blend mode", &blend_property_);
+  ret = drm_->GetPlaneProperty(*this, "BLEND_MODE", &blend_mode_property_);
   if (ret)
     ALOGI("Could not get pixel blend mode property");
 
-  ret = drm_->GetPlaneProperty(*this, "IN_FENCE_FD", &in_fence_fd_property_);
+  ret = drm_->GetPlaneProperty(*this, "EOTF", &eotf_property_);
   if (ret)
-    ALOGI("Could not get IN_FENCE_FD property");
+    ALOGI("Could not get eotf property");
+
+  ret = drm_->GetPlaneProperty(*this, "COLOR_SPACE", &colorspace_property_);
+  if (ret)
+    ALOGI("Could not get colorspace property");
+
+  ret = drm_->GetPlaneProperty(*this, "ZPOS", &zpos_property_);
+  if (ret)
+    ALOGE("Could not get ZPOS property");
+
+  ret = drm_->GetPlaneProperty(*this, "SHARE_FLAGS", &area_id_property_);
+  if (ret)
+    ALOGE("Could not get AREA_ID property");
+
+  ret = drm_->GetPlaneProperty(*this, "SHARE_ID", &share_id_property_);
+  if (ret)
+    ALOGE("Could not get SHARE_ID property");
+
+  ret = drm_->GetPlaneProperty(*this, "FEATURE", &feature_property_);
+  if (ret)
+    ALOGE("Could not get FEATURE property");
+
+
+  uint64_t scale=0, rotate=0, hdr2sdr=0, sdr2hdr=0, afbdc=0;
+
+  std::tie(scale, ret) = feature_property_.GetEnumValueWithName("scale");
+  b_scale_ = (scale == DRM_PLANE_FEARURE_BIT_SCALE)?true:false;
+
+  std::tie(rotate, ret) = rotation_property_.GetEnumValueWithName("rotate");
+  b_rotate_ = (rotate == DRM_PLANE_FEARURE_BIT_ALPHA)?true:false;;
+
+  std::tie(hdr2sdr, ret) = feature_property_.GetEnumValueWithName("hdr2sdr");
+  b_hdr2sdr_ = (hdr2sdr == DRM_PLANE_FEARURE_BIT_HDR2SDR)?true:false;
+
+  std::tie(sdr2hdr, ret) = feature_property_.GetEnumValueWithName("sdr2hdr");
+  b_sdr2hdr_ = (sdr2hdr == DRM_PLANE_FEARURE_BIT_SDR2HDR)?true:false;
+
+  std::tie(afbdc, ret) = feature_property_.GetEnumValueWithName("afbdc");
+  b_afbdc_ = (afbdc == DRM_PLANE_FEARURE_BIT_AFBDC)?true:false;
+  if(0xFF == afbdc)
+    b_afbc_prop_ = false;
+  else
+    b_afbc_prop_ = true;
 
   return 0;
 }
@@ -206,10 +244,78 @@ const DrmProperty &DrmPlane::alpha_property() const {
 }
 
 const DrmProperty &DrmPlane::blend_property() const {
-  return blend_property_;
+  return blend_mode_property_;
 }
 
-const DrmProperty &DrmPlane::in_fence_fd_property() const {
-  return in_fence_fd_property_;
+// RK support
+const DrmProperty &DrmPlane::eotf_property() const {
+  return eotf_property_;
 }
+
+  const DrmProperty &DrmPlane::colorspace_property() const {
+    return colorspace_property_;
+  }
+
+  const DrmProperty &DrmPlane::area_id_property() const {
+  return area_id_property_;
+}
+
+const DrmProperty &DrmPlane::share_id_property() const {
+  return share_id_property_;
+}
+
+const DrmProperty &DrmPlane::feature_property() const {
+  return feature_property_;
+}
+
+bool DrmPlane::get_scale(){
+    return b_scale_;
+}
+
+bool DrmPlane::get_rotate(){
+    return b_rotate_;
+}
+
+bool DrmPlane::get_hdr2sdr(){
+    return b_hdr2sdr_;
+}
+
+bool DrmPlane::get_sdr2hdr(){
+    return b_sdr2hdr_;
+}
+
+bool DrmPlane::get_afbc(){
+    return b_afbdc_;
+}
+
+bool DrmPlane::get_afbc_prop(){
+    return b_afbc_prop_;
+}
+
+bool DrmPlane::get_yuv(){
+    return b_yuv_;
+}
+
+void DrmPlane::set_yuv(bool b_yuv)
+{
+    b_yuv_ = b_yuv;
+}
+
+bool DrmPlane::is_use(){
+    return b_use_;
+}
+
+void DrmPlane::set_use(bool b_use)
+{
+    b_use_ = b_use;
+}
+
+bool DrmPlane::is_reserved(){
+  return b_reserved_;
+}
+
+void DrmPlane::set_reserved(bool b_reserved) {
+    b_reserved_ = b_reserved;
+}
+
 }  // namespace android

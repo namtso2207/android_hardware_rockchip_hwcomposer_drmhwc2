@@ -305,6 +305,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     }
   }
 
+  uint64_t zpos = 0;
+
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
     DrmCrtc *crtc = comp_plane.crtc();
@@ -315,7 +317,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     hwc_rect_t display_frame;
     hwc_frect_t source_crop;
     uint64_t rotation = 0;
-    uint64_t alpha = 0xFFFF;
+    uint64_t alpha = 0xFF;
     uint64_t blend;
 
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
@@ -342,30 +344,14 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       alpha = layer.alpha;
 
       if (plane->blend_property().id()) {
-        switch (layer.blending) {
-          case DrmHwcBlending::kPreMult:
-            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-                "Pre-multiplied");
-            break;
-          case DrmHwcBlending::kCoverage:
-            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-                "Coverage");
-            break;
-          case DrmHwcBlending::kNone:
-          default:
-            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-                "None");
-            break;
-        }
+        blend = (layer.blending == DrmHwcBlending::kPreMult) ? 1:0;
       }
 
-      if (plane->zpos_property().id() &&
-          !plane->zpos_property().is_immutable()) {
+      if (plane->zpos_property().id()) {
         uint64_t min_zpos = 0;
 
         // Ignore ret and use min_zpos as 0 by default
         std::tie(std::ignore, min_zpos) = plane->zpos_property().range_min();
-
         ret = drmModeAtomicAddProperty(pset, plane->id(),
                                        plane->zpos_property().id(),
                                        source_layers.front() + min_zpos) < 0;
@@ -374,6 +360,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                 plane->zpos_property().id(), plane->id());
           break;
         }
+        zpos = source_layers.front() + min_zpos;
       }
 
       rotation = 0;
@@ -389,19 +376,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         rotation |= DRM_MODE_ROTATE_270;
       else
         rotation |= DRM_MODE_ROTATE_0;
-
-      if (fence_fd >= 0) {
-        int prop_id = plane->in_fence_fd_property().id();
-        if (prop_id == 0) {
-          ALOGE("Failed to get IN_FENCE_FD property id");
-          break;
-        }
-        ret = drmModeAtomicAddProperty(pset, plane->id(), prop_id, fence_fd);
-        if (ret < 0) {
-          ALOGE("Failed to add IN_FENCE_FD property to pset: %d", ret);
-          break;
-        }
-      }
     }
 
     // Disable the plane if there's no framebuffer
@@ -454,6 +428,24 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       break;
     }
 
+    size_t index=0;
+    std::ostringstream out_log;
+
+    out_log << "DrmDisplayCompositor[" << index << "]"
+            << " display=" << display_
+            << " plane=" << (plane ? plane->id() : -1)
+            << " crct id=" << crtc->id()
+            << " fb id=" << fb_id
+            << " display_frame[" << display_frame.left << ","
+            << display_frame.top << "," << display_frame.right - display_frame.left
+            << "," << display_frame.bottom  - display_frame.top << "]"
+            << " source_crop[" << source_crop.left << ","
+            << source_crop.top << "," << source_crop.right - source_crop.left
+            << "," << source_crop.bottom - source_crop.top << "]"
+            << ", zpos=" << zpos
+            ;
+    index++;
+
     if (plane->rotation_property().id()) {
       ret = drmModeAtomicAddProperty(pset, plane->id(),
                                      plane->rotation_property().id(),
@@ -463,6 +455,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
               plane->rotation_property().id(), plane->id());
         break;
       }
+      out_log << " rotation=" << rotation;
     }
 
     if (plane->alpha_property().id()) {
@@ -473,6 +466,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
               plane->alpha_property().id(), plane->id());
         break;
       }
+      out_log << " alpha=" << std::hex <<  alpha;
     }
 
     if (plane->blend_property().id()) {
@@ -483,7 +477,10 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
               plane->blend_property().id(), plane->id());
         break;
       }
+      out_log << " blend mode =" << blend;
     }
+    ALOGV("%s",out_log.str().c_str());
+    out_log.clear();
   }
 
   if (!ret) {

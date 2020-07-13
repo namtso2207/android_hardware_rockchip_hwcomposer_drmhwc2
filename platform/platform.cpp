@@ -51,7 +51,7 @@ int Planner::PlanStage::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
     return -EINVAL;
   }
 
-  if (plane->blend_property().id() == 0) {
+  if (plane->blend_property().id() > 0) {
     if ((layer->blending != DrmHwcBlending::kNone) &&
         (layer->blending != DrmHwcBlending::kPreMult)) {
       ALOGE("Blending is not supported on plane %d", plane->id());
