@@ -42,10 +42,20 @@ class DrmCrtc {
   void set_display(int display);
 
   bool can_bind(int display) const;
+  bool can_overscan() const;
+  bool get_afbc() const;
+  bool get_alpha_scale() const;
 
   const DrmProperty &active_property() const;
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
+  const DrmProperty &left_margin_property() const;
+  const DrmProperty &right_margin_property() const;
+  const DrmProperty &top_margin_property() const;
+  const DrmProperty &bottom_margin_property() const;
+  const DrmProperty &alpha_scale_property() const;
+
+ DrmDevice *getDrmDevice(){ return drm_; }
 
  private:
   DrmDevice *drm_;
@@ -56,9 +66,21 @@ class DrmCrtc {
 
   DrmMode mode_;
 
+  bool can_overscan_;
+  bool can_alpha_scale_;
+  bool b_afbc_;
+
   DrmProperty active_property_;
   DrmProperty mode_property_;
   DrmProperty out_fence_ptr_property_;
+  //RK support
+  DrmProperty feature_property_;
+  DrmProperty left_margin_property_;
+  DrmProperty top_margin_property_;
+  DrmProperty right_margin_property_;
+  DrmProperty bottom_margin_property_;
+  DrmProperty alpha_scale_property_;
+
 };
 }  // namespace android
 

@@ -43,11 +43,53 @@ int DrmCrtc::Init() {
     return ret;
   }
 
+  ret = drm_->GetCrtcProperty(*this, "FEATURE", &feature_property_);
+  if (ret)
+    ALOGE("Could not get FEATURE property");
+
+  uint64_t feature=0;
+  std::tie(feature, ret) = feature_property_.GetEnumValueWithName("afbdc");
+  b_afbc_ = (feature ==1)?true:false;
+
+
+  can_overscan_ = true;
+  ret = drm_->GetCrtcProperty(*this, "left margin", &left_margin_property_);
+  if (ret) {
+    ALOGE("Failed to get left margin property");
+    can_overscan_ = false;
+  }
+  ret = drm_->GetCrtcProperty(*this, "right margin", &right_margin_property_);
+  if (ret) {
+    ALOGE("Failed to get right margin property");
+    can_overscan_ = false;
+  }
+  ret = drm_->GetCrtcProperty(*this, "top margin", &top_margin_property_);
+  if (ret) {
+    ALOGE("Failed to get top margin property");
+    can_overscan_ = false;
+  }
+  ret = drm_->GetCrtcProperty(*this, "bottom margin", &bottom_margin_property_);
+  if (ret) {
+    ALOGE("Failed to get bottom margin property");
+    can_overscan_ = false;
+  }
+
+  uint64_t alpha_scale = 0;
+  can_alpha_scale_ = true;
+  ret = drm_->GetCrtcProperty(*this, "ALPHA_SCALE", &alpha_scale_property_);
+  if (ret) {
+    ALOGE("Failed to get alpha_scale_property property");
+  }
+  std::tie(alpha_scale, ret) = alpha_scale_property_.value();
+  if(alpha_scale == 0)
+    can_alpha_scale_ = false;
+
+
   ret = drm_->GetCrtcProperty(*this, "OUT_FENCE_PTR", &out_fence_ptr_property_);
   if (ret) {
     ALOGE("Failed to get OUT_FENCE_PTR property");
-    return ret;
   }
+
   return 0;
 }
 
@@ -78,8 +120,32 @@ const DrmProperty &DrmCrtc::active_property() const {
 const DrmProperty &DrmCrtc::mode_property() const {
   return mode_property_;
 }
-
 const DrmProperty &DrmCrtc::out_fence_ptr_property() const {
   return out_fence_ptr_property_;
 }
+
+bool DrmCrtc::can_overscan() const {
+  return can_overscan_;
+}
+
+const DrmProperty &DrmCrtc::left_margin_property() const {
+  return left_margin_property_;
+}
+
+const DrmProperty &DrmCrtc::right_margin_property() const {
+  return right_margin_property_;
+}
+
+const DrmProperty &DrmCrtc::top_margin_property() const {
+  return top_margin_property_;
+}
+
+const DrmProperty &DrmCrtc::bottom_margin_property() const {
+  return bottom_margin_property_;
+}
+
+const DrmProperty &DrmCrtc::alpha_scale_property() const {
+  return alpha_scale_property_;
+}
+
 }  // namespace android
