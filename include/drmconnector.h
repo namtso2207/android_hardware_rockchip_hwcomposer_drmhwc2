@@ -100,9 +100,20 @@ class DrmConnector {
   DrmProperty writeback_fb_id_;
   DrmProperty writeback_out_fence_;
 
+  //RK support
+  DrmProperty brightness_id_property_;
+  DrmProperty contrast_id_property_;
+  DrmProperty saturation_id_property_;
+  DrmProperty hue_id_property_;
+  DrmProperty hdr_metadata_property_;
+  DrmProperty hdr_panel_property_;
+  DrmProperty hdmi_output_colorimetry_;
+  DrmProperty hdmi_output_format_;
+  DrmProperty hdmi_output_depth_;
   std::vector<DrmEncoder *> possible_encoders_;
 
   uint32_t preferred_mode_id_;
+  uint32_t possible_displays_;
 };
 }  // namespace android
 

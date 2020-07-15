@@ -57,6 +57,7 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wno-unused-private-field",
     ],
 
     cppflags: [
@@ -65,7 +66,6 @@ cc_defaults {
         "-DRK_DRM_GRALLOC",
         "-DUSE_HWC2",
         "-DMALI_AFBC_GRALLOC",
-
     ],
 
     relative_install_path: "hw",

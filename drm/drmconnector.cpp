@@ -72,6 +72,45 @@ int DrmConnector::Init() {
       return ret;
     }
   }
+
+  ret = drm_->GetConnectorProperty(*this, "brightness", &brightness_id_property_);
+  if (ret)
+    ALOGW("Could not get brightness property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "contrast", &contrast_id_property_);
+  if (ret)
+    ALOGW("Could not get contrast property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "saturation", &saturation_id_property_);
+  if (ret)
+    ALOGW("Could not get saturation property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "hue", &hue_id_property_);
+  if (ret)
+    ALOGW("Could not get hue property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "HDR_OUTPUT_METADATA", &hdr_metadata_property_);
+  if (ret)
+    ALOGW("Could not get hdr source metadata property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "HDR_PANEL_METADATA", &hdr_panel_property_);
+  if (ret)
+    ALOGW("Could not get hdr panel metadata property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "hdmi_output_colorimetry", &hdmi_output_colorimetry_);
+  if (ret)
+    ALOGW("Could not get hdmi_output_colorimetry property\n");
+
+  ret = drm_->GetConnectorProperty(*this, "hdmi_output_format", &hdmi_output_format_);
+  if (ret) {
+    ALOGW("Could not get hdmi_output_format property\n");
+  }
+
+  ret = drm_->GetConnectorProperty(*this, "hdmi_output_depth", &hdmi_output_depth_);
+  if (ret) {
+   ALOGW("Could not get hdmi_output_depth property\n");
+  }
+
   return 0;
 }
 
