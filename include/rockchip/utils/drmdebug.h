@@ -81,6 +81,7 @@ enum LOG_LEVEL
     ALOGD("%s use time=%ld ms",tag,usec1);
 
 void InitDebugModule();
+void InitHwcVersion();
 int UpdateLogLevel();
 bool LogLevel(LOG_LEVEL log_level);
 void IncFrameCnt();

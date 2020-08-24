@@ -40,6 +40,8 @@
 
 #include "rockchip/utils/drmdebug.h"
 
+/*hwc version*/
+#define GHWC_VERSION                    "0.1"
 
 namespace android {
 
@@ -51,8 +53,17 @@ void InitDebugModule()
   g_log_level = 0;
   g_frame = 0;
   UpdateLogLevel();
+  InitHwcVersion();
 }
 
+void InitHwcVersion()
+{
+  char acVersion[50] = {0};
+  strcpy(acVersion,GHWC_VERSION);
+  property_set("vendor.ghwc.version", acVersion);
+  ALOGD("DrmHwcTwo version : %s", acVersion);
+  return;
+}
 int UpdateLogLevel()
 {
   char value[PROPERTY_VALUE_MAX];
