@@ -22,6 +22,7 @@
 #include "drmhwcomposer.h"
 #include "platform.h"
 #include "vsyncworker.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <inttypes.h>
 #include <string>
@@ -30,6 +31,7 @@
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer2.h>
 #include <log/log.h>
+
 
 namespace android {
 
@@ -1223,11 +1225,11 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
 // static
 int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
                            struct hw_device_t **dev) {
-  supported(__func__);
   if (strcmp(name, HWC_HARDWARE_COMPOSER)) {
     ALOGE("Invalid module name- %s", name);
     return -EINVAL;
   }
+  InitDebugModule();
 
   std::unique_ptr<DrmHwcTwo> ctx(new DrmHwcTwo());
   if (!ctx) {
