@@ -29,6 +29,8 @@
 
 namespace android {
 
+#define type_name_define(res) const char * res##_str(int type);
+
 class DrmDevice {
  public:
   DrmDevice();
@@ -79,6 +81,20 @@ class DrmDevice {
   void RegisterHotplugHandler(DrmEventHandler *handler) {
     event_listener_.RegisterHotplugHandler(handler);
   }
+
+  // RK support
+  type_name_define(encoder_type);
+  type_name_define(connector_status);
+  type_name_define(connector_type);
+
+  int DumpPlaneProperty(const DrmPlane &plane, std::ostringstream *out);
+  int DumpCrtcProperty(const DrmCrtc &crtc, std::ostringstream *out);
+  int DumpConnectorProperty(const DrmConnector &connector, std::ostringstream *out);
+  void DumpMode(drmModeModeInfo *mode,std::ostringstream *out);
+  void DumpBlob(uint32_t blob_id, std::ostringstream *out);
+  void DumpProp(drmModePropertyPtr prop,
+                    uint32_t prop_id, uint64_t value, std::ostringstream *out);
+  int DumpProperty(uint32_t obj_id, uint32_t obj_type, std::ostringstream *out);
 
  private:
   int TryEncoderForDisplay(int display, DrmEncoder *enc);

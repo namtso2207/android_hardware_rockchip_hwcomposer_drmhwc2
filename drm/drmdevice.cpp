@@ -483,4 +483,267 @@ int DrmDevice::GetConnectorProperty(const DrmConnector &connector,
   return GetProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, prop_name,
                      property);
 }
+
+// RK surport
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+static inline int64_t U642I64(uint64_t val)
+{
+  return (int64_t)*((int64_t *)&val);
+}
+
+struct type_name {
+  int type;
+  const char *name;
+};
+
+#define type_name_fn(res) \
+  const char * DrmDevice::res##_str(int type) {      \
+    unsigned int i;         \
+    for (i = 0; i < ARRAY_SIZE(res##_names); i++) { \
+      if (res##_names[i].type == type)  \
+        return res##_names[i].name; \
+    }           \
+    return "(invalid)";       \
+  }
+
+struct type_name encoder_type_names[] = {
+  { DRM_MODE_ENCODER_NONE, "none" },
+  { DRM_MODE_ENCODER_DAC, "DAC" },
+  { DRM_MODE_ENCODER_TMDS, "TMDS" },
+  { DRM_MODE_ENCODER_LVDS, "LVDS" },
+  { DRM_MODE_ENCODER_TVDAC, "TVDAC" },
+};
+
+type_name_fn(encoder_type)
+
+struct type_name connector_status_names[] = {
+  { DRM_MODE_CONNECTED, "connected" },
+  { DRM_MODE_DISCONNECTED, "disconnected" },
+  { DRM_MODE_UNKNOWNCONNECTION, "unknown" },
+};
+
+type_name_fn(connector_status)
+
+struct type_name connector_type_names[] = {
+  { DRM_MODE_CONNECTOR_Unknown, "unknown" },
+  { DRM_MODE_CONNECTOR_VGA, "VGA" },
+  { DRM_MODE_CONNECTOR_DVII, "DVI-I" },
+  { DRM_MODE_CONNECTOR_DVID, "DVI-D" },
+  { DRM_MODE_CONNECTOR_DVIA, "DVI-A" },
+  { DRM_MODE_CONNECTOR_Composite, "composite" },
+  { DRM_MODE_CONNECTOR_SVIDEO, "s-video" },
+  { DRM_MODE_CONNECTOR_LVDS, "LVDS" },
+  { DRM_MODE_CONNECTOR_Component, "component" },
+  { DRM_MODE_CONNECTOR_9PinDIN, "9-pin DIN" },
+  { DRM_MODE_CONNECTOR_DisplayPort, "DP" },
+  { DRM_MODE_CONNECTOR_HDMIA, "HDMI-A" },
+  { DRM_MODE_CONNECTOR_HDMIB, "HDMI-B" },
+  { DRM_MODE_CONNECTOR_TV, "TV" },
+  { DRM_MODE_CONNECTOR_eDP, "eDP" },
+  { DRM_MODE_CONNECTOR_VIRTUAL, "Virtual" },
+  { DRM_MODE_CONNECTOR_DSI, "DSI" },
+  { DRM_MODE_CONNECTOR_DPI, "DPI" },
+};
+
+type_name_fn(connector_type)
+
+#define bit_name_fn(res)					\
+  const char * res##_str(int type, std::ostringstream *out) {       \
+    unsigned int i;           \
+    const char *sep = "";         \
+    for (i = 0; i < ARRAY_SIZE(res##_names); i++) {   \
+      if (type & (1 << i)) {        \
+        *out << sep << res##_names[i];  \
+        sep = ", ";       \
+      }           \
+    }             \
+    return NULL;            \
+  }
+
+static const char *mode_type_names[] = {
+  "builtin",
+  "clock_c",
+  "crtc_c",
+  "preferred",
+  "default",
+  "userdef",
+  "driver",
+};
+
+static bit_name_fn(mode_type)
+
+static const char *mode_flag_names[] = {
+  "phsync",
+  "nhsync",
+  "pvsync",
+  "nvsync",
+  "interlace",
+  "dblscan",
+  "csync",
+  "pcsync",
+  "ncsync",
+  "hskew",
+  "bcast",
+  "pixmux",
+  "dblclk",
+  "clkdiv2"
+};
+static bit_name_fn(mode_flag)
+
+
+void DrmDevice::DumpMode(drmModeModeInfo *mode, std::ostringstream *out) {
+  *out << mode->name << " " << mode->vrefresh << " "
+       << mode->hdisplay << " " << mode->hsync_start << " "
+       << mode->hsync_end << " " << mode->htotal << " "
+       << mode->vdisplay << " " << mode->vsync_start << " "
+       << mode->vsync_end << " " << mode->vtotal;
+
+  *out << " flags: ";
+  mode_flag_str(mode->flags, out);
+  *out << " types: " << mode->type << "\n";
+    mode_type_str(mode->type, out);
+}
+
+void DrmDevice::DumpBlob(uint32_t blob_id, std::ostringstream *out) {
+  uint32_t i;
+  unsigned char *blob_data;
+  drmModePropertyBlobPtr blob;
+
+  blob = drmModeGetPropertyBlob(fd(), blob_id);
+  if (!blob) {
+    *out << "\n";
+    return;
+  }
+
+  blob_data = (unsigned char*)blob->data;
+
+  for (i = 0; i < blob->length; i++) {
+    if (i % 16 == 0)
+      *out << "\n\t\t\t";
+    *out << std::hex << blob_data[i];
+  }
+  *out << "\n";
+
+  drmModeFreePropertyBlob(blob);
+}
+
+void DrmDevice::DumpProp(drmModePropertyPtr prop,
+          uint32_t prop_id, uint64_t value, std::ostringstream *out) {
+  int i;
+
+  *out << "\t" << prop_id;
+  if (!prop) {
+    *out << "\n";
+    return;
+  }
+  out->str("");
+  *out << " " << prop->name << ":\n";
+
+  *out << "\t\tflags:";
+  if (prop->flags & DRM_MODE_PROP_PENDING)
+    *out << " pending";
+  if (prop->flags & DRM_MODE_PROP_IMMUTABLE)
+    *out << " immutable";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_SIGNED_RANGE))
+    *out << " signed range";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_RANGE))
+    *out << " range";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_ENUM))
+    *out << " enum";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_BITMASK))
+    *out << " bitmask";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_BLOB))
+    *out << " blob";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_OBJECT))
+    *out << " object";
+  *out << "\n";
+
+  if (drm_property_type_is(prop, DRM_MODE_PROP_SIGNED_RANGE)) {
+    *out << "\t\tvalues:";
+    for (i = 0; i < prop->count_values; i++)
+      *out << U642I64(prop->values[i]);
+    *out << "\n";
+  }
+
+  if (drm_property_type_is(prop, DRM_MODE_PROP_RANGE)) {
+    *out << "\t\tvalues:";
+    for (i = 0; i < prop->count_values; i++)
+      *out << prop->values[i];
+    *out << "\n";
+  }
+
+  if (drm_property_type_is(prop, DRM_MODE_PROP_ENUM)) {
+    *out << "\t\tenums:";
+    for (i = 0; i < prop->count_enums; i++)
+      *out << prop->enums[i].name << "=" << prop->enums[i].value;
+    *out << "\n";
+  } else if (drm_property_type_is(prop, DRM_MODE_PROP_BITMASK)) {
+    *out << "\t\tvalues:";
+    for (i = 0; i < prop->count_enums; i++)
+      *out << prop->enums[i].name << "=" << std::hex << (1LL << prop->enums[i].value);
+    *out << "\n";
+  } else {
+    assert(prop->count_enums == 0);
+  }
+
+  if (drm_property_type_is(prop, DRM_MODE_PROP_BLOB)) {
+    *out << "\t\tblobs:\n";
+    for (i = 0; i < prop->count_blobs; i++)
+      DumpBlob(prop->blob_ids[i], out);
+    *out << "\n";
+  } else {
+    assert(prop->count_blobs == 0);
+  }
+
+  *out << "\t\tvalue:";
+  if (drm_property_type_is(prop, DRM_MODE_PROP_BLOB))
+    DumpBlob(value, out);
+  else
+    *out << value;
+
+    *out << "\n";
+}
+
+int DrmDevice::DumpProperty(uint32_t obj_id, uint32_t obj_type, std::ostringstream *out) {
+  drmModePropertyPtr* prop_info;
+  drmModeObjectPropertiesPtr props;
+
+  props = drmModeObjectGetProperties(fd(), obj_id, obj_type);
+  if (!props) {
+    ALOGE("Failed to get properties for %d/%x", obj_id, obj_type);
+    return -ENODEV;
+  }
+  prop_info = (drmModePropertyPtr*)malloc(props->count_props * sizeof *prop_info);
+  if (!prop_info) {
+    ALOGE("Malloc drmModePropertyPtr array failed");
+    return -ENOMEM;
+  }
+
+  *out << "  props:\n";
+  for (int i = 0;(size_t)i < props->count_props; ++i) {
+    prop_info[i] = drmModeGetProperty(fd(), props->props[i]);
+
+    DumpProp(prop_info[i],props->props[i],props->prop_values[i],out);
+
+    drmModeFreeProperty(prop_info[i]);
+  }
+
+  drmModeFreeObjectProperties(props);
+  free(prop_info);
+  return 0;
+}
+
+int DrmDevice::DumpPlaneProperty(const DrmPlane &plane, std::ostringstream *out) {
+  return DumpProperty(plane.id(), DRM_MODE_OBJECT_PLANE, out);
+}
+
+int DrmDevice::DumpCrtcProperty(const DrmCrtc &crtc, std::ostringstream *out) {
+  return DumpProperty(crtc.id(), DRM_MODE_OBJECT_CRTC, out);
+}
+
+int DrmDevice::DumpConnectorProperty(const DrmConnector &connector, std::ostringstream *out) {
+   return DumpProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, out);
+}
+
+
 }  // namespace android
