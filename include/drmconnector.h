@@ -40,9 +40,15 @@ class DrmConnector {
   int Init();
 
   uint32_t id() const;
+  uint32_t type() { return type_; }
+  uint32_t type_id() const { return type_id_; };
 
   int display() const;
   void set_display(int display);
+  int priority() const;
+  void set_priority(uint32_t priority);
+  uint32_t possible_displays() const;
+  void set_possible_displays(uint32_t possible_displays);
 
   bool internal() const;
   bool external() const;
@@ -86,6 +92,8 @@ class DrmConnector {
   int display_;
 
   uint32_t type_;
+  uint32_t type_id_;
+  uint32_t priority_;
   drmModeConnection state_;
 
   uint32_t mm_width_;
@@ -111,6 +119,7 @@ class DrmConnector {
   DrmProperty hdmi_output_format_;
   DrmProperty hdmi_output_depth_;
   std::vector<DrmEncoder *> possible_encoders_;
+  drmModeConnectorPtr connector_;
 
   uint32_t preferred_mode_id_;
   uint32_t possible_displays_;

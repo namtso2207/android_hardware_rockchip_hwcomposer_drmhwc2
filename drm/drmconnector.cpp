@@ -35,10 +35,14 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       encoder_(current_encoder),
       display_(-1),
       type_(c->connector_type),
+      type_id_(c->connector_type_id),
+      priority_(-1),
       state_(c->connection),
       mm_width_(c->mmWidth),
       mm_height_(c->mmHeight),
-      possible_encoders_(possible_encoders) {
+      possible_encoders_(possible_encoders),
+      connector_(c),
+      possible_displays_(0) {
 }
 
 int DrmConnector::Init() {
@@ -125,18 +129,41 @@ int DrmConnector::display() const {
 void DrmConnector::set_display(int display) {
   display_ = display;
 }
+int DrmConnector::priority() const{
+  return priority_;
+}
+void DrmConnector::set_priority(uint32_t priority){
+  priority_ = priority;
+}
+
+uint32_t DrmConnector::possible_displays() const {
+  return possible_displays_;
+}
+
+void DrmConnector::set_possible_displays(uint32_t possible_displays) {
+  possible_displays_ = possible_displays;
+}
 
 bool DrmConnector::internal() const {
-  return type_ == DRM_MODE_CONNECTOR_LVDS || type_ == DRM_MODE_CONNECTOR_eDP ||
-         type_ == DRM_MODE_CONNECTOR_DSI ||
-         type_ == DRM_MODE_CONNECTOR_VIRTUAL || type_ == DRM_MODE_CONNECTOR_DPI;
+
+  if(!possible_displays_){
+    return type_ == DRM_MODE_CONNECTOR_LVDS || type_ == DRM_MODE_CONNECTOR_eDP ||
+           type_ == DRM_MODE_CONNECTOR_DSI ||
+           type_ == DRM_MODE_CONNECTOR_VIRTUAL || type_ == DRM_MODE_CONNECTOR_DPI;
+  }else{
+    return (possible_displays_ & HWC_DISPLAY_PRIMARY_BIT) > 0;
+  }
 }
 
 bool DrmConnector::external() const {
-  return type_ == DRM_MODE_CONNECTOR_HDMIA ||
-         type_ == DRM_MODE_CONNECTOR_DisplayPort ||
-         type_ == DRM_MODE_CONNECTOR_DVID || type_ == DRM_MODE_CONNECTOR_DVII ||
-         type_ == DRM_MODE_CONNECTOR_VGA;
+  if(!possible_displays_){
+    return type_ == DRM_MODE_CONNECTOR_HDMIA ||
+           type_ == DRM_MODE_CONNECTOR_DisplayPort ||
+           type_ == DRM_MODE_CONNECTOR_DVID || type_ == DRM_MODE_CONNECTOR_DVII ||
+           type_ == DRM_MODE_CONNECTOR_VGA;
+  }else{
+    return (possible_displays_ & HWC_DISPLAY_EXTERNAL_BIT) > 0;
+  }
 }
 
 bool DrmConnector::writeback() const {

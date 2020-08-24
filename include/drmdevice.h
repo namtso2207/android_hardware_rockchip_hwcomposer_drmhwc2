@@ -83,6 +83,7 @@ class DrmDevice {
   }
 
   // RK support
+  void ConfigurePossibleDisplays();
   type_name_define(encoder_type);
   type_name_define(connector_status);
   type_name_define(connector_type);

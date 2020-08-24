@@ -173,6 +173,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       connectors_.emplace_back(std::move(conn));
   }
 
+  ConfigurePossibleDisplays();
   // First look for primary amongst internal connectors
   for (auto &conn : connectors_) {
     if (conn->internal() && !found_primary) {
@@ -485,6 +486,69 @@ int DrmDevice::GetConnectorProperty(const DrmConnector &connector,
 }
 
 // RK surport
+void DrmDevice::ConfigurePossibleDisplays(){
+  char primary_name[PROPERTY_VALUE_MAX];
+  char extend_name[PROPERTY_VALUE_MAX];
+  int primary_length, extend_length;
+  int default_display_possible = 0;
+  std::string conn_name;
+  char acConnName[50];
+
+  primary_length = property_get("vendor.hwc.device.primary", primary_name, NULL);
+  extend_length = property_get("vendor.hwc.device.extend", extend_name, NULL);
+
+  if (!primary_length)
+    default_display_possible |= HWC_DISPLAY_PRIMARY_BIT;
+  if (!extend_length)
+    default_display_possible |= HWC_DISPLAY_EXTERNAL_BIT;
+
+  for (auto &conn : connectors_) {
+    /*
+     * build_in connector default only support on primary display
+     */
+    if (conn->internal())
+      conn->set_possible_displays(default_display_possible & HWC_DISPLAY_PRIMARY_BIT);
+    else
+      conn->set_possible_displays(default_display_possible & HWC_DISPLAY_EXTERNAL_BIT);
+  }
+
+  if (primary_length) {
+    std::stringstream ss(primary_name);
+    uint32_t connector_priority = 0;
+    while(getline(ss, conn_name, ',')) {
+      for (auto &conn : connectors_) {
+        snprintf(acConnName,50,"%s-%d",connector_type_str(conn->type()),conn->type_id());
+        if (!strcmp(connector_type_str(conn->type()), conn_name.c_str()) ||
+            !strcmp(acConnName, conn_name.c_str()))
+        {
+          conn->set_priority(connector_priority);
+          conn->set_possible_displays(HWC_DISPLAY_PRIMARY_BIT);
+          connector_priority++;
+        }
+      }
+    }
+  }
+
+  if (extend_length) {
+    std::stringstream ss(extend_name);
+    uint32_t connector_priority = 0;
+    while(getline(ss, conn_name, ',')) {
+      for (auto &conn : connectors_) {
+        snprintf(acConnName,50,"%s-%d",connector_type_str(conn->type()),conn->type_id());
+        if (!strcmp(connector_type_str(conn->type()), conn_name.c_str()) ||
+            !strcmp(acConnName, conn_name.c_str()))
+        {
+          conn->set_priority(connector_priority);
+          conn->set_possible_displays(conn->possible_displays() | HWC_DISPLAY_EXTERNAL_BIT);
+          connector_priority++;
+        }
+      }
+    }
+  }
+  return;
+}
+
+
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 static inline int64_t U642I64(uint64_t val)
 {
