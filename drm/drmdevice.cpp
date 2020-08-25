@@ -33,6 +33,8 @@
 #include <cutils/properties.h>
 #include <log/log.h>
 
+#define DEFAULT_PRIORITY 10
+
 namespace android {
 
 DrmDevice::DrmDevice() : event_listener_(this) {
@@ -174,9 +176,37 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 
   ConfigurePossibleDisplays();
-  // First look for primary amongst internal connectors
+  // First look for the more priority primary amongst internal connectors
+  uint32_t min_priority = DEFAULT_PRIORITY;
   for (auto &conn : connectors_) {
     if (conn->internal() && !found_primary) {
+      //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
+      if (conn->state() != DRM_MODE_CONNECTED)
+        continue;
+      if (conn->priority() < min_priority)
+        min_priority = conn->priority();
+    }
+  }
+  // Find the most high priority primary connector
+  if(min_priority < DEFAULT_PRIORITY){
+    for (auto &conn : connectors_) {
+      if (conn->internal() && !found_primary) {
+        //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
+        if (conn->state() != DRM_MODE_CONNECTED)
+          continue;
+        if (conn->priority() == min_priority){
+          conn->set_display(num_displays);
+          displays_[num_displays] = num_displays;
+          ++num_displays;
+          found_primary = true;
+        }
+      }
+    }
+  }
+  // Can't find connected primary, must to find primary
+  for (auto &conn : connectors_) {
+    if (conn->internal() && !found_primary) {
+      //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
       conn->set_display(num_displays);
       displays_[num_displays] = num_displays;
       ++num_displays;
@@ -184,7 +214,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       break;
     }
   }
-
   // Then pick first available as primary and for the others assign
   // consecutive display_numbers.
   for (auto &conn : connectors_) {
