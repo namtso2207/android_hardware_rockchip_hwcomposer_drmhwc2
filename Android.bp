@@ -50,6 +50,7 @@ cc_defaults {
     include_dirs: [
         "hardware/rockchip/hwcomposer/include",
         "hardware/rockchip/libgralloc/midgard",
+        "external/libdrm/include/drm"
     ],
 
     static_libs: ["libdrmhwc_utils"],
@@ -67,6 +68,8 @@ cc_defaults {
         "-DRK_DRM_GRALLOC",
         "-DUSE_HWC2",
         "-DMALI_AFBC_GRALLOC",
+//        "-DUSE_MULTI_AREAS",
+//        "-DUSE_NO_ASPECT_RATIO",
     ],
 
     relative_install_path: "hw",

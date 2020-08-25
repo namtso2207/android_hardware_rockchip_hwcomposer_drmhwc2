@@ -22,12 +22,14 @@
 #include "drmencoder.h"
 #include "drmeventlistener.h"
 #include "drmplane.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
+#include <drm_fourcc.h>
 #include <cinttypes>
 
 #include <cutils/properties.h>
@@ -42,6 +44,31 @@ DrmDevice::DrmDevice() : event_listener_(this) {
 
 DrmDevice::~DrmDevice() {
   event_listener_.Exit();
+}
+bool PlaneSortByZpos(const DrmPlane* plane1,const DrmPlane* plane2)
+{
+    int ret = 0;
+    uint64_t zpos1,zpos2;
+    std::tie(ret, zpos1) = plane1->zpos_property().value();
+    std::tie(ret, zpos2) = plane2->zpos_property().value();
+    return zpos1 < zpos2;
+}
+
+bool SortByZpos(const PlaneGroup* planeGroup1,const PlaneGroup* planeGroup2)
+{
+    return planeGroup1->zpos < planeGroup2->zpos;
+}
+
+bool PlaneSortByArea(const DrmPlane*  plane1,const DrmPlane* plane2)
+{
+    int ret = 0;
+    uint64_t area1=0,area2=0;
+    if(plane1->area_id_property().id() && plane2->area_id_property().id())
+    {
+        std::tie(ret, area1) = plane1->area_id_property().value();
+        std::tie(ret, area2) = plane2->area_id_property().value();
+    }
+    return area1 < area2;
 }
 
 std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
@@ -70,6 +97,24 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     ALOGI("Failed to set writeback cap %d", ret);
     ret = 0;
   }
+#endif
+
+#if USE_MULTI_AREAS
+    //Open Multi-area support.
+    ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_SHARE_PLANES, 1);
+    if (ret) {
+      ALOGE("Failed to set share planes %d", ret);
+      return std::make_tuple(ret, 0);
+    }
+#endif
+
+#if USE_NO_ASPECT_RATIO
+    //Disable Aspect Ratio
+    ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_ASPECT_RATIO, 0);
+    if (ret) {
+      ALOGE("Failed to disable Aspect Ratio %d", ret);
+      return std::make_tuple(ret, 0);
+    }
 #endif
 
   drmModeResPtr res = drmModeGetResources(fd());
@@ -261,9 +306,82 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       ALOGE("Init plane %d failed", plane_res->planes[i]);
       break;
     }
+    uint64_t share_id,zpos,crtc_id;
+    std::tie(ret, share_id) = plane->share_id_property().value();
+    std::tie(ret, zpos) = plane->zpos_property().value();
+    std::tie(ret, crtc_id) = plane->crtc_property().value();
+
+    std::vector<PlaneGroup*>::const_iterator iter;
+    for (iter = plane_groups_.begin();
+     iter != plane_groups_.end(); ++iter){
+      if((*iter)->share_id == share_id /*&& (*iter)->zpos == zpos*/){
+        (*iter)->planes.push_back(plane.get());
+        break;
+      }
+    }
+    if(iter == plane_groups_.end()){
+      PlaneGroup* plane_group = new PlaneGroup();
+      plane_group->bUse= false;
+      plane_group->zpos = zpos;
+      plane_group->possible_crtcs = p->possible_crtcs;
+      plane_group->share_id = share_id;
+      plane_group->planes.push_back(plane.get());
+      plane_groups_.push_back(plane_group);
+    }
+
+    for (uint32_t j = 0; j < p->count_formats; j++) {
+      if (p->formats[j] == DRM_FORMAT_NV12 ||
+         p->formats[j] == DRM_FORMAT_NV21) {
+             plane->set_yuv(true);
+      }
+    }
+    sort_planes_.emplace_back(plane.get());
 
     planes_.emplace_back(std::move(plane));
   }
+
+
+  std::sort(sort_planes_.begin(),sort_planes_.end(),PlaneSortByZpos);
+
+  for (std::vector<DrmPlane*>::const_iterator iter= sort_planes_.begin();
+     iter != sort_planes_.end(); ++iter) {
+     uint64_t share_id,zpos;
+     std::tie(ret, share_id) = (*iter)->share_id_property().value();
+     std::tie(ret, zpos) = (*iter)->zpos_property().value();
+     ALOGD_IF(LogLevel(DBG_DEBUG),"sort_planes_ share_id=%" PRIu64 ",zpos=%" PRIu64 "",share_id,zpos);
+  }
+
+  for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups_.begin();
+         iter != plane_groups_.end(); ++iter)
+  {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane groups: zpos=%d,share_id=%" PRIu64 ",plane size=%zu",
+          (*iter)->zpos,(*iter)->share_id,(*iter)->planes.size());
+      for(std::vector<DrmPlane*> ::const_iterator iter_plane = (*iter)->planes.begin();
+         iter_plane != (*iter)->planes.end(); ++iter_plane)
+      {
+          ALOGD_IF(LogLevel(DBG_DEBUG),"\tPlane id=%d",(*iter_plane)->id());
+      }
+  }
+  ALOGD_IF(LogLevel(DBG_DEBUG),"--------------------sort plane--------------------");
+  std::sort(plane_groups_.begin(),plane_groups_.end(),SortByZpos);
+  for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups_.begin();
+         iter != plane_groups_.end(); ++iter)
+  {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane groups: zpos=%d,share_id=%" PRIu64 ",plane size=%zu,possible_crtcs=0x%x",
+          (*iter)->zpos,(*iter)->share_id,(*iter)->planes.size(),(*iter)->possible_crtcs);
+      std::sort((*iter)->planes.begin(),(*iter)->planes.end(), PlaneSortByArea);
+      for(std::vector<DrmPlane*> ::const_iterator iter_plane = (*iter)->planes.begin();
+         iter_plane != (*iter)->planes.end(); ++iter_plane)
+      {
+          int ret = 0;
+          uint64_t area=0;
+          if((*iter_plane)->area_id_property().id())
+              std::tie(ret, area) = (*iter_plane)->area_id_property().value();
+          ALOGD_IF(LogLevel(DBG_DEBUG),"\tPlane id=%d,area id=%" PRIu64 "",(*iter_plane)->id(),area);
+      }
+  }
+
+
   drmModeFreePlaneResources(plane_res);
   if (ret)
     return std::make_tuple(ret, 0);

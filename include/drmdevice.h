@@ -29,7 +29,22 @@
 
 namespace android {
 
+//you can define it in external/libdrm/include/drm/drm.h
+#define DRM_CLIENT_CAP_SHARE_PLANES     6
+#define DRM_CLIENT_CAP_ASPECT_RATIO     4
+
+
+
 #define type_name_define(res) const char * res##_str(int type);
+
+typedef struct tagPlaneGroup{
+	bool     b_reserved;
+	bool     bUse;
+	uint32_t zpos;
+	uint32_t possible_crtcs;
+	uint64_t share_id;
+	std::vector<DrmPlane*> planes;
+}PlaneGroup;
 
 class DrmDevice {
  public:
@@ -48,6 +63,14 @@ class DrmDevice {
 
   const std::vector<std::unique_ptr<DrmPlane>> &planes() const {
     return planes_;
+  }
+
+  const std::vector<DrmPlane*> &sort_planes() const {
+    return sort_planes_;
+  }
+
+  const std::vector<PlaneGroup*> &plane_groups(){
+    return plane_groups_;
   }
 
   std::pair<uint32_t, uint32_t> min_resolution() const {
@@ -113,6 +136,8 @@ class DrmDevice {
   std::vector<std::unique_ptr<DrmEncoder>> encoders_;
   std::vector<std::unique_ptr<DrmCrtc>> crtcs_;
   std::vector<std::unique_ptr<DrmPlane>> planes_;
+  std::vector<DrmPlane*> sort_planes_;
+  std::vector<PlaneGroup*> plane_groups_;
   DrmEventListener event_listener_;
 
   std::pair<uint32_t, uint32_t> min_resolution_;
