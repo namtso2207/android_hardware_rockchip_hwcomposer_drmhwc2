@@ -17,16 +17,19 @@
 #ifndef ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 #define ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 
+
 #include "drmdisplaycomposition.h"
 #include "drmframebuffer.h"
 #include "drmhwcomposer.h"
 #include "resourcemanager.h"
 #include "vsyncworker.h"
+#include "drmcompositorworker.h"
 
 #include <pthread.h>
 #include <memory>
 #include <sstream>
 #include <tuple>
+#include <queue>
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
@@ -50,7 +53,7 @@ class DrmDisplayCompositor {
 
   std::unique_ptr<DrmDisplayComposition> CreateComposition() const;
   std::unique_ptr<DrmDisplayComposition> CreateInitializedComposition() const;
-  int ApplyComposition(std::unique_ptr<DrmDisplayComposition> composition);
+  int QueueComposition(std::unique_ptr<DrmDisplayComposition> composition);
   int TestComposition(DrmDisplayComposition *composition);
   int Composite();
   void Dump(std::ostringstream *out) const;
@@ -59,7 +62,31 @@ class DrmDisplayCompositor {
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
+  bool HaveQueuedComposites() const;
+
  private:
+
+  struct FrameState {
+    std::unique_ptr<DrmDisplayComposition> composition;
+    int status = 0;
+  };
+
+  class FrameWorker : public Worker {
+   public:
+    FrameWorker(DrmDisplayCompositor *compositor);
+    ~FrameWorker() override;
+
+    int Init();
+    void QueueFrame(std::unique_ptr<DrmDisplayComposition> composition,
+                    int status);
+
+   protected:
+    void Routine() override;
+
+   private:
+    DrmDisplayCompositor *compositor_;
+    std::queue<FrameState> frame_queue_;
+  };
   struct ModeState {
     bool needs_modeset = false;
     DrmMode mode;
@@ -98,6 +125,10 @@ class DrmDisplayCompositor {
 
   ResourceManager *resource_manager_;
   int display_;
+  DrmCompositorWorker worker_;
+  FrameWorker frame_worker_;
+
+  std::queue<std::unique_ptr<DrmDisplayComposition>> composite_queue_;
 
   std::unique_ptr<DrmDisplayComposition> active_composition_;
 
@@ -110,7 +141,7 @@ class DrmDisplayCompositor {
   int framebuffer_index_;
   DrmFramebuffer framebuffers_[DRM_DISPLAY_BUFFERS];
 
-  // mutable since we need to acquire in Dump()
+  // mutable since we need to acquire in HaveQueuedComposites
   mutable pthread_mutex_t lock_;
 
   // State tracking progress since our last Dump(). These are mutable since

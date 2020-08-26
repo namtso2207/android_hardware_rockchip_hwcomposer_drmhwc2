@@ -215,7 +215,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
   for (auto &plane : *planes) {
     if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
       primary_planes_.push_back(plane);
-    else if (use_overlay_planes && (plane)->type() == DRM_PLANE_TYPE_OVERLAY)
+    else if (use_overlay_planes && (((plane)->type() == DRM_PLANE_TYPE_OVERLAY) || (plane)->type() == DRM_PLANE_TYPE_CURSOR))
       overlay_planes_.push_back(plane);
   }
 
@@ -643,10 +643,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   }
 
   if (test) {
-    ret = compositor_.TestComposition(composition.get());
+    ;//ret = compositor_.TestComposition(composition.get());
   } else {
     AddFenceToRetireFence(composition->take_out_fence());
-    ret = compositor_.ApplyComposition(std::move(composition));
+    ret = compositor_.QueueComposition(std::move(composition));
   }
   if (ret) {
     if (!test)
@@ -694,7 +694,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
                                                            .CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
   int ret = composition->SetDisplayMode(*mode);
-  ret = compositor_.ApplyComposition(std::move(composition));
+  ret = compositor_.QueueComposition(std::move(composition));
   if (ret) {
     ALOGE("Failed to queue dpms composition on %d", ret);
     return HWC2::Error::BadConfig;
@@ -774,7 +774,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
                                                            .CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
   composition->SetDpmsMode(dpms_value);
-  int ret = compositor_.ApplyComposition(std::move(composition));
+  int ret = compositor_.QueueComposition(std::move(composition));
   if (ret) {
     ALOGE("Failed to apply the dpms composition ret=%d", ret);
     return HWC2::Error::BadParameter;

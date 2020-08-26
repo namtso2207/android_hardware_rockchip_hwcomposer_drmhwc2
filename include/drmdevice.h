@@ -33,8 +33,6 @@ namespace android {
 #define DRM_CLIENT_CAP_SHARE_PLANES     6
 #define DRM_CLIENT_CAP_ASPECT_RATIO     4
 
-
-
 #define type_name_define(res) const char * res##_str(int type);
 
 typedef struct tagPlaneGroup{
