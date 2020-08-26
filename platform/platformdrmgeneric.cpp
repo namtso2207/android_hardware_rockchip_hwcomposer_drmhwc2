@@ -143,14 +143,15 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     return ret;
   }
 
-  return ret;
-}
+  // CopyBufferHandle need layer_cnt.
+  unsigned int layer_count;
+  for (layer_count = 0; layer_count < HWC_DRM_BO_MAX_PLANES; ++layer_count)
+    if (bo->gem_handles[layer_count] == 0)
+      break;
+  bo->layer_cnt = layer_count;
 
-int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
-  if (bo->fb_id)
-    if (drmModeRmFB(drm_->fd(), bo->fb_id))
-      ALOGE("Failed to rm fb");
-
+  // Fix "Failed to close gem handle" bug which lead by no reference counting.
+#if 1
   struct drm_gem_close gem_close;
   memset(&gem_close, 0, sizeof(gem_close));
 
@@ -169,6 +170,34 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
       bo->gem_handles[i] = 0;
     }
   }
+#endif
+  return ret;
+}
+
+int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
+  if (bo->fb_id)
+    if (drmModeRmFB(drm_->fd(), bo->fb_id))
+      ALOGE("Failed to rm fb");
+#if 0
+  struct drm_gem_close gem_close;
+  memset(&gem_close, 0, sizeof(gem_close));
+
+  for (int i = 0; i < HWC_DRM_BO_MAX_PLANES; i++) {
+    if (!bo->gem_handles[i])
+      continue;
+
+    gem_close.handle = bo->gem_handles[i];
+    int ret = drmIoctl(drm_->fd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
+    if (ret) {
+      ALOGE("Failed to close gem handle %d %d", i, ret);
+    } else {
+      for (int j = i + 1; j < HWC_DRM_BO_MAX_PLANES; j++)
+        if (bo->gem_handles[j] == bo->gem_handles[i])
+          bo->gem_handles[j] = 0;
+      bo->gem_handles[i] = 0;
+    }
+  }
+#endif
   return 0;
 }
 

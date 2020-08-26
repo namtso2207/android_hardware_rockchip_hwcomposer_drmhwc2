@@ -31,6 +31,7 @@ typedef struct hwc_drm_bo {
   uint32_t offsets[HWC_DRM_BO_MAX_PLANES];
   uint32_t gem_handles[HWC_DRM_BO_MAX_PLANES];
   uint32_t fb_id;
+  uint32_t layer_cnt;
   int acquire_fence_fd;
   void *priv;
 } hwc_drm_bo_t;
