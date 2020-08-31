@@ -37,7 +37,7 @@
 #include "drmplane.h"
 
 
-#define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 2
+#define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 1
 
 static const uint32_t kWaitWritebackFence = 100;  // ms
 
@@ -200,6 +200,10 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
+
+  char trace_name[30] = {0};
+  sprintf(trace_name,"%s-%" PRIu64 ,"TaregtLayer",composition->frame_no() );
+  ATRACE_NAME(trace_name);
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
       if (!active_)
@@ -647,9 +651,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     mode_.needs_modeset = false;
   }
 
-  if (crtc->out_fence_ptr_property().id()) {
-    display_comp->set_out_fence((int)out_fences[crtc->pipe()]);
-  }
+//  if (crtc->out_fence_ptr_property().id()) {
+//    display_comp->set_out_fence((int)out_fences[crtc->pipe()]);
+//  }
 
   return ret;
 }
@@ -704,6 +708,10 @@ void DrmDisplayCompositor::ClearDisplay() {
 void DrmDisplayCompositor::ApplyFrame(
     std::unique_ptr<DrmDisplayComposition> composition, int status,
     bool writeback) {
+  ATRACE_CALL();
+  char trace_name[30] = {0};
+  sprintf(trace_name,"%s-%" PRIu64 ,"TaregtLayer",composition->frame_no());
+  ATRACE_NAME(trace_name);
   AutoLock lock(&lock_, __func__);
   if (lock.Lock())
     return;
@@ -725,6 +733,12 @@ void DrmDisplayCompositor::ApplyFrame(
     return;
   }
   ++dump_frames_composited_;
+  if(active_composition_){
+      char trace_name[30] = {0};
+      sprintf(trace_name,"%s-%" PRIu64 ,"Signal",active_composition_->frame_no());
+      ATRACE_NAME(trace_name);
+      active_composition_->SignalCompositionDone();
+  }
 
   active_composition_.swap(composition);
 

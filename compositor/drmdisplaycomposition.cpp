@@ -29,12 +29,23 @@
 #include <unordered_set>
 
 #include <log/log.h>
-#include <sync/sync.h>
+#include <libsync/sw_sync.h>
 #include <xf86drmMode.h>
+#include <utils/Trace.h>
 
 namespace android {
 
 DrmDisplayComposition::~DrmDisplayComposition() {
+
+  char trace_name[30] = {0};
+  sprintf(trace_name,"%s-%" PRIu64 ,"~DrmDisplayComposition",frame_no());
+  ATRACE_NAME(trace_name);
+
+  if (timeline_fd_ >= 0) {
+    SignalCompositionDone();
+    close(timeline_fd_);
+  }
+
 }
 
 int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
@@ -45,6 +56,14 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
   importer_ = importer;
   planner_ = planner;
   frame_no_ = frame_no;
+
+
+  int ret = sw_sync_timeline_create();
+  if (ret < 0) {
+    ALOGE("Failed to create sw sync timeline %d", ret);
+    return ret;
+  }
+  timeline_fd_ = ret;
 
   return 0;
 }
@@ -138,6 +157,58 @@ int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
     }
   }
 
+  return 0;
+}
+int DrmDisplayComposition::CreateNextTimelineFence(const char* fence_name) {
+  ++timeline_;
+  ALOGD("rk-debug CreateNextTimelineFence timeline_fd_ =%d ,timeline_ = %d",timeline_fd_,timeline_);
+  return sw_sync_fence_create(timeline_fd_, fence_name,
+                                timeline_);
+}
+int DrmDisplayComposition::IncreaseTimelineToPoint(int point) {
+  int timeline_increase = point - timeline_current_;
+  if (timeline_increase <= 0)
+    return 0;
+  ALOGD("rk-debug IncreaseTimelineToPoint timeline_fd_ =%d ,point = %d ,timeline_current_ = %d ,timeline_increase = %d",timeline_fd_,point,timeline_current_,timeline_increase);
+
+  int ret = sw_sync_timeline_inc(timeline_fd_, timeline_increase);
+  if (ret)
+    ALOGE("Failed to increment sync timeline %d", ret);
+  else
+    timeline_current_ = point;
+
+  return ret;
+}
+
+int DrmDisplayComposition::CreateAndAssignReleaseFences() {
+  ATRACE_CALL();
+
+  std::unordered_set<DrmHwcLayer *> comp_layers;
+
+  for (const DrmCompositionPlane &plane : composition_planes_) {
+    if (plane.type() == DrmCompositionPlane::Type::kLayer) {
+      for (auto i : plane.source_layers()) {
+        DrmHwcLayer *source_layer = &layers_[i];
+        comp_layers.emplace(source_layer);
+      }
+    }
+  }
+
+  char acBuf[50];
+  for (DrmHwcLayer *layer : comp_layers) {
+    if (!layer->release_fence){
+      continue;
+    }
+    sprintf(acBuf,"frame-%" PRIu64 ,frame_no_);
+    int ret = layer->release_fence.Set(CreateNextTimelineFence(acBuf));
+    if (ret < 0){
+        ALOGE("creat release fence failed ret=%d,%s",ret,strerror(errno));
+      return ret;
+    }
+
+    ALOGD("rk-debug CreateNextTimelineFence frame no = %" PRIu64 " releaseFd = %d" ,frame_no_,layer->release_fence.get());
+  }
+  ALOGD("rk-debug CreateAndAssignReleaseFences frame no = %" PRIu64 ,frame_no_);
   return 0;
 }
 

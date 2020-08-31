@@ -188,7 +188,7 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    private:
-    HWC2::Error CreateComposition(bool test);
+    HWC2::Error CreateComposition(bool isValidete);
     void AddFenceToRetireFence(int fd);
 
     ResourceManager *resource_manager_;

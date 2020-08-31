@@ -20,12 +20,14 @@
 #include "drmcrtc.h"
 #include "drmhwcomposer.h"
 #include "drmplane.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <sstream>
 #include <vector>
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+#include <inttypes.h>
 
 namespace android {
 
@@ -122,6 +124,11 @@ class DrmDisplayComposition {
 
   int Plan(std::vector<DrmPlane *> *primary_planes,
            std::vector<DrmPlane *> *overlay_planes);
+  int CreateAndAssignReleaseFences();
+  int SignalCompositionDone() {
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s: signal frame = %" PRIu64, __FUNCTION__,frame_no_);
+    return IncreaseTimelineToPoint(timeline_);
+  }
 
   std::vector<DrmHwcLayer> &layers() {
     return layers_;
@@ -175,6 +182,8 @@ class DrmDisplayComposition {
 
  private:
   bool validate_composition_type(DrmCompositionType desired);
+  int CreateNextTimelineFence(const char* fence_name);
+  int IncreaseTimelineToPoint(int point);
 
   DrmDevice *drm_ = NULL;
   DrmCrtc *crtc_ = NULL;
@@ -184,6 +193,10 @@ class DrmDisplayComposition {
   DrmCompositionType type_ = DRM_COMPOSITION_TYPE_EMPTY;
   uint32_t dpms_mode_ = DRM_MODE_DPMS_ON;
   DrmMode display_mode_;
+
+  int timeline_fd_ = -1;
+  int timeline_ = 0;
+  int timeline_current_ = 0;
 
   UniqueFd out_fence_ = -1;
 

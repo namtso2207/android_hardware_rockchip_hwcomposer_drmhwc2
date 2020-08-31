@@ -39,6 +39,7 @@ class Worker {
   void Signal() {
     cond_.notify_all();
   }
+
   void Exit();
 
   bool initialized() const {

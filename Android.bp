@@ -42,7 +42,7 @@ cc_defaults {
         "libdrm",
         "libhardware",
         "liblog",
-        "libsync",
+        "libsync_vendor",
         "libui",
         "libutils",
     ],
@@ -50,7 +50,8 @@ cc_defaults {
     include_dirs: [
         "hardware/rockchip/hwcomposer/include",
         "hardware/rockchip/libgralloc/midgard",
-        "external/libdrm/include/drm"
+        "external/libdrm/include/drm",
+        "system/core"
     ],
 
     static_libs: ["libdrmhwc_utils"],

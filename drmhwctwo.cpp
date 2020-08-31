@@ -31,6 +31,7 @@
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer2.h>
 #include <log/log.h>
+#include <utils/Trace.h>
 
 
 namespace android {
@@ -210,7 +211,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
   // Split up the given display planes into primary and overlay to properly
   // interface with the composition
   char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "1");
+  property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "0");
   bool use_overlay_planes = atoi(use_overlay_planes_prop);
   for (auto &plane : *planes) {
     if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
@@ -527,7 +528,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
 HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
                                                     hwc2_layer_t *layers,
                                                     int32_t *fences) {
-  supported(__func__);
+
   uint32_t num_layers = 0;
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
@@ -541,25 +542,45 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 
     layers[num_layers - 1] = l.first;
     fences[num_layers - 1] = l.second.take_release_fence();
+    ALOGD("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
   }
   *num_elements = num_layers;
   return HWC2::Error::None;
 }
 
 void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
-  supported(__func__);
-  if (fd < 0)
-    return;
 
-  if (next_retire_fence_.get() >= 0) {
-    int old_fence = next_retire_fence_.get();
-    next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
-  } else {
-    next_retire_fence_.Set(dup(fd));
+
+  if (fd < 0){
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
+
+      l.second.manage_release_fence();
+
+      int releaseFenceFd = l.second.release_fence();
+
+      if (releaseFenceFd < 0)
+        continue;
+
+      if (next_retire_fence_.get() >= 0) {
+        int old_retire_fence = next_retire_fence_.get();
+        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
+      } else {
+        next_retire_fence_.Set(dup(releaseFenceFd));
+      }
+    }
+    ALOGD("rk-debug AddFenceToRetireFence [%d]",next_retire_fence_.get());
+    return;
+  }else{
+    if (next_retire_fence_.get() >= 0) {
+      int old_fence = next_retire_fence_.get();
+      next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
+    } else {
+      next_retire_fence_.Set(dup(fd));
+    }
   }
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
+HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool isValidete) {
   std::vector<DrmCompositionDisplayLayersMap> layers_map;
   layers_map.emplace_back();
   DrmCompositionDisplayLayersMap &map = layers_map.back();
@@ -573,15 +594,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
   std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     HWC2::Composition comp_type;
-    if (test) {
+    if (isValidete) {
       comp_type = l.second.sf_type();
       if (comp_type == HWC2::Composition::Device) {
         if (!importer_->CanImportBuffer(l.second.buffer()))
           comp_type = HWC2::Composition::Client;
       }
-    } else
+  } else {
       comp_type = l.second.validated_type();
-
+    }
     switch (comp_type) {
       case HWC2::Composition::Device:
         z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
@@ -642,14 +663,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
     i = overlay_planes.erase(i);
   }
 
-  if (test) {
+  if (isValidete) {
     ;//ret = compositor_.TestComposition(composition.get());
   } else {
+    ret = composition->CreateAndAssignReleaseFences();
     AddFenceToRetireFence(composition->take_out_fence());
     ret = compositor_.QueueComposition(std::move(composition));
   }
   if (ret) {
-    if (!test)
+    if (!isValidete)
       ALOGE("Failed to apply the frame composition ret=%d", ret);
     return HWC2::Error::BadParameter;
   }
@@ -657,7 +679,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool test) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
-  supported(__func__);
+  ATRACE_CALL();
+  char trace_name[30] = {0};
+  sprintf(trace_name,"%s-%u" ,"TaregtLayer",frame_no_);
+  ATRACE_NAME(trace_name);
+
   HWC2::Error ret;
 
   ret = CreateComposition(false);
@@ -669,10 +695,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   if (ret != HWC2::Error::None)
     return ret;
 
-  // The retire fence returned here is for the last frame, so return it and
-  // promote the next retire fence
   *retire_fence = retire_fence_.Release();
   retire_fence_ = std::move(next_retire_fence_);
+
+  ALOGD("rk-debug PresentDisplay end frame no = %" PRIu32 ,frame_no_);
 
   ++frame_no_;
   return HWC2::Error::None;
@@ -790,6 +816,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
+
+  ATRACE_CALL();
+  char trace_name[30] = {0};
+  sprintf(trace_name,"%s-%u","TaregtLayer",frame_no_);
+  ATRACE_NAME(trace_name);
+
+  ALOGD("rk-debug ValidateDisplay frame no = %" PRIu32 ,frame_no_);
   *num_types = 0;
   *num_requests = 0;
   size_t avail_planes = primary_planes_.size() + overlay_planes_.size();
