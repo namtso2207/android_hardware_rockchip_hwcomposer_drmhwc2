@@ -36,11 +36,6 @@
 namespace android {
 
 DrmDisplayComposition::~DrmDisplayComposition() {
-
-  char trace_name[30] = {0};
-  sprintf(trace_name,"%s-%" PRIu64 ,"~DrmDisplayComposition",frame_no());
-  ATRACE_NAME(trace_name);
-
   if (timeline_fd_ >= 0) {
     SignalCompositionDone();
     close(timeline_fd_);
@@ -148,7 +143,7 @@ int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
 }
 int DrmDisplayComposition::CreateNextTimelineFence(const char* fence_name) {
   ++timeline_;
-  ALOGD("rk-debug CreateNextTimelineFence timeline_fd_ =%d ,timeline_ = %d",timeline_fd_,timeline_);
+  ALOGV("rk-debug CreateNextTimelineFence timeline_fd_ =%d ,timeline_ = %d",timeline_fd_,timeline_);
   return sw_sync_fence_create(timeline_fd_, fence_name,
                                 timeline_);
 }
@@ -156,7 +151,7 @@ int DrmDisplayComposition::IncreaseTimelineToPoint(int point) {
   int timeline_increase = point - timeline_current_;
   if (timeline_increase <= 0)
     return 0;
-  ALOGD("rk-debug IncreaseTimelineToPoint timeline_fd_ =%d ,point = %d ,timeline_current_ = %d ,timeline_increase = %d",timeline_fd_,point,timeline_current_,timeline_increase);
+  ALOGV("rk-debug IncreaseTimelineToPoint timeline_fd_ =%d ,point = %d ,timeline_current_ = %d ,timeline_increase = %d",timeline_fd_,point,timeline_current_,timeline_increase);
 
   int ret = sw_sync_timeline_inc(timeline_fd_, timeline_increase);
   if (ret)
@@ -192,10 +187,8 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
         ALOGE("creat release fence failed ret=%d,%s",ret,strerror(errno));
       return ret;
     }
-
-    ALOGD("rk-debug CreateNextTimelineFence frame no = %" PRIu64 " releaseFd = %d" ,frame_no_,layer->release_fence.get());
+    ALOGV("rk-debug CreateNextTimelineFence frame no = %" PRIu64 " releaseFd = %d" ,frame_no_,layer->release_fence.get());
   }
-  ALOGD("rk-debug CreateAndAssignReleaseFences frame no = %" PRIu64 ,frame_no_);
   return 0;
 }
 

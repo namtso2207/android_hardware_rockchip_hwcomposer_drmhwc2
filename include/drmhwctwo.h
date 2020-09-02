@@ -87,7 +87,7 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
     void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, bool client_layer = false);
-
+    void Dump(hwc2_layer_t layer_id, String8 &output);
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -183,6 +183,9 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetPowerMode(int32_t mode);
     HWC2::Error SetVsyncEnabled(int32_t enabled);
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
+    std::map<hwc2_layer_t, HwcLayer> &get_layers(){
+        return layers_;
+    }
     HwcLayer &get_layer(hwc2_layer_t layer) {
       return layers_.at(layer);
     }
@@ -287,5 +290,6 @@ class DrmHwcTwo : public hwc2_device_t {
   ResourceManager resource_manager_;
   std::map<hwc2_display_t, HwcDisplay> displays_;
   std::map<HWC2::Callback, HwcCallback> callbacks_;
+  std::string mDumpString;
 };
 }  // namespace android

@@ -225,7 +225,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   uint32_t min_priority = DEFAULT_PRIORITY;
   for (auto &conn : connectors_) {
     if (conn->internal() && !found_primary) {
-      //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
       if (conn->state() != DRM_MODE_CONNECTED)
         continue;
       if (conn->priority() < min_priority)
@@ -236,7 +235,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   if(min_priority < DEFAULT_PRIORITY){
     for (auto &conn : connectors_) {
       if (conn->internal() && !found_primary) {
-        //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
         if (conn->state() != DRM_MODE_CONNECTED)
           continue;
         if (conn->priority() == min_priority){
@@ -251,7 +249,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   // Can't find connected primary, must to find primary
   for (auto &conn : connectors_) {
     if (conn->internal() && !found_primary) {
-      //ALOGD("rk-debug conn type = %s ,state = %d , line = %d",connector_type_str(conn->type()),conn->state(),__LINE__);
       conn->set_display(num_displays);
       displays_[num_displays] = num_displays;
       ++num_displays;

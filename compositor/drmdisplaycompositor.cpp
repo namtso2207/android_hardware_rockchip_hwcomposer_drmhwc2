@@ -201,9 +201,6 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
 
-  char trace_name[30] = {0};
-  sprintf(trace_name,"%s-%" PRIu64 ,"TaregtLayer",composition->frame_no() );
-  ATRACE_NAME(trace_name);
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
       if (!active_)
@@ -718,9 +715,6 @@ void DrmDisplayCompositor::ApplyFrame(
     std::unique_ptr<DrmDisplayComposition> composition, int status,
     bool writeback) {
   ATRACE_CALL();
-  char trace_name[30] = {0};
-  sprintf(trace_name,"%s-%" PRIu64 ,"TaregtLayer",composition->frame_no());
-  ATRACE_NAME(trace_name);
   AutoLock lock(&lock_, __func__);
   if (lock.Lock())
     return;
@@ -743,9 +737,6 @@ void DrmDisplayCompositor::ApplyFrame(
   }
   ++dump_frames_composited_;
   if(active_composition_){
-      char trace_name[30] = {0};
-      sprintf(trace_name,"%s-%" PRIu64 ,"Signal",active_composition_->frame_no());
-      ATRACE_NAME(trace_name);
       active_composition_->SignalCompositionDone();
   }
 

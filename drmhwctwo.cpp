@@ -132,8 +132,27 @@ HWC2::Error DrmHwcTwo::DestroyVirtualDisplay(hwc2_display_t display) {
 }
 
 void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
-  // TODO: Implement dump
-  unsupported(__func__, size, buffer);
+  if (buffer != nullptr) {
+      auto copiedBytes = mDumpString.copy(buffer, *size);
+      *size = static_cast<uint32_t>(copiedBytes);
+      return;
+  }
+  String8 output;
+
+  output.appendFormat("-- HWC2 Version 2.0 by Bing --\n");
+  for(auto &map_disp: displays_){
+    output.appendFormat(" DisplayId=%" PRIu64 ", numHwLayers=%zu \n",map_disp.first,((map_disp.second).get_layers()).size());
+    output.append(
+                  " zpos |    type   |    handle    |  transform  |    blnd    |   format    |     source crop (l,t,r,b)      |          frame         | name \n"
+                  "------+-----------+--------------+-------------+-------------------+-------------+--------------------------------+------------------------+------\n");
+    for (auto &map_layer : (map_disp.second).get_layers()) {
+        HwcLayer &layer = map_layer.second;
+        layer.Dump(map_layer.first, output);
+    }
+  }
+  mDumpString = output.string();
+  *size = static_cast<uint32_t>(mDumpString.size());
+  return;
 }
 
 uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
@@ -521,6 +540,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
     uint32_t *num_types, int32_t * /*types*/, float * /*max_luminance*/,
     float * /*max_average_luminance*/, float * /*min_luminance*/) {
   supported(__func__);
+
   *num_types = 0;
   return HWC2::Error::None;
 }
@@ -542,7 +562,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 
     layers[num_layers - 1] = l.first;
     fences[num_layers - 1] = l.second.take_release_fence();
-    ALOGD("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
+    ALOGV("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
   }
   *num_elements = num_layers;
   return HWC2::Error::None;
@@ -577,7 +597,7 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
       }
       close(releaseFenceFd);
     }
-    ALOGD("rk-debug AddFenceToRetireFence [%d]",retire_fence_.get());
+    ALOGV("rk-debug AddFenceToRetireFence [%d]",retire_fence_.get());
     return;
   }else{
     if (retire_fence_.get() >= 0) {
@@ -632,10 +652,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
     comp_type = l->second.validated_type();
     switch (comp_type) {
       case HWC2::Composition::Device:
-        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
+        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       case HWC2::Composition::Client:
-        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
+        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       default:
         continue;
@@ -680,10 +700,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
           return HWC2::Error::NoResources;
         }
         map.layers.emplace_back(std::move(drm_hwc_layer));
-        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
+        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       case HWC2::Composition::Client:
-        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
+        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       default:
         ret = drm_hwc_layer.ImportBuffer(importer_.get());
@@ -751,8 +771,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
     return ret;
 
   *retire_fence = retire_fence_.Release();
-
-  ALOGD("rk-debug PresentDisplay end frame no = %" PRIu32 ,frame_no_);
 
   ++frame_no_;
   return HWC2::Error::None;
@@ -870,7 +888,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
-
   ATRACE_CALL();
   *num_types = 0;
   *num_requests = 0;
@@ -1023,6 +1040,17 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *l
   layer->alpha = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   layer->SetSourceCrop(source_crop_);
   layer->SetTransform(static_cast<int32_t>(transform_));
+}
+
+void DrmHwcTwo::HwcLayer::Dump(hwc2_layer_t layer_id, String8 &output) {
+
+  output.appendFormat( " %04" PRIu64 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s | %-11s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %s\n",
+                    layer_id,to_string(validated_type_).c_str(),
+                    intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(), "RGBA",
+                    source_crop_.left, source_crop_.top, source_crop_.right, source_crop_.bottom,
+                    display_frame_.left, display_frame_.top, display_frame_.right, display_frame_.bottom,
+                    "NONE");
+  return;
 }
 
 void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
