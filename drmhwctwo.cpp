@@ -550,10 +550,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 
 void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
 
-
   if (fd < 0){
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-
       l.second.manage_release_fence();
 
       int releaseFenceFd = l.second.release_fence();
@@ -561,26 +559,95 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
       if (releaseFenceFd < 0)
         continue;
 
-      if (next_retire_fence_.get() >= 0) {
-        int old_retire_fence = next_retire_fence_.get();
-        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
+      if (retire_fence_.get() >= 0) {
+        int old_retire_fence = retire_fence_.get();
+        retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
       } else {
-        next_retire_fence_.Set(dup(releaseFenceFd));
+        retire_fence_.Set(dup(releaseFenceFd));
       }
     }
-    ALOGD("rk-debug AddFenceToRetireFence [%d]",next_retire_fence_.get());
+    client_layer_.manage_release_fence();
+    if(client_layer_.release_fence() > 0){
+      int releaseFenceFd = client_layer_.take_release_fence();
+      if(retire_fence_.get() >= 0){
+          int old_retire_fence = retire_fence_.get();
+          retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
+      }else{
+          retire_fence_.Set(dup(releaseFenceFd));
+      }
+      close(releaseFenceFd);
+    }
+    ALOGD("rk-debug AddFenceToRetireFence [%d]",retire_fence_.get());
     return;
   }else{
-    if (next_retire_fence_.get() >= 0) {
-      int old_fence = next_retire_fence_.get();
-      next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
+    if (retire_fence_.get() >= 0) {
+      int old_fence = retire_fence_.get();
+      retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
     } else {
-      next_retire_fence_.Set(dup(fd));
+      retire_fence_.Set(dup(fd));
     }
   }
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool isValidete) {
+HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
+  int ret;
+
+  drm_hwc_layers_.clear();
+
+  // now that they're ordered by z, add them to the composition
+  for (auto &l : layers_) {
+    DrmHwcLayer layer;
+    l.second.PopulateDrmLayer(l.first, &layer);
+    drm_hwc_layers_.emplace_back(std::move(layer));
+  }
+
+  uint32_t client_id = UINT32_MAX;
+  DrmHwcLayer client_target_layer;
+  client_layer_.PopulateDrmLayer(client_id, &client_target_layer,true);
+  drm_hwc_layers_.emplace_back(std::move(client_target_layer));
+
+  // First to try GLES all layer
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+    l.second.set_validated_type(HWC2::Composition::Client);
+
+  std::map<size_t, DrmHwcLayer *> to_composite;
+
+  for (size_t i = 0; i < layers_.size(); ++i)
+    to_composite.emplace(std::make_pair(i, &client_target_layer));
+
+  std::vector<DrmPlane *> primary_planes(primary_planes_);
+  std::vector<DrmPlane *> overlay_planes(overlay_planes_);
+  std::tie(ret,
+           composition_planes_) = planner_->ProvisionPlanes(to_composite, crtc_,
+                                                            &primary_planes,
+                                                            &overlay_planes);
+  if (ret){
+    ALOGE("First, GLES policy fail ret=%d", ret);
+    return HWC2::Error::BadConfig;
+  }
+
+  for (auto &drm_hwc_layer : drm_hwc_layers_) {
+    auto l = layers_.find(drm_hwc_layer.id);
+    HWC2::Composition comp_type;
+    comp_type = l->second.validated_type();
+    switch (comp_type) {
+      case HWC2::Composition::Device:
+        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
+        break;
+      case HWC2::Composition::Client:
+        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
+        break;
+      default:
+        continue;
+    }
+  }
+
+  return HWC2::Error::None;
+}
+
+
+HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
+  int ret;
   std::vector<DrmCompositionDisplayLayersMap> layers_map;
   layers_map.emplace_back();
   DrmCompositionDisplayLayersMap &map = layers_map.back();
@@ -588,62 +655,59 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool isValidete) {
   map.display = static_cast<int>(handle_);
   map.geometry_changed = true;  // TODO: Fix this
 
-  // order the layers by z-order
   bool use_client_layer = false;
-  uint32_t client_z_order = UINT32_MAX;
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *> z_map;
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-    HWC2::Composition comp_type;
-    if (isValidete) {
-      comp_type = l.second.sf_type();
-      if (comp_type == HWC2::Composition::Device) {
-        if (!importer_->CanImportBuffer(l.second.buffer()))
-          comp_type = HWC2::Composition::Client;
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+    if(l.second.sf_type() == HWC2::Composition::Client)
+      use_client_layer = true;
+  if(use_client_layer){
+    for (auto &drm_hwc_layer : drm_hwc_layers_) {
+      if(drm_hwc_layer.fb_target){
+        uint32_t client_id = UINT32_MAX;
+        client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, true);
       }
-  } else {
-      comp_type = l.second.validated_type();
     }
+  }
+
+  for (auto &drm_hwc_layer : drm_hwc_layers_) {
+    auto l = layers_.find(drm_hwc_layer.id);
+    HWC2::Composition comp_type;
+    comp_type = l->second.validated_type();
     switch (comp_type) {
       case HWC2::Composition::Device:
-        z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
+        ret = drm_hwc_layer.ImportBuffer(importer_.get());
+        if (ret) {
+          ALOGE("Failed to import layer, ret=%d", ret);
+          return HWC2::Error::NoResources;
+        }
+        map.layers.emplace_back(std::move(drm_hwc_layer));
+        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Device,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       case HWC2::Composition::Client:
-        // Place it at the z_order of the lowest client layer
-        use_client_layer = true;
-        client_z_order = std::min(client_z_order, l.second.z_order());
+        ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Client,line = %d",drm_hwc_layer.id,__LINE__);
         break;
       default:
+        ret = drm_hwc_layer.ImportBuffer(importer_.get());
+        if (ret) {
+          ALOGE("Failed to import layer, ret=%d", ret);
+          return HWC2::Error::NoResources;
+        }
+        map.layers.emplace_back(std::move(drm_hwc_layer));
         continue;
     }
   }
-  if (use_client_layer)
-    z_map.emplace(std::make_pair(client_z_order, &client_layer_));
-
-  if (z_map.empty())
-    return HWC2::Error::BadLayer;
-
-  // now that they're ordered by z, add them to the composition
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    DrmHwcLayer layer;
-    l.second->PopulateDrmLayer(&layer);
-    int ret = layer.ImportBuffer(importer_.get());
-    if (ret) {
-      ALOGE("Failed to import layer, ret=%d", ret);
-      return HWC2::Error::NoResources;
-    }
-    map.layers.emplace_back(std::move(layer));
-  }
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
-                                                           .CreateComposition();
+                                                         .CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
 
   // TODO: Don't always assume geometry changed
-  int ret = composition->SetLayers(map.layers.data(), map.layers.size(), true);
+  ret = composition->SetLayers(map.layers.data(), map.layers.size(), true);
   if (ret) {
     ALOGE("Failed to set layers in the composition ret=%d", ret);
     return HWC2::Error::BadLayer;
   }
+  for(auto &composition_plane :composition_planes_)
+    ret = composition->AddPlaneComposition(std::move(composition_plane));
 
   std::vector<DrmPlane *> primary_planes(primary_planes_);
   std::vector<DrmPlane *> overlay_planes(overlay_planes_);
@@ -663,30 +727,21 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition(bool isValidete) {
     i = overlay_planes.erase(i);
   }
 
-  if (isValidete) {
-    ;//ret = compositor_.TestComposition(composition.get());
-  } else {
-    ret = composition->CreateAndAssignReleaseFences();
-    AddFenceToRetireFence(composition->take_out_fence());
-    ret = compositor_.QueueComposition(std::move(composition));
-  }
-  if (ret) {
-    if (!isValidete)
-      ALOGE("Failed to apply the frame composition ret=%d", ret);
-    return HWC2::Error::BadParameter;
-  }
+  ret = composition->CreateAndAssignReleaseFences();
+  AddFenceToRetireFence(composition->take_out_fence());
+  ret = compositor_.QueueComposition(std::move(composition));
+
   return HWC2::Error::None;
 }
 
+
+
 HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   ATRACE_CALL();
-  char trace_name[30] = {0};
-  sprintf(trace_name,"%s-%u" ,"TaregtLayer",frame_no_);
-  ATRACE_NAME(trace_name);
 
   HWC2::Error ret;
 
-  ret = CreateComposition(false);
+  ret = CreateComposition();
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
     *retire_fence = -1;
@@ -696,7 +751,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
     return ret;
 
   *retire_fence = retire_fence_.Release();
-  retire_fence_ = std::move(next_retire_fence_);
 
   ALOGD("rk-debug PresentDisplay end frame no = %" PRIu32 ,frame_no_);
 
@@ -818,43 +872,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
 
   ATRACE_CALL();
-  char trace_name[30] = {0};
-  sprintf(trace_name,"%s-%u","TaregtLayer",frame_no_);
-  ATRACE_NAME(trace_name);
-
-  ALOGD("rk-debug ValidateDisplay frame no = %" PRIu32 ,frame_no_);
   *num_types = 0;
   *num_requests = 0;
-  size_t avail_planes = primary_planes_.size() + overlay_planes_.size();
-  bool comp_failed = false;
 
   HWC2::Error ret;
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     l.second.set_validated_type(HWC2::Composition::Invalid);
 
-  ret = CreateComposition(true);
-  if (ret != HWC2::Error::None)
-    comp_failed = true;
-
-  std::map<uint32_t, DrmHwcTwo::HwcLayer *, std::greater<int>> z_map;
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-    if (l.second.sf_type() == HWC2::Composition::Device)
-      z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
-  }
-
-  /*
-   * If more layers then planes, save one plane
-   * for client composited layers
-   */
-  if (avail_planes < layers_.size())
-    avail_planes--;
-
-  for (std::pair<const uint32_t, DrmHwcTwo::HwcLayer *> &l : z_map) {
-    if (comp_failed || !avail_planes--)
-      break;
-    if (importer_->CanImportBuffer(l.second->buffer()))
-      l.second->set_validated_type(HWC2::Composition::Device);
+  ret = ValidatePlanes();
+  if (ret != HWC2::Error::None){
+    ALOGE("%s fail , ret = %d,line = %d",__FUNCTION__,ret,__LINE__);
+    return HWC2::Error::BadConfig;
   }
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
@@ -965,8 +994,10 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
   return HWC2::Error::None;
 }
 
-void DrmHwcTwo::HwcLayer::PopulateDrmLayer(DrmHwcLayer *layer) {
-  supported(__func__);
+void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *layer, bool client_layer) {
+  layer->id = layer_id;
+  layer->fb_target = client_layer;
+
   switch (blending_) {
     case HWC2::BlendMode::None:
       layer->blending = DrmHwcBlending::kNone;

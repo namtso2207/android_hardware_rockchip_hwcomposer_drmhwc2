@@ -86,7 +86,7 @@ class DrmHwcTwo : public hwc2_device_t {
       return OutputFd(&release_fence_raw_);
     }
 
-    void PopulateDrmLayer(DrmHwcLayer *layer);
+    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, bool client_layer = false);
 
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
@@ -188,7 +188,8 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    private:
-    HWC2::Error CreateComposition(bool isValidete);
+    HWC2::Error ValidatePlanes();
+    HWC2::Error CreateComposition();
     void AddFenceToRetireFence(int fd);
 
     ResourceManager *resource_manager_;
@@ -196,6 +197,10 @@ class DrmHwcTwo : public hwc2_device_t {
     DrmDisplayCompositor compositor_;
     std::shared_ptr<Importer> importer_;
     std::unique_ptr<Planner> planner_;
+
+    std::vector<DrmHwcLayer> drm_hwc_layers_;
+    std::vector<DrmCompositionPlane> composition_planes_;
+
 
     std::vector<DrmPlane *> primary_planes_;
     std::vector<DrmPlane *> overlay_planes_;

@@ -77,6 +77,8 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
   if (!validate_composition_type(DRM_COMPOSITION_TYPE_FRAME))
     return -EINVAL;
 
+  layers_.clear();
+
   geometry_changed_ = geometry_changed;
 
   for (size_t layer_index = 0; layer_index < num_layers; layer_index++) {
@@ -119,21 +121,6 @@ int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
                                 std::vector<DrmPlane *> *overlay_planes) {
   if (type_ != DRM_COMPOSITION_TYPE_FRAME)
     return 0;
-
-  std::map<size_t, DrmHwcLayer *> to_composite;
-
-  for (size_t i = 0; i < layers_.size(); ++i)
-    to_composite.emplace(std::make_pair(i, &layers_[i]));
-
-  int ret;
-  std::tie(ret,
-           composition_planes_) = planner_->ProvisionPlanes(to_composite, crtc_,
-                                                            primary_planes,
-                                                            overlay_planes);
-  if (ret) {
-    ALOGE("Planner failed provisioning planes ret=%d", ret);
-    return ret;
-  }
 
   // Remove the planes we used from the pool before returning. This ensures they
   // won't be reused by another display in the composition.

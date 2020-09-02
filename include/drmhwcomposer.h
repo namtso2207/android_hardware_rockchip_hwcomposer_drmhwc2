@@ -141,6 +141,10 @@ struct DrmHwcLayer {
   UniqueFd acquire_fence;
   OutputFd release_fence;
 
+  uint32_t id;
+  bool fb_target;
+
+
   int ImportBuffer(Importer *importer);
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
 

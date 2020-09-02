@@ -373,7 +373,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   std::vector<DrmCompositionPlane> &comp_planes = display_comp
                                                       ->composition_planes();
   DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
-  uint64_t out_fences[drm->crtcs().size()];
+  //uint64_t out_fences[drm->crtcs().size()];
 
   DrmConnector *connector = drm->GetConnectorForDisplay(display_);
   if (!connector) {
@@ -404,16 +404,16 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       return ret;
     }
   }
-  if (crtc->out_fence_ptr_property().id() != 0) {
-    ret = drmModeAtomicAddProperty(pset, crtc->id(),
-                                   crtc->out_fence_ptr_property().id(),
-                                   (uint64_t)&out_fences[crtc->pipe()]);
-    if (ret < 0) {
-      ALOGE("Failed to add OUT_FENCE_PTR property to pset: %d", ret);
-      drmModeAtomicFree(pset);
-      return ret;
-    }
-  }
+//  if (crtc->out_fence_ptr_property().id() != 0) {
+//    ret = drmModeAtomicAddProperty(pset, crtc->id(),
+//                                   crtc->out_fence_ptr_property().id(),
+//                                   (uint64_t)&out_fences[crtc->pipe()]);
+//    if (ret < 0) {
+//      ALOGE("Failed to add OUT_FENCE_PTR property to pset: %d", ret);
+//      drmModeAtomicFree(pset);
+//      return ret;
+//    }
+//  }
 
   if (mode_.needs_modeset) {
     ret = drmModeAtomicAddProperty(pset, crtc->id(),
@@ -444,7 +444,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     std::vector<size_t> &source_layers = comp_plane.source_layers();
 
     int fb_id = -1;
-    int fence_fd = -1;
     hwc_rect_t display_frame;
     hwc_frect_t source_crop;
     uint64_t rotation = 0;
@@ -464,12 +463,22 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         break;
       }
       DrmHwcLayer &layer = layers[source_layers.front()];
+
+      if (!test_only && layer.acquire_fence.get() >= 0) {
+        int acquire_fence = layer.acquire_fence.get();{
+          ret = sync_wait(acquire_fence, 1500);
+          if (ret) {
+            ALOGE("Failed to wait for acquire %d/%d 1500ms", acquire_fence, ret);
+            break;
+          }
+        }
+        layer.acquire_fence.Close();
+      }
       if (!layer.buffer) {
         ALOGE("Expected a valid framebuffer for pset");
         break;
       }
       fb_id = layer.buffer->fb_id;
-      fence_fd = layer.acquire_fence.get();
       display_frame = layer.display_frame;
       source_crop = layer.source_crop;
       alpha = layer.alpha;
