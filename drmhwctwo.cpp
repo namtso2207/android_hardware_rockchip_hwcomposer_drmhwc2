@@ -141,14 +141,17 @@ void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
 
   output.appendFormat("-- HWC2 Version 2.0 by Bing --\n");
   for(auto &map_disp: displays_){
-    output.appendFormat(" DisplayId=%" PRIu64 ", numHwLayers=%zu \n",map_disp.first,((map_disp.second).get_layers()).size());
+    if((map_disp.second.DumpDisplayInfo(map_disp.first,output)) < 0)
+      continue;
     output.append(
-                  " zpos |    type   |    handle    |  transform  |    blnd    |   format    |     source crop (l,t,r,b)      |          frame         | name \n"
-                  "------+-----------+--------------+-------------+-------------------+-------------+--------------------------------+------------------------+------\n");
+                  "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
+                  "  id  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+                  "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
     for (auto &map_layer : (map_disp.second).get_layers()) {
         HwcLayer &layer = map_layer.second;
-        layer.Dump(map_layer.first, output);
+        layer.DumpLayerInfo(map_layer.first, output);
     }
+    output.append("------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
   }
   mDumpString = output.string();
   *size = static_cast<uint32_t>(mDumpString.size());
@@ -922,6 +925,21 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   return HWC2::Error::None;
 }
 
+int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(hwc2_display_t display_id, String8 &output){
+
+  DrmMode const &mode = connector_->active_mode();
+  if (mode.id() == 0){
+    return -1;
+  }
+
+  output.appendFormat(" DisplayId=%" PRIu64 ", numHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
+                        display_id, get_layers().size(),
+                        mode.id(), mode.name().c_str(),'p' ,mode.v_refresh(),
+                        color_mode_);
+
+  return 0;
+}
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   supported(__func__);
   blending_ = static_cast<HWC2::BlendMode>(mode);
@@ -1042,14 +1060,14 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *l
   layer->SetTransform(static_cast<int32_t>(transform_));
 }
 
-void DrmHwcTwo::HwcLayer::Dump(hwc2_layer_t layer_id, String8 &output) {
+void DrmHwcTwo::HwcLayer::DumpLayerInfo(hwc2_layer_t layer_id, String8 &output) {
 
-  output.appendFormat( " %04" PRIu64 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s | %-11s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %s\n",
+  output.appendFormat( " %04" PRIu64 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
                     layer_id,to_string(validated_type_).c_str(),
-                    intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(), "RGBA",
+                    intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(),
                     source_crop_.left, source_crop_.top, source_crop_.right, source_crop_.bottom,
                     display_frame_.left, display_frame_.top, display_frame_.right, display_frame_.bottom,
-                    "NONE");
+                    dataspace_);
   return;
 }
 

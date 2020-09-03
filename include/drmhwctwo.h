@@ -87,7 +87,7 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
     void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, bool client_layer = false);
-    void Dump(hwc2_layer_t layer_id, String8 &output);
+    void DumpLayerInfo(hwc2_layer_t layer_id, String8 &output);
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -189,6 +189,8 @@ class DrmHwcTwo : public hwc2_device_t {
     HwcLayer &get_layer(hwc2_layer_t layer) {
       return layers_.at(layer);
     }
+
+   int DumpDisplayInfo(hwc2_display_t display_id, String8 &output);
 
    private:
     HWC2::Error ValidatePlanes();
