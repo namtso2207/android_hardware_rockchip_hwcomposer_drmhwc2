@@ -38,6 +38,7 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       type_id_(c->connector_type_id),
       priority_(-1),
       state_(c->connection),
+      force_disconnect_(false),
       mm_width_(c->mmWidth),
       mm_height_(c->mmHeight),
       possible_encoders_(possible_encoders),
@@ -189,6 +190,9 @@ int DrmConnector::UpdateModes() {
 
   state_ = c->connection;
 
+  if (!c->count_modes)
+    state_ = DRM_MODE_DISCONNECTED;
+
   bool preferred_mode_found = false;
   std::vector<DrmMode> new_modes;
   for (int i = 0; i < c->count_modes; ++i) {
@@ -205,6 +209,27 @@ int DrmConnector::UpdateModes() {
       m.set_id(drm_->next_mode_id());
       new_modes.push_back(m);
     }
+
+    //Get original mode from connector
+    std::vector<DrmMode> new_raw_modes;
+    for (int i = 0; i < c->count_modes; ++i) {
+      bool exists = false;
+      for (const DrmMode &mode : modes_) {
+        if (mode == c->modes[i]) {
+          new_raw_modes.push_back(mode);
+          exists = true;
+          break;
+        }
+      }
+      if (exists)
+        continue;
+
+      DrmMode m(&c->modes[i]);
+      m.set_id(drm_->next_mode_id());
+      new_raw_modes.push_back(m);
+    }
+    raw_modes_.swap(new_raw_modes);
+
     // Use only the first DRM_MODE_TYPE_PREFERRED mode found
     if (!preferred_mode_found &&
         (new_modes.back().type() & DRM_MODE_TYPE_PREFERRED)) {
@@ -223,8 +248,24 @@ const DrmMode &DrmConnector::active_mode() const {
   return active_mode_;
 }
 
+const DrmMode &DrmConnector::best_mode() const {
+  return best_mode_;
+}
+
+const DrmMode &DrmConnector::current_mode() const {
+  return current_mode_;
+}
+
+void DrmConnector::set_best_mode(const DrmMode &mode) {
+  best_mode_ = mode;
+}
+
 void DrmConnector::set_active_mode(const DrmMode &mode) {
   active_mode_ = mode;
+}
+
+void DrmConnector::set_current_mode(const DrmMode &mode) {
+  current_mode_ = mode;
 }
 
 const DrmProperty &DrmConnector::dpms_property() const {
@@ -256,6 +297,12 @@ void DrmConnector::set_encoder(DrmEncoder *encoder) {
 }
 
 drmModeConnection DrmConnector::state() const {
+  if (force_disconnect_)
+    return DRM_MODE_DISCONNECTED;
+  return state_;
+}
+
+drmModeConnection DrmConnector::raw_state() const {
   return state_;
 }
 
@@ -266,4 +313,46 @@ uint32_t DrmConnector::mm_width() const {
 uint32_t DrmConnector::mm_height() const {
   return mm_height_;
 }
+
+bool DrmConnector::is_hdmi_support_hdr() const
+{
+    return (hdr_metadata_property_.id() && bSupportSt2084_) || (hdr_metadata_property_.id() && bSupportHLG_);
+}
+
+const DrmProperty &DrmConnector::brightness_id_property() const {
+  return brightness_id_property_;
+}
+const DrmProperty &DrmConnector::contrast_id_property() const {
+  return contrast_id_property_;
+}
+const DrmProperty &DrmConnector::saturation_id_property() const {
+  return saturation_id_property_;
+}
+const DrmProperty &DrmConnector::hue_id_property() const {
+  return hue_id_property_;
+}
+
+const DrmProperty &DrmConnector::hdr_metadata_property() const {
+  return hdr_metadata_property_;
+}
+
+const DrmProperty &DrmConnector::hdr_panel_property() const {
+  return hdr_panel_property_;
+}
+
+const DrmProperty &DrmConnector::hdmi_output_colorimetry_property() const {
+  return hdmi_output_colorimetry_;
+}
+
+const DrmProperty &DrmConnector::hdmi_output_format_property() const {
+  return hdmi_output_format_;
+}
+
+const DrmProperty &DrmConnector::hdmi_output_depth_property() const {
+  return hdmi_output_depth_;
+}
+void DrmConnector::force_disconnect(bool force) {
+    force_disconnect_ = force;
+}
+
 }  // namespace android

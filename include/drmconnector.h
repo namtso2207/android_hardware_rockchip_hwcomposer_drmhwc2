@@ -60,8 +60,15 @@ class DrmConnector {
   const std::vector<DrmMode> &modes() const {
     return modes_;
   }
+  const std::vector<DrmMode> &raw_modes() const {
+    return raw_modes_;
+  }
+  const DrmMode &best_mode() const;
   const DrmMode &active_mode() const;
+  const DrmMode &current_mode() const;
+  void set_best_mode(const DrmMode &mode);
   void set_active_mode(const DrmMode &mode);
+  void set_current_mode(const DrmMode &mode);
 
   const DrmProperty &dpms_property() const;
   const DrmProperty &crtc_id_property() const;
@@ -76,6 +83,8 @@ class DrmConnector {
   void set_encoder(DrmEncoder *encoder);
 
   drmModeConnection state() const;
+  drmModeConnection raw_state() const;
+  void force_disconnect(bool force);
 
   uint32_t mm_width() const;
   uint32_t mm_height() const;
@@ -83,6 +92,20 @@ class DrmConnector {
   uint32_t get_preferred_mode_id() const {
     return preferred_mode_id_;
   }
+  // RK Support
+  bool isSupportSt2084() { return bSupportSt2084_; }
+  bool isSupportHLG() { return bSupportHLG_; }
+  bool is_hdmi_support_hdr() const;
+
+  const DrmProperty &brightness_id_property() const;
+  const DrmProperty &contrast_id_property() const;
+  const DrmProperty &saturation_id_property() const;
+  const DrmProperty &hue_id_property() const;
+  const DrmProperty &hdr_metadata_property() const;
+  const DrmProperty &hdr_panel_property() const;
+  const DrmProperty &hdmi_output_colorimetry_property() const;
+  const DrmProperty &hdmi_output_format_property() const;
+  const DrmProperty &hdmi_output_depth_property() const;
 
  private:
   DrmDevice *drm_;
@@ -95,12 +118,16 @@ class DrmConnector {
   uint32_t type_id_;
   uint32_t priority_;
   drmModeConnection state_;
+  bool force_disconnect_;
 
   uint32_t mm_width_;
   uint32_t mm_height_;
 
   DrmMode active_mode_;
+  DrmMode current_mode_;
+  DrmMode best_mode_;
   std::vector<DrmMode> modes_;
+  std::vector<DrmMode> raw_modes_;
 
   DrmProperty dpms_property_;
   DrmProperty crtc_id_property_;
@@ -123,6 +150,9 @@ class DrmConnector {
 
   uint32_t preferred_mode_id_;
   uint32_t possible_displays_;
+
+  bool bSupportSt2084_;
+  bool bSupportHLG_;
 };
 }  // namespace android
 
