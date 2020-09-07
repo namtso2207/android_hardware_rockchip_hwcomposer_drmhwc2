@@ -71,18 +71,7 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
   displays_.emplace(std::piecewise_construct, std::forward_as_tuple(displ),
                     std::forward_as_tuple(&resource_manager_, drm, importer,
                                           displ, type));
-
-  DrmCrtc *crtc = drm->GetCrtcForDisplay(static_cast<int>(displ));
-  if (!crtc) {
-    ALOGE("Failed to get crtc for display %d", static_cast<int>(displ));
-    return HWC2::Error::BadDisplay;
-  }
-  std::vector<DrmPlane *> display_planes;
-  for (auto &plane : drm->planes()) {
-    if (plane->GetCrtcSupported(*crtc))
-      display_planes.push_back(plane.get());
-  }
-  displays_.at(displ).Init(&display_planes);
+  displays_.at(displ).Init();
   return HWC2::Error::None;
 }
 
@@ -193,6 +182,12 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
         d.second.RegisterVsyncCallback(data, function);
       break;
     }
+    case HWC2::Callback::Refresh: {
+      for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
+           displays_)
+        d.second.RegisterVsyncCallback(data, function);
+        break;
+    }
     default:
       break;
   }
@@ -207,7 +202,8 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       drm_(drm),
       importer_(importer),
       handle_(handle),
-      type_(type) {
+      type_(type),
+      init_success_(false){
   supported(__func__);
 }
 
@@ -215,19 +211,31 @@ void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   compositor_.ClearDisplay();
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
-  supported(__func__);
-  planner_ = Planner::CreateInstance(drm_);
-  if (!planner_) {
-    ALOGE("Failed to create planner instance for composition");
+HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
+
+  int display = static_cast<int>(handle_);
+
+  connector_ = drm_->GetConnectorForDisplay(display);
+  if (!connector_) {
+    ALOGE("Failed to get connector for display %d", display);
+    return HWC2::Error::BadDisplay;
+  }
+
+  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+    ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
+          connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
     return HWC2::Error::NoResources;
   }
 
-  int display = static_cast<int>(handle_);
-  int ret = compositor_.Init(resource_manager_, display);
-  if (ret) {
-    ALOGE("Failed display compositor init for display %d (%d)", display, ret);
-    return HWC2::Error::NoResources;
+  DrmCrtc *crtc = drm_->GetCrtcForDisplay(static_cast<int>(display));
+  if (!crtc) {
+    ALOGE("Failed to get crtc for display %d", static_cast<int>(display));
+    return HWC2::Error::BadDisplay;
+  }
+  std::vector<DrmPlane *> display_planes;
+  for (auto &plane : drm_->planes()) {
+    if (plane->GetCrtcSupported(*crtc))
+      display_planes.push_back(plane.get());
   }
 
   // Split up the given display planes into primary and overlay to properly
@@ -235,7 +243,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
   char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
   property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "0");
   bool use_overlay_planes = atoi(use_overlay_planes_prop);
-  for (auto &plane : *planes) {
+  for (auto &plane : display_planes) {
     if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
       primary_planes_.push_back(plane);
     else if (use_overlay_planes && (((plane)->type() == DRM_PLANE_TYPE_OVERLAY) || (plane)->type() == DRM_PLANE_TYPE_CURSOR))
@@ -248,17 +256,27 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
     return HWC2::Error::BadDisplay;
   }
 
-  connector_ = drm_->GetConnectorForDisplay(display);
-  if (!connector_) {
-    ALOGE("Failed to get connector for display %d", display);
-    return HWC2::Error::BadDisplay;
+  if(!init_success_){
+    planner_ = Planner::CreateInstance(drm_);
+    if (!planner_) {
+      ALOGE("Failed to create planner instance for composition");
+      return HWC2::Error::NoResources;
+    }
+
+    int ret = compositor_.Init(resource_manager_, display);
+    if (ret) {
+      ALOGE("Failed display compositor init for display %d (%d)", display, ret);
+      return HWC2::Error::NoResources;
+    }
+
+    ret = vsync_worker_.Init(drm_, display);
+    if (ret) {
+      ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
+      return HWC2::Error::BadDisplay;
+    }
   }
 
-  ret = vsync_worker_.Init(drm_, display);
-  if (ret) {
-    ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
-    return HWC2::Error::BadDisplay;
-  }
+  init_success_ = true;
 
   return ChosePreferredConfig();
 }
@@ -857,6 +875,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
   supported(__func__);
+
   uint64_t dpms_value = 0;
   auto mode = static_cast<HWC2::PowerMode>(mode_in);
   switch (mode) {
@@ -927,13 +946,20 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
 
 int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(hwc2_display_t display_id, String8 &output){
 
+  output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, type = %s-%u, Connector state = %s\n",display_id,
+                        connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
+                        connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED");
+
+  if(connector_->raw_state() != DRM_MODE_CONNECTED)
+    return -1;
+
   DrmMode const &mode = connector_->active_mode();
   if (mode.id() == 0){
     return -1;
   }
 
-  output.appendFormat(" DisplayId=%" PRIu64 ", numHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
-                        display_id, get_layers().size(),
+  output.appendFormat("  numHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
+                        get_layers().size(),
                         mode.id(), mode.name().c_str(),'p' ,mode.v_refresh(),
                         color_mode_);
 
@@ -1091,30 +1117,136 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
 }
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
+
+  DrmConnector *extend = NULL;
+  DrmConnector *primary = NULL;
+
   for (auto &conn : drm_->connectors()) {
-    drmModeConnection old_state = conn->state();
+    drmModeConnection old_state = conn->raw_state();
     drmModeConnection cur_state = conn->UpdateModes()
                                       ? DRM_MODE_UNKNOWNCONNECTION
-                                      : conn->state();
+                                      : conn->raw_state();
 
     if (cur_state == old_state)
       continue;
 
-    ALOGI("%s event @%" PRIu64 " for connector %u on display %d",
+    ALOGI("hwc_hotplug: %s event @%" PRIu64 " for connector %u type=%s, type_id=%d\n",
           cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug", timestamp_us,
-          conn->id(), conn->display());
+          conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
 
-    int display_id = conn->display();
     if (cur_state == DRM_MODE_CONNECTED) {
+      if (conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT){
+        ALOGD("hwc_hotplug: find the first connect external type=%s(%d)",
+          drm_->connector_type_str(conn->type()), conn->type_id());
+        extend = conn.get();
+      }
+      else if (conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT){
+        ALOGD("hwc_hotplug: find the first connect primary type=%s(%d)",
+          drm_->connector_type_str(conn->type()), conn->type_id());
+        primary = conn.get();
+      }
+    }
+  }
+
+  drm_->DisplayChanged();
+
+  DrmConnector *old_primary = drm_->GetConnectorFromType(HWC_DISPLAY_PRIMARY);
+  primary = primary ? primary : old_primary;
+  if (!primary || primary->raw_state() != DRM_MODE_CONNECTED) {
+    primary = NULL;
+    for (auto &conn : drm_->connectors()) {
+      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+        continue;
+      if (conn->raw_state() == DRM_MODE_CONNECTED) {
+        primary = conn.get();
+        ALOGD("hwc_hotplug: find the second connect primary type=%s(%d)",
+          drm_->connector_type_str(conn->type()), conn->type_id());
+        break;
+      }
+    }
+  }
+
+  if (!primary) {
+    for (auto &conn : drm_->connectors()) {
+      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+        continue;
+      ALOGD("hwc_hotplug: find the third primary type=%s(%d)",
+          drm_->connector_type_str(conn->type()), conn->type_id());
+      primary = conn.get();
+    }
+  }
+
+  if (!primary) {
+    ALOGE("hwc_hotplug: %s %d Failed to find primary display\n", __FUNCTION__, __LINE__);
+    return;
+  }
+
+  if (primary != old_primary) {
+    drm_->SetPrimaryDisplay(primary);
+    int display_id = primary->display();
+    if (primary->raw_state() == DRM_MODE_CONNECTED) {
       auto &display = hwc2_->displays_.at(display_id);
       display.ChosePreferredConfig();
-    } else {
+    }else{
       auto &display = hwc2_->displays_.at(display_id);
       display.ClearDisplay();
     }
+    return;
 
-    hwc2_->HandleDisplayHotplug(display_id, cur_state);
   }
+
+  DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+  extend = extend ? extend : old_extend;
+  if (!extend || extend->raw_state() != DRM_MODE_CONNECTED) {
+    extend = NULL;
+    for (auto &conn : drm_->connectors()) {
+      if (!(conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT))
+        continue;
+      if (conn->id() == primary->id())
+        continue;
+      if (conn->raw_state() == DRM_MODE_CONNECTED) {
+        extend = conn.get();
+        ALOGD("hwc_hotplug: find the second connect external type=%s(%d)",
+          drm_->connector_type_str(conn->type()), conn->type_id());
+        break;
+      }
+    }
+  }
+  drm_->SetExtendDisplay(extend);
+  if (!extend) {
+    if(old_extend){
+      int display_id = old_extend->display();
+      auto &display = hwc2_->displays_.at(display_id);
+      drm_->UpdateDisplayRoute();
+      display.ClearDisplay();
+      while(display.Present_finish()){usleep(2*1000);}
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+    }else{
+      return;
+    }
+  }else{
+    if(!old_extend){
+      int display_id = extend->display();
+      auto &display = hwc2_->displays_.at(display_id);
+      drm_->UpdateDisplayRoute();
+      display.Init();
+      while(display.Present_finish()){usleep(2*1000);}
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+    }else{
+      int display_id = old_extend->display();
+      auto &display_old = hwc2_->displays_.at(display_id);
+      while(display_old.Present_finish()){usleep(2*1000);}
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+      usleep(200 * 1000);
+      display_id = extend->display();
+      auto &display = hwc2_->displays_.at(display_id);
+      drm_->UpdateDisplayRoute();
+      display.Init();
+      while(display.Present_finish()){usleep(2*1000);}
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+    }
+  }
+  return;
 }
 
 // static

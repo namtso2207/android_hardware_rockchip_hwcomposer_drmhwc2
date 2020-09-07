@@ -176,9 +176,12 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
     }
   }
 
+  if(comp_layers.empty())
+    return 0;
+
   char acBuf[50];
   for (DrmHwcLayer *layer : comp_layers) {
-    if (!layer->release_fence){
+    if (!layer || !layer->release_fence){
       continue;
     }
     sprintf(acBuf,"frame-%" PRIu64 ,frame_no_);

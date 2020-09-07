@@ -139,7 +139,7 @@ class DrmHwcTwo : public hwc2_device_t {
                std::shared_ptr<Importer> importer, hwc2_display_t handle,
                HWC2::DisplayType type);
     HwcDisplay(const HwcDisplay &) = delete;
-    HWC2::Error Init(std::vector<DrmPlane *> *planes);
+    HWC2::Error Init();
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
@@ -191,6 +191,7 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    int DumpDisplayInfo(hwc2_display_t display_id, String8 &output);
+   bool Present_finish(void) { return present_finish;};
 
    private:
     HWC2::Error ValidatePlanes();
@@ -221,6 +222,8 @@ class DrmHwcTwo : public hwc2_device_t {
     UniqueFd retire_fence_;
     UniqueFd next_retire_fence_;
     int32_t color_mode_;
+    bool init_success_;
+    bool present_finish;
 
     uint32_t frame_no_ = 0;
   };

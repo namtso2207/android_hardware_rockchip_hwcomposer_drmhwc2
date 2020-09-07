@@ -41,7 +41,6 @@
 
 #define PROPERTY_TYPE "vendor"
 
-
 /*
  * Base_parameter is used for 3328_8.0  , by libin start.
  */

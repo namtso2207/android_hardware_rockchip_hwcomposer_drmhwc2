@@ -328,6 +328,17 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     ++num_displays;
   }
 
+  for (auto &conn : connectors_) {
+    if (GetConnectorFromType(HWC_DISPLAY_PRIMARY) == conn.get())
+      continue;
+    if (GetConnectorFromType(HWC_DISPLAY_EXTERNAL) == conn.get())
+      continue;
+    conn->set_display(num_displays);
+    displays_[num_displays] = num_displays;
+    ++num_displays;
+  }
+
+
   if (res)
     drmModeFreeResources(res);
 
@@ -984,7 +995,7 @@ int DrmDevice::UpdateDisplayRoute(void)
     else
       property_set( PROPERTY_TYPE ".hwc.device.aux", "");
   }
-
+#if 0
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
@@ -1115,7 +1126,7 @@ int DrmDevice::UpdateDisplayRoute(void)
   enable_changed_ = false;
 
   drmModeAtomicFree(pset);
-
+#endif
   hotplug_timeline++;
 
   pthread_mutex_unlock(&diplay_route_mutex);
