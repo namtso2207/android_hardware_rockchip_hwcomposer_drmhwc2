@@ -92,6 +92,13 @@ int DrmCrtc::Init() {
 
   return 0;
 }
+bool DrmCrtc::get_afbc() const {
+    return b_afbc_;
+}
+
+bool DrmCrtc::get_alpha_scale() const {
+    return can_alpha_scale_;
+}
 
 uint32_t DrmCrtc::id() const {
   return id_;

@@ -69,6 +69,7 @@ class DrmConnector {
   void set_best_mode(const DrmMode &mode);
   void set_active_mode(const DrmMode &mode);
   void set_current_mode(const DrmMode &mode);
+  void SetDpmsMode(uint32_t dpms_mode);
 
   const DrmProperty &dpms_property() const;
   const DrmProperty &crtc_id_property() const;

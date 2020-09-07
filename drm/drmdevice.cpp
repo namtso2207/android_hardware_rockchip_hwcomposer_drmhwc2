@@ -23,6 +23,8 @@
 #include "drmeventlistener.h"
 #include "drmplane.h"
 #include "rockchip/utils/drmdebug.h"
+#include "rockchip/drmtype.h"
+
 
 #include <errno.h>
 #include <fcntl.h>
@@ -36,6 +38,14 @@
 #include <log/log.h>
 
 #define DEFAULT_PRIORITY 10
+
+#define DRM_ATOMIC_ADD_PROP(object_id, prop_id, value) \
+  if (prop_id) { \
+    ret = drmModeAtomicAddProperty(pset, object_id, prop_id, value); \
+    if (ret < 0) { \
+      ALOGE("Failed to add prop[%d] to [%d]", prop_id, object_id); \
+    } \
+  }
 
 namespace android {
 
@@ -221,56 +231,101 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 
   ConfigurePossibleDisplays();
-  // First look for the more priority primary amongst internal connectors
-  uint32_t min_priority = DEFAULT_PRIORITY;
+
+  SetPrimaryDisplay(NULL);
   for (auto &conn : connectors_) {
-    if (conn->internal() && !found_primary) {
-      if (conn->state() != DRM_MODE_CONNECTED)
-        continue;
-      if (conn->priority() < min_priority)
-        min_priority = conn->priority();
+    if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+      continue;
+    if (conn->internal())
+      continue;
+    if (conn->state() != DRM_MODE_CONNECTED)
+      continue;
+    found_primary = true;
+    if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
+      SetPrimaryDisplay(conn.get());
+    }else{
+      if(conn.get()->priority() <
+        GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
+        SetPrimaryDisplay(conn.get());
     }
   }
-  // Find the most high priority primary connector
-  if(min_priority < DEFAULT_PRIORITY){
+
+  if (!found_primary) {
     for (auto &conn : connectors_) {
-      if (conn->internal() && !found_primary) {
-        if (conn->state() != DRM_MODE_CONNECTED)
-          continue;
-        if (conn->priority() == min_priority){
-          conn->set_display(num_displays);
-          displays_[num_displays] = num_displays;
-          ++num_displays;
-          found_primary = true;
-        }
+      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+        continue;
+      if (conn->state() != DRM_MODE_CONNECTED)
+        continue;
+      found_primary = true;
+      if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
+        SetPrimaryDisplay(conn.get());
+      }else{
+        if(conn.get()->priority() <
+           GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
+          SetPrimaryDisplay(conn.get());
       }
     }
   }
-  // Can't find connected primary, must to find primary
-  for (auto &conn : connectors_) {
-    if (conn->internal() && !found_primary) {
-      conn->set_display(num_displays);
-      displays_[num_displays] = num_displays;
-      ++num_displays;
+
+  if (!found_primary) {
+    for (auto &conn : connectors_) {
+      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+        continue;
       found_primary = true;
+      if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
+        SetPrimaryDisplay(conn.get());
+      }else{
+        if(conn.get()->priority() <
+           GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
+          SetPrimaryDisplay(conn.get());
+      }
+    }
+  }
+
+  if (!found_primary) {
+    for (auto &conn : connectors_) {
+      found_primary = true;
+      conn->set_possible_displays(conn->possible_displays() | HWC_DISPLAY_PRIMARY_BIT);
+      SetPrimaryDisplay(conn.get());
       break;
     }
   }
-  // Then pick first available as primary and for the others assign
-  // consecutive display_numbers.
-  for (auto &conn : connectors_) {
-    if (conn->external() || conn->internal()) {
-      if (!found_primary) {
-        conn->set_display(num_displays);
-        displays_[num_displays] = num_displays;
-        found_primary = true;
-        ++num_displays;
-      } else if (conn->display() < 0) {
-        conn->set_display(num_displays);
-        displays_[num_displays] = num_displays;
-        ++num_displays;
-      }
+
+  if (!found_primary) {
+    ALOGE("failed to find primary display\n");
+    return std::make_tuple(-ENODEV, 0);
+  }else{
+    DrmConnector *primary = GetConnectorFromType(HWC_DISPLAY_PRIMARY);
+    if(primary != NULL){
+      primary->set_display(num_displays);
+      displays_[num_displays] = num_displays;
+      ++num_displays;
     }
+  }
+
+
+  SetExtendDisplay(NULL);
+  for (auto &conn : connectors_) {
+      if (GetConnectorFromType(HWC_DISPLAY_PRIMARY) == conn.get())
+        continue;
+      if (!(conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT))
+        continue;
+      if (conn->state() != DRM_MODE_CONNECTED)
+        continue;
+      if(NULL == GetConnectorFromType(HWC_DISPLAY_EXTERNAL)){
+        SetExtendDisplay(conn.get());
+      }else{
+        if(conn.get()->priority() <
+           GetConnectorFromType(HWC_DISPLAY_EXTERNAL)->priority())
+          SetExtendDisplay(conn.get());
+      }
+  }
+
+  DrmConnector *extend = GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+  if(extend != NULL){
+    extend->set_display(num_displays);
+    displays_[num_displays] = num_displays;
+    ++num_displays;
   }
 
   if (res)
@@ -388,22 +443,45 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     ALOGE("Can't initialize event listener %d", ret);
     return std::make_tuple(ret, 0);
   }
-
-  for (auto &conn : connectors_) {
-    ret = CreateDisplayPipe(conn.get());
-    if (ret) {
-      ALOGE("Failed CreateDisplayPipe %d with %d", conn->id(), ret);
-      return std::make_tuple(ret, 0);
-    }
-    if (!AttachWriteback(conn.get())) {
-      ALOGI("Display %d has writeback attach to it", conn->display());
-    }
+  DisplayChanged();
+  ret = UpdateDisplayRoute();
+  if (ret) {
+    ALOGE("Can't UpdateDisplayRoute  %d", ret);
+    return std::make_tuple(ret, 0);
   }
+
   return std::make_tuple(ret, displays_.size());
 }
 
 bool DrmDevice::HandlesDisplay(int display) const {
   return displays_.find(display) != displays_.end();
+}
+void DrmDevice::DisplayChanged(void) {
+    enable_changed_ = true;
+}
+
+void DrmDevice::SetPrimaryDisplay(DrmConnector *c) {
+  if (primary_ != c) {
+    primary_ = c;
+  }
+    enable_changed_ = true;
+}
+
+void DrmDevice::SetExtendDisplay(DrmConnector *c) {
+  if (extend_ != c) {
+    if (extend_)
+      extend_->force_disconnect(false);
+    extend_ = c;
+    enable_changed_ = true;
+  }
+}
+
+DrmConnector *DrmDevice::GetConnectorFromType(int display_type) const {
+  if (display_type == HWC_DISPLAY_PRIMARY)
+    return primary_;
+  else if (display_type == HWC_DISPLAY_EXTERNAL)
+    return extend_;
+  return NULL;
 }
 
 DrmConnector *DrmDevice::GetConnectorForDisplay(int display) const {
@@ -692,6 +770,362 @@ void DrmDevice::ConfigurePossibleDisplays(){
   return;
 }
 
+int DrmDevice::UpdatePropertys(void)
+{
+  int timeline = property_get_int32( PROPERTY_TYPE ".display.timeline", -1);
+  int ret;
+  /*
+   * force update propetry when timeline is zero or not exist.
+   */
+  if (timeline && timeline == prop_timeline_)
+    return 0;
+
+  DrmConnector *primary = GetConnectorFromType(HWC_DISPLAY_PRIMARY);
+  DrmConnector *extend = GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  if (!pset) {
+    ALOGE("Failed to allocate property set");
+    return -ENOMEM;
+  }
+
+  if (primary) {
+    DRM_ATOMIC_ADD_PROP(primary->id(), primary->brightness_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".brightness.main",50))
+    DRM_ATOMIC_ADD_PROP(primary->id(), primary->contrast_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".contrast.main",50))
+    DRM_ATOMIC_ADD_PROP(primary->id(), primary->saturation_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".saturation.main",50))
+    DRM_ATOMIC_ADD_PROP(primary->id(), primary->hue_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".hue.main",50))
+  }
+  if (extend) {
+    DRM_ATOMIC_ADD_PROP(extend->id(), extend->brightness_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".brightness.aux",50))
+    DRM_ATOMIC_ADD_PROP(extend->id(), extend->contrast_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".contrast.aux",50))
+    DRM_ATOMIC_ADD_PROP(extend->id(), extend->saturation_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".saturation.aux",50))
+    DRM_ATOMIC_ADD_PROP(extend->id(), extend->hue_id_property().id(),
+                        property_get_int32("persist." PROPERTY_TYPE ".hue.aux",50))
+  }
+
+  uint32_t flags = 0;
+  ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+  if (ret < 0) {
+    ALOGE("Failed to commit pset ret=%d\n", ret);
+    drmModeAtomicFree(pset);
+    return ret;
+  }
+  drmModeAtomicFree(pset);
+  prop_timeline_ = timeline;
+
+  return 0;
+}
+
+
+static pthread_mutex_t diplay_route_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int DrmDevice::UpdateDisplayRoute(void)
+{
+  bool mode_changed = false;
+  int i;
+
+  pthread_mutex_lock(&diplay_route_mutex);
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    DrmConnector *conn = GetConnectorFromType(i);
+
+    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id())
+      continue;
+    if (conn->current_mode() == conn->active_mode())
+      continue;
+    mode_changed = true;
+  }
+
+  if (!enable_changed_ && !mode_changed)
+  {
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+
+  DrmConnector *primary = GetConnectorFromType(HWC_DISPLAY_PRIMARY);
+  if (!primary) {
+    ALOGE("%s:line=%d Failed to find primary display\n", __FUNCTION__, __LINE__);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -EINVAL;
+  }
+  DrmConnector *extend = GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+  if (enable_changed_) {
+    primary->set_encoder(NULL);
+    if (extend)
+      extend->set_encoder(NULL);
+    if (primary->state() == DRM_MODE_CONNECTED) {
+      for (DrmEncoder *enc : primary->possible_encoders()) {
+        for (DrmCrtc *crtc : enc->possible_crtcs()) {
+          if (crtc->get_afbc()) {
+            crtc->set_display(primary->display());
+            enc->set_crtc(crtc);
+            primary->set_encoder(enc);
+            ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set primary with conn[%d] crtc=%d\n",
+                    __FUNCTION__, __LINE__, primary->id(), crtc->id());
+          }
+        }
+      }
+      /*
+       * not limit
+       */
+      if (!primary->encoder() || !primary->encoder()->crtc()) {
+        for (DrmEncoder *enc : primary->possible_encoders()) {
+          for (DrmCrtc *crtc : enc->possible_crtcs()) {
+              crtc->set_display(primary->display());
+              enc->set_crtc(crtc);
+              primary->set_encoder(enc);
+              ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set primary with conn[%d] crtc=%d\n",
+                        __FUNCTION__, __LINE__, primary->id(), crtc->id());
+          }
+        }
+      }
+    }
+    if (extend && extend->state() == DRM_MODE_CONNECTED) {
+      for (DrmEncoder *enc : extend->possible_encoders()) {
+        for (DrmCrtc *crtc : enc->possible_crtcs()) {
+          if (primary && primary->encoder() && primary->encoder()->crtc()) {
+            if (crtc == primary->encoder()->crtc())
+              continue;
+          }
+          ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set extend[%d] with crtc=%d\n",
+                    __FUNCTION__, __LINE__, extend->id(), crtc->id());
+          crtc->set_display(extend->display());
+          enc->set_crtc(crtc);
+          extend->set_encoder(enc);
+        }
+      }
+      if (!extend->encoder() || !extend->encoder()->crtc()) {
+        for (DrmEncoder *enc : extend->possible_encoders()) {
+          for (DrmCrtc *crtc : enc->possible_crtcs()) {
+            crtc->set_display(extend->display());
+            enc->set_crtc(crtc);
+            extend->set_encoder(enc);
+            ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set extend[%d] with crtc=%d\n",
+                    __FUNCTION__, __LINE__, extend->id(), crtc->id());
+            if (primary && primary->encoder() && primary->encoder()->crtc()) {
+              if (crtc == primary->encoder()->crtc()) {
+                //RK618 use a encoder(RGB) to display two connector,so if encoder is same
+                //not to set encoder.crtc NULL
+                if(enc != primary->encoder()){
+                    primary->encoder()->set_crtc(NULL);
+                }
+                primary->set_encoder(NULL);
+                for (DrmEncoder *primary_enc : primary->possible_encoders()) {
+                  for (DrmCrtc *primary_crtc : primary_enc->possible_crtcs()) {
+                    if (extend && extend->encoder() && extend->encoder()->crtc()) {
+                      if (primary_crtc == extend->encoder()->crtc())
+                        continue;
+                    }
+                    crtc->set_display(primary->display());
+                    primary_enc->set_crtc(primary_crtc);
+                    primary->set_encoder(primary_enc);
+                    ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set primary with conn[%d] crtc=%d\n",
+                            __FUNCTION__, __LINE__, primary->id(), primary_crtc->id());
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if(primary && primary->encoder() && primary->encoder()->crtc())
+  {
+    DrmCrtc *crtc = primary->encoder()->crtc();
+    if(!crtc->get_afbc()){
+      property_set( PROPERTY_TYPE ".gralloc.disable_afbc", "1");
+      ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d primary conn[%d] crtc=%d support AFBC(%d), to disable AFBC\n",
+               __FUNCTION__, __LINE__, primary->id(), crtc->id(),crtc->get_afbc());
+    }
+  }
+
+  if(primary && !strcmp(connector_type_str(primary->type()), "HDMI-A"))
+  {
+    if (primary && primary->encoder() && primary->encoder()->crtc())
+    {
+      char primary_conn_name[50];
+      snprintf(primary_conn_name,50,"%s-%d",connector_type_str(primary->type()),primary->type_id());
+      property_set( PROPERTY_TYPE ".hwc.device.main", primary_conn_name);
+    }
+    else
+      property_set( PROPERTY_TYPE ".hwc.device.main", "");
+  }
+  else
+  {
+    if (primary && primary->encoder() && primary->encoder()->crtc())
+      property_set( PROPERTY_TYPE ".hwc.device.main", connector_type_str(primary->type()));
+    else
+      property_set( PROPERTY_TYPE ".hwc.device.main", "");
+  }
+
+  if(extend && !strcmp(connector_type_str(extend->type()), "HDMI-A"))
+  {
+    if (extend && extend->encoder() && extend->encoder()->crtc())
+    {
+      char extend_conn_name[50];
+      snprintf(extend_conn_name,50,"%s-%d",connector_type_str(extend->type()),extend->type_id());
+      property_set( PROPERTY_TYPE ".hwc.device.aux", extend_conn_name);
+    }
+    else
+      property_set( PROPERTY_TYPE ".hwc.device.aux", "");
+  }
+  else
+  {
+    if (extend && extend->encoder() && extend->encoder()->crtc())
+      property_set( PROPERTY_TYPE ".hwc.device.aux", connector_type_str(extend->type()));
+    else
+      property_set( PROPERTY_TYPE ".hwc.device.aux", "");
+  }
+
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  if (!pset) {
+    ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -ENOMEM;
+  }
+
+  int ret;
+  uint32_t blob_id[HWC_NUM_PHYSICAL_DISPLAY_TYPES] = {0};
+
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    DrmConnector *conn = GetConnectorFromType(i);
+
+    if (!conn)
+      continue;
+    if (conn->state() != DRM_MODE_CONNECTED ||
+        !conn->current_mode().id() || !conn->encoder() ||
+        !conn->encoder()->crtc()) {
+        DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), 0);
+      continue;
+    }
+
+    struct drm_mode_modeinfo drm_mode;
+    memset(&drm_mode, 0, sizeof(drm_mode));
+    conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+    ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
+    if (ret)
+      continue;
+
+    DrmCrtc *crtc = conn->encoder()->crtc();
+
+//    connector->SetDpmsMode(DRM_MODE_DPMS_ON);
+//    DRM_ATOMIC_ADD_PROP(conn->id(), conn->dpms_property().id(), DRM_MODE_DPMS_ON);
+    DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), crtc->id());
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[i]);
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
+  }
+  /*
+   * Disable unused connector
+   */
+  for (auto &connector : connectors_) {
+    bool in_use = false;
+    for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+      DrmConnector *conn = GetConnectorFromType(i);
+      if (!conn || conn->state() != DRM_MODE_CONNECTED ||
+          !conn->current_mode().id() || !conn->encoder() ||
+          !conn->encoder()->crtc())
+          continue;
+      if (conn->id() == connector->id()) {
+          in_use = true;
+          break;
+      }
+    }
+    if (!in_use) {
+      DrmCrtc *mirror = NULL;
+      if (connector->state() == DRM_MODE_CONNECTED) {
+        for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+          DrmConnector *conn = GetConnectorFromType(i);
+          if (!conn || conn->state() != DRM_MODE_CONNECTED ||
+              !conn->current_mode().id() || !conn->encoder() ||
+              !conn->encoder()->crtc())
+            continue;
+          if((connector->possible_displays() & conn->possible_displays()) == 0)
+            continue;
+          for (const DrmMode &conn_mode : connector->modes()) {
+            if (conn->current_mode().equal_no_flag_and_type(conn_mode)) {
+              mirror = conn->encoder()->crtc();
+              break;
+            }
+          }
+          if (mirror)
+            break;
+        }
+      }
+      if (mirror) {
+        connector->SetDpmsMode(DRM_MODE_DPMS_ON);
+        DRM_ATOMIC_ADD_PROP(connector->id(), connector->crtc_id_property().id(),
+                            mirror->id());
+      } else {
+        connector->SetDpmsMode(DRM_MODE_DPMS_OFF);
+        DRM_ATOMIC_ADD_PROP(connector->id(), connector->crtc_id_property().id(), 0);
+      }
+    }
+  }
+  for (auto &crtc : crtcs_) {
+    bool in_use = false;
+    for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+      DrmConnector *conn = GetConnectorFromType(i);
+      if (!conn || conn->state() != DRM_MODE_CONNECTED ||
+          !conn->current_mode().id() || !conn->encoder() ||
+          !conn->encoder()->crtc())
+          continue;
+      if (crtc->id() == conn->encoder()->crtc()->id()) {
+        in_use = true;
+        break;
+      }
+    }
+    if (!in_use) {
+      DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), 0);
+      DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 0);
+    }
+  }
+
+
+  uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+  ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+  if (ret < 0) {
+    ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+    drmModeAtomicFree(pset);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return ret;
+  }
+
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    if (blob_id[i])
+      DestroyPropertyBlob(blob_id[i]);
+  }
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    DrmConnector *conn = GetConnectorFromType(i);
+
+    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id())
+      continue;
+
+    if (!conn->encoder() || !conn->encoder()->crtc())
+      continue;
+    conn->set_active_mode(conn->current_mode());
+  }
+  enable_changed_ = false;
+
+  drmModeAtomicFree(pset);
+
+  hotplug_timeline++;
+
+  pthread_mutex_unlock(&diplay_route_mutex);
+
+  return 0;
+}
+
+int DrmDevice::timeline(void) {
+  return hotplug_timeline;
+}
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 static inline int64_t U642I64(uint64_t val)
@@ -953,5 +1387,133 @@ int DrmDevice::DumpConnectorProperty(const DrmConnector &connector, std::ostring
    return DumpProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, out);
 }
 
+bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {
+	struct hdr_static_metadata* blob_data;
+	drmModePropertyBlobPtr blob;
+	bool bSupport = false;
+  drmModeObjectPropertiesPtr props;
+
+  props = drmModeObjectGetProperties(fd(), conn->id(), DRM_MODE_OBJECT_CONNECTOR);
+  if (!props) {
+    ALOGE("Failed to get properties for %d/%x", conn->id(), DRM_MODE_OBJECT_CONNECTOR);
+    return false;
+  }
+
+  bool found = false;
+  int value;
+  for (int i = 0; !found && (size_t)i < props->count_props; ++i) {
+    drmModePropertyPtr p = drmModeGetProperty(fd(), props->props[i]);
+    if (p && !strcmp(p->name, "HDR_PANEL_METADATA")) {
+
+      if (!drm_property_type_is(p, DRM_MODE_PROP_BLOB))
+      {
+          ALOGE("%s:line=%d,is not blob",__FUNCTION__,__LINE__);
+          drmModeFreeProperty(p);
+          drmModeFreeObjectProperties(props);
+          return false;
+      }
+
+      if (!p->count_blobs)
+        value = props->prop_values[i];
+      else
+        value = p->blob_ids[0];
+      blob = drmModeGetPropertyBlob(fd(), value);
+      if (!blob) {
+        ALOGE("%s:line=%d, blob is null",__FUNCTION__,__LINE__);
+        drmModeFreeProperty(p);
+        drmModeFreeObjectProperties(props);
+        return false;
+      }
+
+      blob_data = (struct hdr_static_metadata*)blob->data;
+
+      bSupport = blob_data->eotf & (1 << SMPTE_ST2084);
+
+      drmModeFreePropertyBlob(blob);
+
+      found = true;
+    }
+    drmModeFreeProperty(p);
+  }
+
+  drmModeFreeObjectProperties(props);
+
+  return bSupport;
+}
+
+bool DrmDevice::is_hdr_panel_support_HLG(DrmConnector *conn) const {
+  struct hdr_static_metadata* blob_data;
+  drmModePropertyBlobPtr blob;
+  bool bSupport = false;
+  drmModeObjectPropertiesPtr props;
+
+  props = drmModeObjectGetProperties(fd(), conn->id(), DRM_MODE_OBJECT_CONNECTOR);
+  if (!props) {
+    ALOGE("Failed to get properties for %d/%x", conn->id(), DRM_MODE_OBJECT_CONNECTOR);
+    return false;
+  }
+
+  bool found = false;
+  int value;
+  for (int i = 0; !found && (size_t)i < props->count_props; ++i) {
+    drmModePropertyPtr p = drmModeGetProperty(fd(), props->props[i]);
+    if (p && !strcmp(p->name, "HDR_PANEL_METADATA")) {
+
+      if (!drm_property_type_is(p, DRM_MODE_PROP_BLOB))
+      {
+          ALOGE("%s:line=%d,is not blob",__FUNCTION__,__LINE__);
+          drmModeFreeProperty(p);
+          drmModeFreeObjectProperties(props);
+          return false;
+      }
+
+      if (!p->count_blobs)
+        value = props->prop_values[i];
+      else
+        value = p->blob_ids[0];
+      blob = drmModeGetPropertyBlob(fd(), value);
+      if (!blob) {
+        ALOGE("%s:line=%d, blob is null",__FUNCTION__,__LINE__);
+        drmModeFreeProperty(p);
+        drmModeFreeObjectProperties(props);
+        return false;
+      }
+
+      blob_data = (struct hdr_static_metadata*)blob->data;
+
+      bSupport = blob_data->eotf & (1 << HLG);
+
+      drmModeFreePropertyBlob(blob);
+
+      found = true;
+    }
+    drmModeFreeProperty(p);
+  }
+
+  drmModeFreeObjectProperties(props);
+
+  return bSupport;
+}
+
+
+bool DrmDevice::is_plane_support_hdr2sdr(DrmCrtc *crtc) const
+{
+    bool bHdr2sdr = false;
+    for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups_.begin();
+           iter != plane_groups_.end(); ++iter)
+    {
+           for(std::vector<DrmPlane*> ::const_iterator iter_plane = (*iter)->planes.begin();
+           iter_plane != (*iter)->planes.end(); ++iter_plane)
+        {
+            if((*iter_plane)->GetCrtcSupported(*crtc) && (*iter_plane)->get_hdr2sdr())
+            {
+                bHdr2sdr = true;
+                break;
+            }
+        }
+    }
+
+    return bHdr2sdr;
+}
 
 }  // namespace android

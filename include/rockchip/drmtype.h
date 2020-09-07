@@ -1,0 +1,173 @@
+/*
+ * Copyright (C) 2018 Fuzhou Rockchip Electronics Co.Ltd.
+ *
+ * Modification based on code covered by the Apache License, Version 2.0 (the "License").
+ * You may not use this software except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS TO YOU ON AN "AS IS" BASIS
+ * AND ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,
+ * IMPLIED, STATUTORY OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
+ * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.
+ *
+ * IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef _DRM_TYPE_H_
+#define _DRM_TYPE_H_
+#include <libsystem/include/system/graphics-base-v1.0.h>
+#include <drm/drm.h>
+
+#define PROPERTY_TYPE "vendor"
+
+
+/*
+ * Base_parameter is used for 3328_8.0  , by libin start.
+ */
+#define AUTO_BIT_RESET 0x00
+#define RESOLUTION_AUTO			(1<<0)
+#define COLOR_AUTO				(1<<1)
+#define HDCP1X_EN				(1<<2)
+#define RESOLUTION_WHITE_EN		(1<<3)
+#define SCREEN_LIST_MAX 5
+#define DEFAULT_BRIGHTNESS  50
+#define DEFAULT_CONTRAST  50
+#define DEFAULT_SATURATION  50
+#define DEFAULT_HUE  50
+#define DEFAULT_OVERSCAN_VALUE 100
+
+
+struct drm_display_mode {
+    /* Proposed mode values */
+    int clock;      /* in kHz */
+    int hdisplay;
+    int hsync_start;
+    int hsync_end;
+    int htotal;
+    int vdisplay;
+    int vsync_start;
+    int vsync_end;
+    int vtotal;
+    int vrefresh;
+    int vscan;
+    unsigned int flags;
+    int picture_aspect_ratio;
+};
+
+enum output_format {
+    output_rgb=0,
+    output_ycbcr444=1,
+    output_ycbcr422=2,
+    output_ycbcr420=3,
+    output_ycbcr_high_subsampling=4,  // (YCbCr444 > YCbCr422 > YCbCr420 > RGB)
+    output_ycbcr_low_subsampling=5  , // (RGB > YCbCr420 > YCbCr422 > YCbCr444)
+    invalid_output=6,
+};
+
+enum  output_depth{
+    Automatic=0,
+    depth_24bit=8,
+    depth_30bit=10,
+};
+
+struct overscan {
+    unsigned int maxvalue;
+    unsigned short leftscale;
+    unsigned short rightscale;
+    unsigned short topscale;
+    unsigned short bottomscale;
+};
+
+struct hwc_inital_info{
+    char device[128];
+    unsigned int framebuffer_width;
+    unsigned int framebuffer_height;
+    float fps;
+};
+
+struct bcsh_info {
+    unsigned short brightness;
+    unsigned short contrast;
+    unsigned short saturation;
+    unsigned short hue;
+};
+struct lut_data{
+    uint16_t size;
+    uint16_t lred[1024];
+    uint16_t lgreen[1024];
+    uint16_t lblue[1024];
+};
+struct screen_info {
+	  int type;
+    struct drm_display_mode resolution;// 52 bytes
+    enum output_format  format; // 4 bytes
+    enum output_depth depthc; // 4 bytes
+    unsigned int feature;     //4 bytes
+};
+
+
+struct disp_info {
+	struct screen_info screen_list[SCREEN_LIST_MAX];
+  struct overscan scan;//12 bytes
+	struct hwc_inital_info hwc_info; //140 bytes
+	struct bcsh_info bcsh;
+  unsigned int reserve[128];
+  struct lut_data mlutdata;/*6k+4*/
+};
+
+
+struct file_base_parameter
+{
+    struct disp_info main;
+    struct disp_info aux;
+};
+
+static char const *const device_template[] =
+{
+    "/dev/block/platform/1021c000.dwmmc/by-name/baseparameter",
+    "/dev/block/platform/30020000.dwmmc/by-name/baseparameter",
+    "/dev/block/platform/fe330000.sdhci/by-name/baseparameter",
+    "/dev/block/platform/ff520000.dwmmc/by-name/baseparameter",
+    "/dev/block/platform/ff0f0000.dwmmc/by-name/baseparameter",
+    "/dev/block/rknand_baseparameter",
+    "/dev/block/by-name/baseparameter",
+    "/dev/block/platform/30030000.nandc/by-name/baseparameter",
+    NULL
+};
+
+enum flagBaseParameter
+{
+    BP_UPDATE = 0,
+    BP_RESOLUTION,
+    BP_FB_SIZE,
+    BP_DEVICE,
+    BP_COLOR,
+    BP_BRIGHTNESS,
+    BP_CONTRAST,
+    BP_SATURATION,
+    BP_HUE,
+    BP_OVERSCAN,
+};
+
+#endif

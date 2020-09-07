@@ -80,6 +80,7 @@ class DrmDevice {
   }
 
   DrmConnector *GetConnectorForDisplay(int display) const;
+  DrmConnector *GetConnectorFromType(int display_type) const ;
   DrmConnector *GetWritebackConnectorForDisplay(int display) const;
   DrmConnector *AvailableWritebackConnector(int display) const;
   DrmCrtc *GetCrtcForDisplay(int display) const;
@@ -104,10 +105,19 @@ class DrmDevice {
   }
 
   // RK support
-  void ConfigurePossibleDisplays();
   type_name_define(encoder_type);
   type_name_define(connector_status);
   type_name_define(connector_type);
+
+  void DisplayChanged(void);
+  void SetPrimaryDisplay(DrmConnector *c);
+  void SetExtendDisplay(DrmConnector *c);
+  int UpdateDisplayRoute(void);
+  int UpdatePropertys(void);
+  void ClearDisplay(void);
+  void ClearDisplay(int display);
+  void ClearAllDisplay(void);
+  int timeline(void);
 
   int DumpPlaneProperty(const DrmPlane &plane, std::ostringstream *out);
   int DumpCrtcProperty(const DrmCrtc &crtc, std::ostringstream *out);
@@ -118,7 +128,12 @@ class DrmDevice {
                     uint32_t prop_id, uint64_t value, std::ostringstream *out);
   int DumpProperty(uint32_t obj_id, uint32_t obj_type, std::ostringstream *out);
 
+  bool is_hdr_panel_support_st2084(DrmConnector *conn) const;
+  bool is_hdr_panel_support_HLG(DrmConnector *conn) const;
+  bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
+
  private:
+  void ConfigurePossibleDisplays();
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
                   DrmProperty *property);
@@ -128,6 +143,11 @@ class DrmDevice {
 
   UniqueFd fd_;
   uint32_t mode_id_ = 0;
+  bool enable_changed_;
+  DrmConnector *primary_;
+  DrmConnector *extend_;
+  int hotplug_timeline;
+  int prop_timeline_;
 
   std::vector<std::unique_ptr<DrmConnector>> connectors_;
   std::vector<std::unique_ptr<DrmConnector>> writeback_connectors_;

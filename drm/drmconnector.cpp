@@ -268,6 +268,14 @@ void DrmConnector::set_current_mode(const DrmMode &mode) {
   current_mode_ = mode;
 }
 
+void DrmConnector::SetDpmsMode(uint32_t dpms_mode) {
+  int ret = drmModeConnectorSetProperty(drm_->fd(), id_, dpms_property_.id(), dpms_mode);
+  if (ret) {
+    ALOGE("Failed to set dpms mode %d %d", ret, dpms_mode);
+    return;
+  }
+}
+
 const DrmProperty &DrmConnector::dpms_property() const {
   return dpms_property_;
 }
