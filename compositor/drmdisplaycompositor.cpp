@@ -616,7 +616,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       out_log << " blend mode =" << blend;
     }
-    ALOGV("%s",out_log.str().c_str());
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s",out_log.str().c_str());
     out_log.clear();
   }
 

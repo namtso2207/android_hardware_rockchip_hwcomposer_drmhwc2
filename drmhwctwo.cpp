@@ -653,8 +653,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
 
   std::map<size_t, DrmHwcLayer *> to_composite;
 
-  for (size_t i = 0; i < layers_.size(); ++i)
-    to_composite.emplace(std::make_pair(i, &client_target_layer));
+//  for (size_t i = 0; i < layers_.size(); ++i)
+//    to_composite.emplace(std::make_pair(i, &drm_hwc_layers_[i]));
+  to_composite.emplace(std::make_pair(0, &client_target_layer));
+
 
   std::vector<DrmPlane *> primary_planes(primary_planes_);
   std::vector<DrmPlane *> overlay_planes(overlay_planes_);
