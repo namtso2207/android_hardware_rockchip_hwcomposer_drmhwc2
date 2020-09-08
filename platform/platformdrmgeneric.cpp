@@ -19,6 +19,8 @@
 #include "platformdrmgeneric.h"
 #include "drmdevice.h"
 #include "platform.h"
+#include "gralloc_drm_handle.h"
+#include "rockchip/drmgralloc.h"
 
 #include <drm/drm_fourcc.h>
 #include <xf86drm.h>
@@ -28,7 +30,6 @@
 #include <hardware/gralloc.h>
 #include <log/log.h>
 
-#include "gralloc_drm_handle.h"
 
 namespace android {
 
@@ -113,35 +114,49 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
 }
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
-  if (!gr_handle)
-    return -EINVAL;
+
+  int fd,width,height,byte_stride,format,usage;
+  fd = hwc_get_handle_primefd(gralloc_, handle);
+  width = hwc_get_handle_attibute(gralloc_,handle,ATT_WIDTH);
+  height = hwc_get_handle_attibute(gralloc_,handle,ATT_HEIGHT);
+  byte_stride = hwc_get_handle_attibute(gralloc_,handle,ATT_BYTE_STRIDE);
+  format = hwc_get_handle_attibute(gralloc_,handle,ATT_FORMAT);
+  usage = hwc_get_handle_usage(gralloc_,handle);
 
   uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), gr_handle->prime_fd, &gem_handle);
+  int ret = drmPrimeFDToHandle(drm_->fd(), fd, &gem_handle);
   if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", gr_handle->prime_fd, ret);
+    ALOGE("failed to import prime fd %d ret=%d", fd, ret);
     return ret;
   }
 
   memset(bo, 0, sizeof(hwc_drm_bo_t));
-  bo->width = gr_handle->width;
-  bo->height = gr_handle->height;
-  bo->hal_format = gr_handle->format;
-  bo->format = ConvertHalFormatToDrm(gr_handle->format);
-  bo->usage = gr_handle->usage;
-  bo->pixel_stride = (gr_handle->stride * 8) /
+  bo->width = width;
+  bo->height = height;
+  bo->hal_format = format;
+  bo->format = ConvertHalFormatToDrm(format);
+  bo->usage = usage;
+  bo->pixel_stride = (byte_stride) /
                      DrmFormatToBitsPerPixel(bo->format);
-  bo->pitches[0] = gr_handle->stride;
+  bo->pitches[0] = byte_stride;
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
   ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
+
+  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,format=0x%x,bo->format=0x%x,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+      drm_->fd(), bo->width, bo->height, format,bo->format,
+      gem_handle, bo->pitches[0], bo->fb_id);
+
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
+    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,format=0x%x,bo->format=0x%x,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+    drm_->fd(), bo->width, bo->height, format,bo->format,
+    gem_handle, bo->pitches[0], bo->fb_id);
     return ret;
   }
+
 
   // CopyBufferHandle need layer_cnt.
   unsigned int layer_count;

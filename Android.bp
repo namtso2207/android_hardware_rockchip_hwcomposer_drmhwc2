@@ -102,7 +102,9 @@ cc_library_static {
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
 
-        "rockchip/utils/drmdebug.cpp"
+        "rockchip/utils/drmdebug.cpp",
+        "rockchip/drmtype.cpp",
+        "rockchip/drmgralloc.cpp"
     ],
 }
 

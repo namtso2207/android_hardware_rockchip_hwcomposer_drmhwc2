@@ -38,8 +38,18 @@
 #define _DRM_TYPE_H_
 #include <libsystem/include/system/graphics-base-v1.0.h>
 #include <drm/drm.h>
+#include <inttypes.h>
 
 #define PROPERTY_TYPE "vendor"
+
+typedef enum attribute_flag {
+    ATT_WIDTH = 0,
+    ATT_HEIGHT,
+    ATT_STRIDE,
+    ATT_FORMAT,
+    ATT_SIZE,
+    ATT_BYTE_STRIDE
+}attribute_flag_t;
 
 /*
  * Base_parameter is used for 3328_8.0  , by libin start.
@@ -152,7 +162,7 @@ static char const *const device_template[] =
     "/dev/block/rknand_baseparameter",
     "/dev/block/by-name/baseparameter",
     "/dev/block/platform/30030000.nandc/by-name/baseparameter",
-    NULL
+    NULL,
 };
 
 enum flagBaseParameter
