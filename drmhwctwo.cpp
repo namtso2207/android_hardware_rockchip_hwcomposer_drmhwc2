@@ -558,11 +558,37 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDozeSupport(int32_t *support) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
-    uint32_t *num_types, int32_t * /*types*/, float * /*max_luminance*/,
-    float * /*max_average_luminance*/, float * /*min_luminance*/) {
-  supported(__func__);
+    uint32_t *num_types, int32_t *types, float * max_luminance,
+    float *max_average_luminance, float * min_luminance) {
 
-  *num_types = 0;
+  int display = static_cast<int>(handle_);
+  int HdrIndex = 0;
+
+    if (!connector_) {
+    ALOGE("%s:Failed to get connector for display %d line=%d", __FUNCTION__,display,__LINE__);
+    return HWC2::Error::None;
+  }
+  int ret = connector_->UpdateModes();
+  if (ret) {
+    ALOGE("Failed to update display modes %d", ret);
+    return HWC2::Error::None;
+  }
+  const std::vector<DrmHdr> hdr_support_list = connector_->get_hdr_support_list();
+
+  if(types == NULL){
+      *num_types = hdr_support_list.size();
+      return HWC2::Error::None;
+  }
+
+  for(const DrmHdr &hdr_mode : hdr_support_list){
+      types[HdrIndex] = hdr_mode.drmHdrType;
+      *max_luminance = hdr_mode.outMaxLuminance;
+      *max_average_luminance = hdr_mode.outMaxAverageLuminance;
+      *min_luminance = hdr_mode.outMinLuminance;
+      HdrIndex++;
+  }
+  *num_types = hdr_support_list.size();
+
   return HWC2::Error::None;
 }
 

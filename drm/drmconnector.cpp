@@ -96,7 +96,7 @@ int DrmConnector::Init() {
 
   ret = drm_->GetConnectorProperty(*this, "HDR_OUTPUT_METADATA", &hdr_metadata_property_);
   if (ret)
-    ALOGW("Could not get hdr source metadata property\n");
+    ALOGW("Could not get hdr output metadata property\n");
 
   ret = drm_->GetConnectorProperty(*this, "HDR_PANEL_METADATA", &hdr_panel_property_);
   if (ret)
@@ -116,6 +116,24 @@ int DrmConnector::Init() {
    ALOGW("Could not get hdmi_output_depth property\n");
   }
 
+  drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
+  bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
+  bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
+  drmHdr_.clear();
+  if(bSupportSt2084_){
+      drmHdr_.push_back(DrmHdr(DRM_HWC_HDR10,
+                        hdr_metadata_.max_mastering_display_luminance,
+                        (hdr_metadata_.max_mastering_display_luminance + hdr_metadata_.min_mastering_display_luminance) / 2,
+                        hdr_metadata_.min_mastering_display_luminance));
+  }
+  if(bSupportHLG_){
+      drmHdr_.push_back(DrmHdr(DRM_HWC_HLG,
+                        hdr_metadata_.max_mastering_display_luminance,
+                        (hdr_metadata_.max_mastering_display_luminance + hdr_metadata_.min_mastering_display_luminance) / 2,
+                        hdr_metadata_.min_mastering_display_luminance));
+  }
+
+  ALOGD("rk-debug connector %u init bSupportSt2084_ = %d, bSupportHLG_ = %d",id_,bSupportSt2084_,bSupportHLG_);
   return 0;
 }
 
@@ -187,6 +205,10 @@ int DrmConnector::UpdateModes() {
     ALOGE("Failed to get connector %d", id_);
     return -ENODEV;
   }
+
+  //When Plug-in/Plug-out TV panel,some Property of the connector will need be updated.
+  bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
+  bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
 
   state_ = c->connection;
 

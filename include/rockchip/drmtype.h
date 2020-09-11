@@ -40,7 +40,31 @@
 #include <drm/drm.h>
 #include <inttypes.h>
 
+#include <hardware/gralloc.h>
+
 #define PROPERTY_TYPE "vendor"
+
+typedef enum DrmHdrType{
+    DRM_HWC_DOLBY_VISION = 1,
+    DRM_HWC_HDR10 = 2,
+    DRM_HWC_HLG = 3,
+    DRM_HWC_HDR10_PLUS = 4
+}DrmHdrType_t;
+
+class DrmHdr{
+public:
+    DrmHdr(DrmHdrType_t drm_hdr_type, float out_max_luminance, float out_max_average_luminance, float out_min_luminance){
+        drmHdrType = drm_hdr_type;
+        outMaxLuminance = out_max_luminance;
+        outMaxAverageLuminance = out_max_average_luminance;
+        outMinLuminance = out_min_luminance;
+    }
+
+    DrmHdrType_t drmHdrType;
+    float outMaxLuminance;
+    float outMaxAverageLuminance;
+    float outMinLuminance;
+};
 
 typedef enum attribute_flag {
     ATT_WIDTH = 0,

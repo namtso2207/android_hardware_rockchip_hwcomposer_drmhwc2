@@ -1398,12 +1398,9 @@ int DrmDevice::DumpConnectorProperty(const DrmConnector &connector, std::ostring
    return DumpProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, out);
 }
 
-bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {
-	struct hdr_static_metadata* blob_data;
-	drmModePropertyBlobPtr blob;
-	bool bSupport = false;
+bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct hdr_static_metadata* blob_data) {
+  drmModePropertyBlobPtr blob;
   drmModeObjectPropertiesPtr props;
-
   props = drmModeObjectGetProperties(fd(), conn->id(), DRM_MODE_OBJECT_CONNECTOR);
   if (!props) {
     ALOGE("Failed to get properties for %d/%x", conn->id(), DRM_MODE_OBJECT_CONNECTOR);
@@ -1436,9 +1433,7 @@ bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {
         return false;
       }
 
-      blob_data = (struct hdr_static_metadata*)blob->data;
-
-      bSupport = blob_data->eotf & (1 << SMPTE_ST2084);
+      memcpy(blob_data,blob->data,sizeof(struct hdr_static_metadata));
 
       drmModeFreePropertyBlob(blob);
 
@@ -1449,61 +1444,15 @@ bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {
 
   drmModeFreeObjectProperties(props);
 
-  return bSupport;
+  return found;
+}
+
+bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {
+  return (conn->get_hdr_metadata_ptr()->eotf & (1 << SMPTE_ST2084)) > 0;
 }
 
 bool DrmDevice::is_hdr_panel_support_HLG(DrmConnector *conn) const {
-  struct hdr_static_metadata* blob_data;
-  drmModePropertyBlobPtr blob;
-  bool bSupport = false;
-  drmModeObjectPropertiesPtr props;
-
-  props = drmModeObjectGetProperties(fd(), conn->id(), DRM_MODE_OBJECT_CONNECTOR);
-  if (!props) {
-    ALOGE("Failed to get properties for %d/%x", conn->id(), DRM_MODE_OBJECT_CONNECTOR);
-    return false;
-  }
-
-  bool found = false;
-  int value;
-  for (int i = 0; !found && (size_t)i < props->count_props; ++i) {
-    drmModePropertyPtr p = drmModeGetProperty(fd(), props->props[i]);
-    if (p && !strcmp(p->name, "HDR_PANEL_METADATA")) {
-
-      if (!drm_property_type_is(p, DRM_MODE_PROP_BLOB))
-      {
-          ALOGE("%s:line=%d,is not blob",__FUNCTION__,__LINE__);
-          drmModeFreeProperty(p);
-          drmModeFreeObjectProperties(props);
-          return false;
-      }
-
-      if (!p->count_blobs)
-        value = props->prop_values[i];
-      else
-        value = p->blob_ids[0];
-      blob = drmModeGetPropertyBlob(fd(), value);
-      if (!blob) {
-        ALOGE("%s:line=%d, blob is null",__FUNCTION__,__LINE__);
-        drmModeFreeProperty(p);
-        drmModeFreeObjectProperties(props);
-        return false;
-      }
-
-      blob_data = (struct hdr_static_metadata*)blob->data;
-
-      bSupport = blob_data->eotf & (1 << HLG);
-
-      drmModeFreePropertyBlob(blob);
-
-      found = true;
-    }
-    drmModeFreeProperty(p);
-  }
-
-  drmModeFreeObjectProperties(props);
-
-  return bSupport;
+  return (conn->get_hdr_metadata_ptr()->eotf & (1 << HLG)) > 0;
 }
 
 

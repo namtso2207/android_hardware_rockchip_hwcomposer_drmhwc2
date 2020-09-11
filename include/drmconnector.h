@@ -20,6 +20,7 @@
 #include "drmencoder.h"
 #include "drmmode.h"
 #include "drmproperty.h"
+#include "rockchip/drmtype.h"
 
 #include <stdint.h>
 #include <xf86drmMode.h>
@@ -108,6 +109,9 @@ class DrmConnector {
   const DrmProperty &hdmi_output_format_property() const;
   const DrmProperty &hdmi_output_depth_property() const;
 
+  const std::vector<DrmHdr> &get_hdr_support_list() const { return drmHdr_; }
+  struct hdr_static_metadata* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
+
  private:
   DrmDevice *drm_;
 
@@ -129,6 +133,7 @@ class DrmConnector {
   DrmMode best_mode_;
   std::vector<DrmMode> modes_;
   std::vector<DrmMode> raw_modes_;
+  std::vector<DrmHdr> drmHdr_;
 
   DrmProperty dpms_property_;
   DrmProperty crtc_id_property_;
@@ -154,6 +159,7 @@ class DrmConnector {
 
   bool bSupportSt2084_;
   bool bSupportHLG_;
+  struct hdr_static_metadata hdr_metadata_;
 };
 }  // namespace android
 

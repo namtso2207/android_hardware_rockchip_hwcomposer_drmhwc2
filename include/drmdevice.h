@@ -127,7 +127,7 @@ class DrmDevice {
   void DumpProp(drmModePropertyPtr prop,
                     uint32_t prop_id, uint64_t value, std::ostringstream *out);
   int DumpProperty(uint32_t obj_id, uint32_t obj_type, std::ostringstream *out);
-
+  bool GetHdrPanelMetadata(DrmConnector *conn, struct hdr_static_metadata* blob_data);
   bool is_hdr_panel_support_st2084(DrmConnector *conn) const;
   bool is_hdr_panel_support_HLG(DrmConnector *conn) const;
   bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
