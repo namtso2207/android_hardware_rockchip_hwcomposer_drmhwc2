@@ -195,7 +195,7 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    int DumpDisplayInfo(hwc2_display_t display_id, String8 &output);
-   bool Present_finish(void) { return present_finish;};
+   bool PresentFinish(void) { return present_finish;};
 
    private:
     HWC2::Error ValidatePlanes();
