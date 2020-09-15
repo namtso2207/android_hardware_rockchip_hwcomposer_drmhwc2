@@ -54,19 +54,19 @@ enum LOG_LEVEL
 {
     //Log level flag
     /*1*/
-    DBG_VERBOSE = 1 << 0,
+    DBG_FETAL = 1 << 0,
     /*2*/
-    DBG_DEBUG = 1 << 1,
+    DBG_ERROR = 1 << 1,
     /*4*/
-    DBG_INFO = 1 << 2,
+    DBG_WARN  = 1 << 2,
     /*8*/
-    DBG_WARN = 1 << 3,
+    DBG_INFO  = 1 << 3,
     /*16*/
-    DBG_ERROR = 1 << 4,
+    DBG_DEBUG = 1 << 4,
     /*32*/
-    DBG_FETAL = 1 << 5,
-    /*64*/
-    DBG_SILENT = 1 << 6,
+    DBG_VERBOSE = 1 << 5,
+    /*Mask*/
+    DBG_MARSK = 0xFF,
 };
 
 /* print time macros. */

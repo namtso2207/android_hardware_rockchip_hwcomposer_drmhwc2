@@ -1033,6 +1033,7 @@ int DrmDevice::UpdateDisplayRoute(void)
     DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[i]);
     DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
   }
+
   /*
    * Disable unused connector
    */

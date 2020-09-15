@@ -38,6 +38,7 @@ class DrmHwcTwo : public hwc2_device_t {
  private:
   class HwcLayer {
    public:
+    HwcLayer(uint32_t layer_id){ id_ = layer_id; }
     HWC2::Composition sf_type() const {
       return sf_type_;
     }
@@ -86,6 +87,8 @@ class DrmHwcTwo : public hwc2_device_t {
       return OutputFd(&release_fence_raw_);
     }
 
+    uint32_t id(){ return id_; }
+
     void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, bool client_layer = false);
     void DumpLayerInfo(hwc2_layer_t layer_id, String8 &output);
     // Layer hooks
@@ -123,6 +126,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Transform transform_ = HWC2::Transform::None;
     uint32_t z_order_ = 0;
     android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
+    uint32_t id_;
   };
 
   struct HwcCallback {

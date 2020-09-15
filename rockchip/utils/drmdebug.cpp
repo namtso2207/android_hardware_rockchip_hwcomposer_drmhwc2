@@ -41,7 +41,7 @@
 #include "rockchip/utils/drmdebug.h"
 
 /*hwc version*/
-#define GHWC_VERSION                    "0.1"
+#define GHWC_VERSION                    "HWC2-1.0"
 
 namespace android {
 
@@ -69,16 +69,20 @@ int UpdateLogLevel()
   char value[PROPERTY_VALUE_MAX];
   property_get("vendor.hwc.log", value, "0");
   if(!strcmp(value,"info"))
-    g_log_level = 0x1;
+    g_log_level = DBG_INFO;
   else if(!strcmp(value,"debug"))
-    g_log_level = 0x2;
+    g_log_level = DBG_INFO | DBG_DEBUG;
+  else if(!strcmp(value,"verbose"))
+    g_log_level = DBG_INFO | DBG_DEBUG | DBG_VERBOSE;
   else if(!strcmp(value,"all"))
-    g_log_level = 0xff;
+    g_log_level = DBG_MARSK;
   else
     g_log_level = atoi(value);
   return 0;
 }
-bool LogLevel(LOG_LEVEL log_level){ return (g_log_level & log_level) > 0;}
+bool LogLevel(LOG_LEVEL log_level){
+  return (g_log_level & log_level) > 0;
+}
 
 void IncFrameCnt() { g_frame++; }
 int GetFrameCnt(){ return g_frame;}
