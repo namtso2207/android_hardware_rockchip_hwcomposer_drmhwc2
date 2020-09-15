@@ -250,6 +250,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::NoResources;
   }
 
+  UpdateDisplayMode();
+  drm_->DisplayChanged();
+  drm_->UpdateDisplayRoute();
+
   DrmCrtc *crtc = drm_->GetCrtcForDisplay(static_cast<int>(display));
   if (!crtc) {
     ALOGE("Failed to get crtc for display %d", static_cast<int>(display));
@@ -349,6 +353,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
   DrmMode const &mode = connector_->active_mode();
   if (mode.id() == 0)
     return HWC2::Error::BadConfig;
+
+  ctx_.framebuffer_width = mode.h_display();
+  ctx_.framebuffer_height = mode.v_display();
 
   *config = mode.id();
   return HWC2::Error::None;
@@ -697,13 +704,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   // now that they're ordered by z, add them to the composition
   for (auto &l : layers_) {
     DrmHwcLayer layer;
-    l.second.PopulateDrmLayer(l.first, &layer);
+    l.second.PopulateDrmLayer(l.first, &layer, &ctx_, false);
     drm_hwc_layers_.emplace_back(std::move(layer));
   }
 
   uint32_t client_id = UINT32_MAX;
   DrmHwcLayer client_target_layer;
-  client_layer_.PopulateDrmLayer(client_id, &client_target_layer,true);
+  client_layer_.PopulateDrmLayer(client_id, &client_target_layer, &ctx_, true);
   drm_hwc_layers_.emplace_back(std::move(client_target_layer));
 
   // First to try GLES all layer
@@ -766,7 +773,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     for (auto &drm_hwc_layer : drm_hwc_layers_) {
       if(drm_hwc_layer.fb_target){
         uint32_t client_id = UINT32_MAX;
-        client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, true);
+        client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, &ctx_, true);
       }
     }
   }
@@ -873,15 +880,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
     return HWC2::Error::BadConfig;
   }
 
-  std::unique_ptr<DrmDisplayComposition> composition = compositor_
-                                                           .CreateComposition();
-  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
-  int ret = composition->SetDisplayMode(*mode);
-  ret = compositor_.QueueComposition(std::move(composition));
-  if (ret) {
-    ALOGE("Failed to queue dpms composition on %d", ret);
-    return HWC2::Error::BadConfig;
-  }
+//  std::unique_ptr<DrmDisplayComposition> composition = compositor_
+//                                                           .CreateComposition();
+//  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
+//  int ret = composition->SetDisplayMode(*mode);
+//  ret = compositor_.QueueComposition(std::move(composition));
+//  if (ret) {
+//    ALOGE("Failed to queue dpms composition on %d", ret);
+//    return HWC2::Error::BadConfig;
+//  }
 
   connector_->set_active_mode(*mode);
 
@@ -978,6 +985,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   // Enable/disable debug log
   UpdateLogLevel();
+  UpdateDisplayMode();
+  drm_->UpdateDisplayRoute();
 
   *num_types = 0;
   *num_requests = 0;
@@ -1041,6 +1050,119 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(hwc2_display_t display_id, String8 &o
   }
   return 0;
 }
+
+int DrmHwcTwo::HwcDisplay::GetBestDisplayMode(){
+  char resolution[PROPERTY_VALUE_MAX];
+  uint32_t width, height, flags;
+  uint32_t hsync_start, hsync_end, htotal;
+  uint32_t vsync_start, vsync_end, vtotal;
+  bool interlaced;
+  float vrefresh;
+  char val;
+  uint32_t MaxResolution = 0,temp;
+
+  int display = static_cast<int>(handle_);
+
+  if(display == HWC_DISPLAY_PRIMARY)
+    property_get("persist.vendor.resolution.main", resolution, "Auto");
+  else
+    property_get("persist.vendor.resolution.aux", resolution, "Auto");
+
+  if(strcmp(resolution,"Auto") != 0){
+    int len = sscanf(resolution, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x",
+                     &width, &height, &vrefresh, &hsync_start,
+                     &hsync_end, &htotal, &vsync_start,&vsync_end,
+                     &vtotal, &flags);
+    if (len == 10 && width != 0 && height != 0) {
+      for (const DrmMode &conn_mode : connector_->modes()) {
+        if (conn_mode.equal(width, height, vrefresh, hsync_start, hsync_end,
+                            htotal, vsync_start, vsync_end, vtotal, flags)) {
+          connector_->set_best_mode(conn_mode);
+          return 0;
+        }
+      }
+    }
+
+    uint32_t ivrefresh;
+    len = sscanf(resolution, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
+
+    if (val == 'i')
+      interlaced = true;
+    else
+      interlaced = false;
+    if (len == 4 && width != 0 && height != 0) {
+      for (const DrmMode &conn_mode : connector_->modes()) {
+        if (conn_mode.equal(width, height, ivrefresh, interlaced)) {
+          connector_->set_best_mode(conn_mode);
+          return 0;
+        }
+      }
+    }
+  }
+
+  for (const DrmMode &conn_mode : connector_->modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      connector_->set_best_mode(conn_mode);
+      return 0;
+    }
+    else {
+      temp = conn_mode.h_display()*conn_mode.v_display();
+      if(MaxResolution <= temp)
+        MaxResolution = temp;
+    }
+  }
+  for (const DrmMode &conn_mode : connector_->modes()) {
+    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
+      connector_->set_best_mode(conn_mode);
+      return 0;
+    }
+  }
+
+  //use raw modes to get mode.
+  for (const DrmMode &conn_mode : connector_->raw_modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      connector_->set_best_mode(conn_mode);
+      return 0;
+    }
+    else {
+      temp = conn_mode.h_display()*conn_mode.v_display();
+      if(MaxResolution <= temp)
+        MaxResolution = temp;
+    }
+  }
+  for (const DrmMode &conn_mode : connector_->raw_modes()) {
+    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
+      connector_->set_best_mode(conn_mode);
+      return 0;
+    }
+  }
+
+  ALOGE("Error: Should not get here display=%d %s %d\n", display, __FUNCTION__, __LINE__);
+  DrmMode mode;
+  connector_->set_best_mode(mode);
+
+  return -ENOENT;
+}
+
+int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
+  int timeline;
+
+  timeline = property_get_int32("vendor.display.timeline", -1);
+  if(timeline && timeline == ctx_.display_timeline && ctx_.hotplug_timeline == drm_->timeline())
+    return 0;
+  ctx_.display_timeline = timeline;
+  ctx_.hotplug_timeline = drm_->timeline();
+
+  int ret = GetBestDisplayMode();
+  if(!ret){
+    const DrmMode best_mode = connector_->best_mode();
+    connector_->set_current_mode(best_mode);
+    ctx_.rel_xres = best_mode.h_display();
+    ctx_.rel_yres = best_mode.v_display();
+  }
+  return 0;
+}
+
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
@@ -1133,7 +1255,7 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
   return HWC2::Error::None;
 }
 
-void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *layer, bool client_layer) {
+void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *layer, hwc_drm_display_t* ctx, bool client_layer) {
   layer->id = layer_id;
   layer->fb_target = client_layer;
 
@@ -1154,11 +1276,20 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *l
   }
 
   OutputFd release_fence = release_fence_output();
-
   layer->sf_handle = buffer_;
   layer->acquire_fence = acquire_fence_.Release();
   layer->release_fence = std::move(release_fence);
-  layer->SetDisplayFrame(display_frame_);
+
+  float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
+  float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+
+  hwc_rect_t display_frame;
+  display_frame.left = (int)(display_frame_.left * w_scale);
+  display_frame.right = (int)(display_frame_.right * w_scale);
+  display_frame.top = (int)(display_frame_.top * h_scale);
+  display_frame.bottom = (int)(display_frame_.bottom * h_scale);
+
+  layer->SetDisplayFrame(display_frame);
   layer->alpha = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   layer->SetSourceCrop(source_crop_);
   layer->SetTransform(static_cast<int32_t>(transform_));

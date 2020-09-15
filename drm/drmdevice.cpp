@@ -454,12 +454,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     ALOGE("Can't initialize event listener %d", ret);
     return std::make_tuple(ret, 0);
   }
-  DisplayChanged();
-  ret = UpdateDisplayRoute();
-  if (ret) {
-    ALOGE("Can't UpdateDisplayRoute  %d", ret);
-    return std::make_tuple(ret, 0);
-  }
 
   return std::make_tuple(ret, displays_.size());
 }
@@ -995,7 +989,7 @@ int DrmDevice::UpdateDisplayRoute(void)
     else
       property_set( PROPERTY_TYPE ".hwc.device.aux", "");
   }
-#if 0
+
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
@@ -1100,7 +1094,6 @@ int DrmDevice::UpdateDisplayRoute(void)
     }
   }
 
-
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
   if (ret < 0) {
@@ -1127,7 +1120,7 @@ int DrmDevice::UpdateDisplayRoute(void)
   enable_changed_ = false;
 
   drmModeAtomicFree(pset);
-#endif
+
   hotplug_timeline++;
 
   pthread_mutex_unlock(&diplay_route_mutex);

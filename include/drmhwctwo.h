@@ -89,7 +89,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
     uint32_t id(){ return id_; }
 
-    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, bool client_layer = false);
+    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc_drm_display_t* ctx, bool client_layer = false);
     void DumpLayerInfo(hwc2_layer_t layer_id, String8 &output);
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
@@ -195,7 +195,9 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    int DumpDisplayInfo(hwc2_display_t display_id, String8 &output);
-   bool PresentFinish(void) { return present_finish;};
+   bool PresentFinish(void) { return present_finish_; };
+   int UpdateDisplayMode();
+   int GetBestDisplayMode();
 
    private:
     HWC2::Error ValidatePlanes();
@@ -228,7 +230,8 @@ class DrmHwcTwo : public hwc2_device_t {
     UniqueFd next_retire_fence_;
     int32_t color_mode_;
     bool init_success_;
-    bool present_finish;
+    bool present_finish_;
+    hwc_drm_display_t ctx_;
 
     uint32_t frame_no_ = 0;
   };

@@ -401,37 +401,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       return ret;
     }
   }
-//  if (crtc->out_fence_ptr_property().id() != 0) {
-//    ret = drmModeAtomicAddProperty(pset, crtc->id(),
-//                                   crtc->out_fence_ptr_property().id(),
-//                                   (uint64_t)&out_fences[crtc->pipe()]);
-//    if (ret < 0) {
-//      ALOGE("Failed to add OUT_FENCE_PTR property to pset: %d", ret);
-//      drmModeAtomicFree(pset);
-//      return ret;
-//    }
-//  }
-
-  if (mode_.needs_modeset) {
-    ret = drmModeAtomicAddProperty(pset, crtc->id(),
-                                   crtc->active_property().id(), 1);
-    if (ret < 0) {
-      ALOGE("Failed to add crtc active to pset\n");
-      drmModeAtomicFree(pset);
-      return ret;
-    }
-
-    ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->mode_property().id(),
-                                   mode_.blob_id) < 0 ||
-          drmModeAtomicAddProperty(pset, connector->id(),
-                                   connector->crtc_id_property().id(),
-                                   crtc->id()) < 0;
-    if (ret) {
-      ALOGE("Failed to add blob %d to pset", mode_.blob_id);
-      drmModeAtomicFree(pset);
-      return ret;
-    }
-  }
 
   uint64_t zpos = 0;
 
@@ -616,7 +585,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       out_log << " blend mode =" << blend;
     }
-    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s",out_log.str().c_str());
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s",out_log.str().c_str());
     out_log.clear();
   }
 
@@ -635,31 +604,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   }
   if (pset)
     drmModeAtomicFree(pset);
-
-  if (!test_only && mode_.needs_modeset) {
-    ret = drm->DestroyPropertyBlob(mode_.old_blob_id);
-    if (ret) {
-      ALOGE("Failed to destroy old mode property blob %" PRIu32 "/%d",
-            mode_.old_blob_id, ret);
-      return ret;
-    }
-
-    /* TODO: Add dpms to the pset when the kernel supports it */
-    ret = ApplyDpms(display_comp);
-    if (ret) {
-      ALOGE("Failed to apply DPMS after modeset %d\n", ret);
-      return ret;
-    }
-
-    connector->set_active_mode(mode_.mode);
-    mode_.old_blob_id = mode_.blob_id;
-    mode_.blob_id = 0;
-    mode_.needs_modeset = false;
-  }
-
-//  if (crtc->out_fence_ptr_property().id()) {
-//    display_comp->set_out_fence((int)out_fences[crtc->pipe()]);
-//  }
 
   return ret;
 }
@@ -785,22 +729,10 @@ int DrmDisplayCompositor::Composite() {
       frame_worker_.QueueFrame(std::move(composition), ret);
       break;
     case DRM_COMPOSITION_TYPE_DPMS:
-      active_ = (composition->dpms_mode() == DRM_MODE_DPMS_ON);
-      ret = ApplyDpms(composition.get());
-      if (ret)
-        ALOGE("Failed to apply dpms for display %d", display_);
-      return ret;
+      if(composition.get()->dpms_mode() == DRM_MODE_DPMS_OFF)
+          ClearDisplay();
+      return 0;
     case DRM_COMPOSITION_TYPE_MODESET:
-      mode_.mode = composition->display_mode();
-      if (mode_.blob_id)
-        resource_manager_->GetDrmDevice(display_)->DestroyPropertyBlob(
-            mode_.blob_id);
-      std::tie(ret, mode_.blob_id) = CreateModeBlob(mode_.mode);
-      if (ret) {
-        ALOGE("Failed to create mode blob for display %d", display_);
-        return ret;
-      }
-      mode_.needs_modeset = true;
       return 0;
     default:
       ALOGE("Unknown composition type %d", composition->type());

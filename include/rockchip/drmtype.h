@@ -203,4 +203,14 @@ enum flagBaseParameter
     BP_OVERSCAN,
 };
 
+typedef struct hwc_drm_display {
+  int framebuffer_width;
+  int framebuffer_height;
+  int rel_xres;
+  int rel_yres;
+  float w_scale;
+  float h_scale;
+  int display_timeline;
+  int hotplug_timeline;
+} hwc_drm_display_t;
 #endif
