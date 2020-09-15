@@ -1187,11 +1187,17 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
 }
 
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
-  for (auto &conn : drmDevice->connectors()) {
-    if (conn->state() != DRM_MODE_CONNECTED)
-      continue;
-    HandleDisplayHotplug(conn->display(), conn->state());
-  }
+    for (auto &conn : drmDevice->connectors()) {
+      if (conn->state() != DRM_MODE_CONNECTED)
+        continue;
+      for (auto &crtc : drmDevice->crtc()) {
+        if(conn->display() != crtc->display())
+          continue;
+        ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
+          conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
+        HandleDisplayHotplug(conn->display(), conn->state());
+      }
+    }
 }
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {

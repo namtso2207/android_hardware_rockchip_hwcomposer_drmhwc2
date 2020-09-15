@@ -58,7 +58,9 @@ class DrmDevice {
   const std::vector<std::unique_ptr<DrmConnector>> &connectors() const {
     return connectors_;
   }
-
+  const std::vector<std::unique_ptr<DrmCrtc>> &crtc() const{
+    return crtcs_;
+  }
   const std::vector<std::unique_ptr<DrmPlane>> &planes() const {
     return planes_;
   }
