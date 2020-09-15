@@ -218,6 +218,7 @@ class DrmHwcTwo : public hwc2_device_t {
     VSyncWorker vsync_worker_;
     DrmConnector *connector_ = NULL;
     DrmCrtc *crtc_ = NULL;
+    std::vector<DrmMode> sf_modes_;
     hwc2_display_t handle_;
     HWC2::DisplayType type_;
     uint32_t layer_idx_ = 0;

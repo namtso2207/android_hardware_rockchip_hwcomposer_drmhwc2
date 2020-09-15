@@ -147,6 +147,7 @@ void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
 
   output.appendFormat("-- HWC2 Version 2.0 by Bing --\n");
   for(auto &map_disp: displays_){
+    output.append("\n");
     if((map_disp.second.DumpDisplayInfo(map_disp.first,output)) < 0)
       continue;
     output.append(
@@ -158,6 +159,7 @@ void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
         layer.DumpLayerInfo(map_layer.first, output);
     }
     output.append("------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+
   }
   mDumpString = output.string();
   *size = static_cast<uint32_t>(mDumpString.size());
@@ -529,12 +531,17 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     return HWC2::Error::None;
   }
 
+
+
   uint32_t idx = 0;
   for (const DrmMode &mode : sel_modes) {
     if (idx >= *num_configs)
       break;
     configs[idx++] = mode.id();
   }
+
+  sf_modes_.swap(sel_modes);
+
   *num_configs = idx;
   return HWC2::Error::None;
 }
@@ -1003,23 +1010,32 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
 
 int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(hwc2_display_t display_id, String8 &output){
 
-  output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, type = %s-%u, Connector state = %s\n",display_id,
+  output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, Type = %s-%u, Connector state = %s\n",display_id,
                         connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
                         connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED");
 
   if(connector_->raw_state() != DRM_MODE_CONNECTED)
     return -1;
 
-  DrmMode const &mode = connector_->active_mode();
-  if (mode.id() == 0){
+  DrmMode const &active_mode = connector_->active_mode();
+  if (active_mode.id() == 0){
     return -1;
   }
 
-  output.appendFormat("  numHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
+  output.appendFormat("  NumHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
                         get_layers().size(),
-                        mode.id(), mode.name().c_str(),'p' ,mode.v_refresh(),
+                        active_mode.id(), active_mode.name().c_str(),'p' ,active_mode.v_refresh(),
                         color_mode_);
-
+  uint32_t idx = 0;
+  if(sf_modes_.size() > 0){
+    for (const DrmMode &mode : sf_modes_) {
+      if(active_mode.id() == mode.id())
+        output.appendFormat("    Config[%2u] = %s%c%.2f (active)\n",idx, mode.name().c_str(), 'p' , mode.v_refresh());
+      else
+        output.appendFormat("    Config[%2u] = %s%c%.2f\n",idx, mode.name().c_str(), 'p' , mode.v_refresh());
+      idx++;
+    }
+  }
   return 0;
 }
 
