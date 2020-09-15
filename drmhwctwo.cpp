@@ -974,8 +974,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   ATRACE_CALL();
+  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  // Enable/disable debug log
+  UpdateLogLevel();
+
   *num_types = 0;
   *num_requests = 0;
 
