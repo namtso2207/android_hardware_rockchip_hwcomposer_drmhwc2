@@ -1069,6 +1069,11 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
       layer.DumpLayerInfo(output);
   }
   output.append("------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  output.append("DrmHwcLayer Dump:\n");
+
+  for(auto &drmHwcLayer : drm_hwc_layers_)
+      drmHwcLayer.DumpInfo(output);
+
   return 0;
 }
 

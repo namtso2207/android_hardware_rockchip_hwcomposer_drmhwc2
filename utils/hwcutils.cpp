@@ -269,7 +269,7 @@ int DrmHwcLayer::DumpInfo(String8 &out){
                    source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                    display_frame.left,display_frame.top,display_frame.right,display_frame.bottom);
     else
-      out.appendFormat( "DrmHwcLayer[%4.4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
                         "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d]\n",
                        iZpos_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
                        alpha,BlendingToString(blending).c_str(),
