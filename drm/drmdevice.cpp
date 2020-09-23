@@ -223,6 +223,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       ALOGE("Init connector %d failed", res->connectors[i]);
       break;
     }
+    conn->UpdateModes();
 
     if (conn->writeback())
       writeback_connectors_.emplace_back(std::move(conn));

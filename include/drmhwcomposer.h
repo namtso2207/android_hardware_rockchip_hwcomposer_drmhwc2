@@ -21,11 +21,14 @@
 #include <stdint.h>
 
 #include <vector>
+#include <utils/String8.h>
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+
 #include "autofd.h"
 #include "drmhwcgralloc.h"
+
 
 struct hwc_import_context;
 
@@ -144,13 +147,39 @@ struct DrmHwcLayer {
   UniqueFd acquire_fence;
   OutputFd release_fence;
 
-  uint32_t id;
-  bool fb_target;
+  // Frame info
+  uint32_t uId_;
+  uint32_t uFrameNo_;
+  int  iZpos_;
+  bool bFbTarget_;;
+  bool bYuv_;
+  bool bScale_;
+  bool bSkipLayer_;
+  float fHScaleMul_;
+  float fVScaleMul_;
+
+  // Buffer info
+  int iFd_;
+  int iFormat_;
+  int iWidth_;
+  int iHeight_;
+  int iStride_;
+  int iBpp_;
+
+  bool bMatch_;
+  bool bUse_;
+  bool bMix_;
+
+  int iGroupId_;
+  int iShareId_;
+  int iSkipLine_;
+  uint32_t uColorSpace;
+  uint16_t uEOTF;
 
 
   int ImportBuffer(Importer *importer);
+  int Init();
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
-
   void SetTransform(int32_t sf_transform);
   void SetSourceCrop(hwc_frect_t const &crop);
   void SetDisplayFrame(hwc_rect_t const &frame);
@@ -163,6 +192,13 @@ struct DrmHwcLayer {
     return (gralloc_buffer_usage & GRALLOC_USAGE_PROTECTED) ==
            GRALLOC_USAGE_PROTECTED;
   }
+  bool IsYuvFormat(int format);
+  bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
+  int GetSkipLine();
+  std::string TransformToString(uint32_t transform) const;
+  std::string BlendingToString(DrmHwcBlending blending) const;
+  int DumpInfo(String8 &out);
+
 };
 
 struct DrmHwcDisplayContents {

@@ -38,7 +38,10 @@ class DrmHwcTwo : public hwc2_device_t {
  private:
   class HwcLayer {
    public:
-    HwcLayer(uint32_t layer_id){ id_ = layer_id; }
+    HwcLayer(uint32_t layer_id, const gralloc_module_t *gralloc){
+      id_ = layer_id;
+      gralloc_ = gralloc;
+    }
     HWC2::Composition sf_type() const {
       return sf_type_;
     }
@@ -89,8 +92,9 @@ class DrmHwcTwo : public hwc2_device_t {
 
     uint32_t id(){ return id_; }
 
-    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc_drm_display_t* ctx, bool client_layer = false);
-    void DumpLayerInfo(hwc2_layer_t layer_id, String8 &output);
+    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc_drm_display_t* ctx,
+                                 uint32_t frame_no, bool client_layer = false);
+    void DumpLayerInfo(String8 &output);
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -127,6 +131,7 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t z_order_ = 0;
     android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
     uint32_t id_;
+    const gralloc_module_t *gralloc_;
   };
 
   struct HwcCallback {
@@ -194,7 +199,8 @@ class DrmHwcTwo : public hwc2_device_t {
       return layers_.at(layer);
     }
 
-   int DumpDisplayInfo(hwc2_display_t display_id, String8 &output);
+   int DumpDisplayInfo(String8 &output);
+   int DumpDisplayLayersInfo(String8 &output);
    bool PresentFinish(void) { return present_finish_; };
    int UpdateDisplayMode();
    int GetBestDisplayMode();

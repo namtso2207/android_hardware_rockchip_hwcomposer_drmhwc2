@@ -22,6 +22,17 @@
 
 #include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
+#include <cutils/properties.h>
+
+
+#define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
+#define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
+#define IS_ALIGN(val,align)    (((val)&(align-1))==0)
+#ifndef ALIGN
+#define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
+#endif
+#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+
 
 namespace android {
 
@@ -121,6 +132,12 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 
   return 0;
 }
+int DrmHwcLayer::Init() {
+  bYuv_ = IsYuvFormat(iFormat_);
+  bScale_  = IsScale(source_crop, display_frame, transform);
+  iSkipLine_  = GetSkipLine();
+  return 0;
+}
 
 int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
                                      Importer *importer) {
@@ -133,7 +150,6 @@ int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
   transform = src_layer->transform;
   return ImportBuffer(importer);
 }
-
 void DrmHwcLayer::SetSourceCrop(hwc_frect_t const &crop) {
   source_crop = crop;
 }
@@ -161,4 +177,105 @@ void DrmHwcLayer::SetTransform(int32_t sf_transform) {
       transform |= DrmHwcTransform::kRotate90;
   }
 }
+bool DrmHwcLayer::IsYuvFormat(int format){
+  switch(format){
+    case HAL_PIXEL_FORMAT_YCrCb_NV12:
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_VIDEO:
+      return true;
+    default:
+      return false;
+  }
+}
+bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform){
+  int src_w, src_h, dst_w, dst_h;
+  src_w = (int)(source_crop.right - source_crop.left);
+  src_h = (int)(source_crop.bottom - source_crop.top);
+  dst_w = (int)(display_frame.right - display_frame.left);
+  dst_h = (int)(display_frame.bottom - display_frame.top);
+
+  if((transform == DrmHwcTransform::kRotate90) || (transform == DrmHwcTransform::kRotate270)){
+    if(bYuv_){
+        //rga need this alignment.
+        src_h = ALIGN_DOWN(src_h, 8);
+        src_w = ALIGN_DOWN(src_w, 2);
+    }
+    fHScaleMul_ = (float) (src_h)/(dst_w);
+    fVScaleMul_ = (float) (src_w)/(dst_h);
+  } else {
+    fHScaleMul_ = (float) (src_w)/(dst_w);
+    fVScaleMul_ = (float) (src_h)/(dst_h);
+  }
+  return (fHScaleMul_ != 1.0 ) || ( fVScaleMul_ != 1.0);
+}
+
+int DrmHwcLayer::GetSkipLine(){
+    int skip_line = 0;
+    if(bYuv_){
+      if(iWidth_ >= 3840){
+        if(fHScaleMul_ > 1.0 || fVScaleMul_ > 1.0){
+            skip_line = 2;
+        }
+        if(iFormat_ == HAL_PIXEL_FORMAT_YCrCb_NV12_10 && fHScaleMul_ >= (3840 / 1600)){
+            skip_line = 3;
+        }
+      }
+      int video_skipline = property_get_int32("vendor.video.skipline", 0);
+      if (video_skipline == 2){
+        skip_line = 2;
+      }else if(video_skipline == 3){
+        skip_line = 3;
+      }
+    }
+    return (skip_line >= 0 ? skip_line : 0);
+}
+std::string DrmHwcLayer::TransformToString(uint32_t transform) const{
+  switch (transform) {
+    case DrmHwcTransform::kIdentity:
+      return "IDENTITY";
+    case DrmHwcTransform::kFlipH:
+      return "FLIPH";
+    case DrmHwcTransform::kFlipV:
+      return "FLIPV";
+    case DrmHwcTransform::kRotate90:
+      return "ROTATE90";
+    case DrmHwcTransform::kRotate180:
+      return "ROTATE180";
+    case DrmHwcTransform::kRotate270:
+      return "ROTATE270";
+    default:
+      return "<invalid>";
+  }
+}
+std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{
+  switch (blending) {
+    case DrmHwcBlending::kNone:
+      return "NONE";
+    case DrmHwcBlending::kPreMult:
+      return "PREMULT";
+    case DrmHwcBlending::kCoverage:
+      return "COVERAGE";
+    default:
+      return "<invalid>";
+  }
+}
+
+int DrmHwcLayer::DumpInfo(String8 &out){
+    if(bFbTarget_)
+      out.appendFormat( "DrmHwcLayer[%s] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
+                    "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d]\n",
+                   "  FB",iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
+                   alpha,BlendingToString(blending).c_str(),
+                   source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+                   display_frame.left,display_frame.top,display_frame.right,display_frame.bottom);
+    else
+      out.appendFormat( "DrmHwcLayer[%4.4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
+                        "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d]\n",
+                       iZpos_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
+                       alpha,BlendingToString(blending).c_str(),
+                       source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+                       display_frame.left,display_frame.top,display_frame.right,display_frame.bottom);
+    return 0;
+}
+
 }  // namespace android
