@@ -207,6 +207,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
    private:
     HWC2::Error ValidatePlanes();
+    HWC2::Error InitDrmHwcLayer();
     HWC2::Error CreateComposition();
     void AddFenceToRetireFence(int fd);
 

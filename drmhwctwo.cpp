@@ -46,7 +46,13 @@
     ALOGD_IF(LogLevel(log_level),"%s, Layer-id=%" PRIu32 ",line=%d",__FUNCTION__,\
                         layer_id, __LINE__)
 
-
+#define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
+    if(LogLevel(log_level)){ \
+      String8 output; \
+      for(auto &drmHwcLayer : drmHwcLayers) \
+        drmHwcLayer.DumpInfo(output); \
+      ALOGD_IF(LogLevel(log_level),"%s",output.string()); \
+    }
 
 namespace android {
 
@@ -690,19 +696,16 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
 bool SortByZpos(const DrmHwcLayer &drmHwcLayer1, const DrmHwcLayer &drmHwcLayer2){
     return drmHwcLayer1.iZpos_ <= drmHwcLayer2.iZpos_;
 }
-
-HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  int ret;
-
+HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   drm_hwc_layers_.clear();
 
   // now that they're ordered by z, add them to the composition
-  for (auto &l : layers_) {
-    DrmHwcLayer layer;
-    l.second.PopulateDrmLayer(l.first, &layer, &ctx_, frame_no_, false);
-    drm_hwc_layers_.emplace_back(std::move(layer));
+  for (auto &hwc2layer : layers_) {
+    DrmHwcLayer drmHwclayer;
+    hwc2layer.second.PopulateDrmLayer(hwc2layer.first, &drmHwclayer, &ctx_, frame_no_, false);
+    drm_hwc_layers_.emplace_back(std::move(drmHwclayer));
   }
+
   std::sort(drm_hwc_layers_.begin(),drm_hwc_layers_.end(),SortByZpos);
 
   uint32_t client_id = UINT32_MAX;
@@ -710,22 +713,26 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   client_layer_.PopulateDrmLayer(client_id, &client_target_layer, &ctx_, frame_no_, true);
   drm_hwc_layers_.emplace_back(std::move(client_target_layer));
 
-  if(LogLevel(DBG_DEBUG)){
-    String8 output;
-    for(auto &drmHwcLayer : drm_hwc_layers_)
-      drmHwcLayer.DumpInfo(output);
-    ALOGD("%s",output.string());
-  }
+  ALOGD_HWC2_DRM_LAYER_INFO((DBG_DEBUG),drm_hwc_layers_);
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
+  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  int ret;
+
+  InitDrmHwcLayer();
 
   // First to try GLES all layer
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     l.second.set_validated_type(HWC2::Composition::Client);
 
   std::map<size_t, DrmHwcLayer *> to_composite;
-
-//  for (size_t i = 0; i < layers_.size(); ++i)
-//    to_composite.emplace(std::make_pair(i, &drm_hwc_layers_[i]));
-  to_composite.emplace(std::make_pair(0, &client_target_layer));
+  for(size_t i = 0; i < drm_hwc_layers_.size(); ++i){
+    if(drm_hwc_layers_[i].bFbTarget_)
+      to_composite.emplace(std::make_pair(0, &drm_hwc_layers_[i]));
+  }
 
 
   std::vector<DrmPlane *> primary_planes(primary_planes_);
