@@ -734,11 +734,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       to_composite.emplace(std::make_pair(0, &drm_hwc_layers_[i]));
   }
 
-
   std::vector<DrmPlane *> primary_planes(primary_planes_);
   std::vector<DrmPlane *> overlay_planes(overlay_planes_);
   std::tie(ret,
-           composition_planes_) = planner_->ProvisionPlanes(to_composite, crtc_,
+           composition_planes_) = planner_->MatchPlanes(to_composite, crtc_,
                                                             &primary_planes,
                                                             &overlay_planes);
   if (ret){

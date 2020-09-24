@@ -21,6 +21,7 @@
 #include "platform.h"
 #include "gralloc_drm_handle.h"
 #include "rockchip/drmgralloc.h"
+#include "rockchip/platform/drmvop.h"
 
 #include <drm/drm_fourcc.h>
 #include <xf86drm.h>
@@ -231,7 +232,7 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
 #ifdef USE_DRM_GENERIC_IMPORTER
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   std::unique_ptr<Planner> planner(new Planner);
-  planner->AddStage<PlanStageGreedy>();
+  planner->AddStage<PlanStageVop>();
   return planner;
 }
 #endif

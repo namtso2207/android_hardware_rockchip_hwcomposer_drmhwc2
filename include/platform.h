@@ -63,7 +63,7 @@ class Planner {
     virtual ~PlanStage() {
     }
 
-    virtual int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
+    virtual int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
                                 std::map<size_t, DrmHwcLayer *> &layers,
                                 DrmCrtc *crtc,
                                 std::vector<DrmPlane *> *planes) = 0;
@@ -119,7 +119,7 @@ class Planner {
   //
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
-  std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
+  std::tuple<int, std::vector<DrmCompositionPlane>> MatchPlanes(
       std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
       std::vector<DrmPlane *> *primary_planes,
       std::vector<DrmPlane *> *overlay_planes);
@@ -136,25 +136,6 @@ class Planner {
       std::vector<DrmPlane *> *overlay_planes);
 
   std::vector<std::unique_ptr<PlanStage>> stages_;
-};
-
-// This plan stage extracts all protected layers and places them on dedicated
-// planes.
-class PlanStageProtected : public Planner::PlanStage {
- public:
-  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes);
-};
-
-// This plan stage places as many layers on dedicated planes as possible (first
-// come first serve), and then sticks the rest in a precomposition plane (if
-// needed).
-class PlanStageGreedy : public Planner::PlanStage {
- public:
-  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes);
 };
 }  // namespace android
 #endif

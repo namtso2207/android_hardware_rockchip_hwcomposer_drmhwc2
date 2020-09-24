@@ -104,7 +104,9 @@ cc_library_static {
 
         "rockchip/utils/drmdebug.cpp",
         "rockchip/drmtype.cpp",
-        "rockchip/drmgralloc.cpp"
+        "rockchip/drmgralloc.cpp",
+        "rockchip/platform/drmvop.cpp",
+        "rockchip/platform/drmvop2.cpp"
     ],
 }
 
