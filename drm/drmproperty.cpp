@@ -60,6 +60,10 @@ void DrmProperty::Init(drmModePropertyPtr p, uint64_t value) {
     type_ = DRM_PROPERTY_TYPE_OBJECT;
   else if (flags_ & DRM_MODE_PROP_BLOB)
     type_ = DRM_PROPERTY_TYPE_BLOB;
+  else if (flags_ & DRM_MODE_PROP_BITMASK)
+    type_ = DRM_PROPERTY_TYPE_BITMASK;
+
+  feature_name_ = NULL;
 }
 
 uint32_t DrmProperty::id() const {
@@ -68,6 +72,10 @@ uint32_t DrmProperty::id() const {
 
 std::string DrmProperty::name() const {
   return name_;
+}
+
+void DrmProperty::set_feature(const char* pcFeature) const{
+  feature_name_ = pcFeature;
 }
 
 std::tuple<int, uint64_t> DrmProperty::value() const {
@@ -89,7 +97,27 @@ std::tuple<int, uint64_t> DrmProperty::value() const {
 
     case DRM_PROPERTY_TYPE_OBJECT:
       return std::make_tuple(0, value_);
-
+    case DRM_PROPERTY_TYPE_BITMASK:
+        if(feature_name_ == NULL)
+        {
+            ALOGE("You don't set feature name for %s",name_.c_str());
+            return std::make_tuple(-EINVAL, 0);
+        }
+        if(strlen(feature_name_) > 0)
+        {
+            for (auto &drm_enum : enums_)
+            {
+                if(!strncmp(drm_enum.name_.c_str(),(const char*)feature_name_,strlen(feature_name_)))
+                {
+                    return std::make_tuple(0, (value_ & (1LL << drm_enum.value_)));
+                }
+            }
+        }
+        else
+        {
+            return std::make_tuple(0, 0xff);
+        }
+        return std::make_tuple(-EINVAL, 0);
     default:
       return std::make_tuple(-EINVAL, 0);
   }

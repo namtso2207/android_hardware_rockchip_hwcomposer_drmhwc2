@@ -29,6 +29,7 @@ enum DrmPropertyType {
   DRM_PROPERTY_TYPE_ENUM,
   DRM_PROPERTY_TYPE_OBJECT,
   DRM_PROPERTY_TYPE_BLOB,
+  DRM_PROPERTY_TYPE_BITMASK,
   DRM_PROPERTY_TYPE_INVALID,
 };
 
@@ -46,6 +47,7 @@ class DrmProperty {
   std::string name() const;
 
   std::tuple<int, uint64_t> value() const;
+  void set_feature(const char* pcFeature)const;
   bool is_immutable() const;
 
   bool is_range() const;
@@ -67,6 +69,7 @@ class DrmProperty {
   DrmPropertyType type_ = DRM_PROPERTY_TYPE_INVALID;
   uint32_t flags_ = 0;
   std::string name_;
+  mutable const char* feature_name_;
   uint64_t value_ = 0;
 
   std::vector<uint64_t> values_;
