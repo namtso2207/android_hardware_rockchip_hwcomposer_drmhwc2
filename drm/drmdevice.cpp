@@ -109,14 +109,12 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 #endif
 
-#if USE_MULTI_AREAS
     //Open Multi-area support.
     ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_SHARE_PLANES, 1);
     if (ret) {
       ALOGE("Failed to set share planes %d", ret);
       return std::make_tuple(ret, 0);
     }
-#endif
 
 #if USE_NO_ASPECT_RATIO
     //Disable Aspect Ratio
@@ -363,11 +361,10 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
 
     std::unique_ptr<DrmPlane> plane(new DrmPlane(this, p));
 
-    drmModeFreePlane(p);
-
     ret = plane->Init();
     if (ret) {
       ALOGE("Init plane %d failed", plane_res->planes[i]);
+      drmModeFreePlane(p);
       break;
     }
     uint64_t share_id,zpos,crtc_id;
@@ -401,7 +398,10 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     }
     sort_planes_.emplace_back(plane.get());
 
+    drmModeFreePlane(p);
+
     planes_.emplace_back(std::move(plane));
+
   }
 
 

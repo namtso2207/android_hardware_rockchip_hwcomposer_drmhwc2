@@ -42,6 +42,8 @@ bool hwc_import_bo_release(int fd, struct hwc_import_context *ctx,
 
 namespace android {
 
+#define UN_USED(arg)     (arg=arg)
+
 class Importer;
 
 class DrmHwcBuffer {
@@ -151,7 +153,7 @@ struct DrmHwcLayer {
   uint32_t uId_;
   uint32_t uFrameNo_;
   int  iZpos_;
-  bool bFbTarget_;;
+  bool bFbTarget_=false;
   bool bYuv_;
   bool bScale_;
   bool bSkipLayer_;
@@ -173,8 +175,8 @@ struct DrmHwcLayer {
   int iGroupId_;
   int iShareId_;
   int iSkipLine_;
-  uint32_t uColorSpace;
-  uint16_t uEOTF;
+  uint32_t uColorSpace=0;
+  uint16_t uEOTF=0;
 
 
   int ImportBuffer(Importer *importer);

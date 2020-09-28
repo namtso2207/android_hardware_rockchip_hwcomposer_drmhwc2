@@ -69,10 +69,6 @@ class DrmDevice {
     return sort_planes_;
   }
 
-  const std::vector<PlaneGroup*> &plane_groups(){
-    return plane_groups_;
-  }
-
   std::pair<uint32_t, uint32_t> min_resolution() const {
     return min_resolution_;
   }
@@ -120,6 +116,10 @@ class DrmDevice {
   void ClearDisplay(int display);
   void ClearAllDisplay(void);
   int timeline(void);
+
+  std::vector<PlaneGroup*> &GetPlaneGroups(){
+    return plane_groups_;
+  }
 
   int DumpPlaneProperty(const DrmPlane &plane, std::ostringstream *out);
   int DumpCrtcProperty(const DrmCrtc &crtc, std::ostringstream *out);

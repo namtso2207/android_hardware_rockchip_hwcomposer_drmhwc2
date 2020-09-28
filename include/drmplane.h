@@ -90,6 +90,8 @@ class DrmPlane {
   bool is_reserved();
   void set_reserved(bool b_reserved);
 
+ inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
+
  private:
   DrmDevice *drm_;
   uint32_t id_;

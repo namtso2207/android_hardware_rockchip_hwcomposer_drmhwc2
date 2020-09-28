@@ -81,7 +81,7 @@ class Planner {
     static int ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
 
     // Inserts the given layer:plane in the composition at the back
-    static int Emplace(std::vector<DrmCompositionPlane> *composition,
+    static int MatchPlane(std::vector<DrmCompositionPlane> *composition,
                        std::vector<DrmPlane *> *planes,
                        DrmCompositionPlane::Type type, DrmCrtc *crtc,
                        std::pair<size_t, DrmHwcLayer *> layer) {

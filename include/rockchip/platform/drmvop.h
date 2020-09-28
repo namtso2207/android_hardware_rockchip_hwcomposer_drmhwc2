@@ -37,9 +37,12 @@
 #define ANDROID_DRM_VOP_H_
 
 #include "platform.h"
+#include "drmdevice.h"
 
 namespace android {
 class DrmDevice;
+
+typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
@@ -51,11 +54,24 @@ class PlanStageVop : public Planner::PlanStage {
                       std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
                       std::vector<DrmPlane *> *planes);
  protected:
-  int ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
-  int Emplace(std::vector<DrmCompositionPlane> *composition,
-                   std::vector<DrmPlane *> *planes,
-                   DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                   std::pair<size_t, DrmHwcLayer *> layer);
+  bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);
+  int  IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2);
+  bool IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2);
+  bool IsLayerCombine(DrmHwcLayer *layer_one,DrmHwcLayer *layer_two);
+  bool HasGetNoAfbcUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups);
+  bool HasGetNoYuvUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups);
+  bool HasGetNoScaleUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups);
+  bool HasGetNoAlphaUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups);
+  bool HasGetNoEotfUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups);
+  bool GetCrtcSupported(const DrmCrtc &crtc, uint32_t possible_crtc_mask);
+  bool HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups);
+  int  CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*>& layers,uint32_t iPlaneSize);
+  int  ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
+  int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
+                     std::vector<PlaneGroup *> &plane_groups,
+                     DrmCompositionPlane::Type type, DrmCrtc *crtc,
+                     std::pair<int, std::vector<DrmHwcLayer*>> layersm, int *zpos);
+
 };
 
 }  // namespace android

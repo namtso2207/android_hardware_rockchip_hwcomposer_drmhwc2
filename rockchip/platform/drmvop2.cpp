@@ -85,7 +85,7 @@ int PlanStageVop2::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
   return ret;
 }
 
-int PlanStageVop2::Emplace(std::vector<DrmCompositionPlane> *composition,
+int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition,
                    std::vector<DrmPlane *> *planes,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
                    std::pair<size_t, DrmHwcLayer *> layer) {
