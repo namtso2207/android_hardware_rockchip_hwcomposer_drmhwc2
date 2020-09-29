@@ -80,8 +80,8 @@ int Planner::PlanStage::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
   return ret;
 }
 
-std::tuple<int, std::vector<DrmCompositionPlane>> Planner::MatchPlanes(
-    std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<DrmPlane *> *primary_planes,
     std::vector<DrmPlane *> *overlay_planes) {
   std::vector<DrmCompositionPlane> composition;
@@ -94,7 +94,7 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::MatchPlanes(
 
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
-    int ret = i->MatchPlanes(&composition, layers, crtc, &planes);
+    int ret = i->TryHwcPolicy(&composition, layers, crtc, &planes);
     if (ret) {
       ALOGE("Failed provision stage with ret %d", ret);
       return std::make_tuple(ret, std::vector<DrmCompositionPlane>());

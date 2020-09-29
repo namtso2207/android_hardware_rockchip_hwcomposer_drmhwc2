@@ -378,50 +378,6 @@ bool PlanStageVop::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<
   return false;
 }
 
-int PlanStageVop::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
-  int ret = 0;
-  uint64_t blend;
-
-  if ((plane->rotation_property().id() == 0) &&
-      layer->transform != DrmHwcTransform::kIdentity) {
-    ALOGE("Rotation is not supported on plane %d", plane->id());
-    return -EINVAL;
-  }
-
-  if (plane->alpha_property().id() == 0 && layer->alpha != 0xffff) {
-    ALOGE("Alpha is not supported on plane %d", plane->id());
-    return -EINVAL;
-  }
-
-  if (plane->blend_property().id() > 0) {
-    if ((layer->blending != DrmHwcBlending::kNone) &&
-        (layer->blending != DrmHwcBlending::kPreMult)) {
-      ALOGE("Blending is not supported on plane %d", plane->id());
-      return -EINVAL;
-    }
-  } else {
-    switch (layer->blending) {
-      case DrmHwcBlending::kPreMult:
-        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-            "Pre-multiplied");
-        break;
-      case DrmHwcBlending::kCoverage:
-        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-            "Coverage");
-        break;
-      case DrmHwcBlending::kNone:
-      default:
-        std::tie(blend,
-                 ret) = plane->blend_property().GetEnumValueWithName("None");
-        break;
-    }
-    if (ret)
-      ALOGE("Expected a valid blend mode on plane %d", plane->id());
-  }
-
-  return ret;
-}
-
 int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
@@ -689,40 +645,21 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
 
   return -1;
 }
+void PlanStageVop::ResetLayerMatch(std::vector<DrmHwcLayer*>& layers){
+    for (auto &drmHwcLayer : layers){
+      drmHwcLayer->bMatch_ = false;
+    }
+    return;
+}
 
 int PlanStageVop::MatchPlanes(
     std::vector<DrmCompositionPlane> *composition,
-    std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-    std::vector<DrmPlane *> *planes) {
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
 
-  DrmDevice *drm = crtc->getDrmDevice();
-
-  std::vector<PlaneGroup *>& all_plane_groups = drm->GetPlaneGroups();
-  std::vector<PlaneGroup *> plane_groups;
-  for(auto &plane_group : all_plane_groups){
-    for(auto &plane : *planes){
-      uint64_t ret,share_id;
-      std::tie(ret, share_id) = plane->share_id_property().value();
-      if(share_id == plane_group->share_id){
-        for(auto &p : plane_group->planes)
-          p->set_use(false);
-        plane_group->bUse = false;
-        plane_groups.push_back(plane_group);
-        break;
-      }
-    }
-  }
-
-  std::vector<DrmHwcLayer *> match_layers;
-  for(auto &drmHwcLayer : layers){
-      if(drmHwcLayer.second->bFbTarget_)
-        continue;
-      drmHwcLayer.second->iZpos_ = drmHwcLayer.first;
-      match_layers.emplace_back(drmHwcLayer.second);
-  }
-
+  composition.clear();
   LayerMap layer_map;
-  int ret = CombineLayer(layer_map, match_layers, planes->size());
+  int ret = CombineLayer(layer_map, layers, plane_groups.size());
 
   // Fill up the remaining planes
   int zpos = 0;
@@ -733,13 +670,160 @@ int PlanStageVop::MatchPlanes(
     if (ret == -ENOENT)
       break;
     else if (ret) {
-      ALOGE("Failed to emplace layer %d, dropping it", i->first);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy");
       return ret;
     }
   }
 
   return 0;
 }
+int  PlanStageVop::GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,
+                   std::vector<PlaneGroup *>&out_plane_groups){
+
+  DrmDevice *drm = crtc->getDrmDevice();
+  out_plane_groups.clear();
+  std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
+  for(auto &plane_group : all_plane_groups){
+    for(auto &plane : *planes){
+      uint64_t ret,share_id;
+      std::tie(ret, share_id) = plane->share_id_property().value();
+      if(share_id == plane_group->share_id){
+        for(auto &p : plane_group->planes)
+          p->set_use(false);
+        plane_group->bUse = false;
+        out_plane_groups.push_back(plane_group);
+        break;
+      }
+    }
+  }
+  return out_plane_groups.size() > 0 ? 0 : -1;
+}
+void PlanStageVop::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
+                                              std::vector<DrmHwcLayer*>& tmp_layers){
+  for (auto i = tmp_layers.begin(); i != tmp_layers.end();){
+         layers.emplace_back(std::move(*i));
+         i = tmp_layers.erase(i);
+     }
+     //sort
+     for (auto i = layers.begin(); i != layers.end()-1; i++){
+         for (auto j = i+1; j != layers.end(); j++){
+             if((*i)->iZpos_ > (*j)->iZpos_){
+                 std::swap(*i, *j);
+             }
+         }
+     }
+
+    return;
+}
+
+void PlanStageVop::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
+                                       std::vector<DrmHwcLayer*>& tmp_layers){
+    for (auto i = layers.begin(); i != layers.end();){
+        if((*i)->bFbTarget_){
+            tmp_layers.emplace_back(std::move(*i));
+            i = layers.erase(i);
+            continue;
+        }
+        i++;
+    }
+    return;
+}
+int PlanStageVop::TryOverlayPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  std::vector<DrmHwcLayer*> tmp_layers;
+  ResetLayerMatch(layers);
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmp(layers,tmp_layers);
+    return -1;
+  }
+  return 0;
+}
+
+int PlanStageVop::TryMixPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ResetLayerMatch(layers);
+  MatchPlanes(composition,layers,crtc,plane_groups);
+  return 0;
+}
+
+int PlanStageVop::TryGLESPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  std::vector<DrmHwcLayer*> fb_target;
+  ResetLayerMatch(layers);
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, fb_target);
+  int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmp(layers,fb_target);
+    return -1;
+  }
+  return 0;
+}
+
+int PlanStageVop::TryHwcPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<DrmPlane *> *planes) {
+  // Get PlaneGroup
+  std::vector<PlaneGroup *> plane_groups;
+  int ret = GetPlaneGroups(crtc,planes,plane_groups);
+  if(ret){
+    ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
+    return -1;
+  }
+
+  // Clear HWC policy list
+  setHwcPolicy.clear();
+  setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
+  setHwcPolicy.insert(HWC_GLES_POLICY);
+
+  // Try to match overlay policy
+  if(setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
+    ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
+      setHwcPolicy.insert(HWC_GLES_POLICY);
+    }
+  }
+
+  // Try to match mix policy
+  if(setHwcPolicy.count(HWC_MIX_LOPICY)){
+    ret = TryMixPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match mix policy fail, try to match other policy.");
+      setHwcPolicy.insert(HWC_GLES_POLICY);
+    }
+  }
+
+  // Try to match GLES policy
+  if(setHwcPolicy.count(HWC_GLES_POLICY)){
+    ret = TryGLESPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
+  ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
+  return -1;
+}
+
+
 
 }
 

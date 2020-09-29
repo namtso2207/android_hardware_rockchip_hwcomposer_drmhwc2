@@ -35,15 +35,6 @@ namespace android {
 
 #define type_name_define(res) const char * res##_str(int type);
 
-typedef struct tagPlaneGroup{
-	bool     b_reserved;
-	bool     bUse;
-	uint32_t zpos;
-	uint32_t possible_crtcs;
-	uint64_t share_id;
-	std::vector<DrmPlane*> planes;
-}PlaneGroup;
-
 class DrmDevice {
  public:
   DrmDevice();

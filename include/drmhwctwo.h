@@ -16,9 +16,9 @@
 
 #include "drmdisplaycompositor.h"
 #include "drmhwcomposer.h"
-#include "platform.h"
 #include "resourcemanager.h"
 #include "vsyncworker.h"
+#include "platform.h"
 
 #include <hardware/hwcomposer2.h>
 

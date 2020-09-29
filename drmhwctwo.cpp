@@ -708,10 +708,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
 
   std::sort(drm_hwc_layers_.begin(),drm_hwc_layers_.end(),SortByZpos);
 
-//  uint32_t client_id = UINT32_MAX;
-//  DrmHwcLayer client_target_layer;
-//  client_layer_.PopulateDrmLayer(client_id, &client_target_layer, &ctx_, frame_no_, true);
-//  drm_hwc_layers_.emplace_back(std::move(client_target_layer));
+  uint32_t client_id = UINT32_MAX;
+  DrmHwcLayer client_target_layer;
+  client_layer_.PopulateDrmLayer(client_id, &client_target_layer, &ctx_, frame_no_, true);
+  drm_hwc_layers_.emplace_back(std::move(client_target_layer));
 
   ALOGD_HWC2_DRM_LAYER_INFO((DBG_DEBUG),drm_hwc_layers_);
 
@@ -724,15 +724,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
 
   InitDrmHwcLayer();
 
-  std::map<size_t, DrmHwcLayer *> to_composite;
+  std::vector<DrmHwcLayer *> layers;
+  layers.reserve(drm_hwc_layers_.size());
   for(size_t i = 0; i < drm_hwc_layers_.size(); ++i){
-      to_composite.emplace(std::make_pair(i, &drm_hwc_layers_[i]));
+      layers.push_back(&drm_hwc_layers_[i]);
   }
 
   std::vector<DrmPlane *> primary_planes(primary_planes_);
   std::vector<DrmPlane *> overlay_planes(overlay_planes_);
   std::tie(ret,
-           composition_planes_) = planner_->MatchPlanes(to_composite, crtc_,
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_,
                                                             &primary_planes,
                                                             &overlay_planes);
   if (ret){
@@ -778,6 +779,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
         client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, &ctx_, frame_no_, true);
       }
     }
+  }else{
+    for (auto drm_hwc_layer = drm_hwc_layers_.begin();
+         drm_hwc_layer != drm_hwc_layers_.end();) {
+      if(drm_hwc_layer->bFbTarget_){
+        drm_hwc_layer = drm_hwc_layers_.erase(drm_hwc_layer);
+      }else{
+        drm_hwc_layer++;
+      }
+    }
   }
 
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
@@ -798,12 +808,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
         ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Client,line = %d",drm_hwc_layer.uId_,__LINE__);
         break;
       default:
-//        ret = drm_hwc_layer.ImportBuffer(importer_.get());
-//        if (ret) {
-//          ALOGE("Failed to import layer, ret=%d", ret);
-//          return HWC2::Error::NoResources;
-//        }
-//        map.layers.emplace_back(std::move(drm_hwc_layer));
         continue;
     }
   }

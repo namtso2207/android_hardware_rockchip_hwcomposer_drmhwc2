@@ -28,9 +28,22 @@
 
 #define UNUSED(x) (void)(x)
 
+
+
+
 namespace android {
 
 class DrmDevice;
+class DrmPlanes;
+
+typedef struct tagPlaneGroup{
+	bool     b_reserved;
+	bool     bUse;
+	uint32_t zpos;
+	uint32_t possible_crtcs;
+	uint64_t share_id;
+	std::vector<DrmPlane*> planes;
+}PlaneGroup;
 
 class Importer {
  public:
@@ -63,11 +76,14 @@ class Planner {
     virtual ~PlanStage() {
     }
 
-    virtual int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
-                                std::map<size_t, DrmHwcLayer *> &layers,
+    virtual int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
+                                std::vector<DrmHwcLayer*> &layers,
                                 DrmCrtc *crtc,
                                 std::vector<DrmPlane *> *planes) = 0;
-
+    virtual int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
+                                std::vector<DrmHwcLayer*> &layers,
+                                DrmCrtc *crtc,
+                                std::vector<PlaneGroup *> &plane_groups) = 0;
    protected:
     // Removes and returns the next available plane from planes
     static DrmPlane *PopPlane(std::vector<DrmPlane *> *planes) {
@@ -119,8 +135,8 @@ class Planner {
   //
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
-  std::tuple<int, std::vector<DrmCompositionPlane>> MatchPlanes(
-      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+  std::tuple<int, std::vector<DrmCompositionPlane>> TryHwcPolicy(
+      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
       std::vector<DrmPlane *> *primary_planes,
       std::vector<DrmPlane *> *overlay_planes);
 

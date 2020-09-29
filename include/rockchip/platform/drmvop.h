@@ -44,15 +44,39 @@ class DrmDevice;
 
 typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
+typedef enum tagComposeMode
+{
+    HWC_OVERLAY_LOPICY,
+    HWC_MIX_LOPICY,
+    HWC_GLES_POLICY,
+    HWC_RGA_OVERLAY_LOPICY,
+    HWC_SKIP_LOPICY,
+    HWC_3D_LOPICY,
+    HWC_DEBUG_POLICY
+}ComposeMode;
+
+
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
 // needed).
 class PlanStageVop : public Planner::PlanStage {
  public:
-
+  int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<DrmPlane *> *planes);
+  int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryMixPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryGLESPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
   int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes);
+                      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                      std::vector<PlaneGroup *> &plane_groups);
+
  protected:
   bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);
   int  IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2);
@@ -66,11 +90,17 @@ class PlanStageVop : public Planner::PlanStage {
   bool GetCrtcSupported(const DrmCrtc &crtc, uint32_t possible_crtc_mask);
   bool HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups);
   int  CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*>& layers,uint32_t iPlaneSize);
-  int  ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
+  int  GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,std::vector<PlaneGroup *>&out_plane_groups);
+
+  void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
+  void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);
+  void ResetLayerMatch(std::vector<DrmHwcLayer*>& layers);
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                     std::pair<int, std::vector<DrmHwcLayer*>> layersm, int *zpos);
+                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos);
+ private:
+  std::set<ComposeMode> setHwcPolicy;
 
 };
 
