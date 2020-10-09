@@ -94,6 +94,7 @@ class PlanStageVop : public Planner::PlanStage {
 
   void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);
+  void ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups);
   void ResetLayerMatch(std::vector<DrmHwcLayer*>& layers);
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,

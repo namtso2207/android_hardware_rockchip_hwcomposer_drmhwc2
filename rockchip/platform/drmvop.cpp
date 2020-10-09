@@ -645,6 +645,16 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
 
   return -1;
 }
+
+void PlanStageVop::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
+  for (auto &plane_group : plane_groups){
+    for(auto &p : plane_group->planes)
+      p->set_use(false);
+      plane_group->bUse = false;
+  }
+  return;
+}
+
 void PlanStageVop::ResetLayerMatch(std::vector<DrmHwcLayer*>& layers){
     for (auto &drmHwcLayer : layers){
       drmHwcLayer->bMatch_ = false;
@@ -657,7 +667,7 @@ int PlanStageVop::MatchPlanes(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
 
-  composition.clear();
+  composition->clear();
   LayerMap layer_map;
   int ret = CombineLayer(layer_map, layers, plane_groups.size());
 
@@ -734,6 +744,7 @@ int PlanStageVop::TryOverlayPolicy(
     std::vector<PlaneGroup *> &plane_groups) {
   std::vector<DrmHwcLayer*> tmp_layers;
   ResetLayerMatch(layers);
+  ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -751,6 +762,7 @@ int PlanStageVop::TryMixPolicy(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
   ResetLayerMatch(layers);
+  ResetPlaneGroups(plane_groups);
   MatchPlanes(composition,layers,crtc,plane_groups);
   return 0;
 }
@@ -761,6 +773,7 @@ int PlanStageVop::TryGLESPolicy(
     std::vector<PlaneGroup *> &plane_groups) {
   std::vector<DrmHwcLayer*> fb_target;
   ResetLayerMatch(layers);
+  ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
   int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
@@ -822,8 +835,5 @@ int PlanStageVop::TryHwcPolicy(
   ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
   return -1;
 }
-
-
-
 }
 

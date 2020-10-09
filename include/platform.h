@@ -85,42 +85,12 @@ class Planner {
                                 DrmCrtc *crtc,
                                 std::vector<PlaneGroup *> &plane_groups) = 0;
    protected:
-    // Removes and returns the next available plane from planes
-    static DrmPlane *PopPlane(std::vector<DrmPlane *> *planes) {
-      if (planes->empty())
-        return NULL;
-      DrmPlane *plane = planes->front();
-      planes->erase(planes->begin());
-      return plane;
-    }
-
-    static int ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
 
     // Inserts the given layer:plane in the composition at the back
-    static int MatchPlane(std::vector<DrmCompositionPlane> *composition,
-                       std::vector<DrmPlane *> *planes,
-                       DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                       std::pair<size_t, DrmHwcLayer *> layer) {
-      DrmPlane *plane = PopPlane(planes);
-      std::vector<DrmPlane *> unused_planes;
-      int ret = -ENOENT;
-      while (plane) {
-        ret = ValidatePlane(plane, layer.second);
-        if (!ret)
-          break;
-        if (!plane->zpos_property().is_immutable())
-          unused_planes.push_back(plane);
-        plane = PopPlane(planes);
-      }
-
-      if (!ret) {
-        composition->emplace_back(type, plane, crtc, layer.first);
-        planes->insert(planes->begin(), unused_planes.begin(),
-                       unused_planes.end());
-      }
-
-      return ret;
-    }
+    virtual int MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
+                     std::vector<PlaneGroup *> &plane_groups,
+                     DrmCompositionPlane::Type type, DrmCrtc *crtc,
+                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos) = 0;
   };
 
   // Creates a planner instance with platform-specific planning stages
