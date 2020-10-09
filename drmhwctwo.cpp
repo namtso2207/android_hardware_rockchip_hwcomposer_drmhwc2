@@ -742,14 +742,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
+    if(drm_hwc_layer.bFbTarget_)
+      continue;
     if(drm_hwc_layer.bMatch_){
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
-      ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Device,line = %d",drm_hwc_layer.uId_,__LINE__);
+      ALOGD("Layer-id =%.3" PRIu32 ",comp_type = Device",drm_hwc_layer.uId_);
     }else{
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Client);
-      ALOGD("rk-debug ValidatePlanes layer id = %" PRIu32 ",comp_type = Client,line = %d",drm_hwc_layer.uId_,__LINE__);
+      ALOGD("Layer-id =%.3" PRIu32 ",comp_type = Client",drm_hwc_layer.uId_);
 
     }
   }
@@ -777,20 +779,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
       if(drm_hwc_layer.bFbTarget_){
         uint32_t client_id = UINT32_MAX;
         client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, &ctx_, frame_no_, true);
-      }
-    }
-  }else{
-    for (auto drm_hwc_layer = drm_hwc_layers_.begin();
-         drm_hwc_layer != drm_hwc_layers_.end();) {
-      if(drm_hwc_layer->bFbTarget_){
-        drm_hwc_layer = drm_hwc_layers_.erase(drm_hwc_layer);
-      }else{
-        drm_hwc_layer++;
+        ret = drm_hwc_layer.ImportBuffer(importer_.get());
+        if (ret) {
+          ALOGE("Failed to import layer, ret=%d", ret);
+          return HWC2::Error::NoResources;
+        }
+        map.layers.emplace_back(std::move(drm_hwc_layer));
       }
     }
   }
 
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
+    if(!use_client_layer && drm_hwc_layer.bFbTarget_)
+      continue;
     auto l = layers_.find(drm_hwc_layer.uId_);
     HWC2::Composition comp_type;
     comp_type = l->second.validated_type();
@@ -802,10 +803,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
           return HWC2::Error::NoResources;
         }
         map.layers.emplace_back(std::move(drm_hwc_layer));
-        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Device,line = %d",drm_hwc_layer.uId_,__LINE__);
         break;
       case HWC2::Composition::Client:
-        ALOGV("rk-debug ValidatePlanes layer id = %" PRIu32 ", comp_type = Client,line = %d",drm_hwc_layer.uId_,__LINE__);
         break;
       default:
         continue;
@@ -1308,6 +1307,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->iZpos_ = z_order_;
   drmHwcLayer->uFrameNo_ = frame_no;
   drmHwcLayer->bFbTarget_ = client_layer;
+  drmHwcLayer->bUse_ = true;
 
   switch (blending_) {
     case HWC2::BlendMode::None:

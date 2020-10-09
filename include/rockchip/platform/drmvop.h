@@ -64,6 +64,8 @@ class PlanStageVop : public Planner::PlanStage {
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<DrmPlane *> *planes);
+
+ protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
@@ -76,8 +78,9 @@ class PlanStageVop : public Planner::PlanStage {
   int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
+  int TryMatchPolicyFirst(std::vector<DrmHwcLayer*> &layers,
+                               std::vector<PlaneGroup *> &plane_groups);
 
- protected:
   bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);
   int  IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2);
   bool IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2);
@@ -95,7 +98,7 @@ class PlanStageVop : public Planner::PlanStage {
   void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);
   void ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups);
-  void ResetLayerMatch(std::vector<DrmHwcLayer*>& layers);
+  void ResetLayer(std::vector<DrmHwcLayer*>& layers);
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,

@@ -33,6 +33,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+#define LOG_TAG "drm-vop"
 
 #include "rockchip/platform/drmvop.h"
 #include "drmdevice.h"
@@ -655,7 +657,7 @@ void PlanStageVop::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
   return;
 }
 
-void PlanStageVop::ResetLayerMatch(std::vector<DrmHwcLayer*>& layers){
+void PlanStageVop::ResetLayer(std::vector<DrmHwcLayer*>& layers){
     for (auto &drmHwcLayer : layers){
       drmHwcLayer->bMatch_ = false;
     }
@@ -743,7 +745,7 @@ int PlanStageVop::TryOverlayPolicy(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
   std::vector<DrmHwcLayer*> tmp_layers;
-  ResetLayerMatch(layers);
+  ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
@@ -761,7 +763,7 @@ int PlanStageVop::TryMixPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
-  ResetLayerMatch(layers);
+  ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
   MatchPlanes(composition,layers,crtc,plane_groups);
   return 0;
@@ -772,7 +774,7 @@ int PlanStageVop::TryGLESPolicy(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
   std::vector<DrmHwcLayer*> fb_target;
-  ResetLayerMatch(layers);
+  ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
@@ -786,6 +788,57 @@ int PlanStageVop::TryGLESPolicy(
   return 0;
 }
 
+int PlanStageVop::TryMatchPolicyFirst(
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups){
+
+  setHwcPolicy.clear();
+
+  // Collect layer info
+  int iAfbcdCnt=0,iScaleCnt=0,iYuvCnt=0,iSkipCnt=0,iRotateCnt=0;
+  for(auto &layer : layers){
+    if(layer->bSkipLayer_){
+      iSkipCnt++;
+      continue;
+    }
+    if(layer->bAfbcd_)
+      iAfbcdCnt++;
+    if(layer->bScale_)
+      iScaleCnt++;
+    if(layer->bYuv_)
+      iYuvCnt++;
+    if(layer->transform != DrmHwcTransform::kRotate0)
+      iRotateCnt++;
+  }
+
+  // Collect Plane resource info
+  int iSupportAfbcdCnt=0,iSupportScaleCnt=0,iSupportYuvCnt=0,iSupportRotateCnt=0;
+  for(auto &plane_group : plane_groups){
+    for(auto &p : plane_group->planes){
+      if(p->get_afbc())
+        iSupportAfbcdCnt++;
+      if(p->get_scale())
+        iSupportScaleCnt++;
+      if(p->get_yuv())
+        iSupportYuvCnt++;
+      if(p->get_rotate())
+        iSupportRotateCnt++;
+    }
+  }
+
+  // Match policy first
+  if(iAfbcdCnt <= iSupportAfbcdCnt ||
+     iScaleCnt <= iSupportScaleCnt ||
+     iYuvCnt <= iSupportYuvCnt ||
+     iRotateCnt <= iSupportRotateCnt ||
+     iSkipCnt == 0)
+    setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
+  else{
+    setHwcPolicy.insert(HWC_GLES_POLICY);
+  }
+
+  return 0;
+}
 int PlanStageVop::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -799,9 +852,7 @@ int PlanStageVop::TryHwcPolicy(
   }
 
   // Clear HWC policy list
-  setHwcPolicy.clear();
-  setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
-  setHwcPolicy.insert(HWC_GLES_POLICY);
+  TryMatchPolicyFirst(layers,plane_groups);
 
   // Try to match overlay policy
   if(setHwcPolicy.count(HWC_OVERLAY_LOPICY)){

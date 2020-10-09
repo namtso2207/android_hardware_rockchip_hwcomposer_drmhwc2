@@ -154,6 +154,7 @@ struct DrmHwcLayer {
   uint32_t uFrameNo_;
   int  iZpos_;
   bool bFbTarget_=false;
+  bool bAfbcd_=false;
   bool bYuv_;
   bool bScale_;
   bool bSkipLayer_;
