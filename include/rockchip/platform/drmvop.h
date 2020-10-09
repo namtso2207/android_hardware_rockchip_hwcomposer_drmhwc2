@@ -47,10 +47,13 @@ typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 typedef enum tagComposeMode
 {
     HWC_OVERLAY_LOPICY,
+    HWC_MIX_SKIP_LOPICY,
+    HWC_MIX_VIDEO_LOPICY,
+    HWC_MIX_UP_LOPICY,
+    HWC_MIX_DOWN_LOPICY,
     HWC_MIX_LOPICY,
     HWC_GLES_POLICY,
     HWC_RGA_OVERLAY_LOPICY,
-    HWC_SKIP_LOPICY,
     HWC_3D_LOPICY,
     HWC_DEBUG_POLICY
 }ComposeMode;
@@ -67,6 +70,18 @@ class PlanStageVop : public Planner::PlanStage {
 
  protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryMixVideoPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryMixUpPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryMixDownPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
   int TryMixPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -97,6 +112,9 @@ class PlanStageVop : public Planner::PlanStage {
 
   void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);
+  void OutputMatchLayer(int iFirst, int iLast,
+                        std::vector<DrmHwcLayer *>& out_layers,
+                        std::vector<DrmHwcLayer *>& tmp_layers);
   void ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups);
   void ResetLayer(std::vector<DrmHwcLayer*>& layers);
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
@@ -105,7 +123,16 @@ class PlanStageVop : public Planner::PlanStage {
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos);
  private:
   std::set<ComposeMode> setHwcPolicy;
+  int iReqAfbcdCnt=0;
+  int iReqScaleCnt=0;
+  int iReqYuvCnt=0;
+  int iReqSkipCnt=0;
+  int iReqRotateCnt=0;
 
+  int iSupportAfbcdCnt=0;
+  int iSupportScaleCnt=0;
+  int iSupportYuvCnt=0;
+  int iSupportRotateCnt=0;
 };
 
 }  // namespace android

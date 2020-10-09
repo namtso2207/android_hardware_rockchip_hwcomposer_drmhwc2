@@ -453,21 +453,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         blend = (layer.blending == DrmHwcBlending::kPreMult) ? 1:0;
       }
 
-      if (plane->zpos_property().id()) {
-        uint64_t min_zpos = 0;
-
-        // Ignore ret and use min_zpos as 0 by default
-        std::tie(std::ignore, min_zpos) = plane->zpos_property().range_min();
-        ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                       plane->zpos_property().id(),
-                                       source_layers.front() + min_zpos) < 0;
-        if (ret) {
-          ALOGE("Failed to add zpos property %d to plane %d",
-                plane->zpos_property().id(), plane->id());
-          break;
-        }
-        zpos = source_layers.front() + min_zpos;
-      }
+      zpos = comp_plane.get_zpos();
+      if(zpos < 0)
+        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 
       rotation = 0;
       if (layer.transform & DrmHwcTransform::kFlipH)

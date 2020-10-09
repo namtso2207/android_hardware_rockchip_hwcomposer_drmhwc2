@@ -80,6 +80,15 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
     layers_.emplace_back(std::move(layers[layer_index]));
   }
 
+  //sort
+  for (auto i = layers_.begin(); i != layers_.end()-1; i++){
+    for (auto j = i+1; j != layers_.end(); j++){
+      if((*i).iDrmZpos_ > (*j).iDrmZpos_){
+          std::swap(*i, *j);
+      }
+    }
+  }
+
   type_ = DRM_COMPOSITION_TYPE_FRAME;
   return 0;
 }

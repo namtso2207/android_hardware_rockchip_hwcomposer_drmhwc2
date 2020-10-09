@@ -271,7 +271,7 @@ int PlanStageVop::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &la
         for(std::vector<DrmHwcLayer*>::const_iterator iter_layer = iter->second.begin();
             iter_layer != iter->second.end();++iter_layer)
         {
-             ALOGD_IF(LogLevel(DBG_DEBUG),"\tlayer id=%d",(*iter_layer)->uId_);
+             ALOGD_IF(LogLevel(DBG_DEBUG),"\tlayer id=%u",(*iter_layer)->uId_);
         }
   }
 
@@ -614,7 +614,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,,zops = %d",(*iter_layer)->uId_,
                               (*iter_plane)->id(),*zpos);
                           //Find the match plane for layer,it will be commit.
-                          composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iZpos_);
+                          composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_);
                           (*iter_layer)->bMatch_ = true;
                           (*iter_plane)->set_use(true);
                           composition_planes->back().set_zpos(*zpos);
@@ -668,7 +668,8 @@ int PlanStageVop::MatchPlanes(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
-
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
   composition->clear();
   LayerMap layer_map;
   int ret = CombineLayer(layer_map, layers, plane_groups.size());
@@ -730,20 +731,65 @@ void PlanStageVop::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
 
 void PlanStageVop::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
                                        std::vector<DrmHwcLayer*>& tmp_layers){
-    for (auto i = layers.begin(); i != layers.end();){
-        if((*i)->bFbTarget_){
-            tmp_layers.emplace_back(std::move(*i));
-            i = layers.erase(i);
-            continue;
-        }
-        i++;
-    }
-    return;
+  for (auto i = layers.begin(); i != layers.end();){
+      if((*i)->bFbTarget_){
+          tmp_layers.emplace_back(std::move(*i));
+          i = layers.erase(i);
+          continue;
+      }
+      i++;
+  }
+  int zpos = 0;
+  for(auto &layer : layers){
+    layer->iDrmZpos_ = zpos;
+    zpos++;
+  }
+  return;
+}
+
+void PlanStageVop::OutputMatchLayer(int iFirst, int iLast,
+                                          std::vector<DrmHwcLayer *>& layers,
+                                          std::vector<DrmHwcLayer *>& tmp_layers){
+
+  if(iFirst < 0 || iLast < 0 || iFirst > iLast)
+  {
+      ALOGE("invalid value iFirst=%d, iLast=%d", iFirst, iLast);
+      return;
+  }
+
+  int interval = layers.size()-1-iLast;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "OutputMatchLayer iFirst=%d,interval=%d",iFirst,interval);
+  for (auto i = layers.begin() + iFirst; i != layers.end() - interval;)
+  {
+      //move gles layers
+      tmp_layers.emplace_back(std::move(*i));
+      i = layers.erase(i);
+  }
+
+  //add fb layer.
+  int pos = iFirst;
+  for (auto i = tmp_layers.begin(); i != tmp_layers.end();)
+  {
+      if((*i)->bFbTarget_){
+          layers.insert(layers.begin() + pos, std::move(*i));
+          pos++;
+          i = tmp_layers.erase(i);
+          continue;
+      }
+      i++;
+  }
+  int zpos = 0;
+  for(auto &layer : layers){
+    layer->iDrmZpos_ = zpos;
+    zpos++;
+  }
+  return;
 }
 int PlanStageVop::TryOverlayPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
   std::vector<DrmHwcLayer*> tmp_layers;
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
@@ -758,14 +804,274 @@ int PlanStageVop::TryOverlayPolicy(
   }
   return 0;
 }
+int PlanStageVop::TryMixSkipPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+
+  int iPlaneSize = plane_groups.size();
+  int skipCnt = 0;
+
+  std::vector<DrmHwcLayer *> tmp_layers;
+  // Since we can't composite HWC_SKIP_LAYERs by ourselves, we'll let SF
+  // handle all layers in between the first and last skip layers. So find the
+  // outer indices and mark everything in between as HWC_FRAMEBUFFER
+  std::pair<int, int> skip_layer_indices(-1, -1);
+
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  //caculate the first and last skip layer
+  int i = 0;
+  for (auto &layer : layers) {
+    if (!layer->bSkipLayer_){
+      i++;
+      continue;
+    }
+
+    if (skip_layer_indices.first == -1)
+      skip_layer_indices.first = i;
+    skip_layer_indices.second = i;
+    i++;
+  }
+
+  if(skip_layer_indices.first != -1){
+    skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+  }
+
+  //OPT: Adjust skip_layer_indices.first and skip_layer_indices.second to limit in iPlaneSize.
+  if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+    int tmp_index = -1;
+    if(skip_layer_indices.first != 0){
+      tmp_index = skip_layer_indices.first;
+      //try decrease first skip index to 0.
+      skip_layer_indices.first = 0;
+      skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+      if(((int)layers.size() - skipCnt + 1) > iPlaneSize && skip_layer_indices.second != (int)layers.size()-1){
+        skip_layer_indices.first = tmp_index;
+        tmp_index = skip_layer_indices.second;
+        //try increase second skip index to last index.
+        skip_layer_indices.second = layers.size()-1;
+        skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+        if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+          return -1;
+        }
+      }
+    }else{
+      if(skip_layer_indices.second != (int)layers.size()-1){
+        //try increase second skip index to last index-1.
+        skip_layer_indices.second = layers.size()-2;
+        skipCnt = skip_layer_indices.second + 1;
+        if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+            ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+            return -1;
+        }
+      }else{
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+        return -1;
+      }
+   }
+}
+
+  OutputMatchLayer(skip_layer_indices.first, skip_layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmp(layers,tmp_layers);
+    return -1;
+  }
+  return ret;
+}
+
+/*************************mix video*************************
+ Video ovelay
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+       HWC | 711aa61700 | 0000 | 0000 | 00 | 0100 | ? 00000017  |    0.0,    0.0, 3840.0, 2160.0 |  600,  562, 1160,  982 | SurfaceView - MediaView
+      GLES | 711ab1e580 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,  560.0,  420.0 |  600,  562, 1160,  982 | MediaView
+      GLES | 70b34c9c80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,    2.0 |    0,    0, 2400,    2 | StatusBar
+      GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
+      GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
+************************************************************/
+int PlanStageVop::TryMixVideoPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  std::vector<DrmHwcLayer *> tmp_layers;
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  int iPlaneSize = plane_groups.size();
+  std::pair<int, int> layer_indices(-1, -1);
+
+
+
+  if((int)layers.size() < 4 )
+    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
+  else
+    layer_indices.first = iPlaneSize - 1;
+  layer_indices.second = layers.size() - 1;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmp(layers,tmp_layers);
+    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(!ret)
+        return ret;
+      else{
+        ResetLayerFromTmp(layers,tmp_layers);
+        return -1;
+     }
+   }
+ }
+
+  return ret;
+}
+
+/*************************mix up*************************
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+       HWC | 711aa61e80 | 0000 | 0000 | 00 | 0100 | RGBx_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.systemui.ImageWallpaper
+       HWC | 711ab1ef00 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.launcher3/com.android.launcher3.Launcher
+       HWC | 711aa61700 | 0000 | 0000 | 00 | 0100 | ? 00000017  |    0.0,    0.0, 3840.0, 2160.0 |  600,  562, 1160,  982 | SurfaceView - MediaView
+      GLES | 711ab1e580 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,  560.0,  420.0 |  600,  562, 1160,  982 | MediaView
+      GLES | 70b34c9c80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,    2.0 |    0,    0, 2400,    2 | StatusBar
+      GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
+      GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
+************************************************************/
+int PlanStageVop::TryMixUpPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+
+  std::vector<DrmHwcLayer *> tmp_layers;
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  int iPlaneSize = plane_groups.size();
+  std::pair<int, int> layer_indices(-1, -1);
+
+  if((int)layers.size() < 4 )
+    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
+  else
+    layer_indices.first = iPlaneSize - 1;
+  layer_indices.second = layers.size() - 1;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+   return ret;
+  else{
+    ResetLayerFromTmp(layers,tmp_layers);
+    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(!ret)
+        return ret;
+      else{
+        ResetLayerFromTmp(layers,tmp_layers);
+        return -1;
+      }
+    }
+  }
+
+  return ret;
+}
+
+/*************************mix down*************************
+ Sprite layer
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+      GLES | 711aa61e80 | 0000 | 0000 | 00 | 0100 | RGBx_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.systemui.ImageWallpaper
+      GLES | 711ab1ef00 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.launcher3/com.android.launcher3.Launcher
+      GLES | 711aa61100 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,    2.0 |    0,    0, 2400,    2 | StatusBar
+       HWC | 711ec5ad80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
+       HWC | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 |  941,  810,  980,  859 | Sprite
+************************************************************/
+int PlanStageVop::TryMixDownPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  std::vector<DrmHwcLayer *> tmp_layers;
+
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  std::pair<int, int> layer_indices(-1, -1);
+  int iPlaneSize = plane_groups.size();
+  layer_indices.first = 0;
+  layer_indices.second = 2;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else
+    ResetLayerFromTmp(layers,tmp_layers);
+
+  if((int)layers.size() > iPlaneSize){
+    layer_indices.first = 0;
+    layer_indices.second = layers.size() - iPlaneSize;
+    ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+    OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+    int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return ret;
+    else{
+      ResetLayerFromTmp(layers,tmp_layers);
+      return -1;
+    }
+  }
+  return ret;
+}
 
 int PlanStageVop::TryMixPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
-  ResetLayer(layers);
-  ResetPlaneGroups(plane_groups);
-  MatchPlanes(composition,layers,crtc,plane_groups);
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  int ret;
+  if(setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
+    ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
+  if(setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){
+    ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+  if(setHwcPolicy.count(HWC_MIX_UP_LOPICY)){
+    ret = TryMixUpPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+
+  }
+  if(setHwcPolicy.count(HWC_MIX_DOWN_LOPICY)){
+    ret = TryMixDownPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
   return 0;
 }
 
@@ -773,6 +1079,7 @@ int PlanStageVop::TryGLESPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
   std::vector<DrmHwcLayer*> fb_target;
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
@@ -795,24 +1102,31 @@ int PlanStageVop::TryMatchPolicyFirst(
   setHwcPolicy.clear();
 
   // Collect layer info
-  int iAfbcdCnt=0,iScaleCnt=0,iYuvCnt=0,iSkipCnt=0,iRotateCnt=0;
+  iReqAfbcdCnt=0;
+  iReqScaleCnt=0;
+  iReqYuvCnt=0;
+  iReqSkipCnt=0;
+  iReqRotateCnt=0;
   for(auto &layer : layers){
     if(layer->bSkipLayer_){
-      iSkipCnt++;
+      iReqSkipCnt++;
       continue;
     }
     if(layer->bAfbcd_)
-      iAfbcdCnt++;
+      iReqAfbcdCnt++;
     if(layer->bScale_)
-      iScaleCnt++;
+      iReqScaleCnt++;
     if(layer->bYuv_)
-      iYuvCnt++;
+      iReqYuvCnt++;
     if(layer->transform != DrmHwcTransform::kRotate0)
-      iRotateCnt++;
+      iReqRotateCnt++;
   }
 
   // Collect Plane resource info
-  int iSupportAfbcdCnt=0,iSupportScaleCnt=0,iSupportYuvCnt=0,iSupportRotateCnt=0;
+  iSupportAfbcdCnt=0;
+  iSupportScaleCnt=0;
+  iSupportYuvCnt=0;
+  iSupportRotateCnt=0;
   for(auto &plane_group : plane_groups){
     for(auto &p : plane_group->planes){
       if(p->get_afbc())
@@ -827,14 +1141,19 @@ int PlanStageVop::TryMatchPolicyFirst(
   }
 
   // Match policy first
-  if(iAfbcdCnt <= iSupportAfbcdCnt ||
-     iScaleCnt <= iSupportScaleCnt ||
-     iYuvCnt <= iSupportYuvCnt ||
-     iRotateCnt <= iSupportRotateCnt ||
-     iSkipCnt == 0)
+  if(iReqAfbcdCnt <= iSupportAfbcdCnt &&
+     iReqScaleCnt <= iSupportScaleCnt &&
+     iReqYuvCnt <= iSupportYuvCnt &&
+     iReqRotateCnt <= iSupportRotateCnt &&
+     iReqSkipCnt == 0)
     setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
   else{
+    setHwcPolicy.insert(HWC_MIX_LOPICY);
+    setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+    setHwcPolicy.insert(HWC_MIX_DOWN_LOPICY);
     setHwcPolicy.insert(HWC_GLES_POLICY);
+    if(iSupportYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+    if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
   }
 
   return 0;
@@ -861,7 +1180,12 @@ int PlanStageVop::TryHwcPolicy(
       return 0;
     else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
+      setHwcPolicy.insert(HWC_MIX_LOPICY);
+      setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+      setHwcPolicy.insert(HWC_MIX_DOWN_LOPICY);
       setHwcPolicy.insert(HWC_GLES_POLICY);
+      if(iSupportYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+      if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
     }
   }
 

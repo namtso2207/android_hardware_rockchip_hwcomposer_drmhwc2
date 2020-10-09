@@ -702,15 +702,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   // now that they're ordered by z, add them to the composition
   for (auto &hwc2layer : layers_) {
     DrmHwcLayer drmHwclayer;
-    hwc2layer.second.PopulateDrmLayer(hwc2layer.first, &drmHwclayer, &ctx_, frame_no_, false);
+    hwc2layer.second.PopulateDrmLayer(hwc2layer.first, &drmHwclayer, &ctx_, frame_no_);
     drm_hwc_layers_.emplace_back(std::move(drmHwclayer));
   }
 
   std::sort(drm_hwc_layers_.begin(),drm_hwc_layers_.end(),SortByZpos);
 
-  uint32_t client_id = UINT32_MAX;
+  uint32_t client_id = 0;
   DrmHwcLayer client_target_layer;
-  client_layer_.PopulateDrmLayer(client_id, &client_target_layer, &ctx_, frame_no_, true);
+  client_layer_.PopulateFB(client_id, &client_target_layer, &ctx_, frame_no_, true);
   drm_hwc_layers_.emplace_back(std::move(client_target_layer));
 
   ALOGD_HWC2_DRM_LAYER_INFO((DBG_DEBUG),drm_hwc_layers_);
@@ -774,41 +774,24 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     if(l.second.sf_type() == HWC2::Composition::Client)
       use_client_layer = true;
-  if(use_client_layer){
-    for (auto &drm_hwc_layer : drm_hwc_layers_) {
-      if(drm_hwc_layer.bFbTarget_){
-        uint32_t client_id = UINT32_MAX;
-        client_layer_.PopulateDrmLayer(client_id, &drm_hwc_layer, &ctx_, frame_no_, true);
-        ret = drm_hwc_layer.ImportBuffer(importer_.get());
-        if (ret) {
-          ALOGE("Failed to import layer, ret=%d", ret);
-          return HWC2::Error::NoResources;
-        }
-        map.layers.emplace_back(std::move(drm_hwc_layer));
-      }
-    }
-  }
+
+
 
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
     if(!use_client_layer && drm_hwc_layer.bFbTarget_)
       continue;
-    auto l = layers_.find(drm_hwc_layer.uId_);
-    HWC2::Composition comp_type;
-    comp_type = l->second.validated_type();
-    switch (comp_type) {
-      case HWC2::Composition::Device:
-        ret = drm_hwc_layer.ImportBuffer(importer_.get());
-        if (ret) {
-          ALOGE("Failed to import layer, ret=%d", ret);
-          return HWC2::Error::NoResources;
-        }
-        map.layers.emplace_back(std::move(drm_hwc_layer));
-        break;
-      case HWC2::Composition::Client:
-        break;
-      default:
-        continue;
+    if(!drm_hwc_layer.bMatch_)
+      continue;
+    if(drm_hwc_layer.bFbTarget_){
+      uint32_t client_id = 0;
+      client_layer_.PopulateFB(client_id, &drm_hwc_layer, &ctx_, frame_no_, false);
     }
+    ret = drm_hwc_layer.ImportBuffer(importer_.get());
+    if (ret) {
+      ALOGE("Failed to import layer, ret=%d", ret);
+      return HWC2::Error::NoResources;
+    }
+    map.layers.emplace_back(std::move(drm_hwc_layer));
   }
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
@@ -1302,12 +1285,13 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
 }
 
 void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                                                 hwc_drm_display_t* ctx, uint32_t frame_no, bool client_layer) {
+                                                 hwc_drm_display_t* ctx, uint32_t frame_no) {
   drmHwcLayer->uId_ = layer_id;
   drmHwcLayer->iZpos_ = z_order_;
   drmHwcLayer->uFrameNo_ = frame_no;
-  drmHwcLayer->bFbTarget_ = client_layer;
+  drmHwcLayer->bFbTarget_ = false;
   drmHwcLayer->bUse_ = true;
+  drmHwcLayer->bSkipLayer_ = (!buffer_ ? true:false);
 
   switch (blending_) {
     case HWC2::BlendMode::None:
@@ -1362,6 +1346,71 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->Init();
 
 }
+
+void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
+                                         hwc_drm_display_t* ctx, uint32_t frame_no, bool validate) {
+  drmHwcLayer->uId_ = layer_id;
+  drmHwcLayer->uFrameNo_ = frame_no;
+  drmHwcLayer->bFbTarget_ = true;
+  drmHwcLayer->bUse_ = true;
+  drmHwcLayer->bSkipLayer_ = false;
+
+  switch (blending_) {
+    case HWC2::BlendMode::None:
+      drmHwcLayer->blending = DrmHwcBlending::kNone;
+      break;
+    case HWC2::BlendMode::Premultiplied:
+      drmHwcLayer->blending = DrmHwcBlending::kPreMult;
+      break;
+    case HWC2::BlendMode::Coverage:
+      drmHwcLayer->blending = DrmHwcBlending::kCoverage;
+      break;
+    default:
+      ALOGE("Unknown blending mode b=%d", blending_);
+      drmHwcLayer->blending = DrmHwcBlending::kNone;
+      break;
+  }
+  if(!validate){
+    drmHwcLayer->iZpos_ = z_order_;
+    OutputFd release_fence = release_fence_output();
+    drmHwcLayer->sf_handle = buffer_;
+    drmHwcLayer->acquire_fence = acquire_fence_.Release();
+    drmHwcLayer->release_fence = std::move(release_fence);
+  }
+
+  float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
+  float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+
+  hwc_rect_t display_frame;
+  display_frame.left = (int)(display_frame_.left * w_scale);
+  display_frame.right = (int)(display_frame_.right * w_scale);
+  display_frame.top = (int)(display_frame_.top * h_scale);
+  display_frame.bottom = (int)(display_frame_.bottom * h_scale);
+
+  drmHwcLayer->SetDisplayFrame(display_frame);
+  drmHwcLayer->alpha = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
+  drmHwcLayer->SetSourceCrop(source_crop_);
+  drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
+
+  if(buffer_){
+    drmHwcLayer->iFd_ = hwc_get_handle_primefd(gralloc_, buffer_);
+    drmHwcLayer->iWidth_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
+    drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
+    drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
+    drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
+    drmHwcLayer->iBpp_ = android::bytesPerPixel(drmHwcLayer->iFormat_);
+  }else{
+    drmHwcLayer->iFd_ = -1;
+    drmHwcLayer->iWidth_ = -1;
+    drmHwcLayer->iHeight_ = -1;
+    drmHwcLayer->iStride_ = -1;
+    drmHwcLayer->iFormat_ = -1;
+    drmHwcLayer->iBpp_ = -1;
+  }
+  drmHwcLayer->Init();
+
+}
+
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 

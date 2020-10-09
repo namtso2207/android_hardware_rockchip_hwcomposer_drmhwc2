@@ -153,6 +153,7 @@ struct DrmHwcLayer {
   uint32_t uId_;
   uint32_t uFrameNo_;
   int  iZpos_;
+  int  iDrmZpos_;
   bool bFbTarget_=false;
   bool bAfbcd_=false;
   bool bYuv_;

@@ -93,7 +93,9 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t id(){ return id_; }
 
     void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc_drm_display_t* ctx,
-                                 uint32_t frame_no, bool client_layer = false);
+                                 uint32_t frame_no);
+    void PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
+                        hwc_drm_display_t* ctx, uint32_t frame_no, bool validate);
     void DumpLayerInfo(String8 &output);
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
