@@ -159,7 +159,7 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
 }
 
 void DrmHwcLayer::SetTransform(int32_t sf_transform) {
-  transform = 0;
+  transform = DrmHwcTransform::kRotate0;
   // 270* and 180* cannot be combined with flips. More specifically, they
   // already contain both horizontal and vertical flips, so those fields are
   // redundant in this case. 90* rotation can be combined with either horizontal

@@ -1140,6 +1140,10 @@ int PlanStageVop::TryMatchPolicyFirst(
     }
   }
 
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,skip=%d,"
+          "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d",__FUNCTION__,__LINE__,
+          iReqAfbcdCnt,iReqScaleCnt,iReqYuvCnt,iReqRotateCnt,iReqSkipCnt,
+          iSupportAfbcdCnt,iSupportScaleCnt,iSupportYuvCnt,iSupportRotateCnt);
   // Match policy first
   if(iReqAfbcdCnt <= iSupportAfbcdCnt &&
      iReqScaleCnt <= iSupportScaleCnt &&
