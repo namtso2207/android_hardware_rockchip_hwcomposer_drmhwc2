@@ -517,6 +517,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                     plane->src_h_property().id(),
                                     (int)(source_crop.bottom - source_crop.top)
                                         << 16) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                   plane->zpos_property().id(), zpos) < 0;
     if (ret) {
       ALOGE("Failed to add plane %d to set", plane->id());
       break;

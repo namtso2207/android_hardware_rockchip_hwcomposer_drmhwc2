@@ -775,8 +775,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     if(l.second.sf_type() == HWC2::Composition::Client)
       use_client_layer = true;
 
-
-
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
     if(!use_client_layer && drm_hwc_layer.bFbTarget_)
       continue;
@@ -1354,22 +1352,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->bFbTarget_ = true;
   drmHwcLayer->bUse_ = true;
   drmHwcLayer->bSkipLayer_ = false;
+  drmHwcLayer->blending = DrmHwcBlending::kPreMult;
 
-  switch (blending_) {
-    case HWC2::BlendMode::None:
-      drmHwcLayer->blending = DrmHwcBlending::kNone;
-      break;
-    case HWC2::BlendMode::Premultiplied:
-      drmHwcLayer->blending = DrmHwcBlending::kPreMult;
-      break;
-    case HWC2::BlendMode::Coverage:
-      drmHwcLayer->blending = DrmHwcBlending::kCoverage;
-      break;
-    default:
-      ALOGE("Unknown blending mode b=%d", blending_);
-      drmHwcLayer->blending = DrmHwcBlending::kNone;
-      break;
-  }
   if(!validate){
     drmHwcLayer->iZpos_ = z_order_;
     OutputFd release_fence = release_fence_output();
