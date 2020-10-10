@@ -1353,9 +1353,9 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->bUse_ = true;
   drmHwcLayer->bSkipLayer_ = false;
   drmHwcLayer->blending = DrmHwcBlending::kPreMult;
+  drmHwcLayer->iZpos_ = z_order_;
 
   if(!validate){
-    drmHwcLayer->iZpos_ = z_order_;
     OutputFd release_fence = release_fence_output();
     drmHwcLayer->sf_handle = buffer_;
     drmHwcLayer->acquire_fence = acquire_fence_.Release();

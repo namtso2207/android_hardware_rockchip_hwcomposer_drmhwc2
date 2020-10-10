@@ -34,6 +34,9 @@
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
 
+#define OVERSCAN_MIN_VALUE              (80)
+#define OVERSCAN_MAX_VALUE              (100)
+
 // One for the front, one for the back, and one for cases where we need to
 // squash a frame that the hw can't display with hw overlays.
 #define DRM_DISPLAY_BUFFERS 3

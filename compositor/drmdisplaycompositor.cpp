@@ -31,6 +31,9 @@
 #include <sync/sync.h>
 #include <utils/Trace.h>
 
+// System property
+#include <cutils/properties.h>
+
 #include "autolock.h"
 #include "drmcrtc.h"
 #include "drmdevice.h"
@@ -398,6 +401,49 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                writeback_buffer);
     if (ret < 0) {
       ALOGE("Failed to Setup Writeback Commit ret = %d", ret);
+      return ret;
+    }
+  }
+
+  if (crtc->can_overscan()) {
+    char overscan[PROPERTY_VALUE_MAX];
+    int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
+
+    DrmMode mode = connector->current_mode();
+    if(mode.interlaced() > 0){
+        left_margin = 100;
+        top_margin = 100;
+        right_margin = 100;
+        bottom_margin = 100;
+    }else{
+      if(display_ == HWC_DISPLAY_PRIMARY){
+        property_get("persist.vendor.overscan.main", overscan, "overscan 100,100,100,100");
+      }else{
+        property_get("persist.vendor.overscan.aux", overscan, "overscan 100,100,100,100");
+      }
+      sscanf(overscan, "overscan %d,%d,%d,%d", &left_margin, &top_margin,
+               &right_margin, &bottom_margin);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"vop post scale overscan(%d,%d,%d,%d)",
+                left_margin,top_margin,right_margin,bottom_margin);
+    }
+
+    if (left_margin   < OVERSCAN_MIN_VALUE) left_margin   = OVERSCAN_MIN_VALUE;
+    if (top_margin    < OVERSCAN_MIN_VALUE) top_margin    = OVERSCAN_MIN_VALUE;
+    if (right_margin  < OVERSCAN_MIN_VALUE) right_margin  = OVERSCAN_MIN_VALUE;
+    if (bottom_margin < OVERSCAN_MIN_VALUE) bottom_margin = OVERSCAN_MIN_VALUE;
+
+    if (left_margin   > OVERSCAN_MAX_VALUE) left_margin   = OVERSCAN_MAX_VALUE;
+    if (top_margin    > OVERSCAN_MAX_VALUE) top_margin    = OVERSCAN_MAX_VALUE;
+    if (right_margin  > OVERSCAN_MAX_VALUE) right_margin  = OVERSCAN_MAX_VALUE;
+    if (bottom_margin > OVERSCAN_MAX_VALUE) bottom_margin = OVERSCAN_MAX_VALUE;
+
+    ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), left_margin) < 0 ||
+          drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), right_margin) < 0 ||
+          drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), top_margin) < 0 ||
+          drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), bottom_margin) < 0;
+    if (ret) {
+      ALOGE("Failed to add overscan to pset");
+      drmModeAtomicFree(pset);
       return ret;
     }
   }
