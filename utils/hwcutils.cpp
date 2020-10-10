@@ -136,6 +136,8 @@ int DrmHwcLayer::Init() {
   bYuv_ = IsYuvFormat(iFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
+  uColorSpace = GetColorSpace(eDataSpace_);
+  uEOTF = GetEOTF(eDataSpace_);
   return 0;
 }
 
@@ -229,6 +231,51 @@ int DrmHwcLayer::GetSkipLine(){
     }
     return (skip_line >= 0 ? skip_line : 0);
 }
+
+#define CONTAIN_VALUE(value,mask) ((dataspace & mask) == value)
+v4l2_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
+  if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT2020, HAL_DATASPACE_STANDARD_MASK)){
+      return V4L2_COLORSPACE_BT2020;
+  }
+  else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT601_625, HAL_DATASPACE_STANDARD_MASK) &&
+          CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK)){
+      if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_FULL, HAL_DATASPACE_RANGE_MASK))
+          return V4L2_COLORSPACE_JPEG;
+      else if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK))
+          return V4L2_COLORSPACE_SMPTE170M;
+  }
+  else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT601_525, HAL_DATASPACE_STANDARD_MASK) &&
+          CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK) &&
+          CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK)){
+      return V4L2_COLORSPACE_SMPTE170M;
+  }
+  else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT709, HAL_DATASPACE_STANDARD_MASK) &&
+      CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK) &&
+      CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK)){
+      return V4L2_COLORSPACE_REC709;
+  }
+  else if (CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SRGB, HAL_DATASPACE_TRANSFER_MASK)){
+      return V4L2_COLORSPACE_SRGB;
+  }
+  //ALOGE("Unknow colorspace 0x%x",colorspace);
+  return V4L2_COLORSPACE_DEFAULT;
+
+}
+
+supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
+  if(bYuv_){
+    if((dataspace & HAL_DATASPACE_TRANSFER_MASK) == HAL_DATASPACE_TRANSFER_ST2084){
+        ALOGD_IF(LogLevel(DBG_VERBOSE),"%s:line=%d has st2084",__FUNCTION__,__LINE__);
+        return SMPTE_ST2084;
+    }else{
+        //ALOGE("Unknow etof %d",eotf);
+        return TRADITIONAL_GAMMA_SDR;
+    }
+  }
+
+  return TRADITIONAL_GAMMA_SDR;
+}
+
 std::string DrmHwcLayer::TransformToString(uint32_t transform) const{
   switch (transform) {
     case DrmHwcTransform::kIdentity:

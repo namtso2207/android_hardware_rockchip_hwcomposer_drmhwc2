@@ -38,7 +38,7 @@
 #include "drmcrtc.h"
 #include "drmdevice.h"
 #include "drmplane.h"
-
+#include "rockchip/drmtype.h"
 
 #define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 1
 
@@ -460,7 +460,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     hwc_frect_t source_crop;
     uint64_t rotation = 0;
     uint64_t alpha = 0xFF;
-    uint64_t blend;
+    uint64_t blend = 0;
+    uint16_t eotf = TRADITIONAL_GAMMA_SDR;
+    uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
 
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
       if (source_layers.size() > 1) {
@@ -493,7 +495,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
       source_crop = layer.source_crop;
-      alpha = layer.alpha;
+      if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha;
+      eotf = layer.uEOTF;
+      colorspace = layer.uColorSpace;
 
       if (plane->blend_property().id()) {
         blend = (layer.blending == DrmHwcBlending::kPreMult) ? 1:0;
@@ -621,6 +625,32 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       out_log << " blend mode =" << blend;
     }
+
+    if(plane->get_hdr2sdr() && plane->eotf_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->eotf_property().id(),
+                                     eotf) < 0;
+      if (ret) {
+        ALOGE("Failed to add eotf property %d to plane %d",
+              plane->eotf_property().id(), plane->id());
+        break;
+      }
+      out_log << " eotf=" << std::hex <<  eotf;
+    }
+
+    if(plane->colorspace_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->colorspace_property().id(),
+                                     colorspace) < 0;
+      if (ret) {
+        ALOGE("Failed to add colorspace property %d to plane %d",
+              plane->colorspace_property().id(), plane->id());
+        break;
+      }
+      out_log << " colorspace=" << std::hex <<  colorspace;
+    }
+
+
     ALOGD_IF(LogLevel(DBG_DEBUG),"%s",out_log.str().c_str());
     out_log.clear();
   }

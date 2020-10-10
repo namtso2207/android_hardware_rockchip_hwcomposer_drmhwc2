@@ -28,7 +28,7 @@
 
 #include "autofd.h"
 #include "drmhwcgralloc.h"
-
+#include "rockchip/drmtype.h"
 
 struct hwc_import_context;
 
@@ -177,7 +177,9 @@ struct DrmHwcLayer {
   int iGroupId_;
   int iShareId_;
   int iSkipLine_;
-  uint32_t uColorSpace=0;
+
+  android_dataspace_t eDataSpace_;
+  v4l2_colorspace uColorSpace = V4L2_COLORSPACE_DEFAULT;
   uint16_t uEOTF=0;
 
 
@@ -199,6 +201,8 @@ struct DrmHwcLayer {
   bool IsYuvFormat(int format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   int GetSkipLine();
+  v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
+  supported_eotf_type GetEOTF(android_dataspace_t dataspace);
   std::string TransformToString(uint32_t transform) const;
   std::string BlendingToString(DrmHwcBlending blending) const;
   int DumpInfo(String8 &out);

@@ -1290,7 +1290,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->bFbTarget_ = false;
   drmHwcLayer->bUse_ = true;
   drmHwcLayer->bSkipLayer_ = (!buffer_ ? true:false);
-
+  drmHwcLayer->eDataSpace_ = dataspace_;
   switch (blending_) {
     case HWC2::BlendMode::None:
       drmHwcLayer->blending = DrmHwcBlending::kNone;

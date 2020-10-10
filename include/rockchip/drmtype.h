@@ -66,6 +66,85 @@ public:
     float outMinLuminance;
 };
 
+
+/* see also http://vektor.theorem.ca/graphics/ycbcr/ */
+enum v4l2_colorspace {
+        /*
+         * Default colorspace, i.e. let the driver figure it out.
+         * Can only be used with video capture.
+         */
+        V4L2_COLORSPACE_DEFAULT       = 0,
+
+        /* SMPTE 170M: used for broadcast NTSC/PAL SDTV */
+        V4L2_COLORSPACE_SMPTE170M     = 1,
+
+        /* Obsolete pre-1998 SMPTE 240M HDTV standard, superseded by Rec 709 */
+        V4L2_COLORSPACE_SMPTE240M     = 2,
+
+        /* Rec.709: used for HDTV */
+        V4L2_COLORSPACE_REC709        = 3,
+
+        /*
+         * Deprecated, do not use. No driver will ever return this. This was
+         * based on a misunderstanding of the bt878 datasheet.
+         */
+        V4L2_COLORSPACE_BT878         = 4,
+
+        /*
+         * NTSC 1953 colorspace. This only makes sense when dealing with
+         * really, really old NTSC recordings. Superseded by SMPTE 170M.
+         */
+        V4L2_COLORSPACE_470_SYSTEM_M  = 5,
+
+        /*
+         * EBU Tech 3213 PAL/SECAM colorspace. This only makes sense when
+         * dealing with really old PAL/SECAM recordings. Superseded by
+         * SMPTE 170M.
+         */
+        V4L2_COLORSPACE_470_SYSTEM_BG = 6,
+
+        /*
+         * Effectively shorthand for V4L2_COLORSPACE_SRGB, V4L2_YCBCR_ENC_601
+         * and V4L2_QUANTIZATION_FULL_RANGE. To be used for (Motion-)JPEG.
+         */
+        V4L2_COLORSPACE_JPEG          = 7,
+
+        /* For RGB colorspaces such as produces by most webcams. */
+        V4L2_COLORSPACE_SRGB          = 8,
+
+        /* AdobeRGB colorspace */
+        V4L2_COLORSPACE_ADOBERGB      = 9,
+
+        /* BT.2020 colorspace, used for UHDTV. */
+        V4L2_COLORSPACE_BT2020        = 10,
+
+        /* Raw colorspace: for RAW unprocessed images */
+        V4L2_COLORSPACE_RAW           = 11,
+
+        /* DCI-P3 colorspace, used by cinema projectors */
+        V4L2_COLORSPACE_DCI_P3        = 12,
+};
+
+
+/* HDMI output pixel format */
+enum drm_hdmi_output_type {
+	DRM_HDMI_OUTPUT_DEFAULT_RGB, /* default RGB */
+	DRM_HDMI_OUTPUT_YCBCR444, /* YCBCR 444 */
+	DRM_HDMI_OUTPUT_YCBCR422, /* YCBCR 422 */
+	DRM_HDMI_OUTPUT_YCBCR420, /* YCBCR 420 */
+	DRM_HDMI_OUTPUT_YCBCR_HQ, /* Highest subsampled YUV */
+	DRM_HDMI_OUTPUT_YCBCR_LQ, /* Lowest subsampled YUV */
+	DRM_HDMI_OUTPUT_INVALID, /* Guess what ? */
+};
+
+enum dw_hdmi_rockchip_color_depth {
+	ROCKCHIP_DEPTH_DEFAULT = 0,
+	ROCKCHIP_HDMI_DEPTH_8 = 8,
+	ROCKCHIP_HDMI_DEPTH_10 = 10,
+};
+
+
+
 typedef enum attribute_flag {
     ATT_WIDTH = 0,
     ATT_HEIGHT,
