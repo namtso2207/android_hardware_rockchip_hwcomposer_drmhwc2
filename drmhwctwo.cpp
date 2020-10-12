@@ -647,7 +647,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
     fences[num_layers - 1] = l.second.take_release_fence();
     ALOGV("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
     // the new fence semantics for a frame n by returning the fence from frame n-1. For frame 0,
-    //the adapter returns NO_FENCE.
+    // the adapter returns NO_FENCE.
     l.second.manage_release_fence();
   }
   *num_elements = num_layers;

@@ -744,6 +744,12 @@ void PlanStageVop::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
     layer->iDrmZpos_ = zpos;
     zpos++;
   }
+
+  zpos = 0;
+  for(auto &layer : tmp_layers){
+    layer->iDrmZpos_ = zpos;
+    zpos++;
+  }
   return;
 }
 
@@ -858,6 +864,7 @@ int PlanStageVop::TryMixSkipPolicy(
         skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
         if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+          ResetLayerFromTmp(layers,tmp_layers);
           return -1;
         }
       }
@@ -868,10 +875,12 @@ int PlanStageVop::TryMixSkipPolicy(
         skipCnt = skip_layer_indices.second + 1;
         if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
             ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+            ResetLayerFromTmp(layers,tmp_layers);
             return -1;
         }
       }else{
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+        ResetLayerFromTmp(layers,tmp_layers);
         return -1;
       }
    }
@@ -1016,6 +1025,11 @@ int PlanStageVop::TryMixDownPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
 
+  if(layers.size() < 4 || layers.size() > 6 ){
+    ResetLayerFromTmp(layers,tmp_layers);
+    return -1;
+  }
+
   std::pair<int, int> layer_indices(-1, -1);
   int iPlaneSize = plane_groups.size();
   layer_indices.first = 0;
@@ -1072,7 +1086,7 @@ int PlanStageVop::TryMixPolicy(
     if(!ret)
       return 0;
   }
-  return 0;
+  return -1;
 }
 
 int PlanStageVop::TryGLESPolicy(

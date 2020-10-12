@@ -81,14 +81,15 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
   }
 
   //sort
-  for (auto i = layers_.begin(); i != layers_.end()-1; i++){
-    for (auto j = i+1; j != layers_.end(); j++){
-      if((*i).iDrmZpos_ > (*j).iDrmZpos_){
-          std::swap(*i, *j);
+  if(layers_.size() > 1){
+    for (auto i = layers_.begin(); i != layers_.end()-1; i++){
+      for (auto j = i+1; j != layers_.end(); j++){
+        if((*i).iDrmZpos_ > (*j).iDrmZpos_){
+            std::swap(*i, *j);
+        }
       }
     }
   }
-
   type_ = DRM_COMPOSITION_TYPE_FRAME;
   return 0;
 }
@@ -199,7 +200,8 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
         ALOGE("creat release fence failed ret=%d,%s",ret,strerror(errno));
       return ret;
     }
-    ALOGV("rk-debug CreateNextTimelineFence frame no = %" PRIu64 " releaseFd = %d" ,frame_no_,layer->release_fence.get());
+    //ALOGD("%s,line=%d layerId = %" PRIu32 " frame no = %" PRIu64 " releaseFd = %d" ,__FUNCTION__,__LINE__,
+    //      layer->uId_,frame_no_,layer->release_fence.get());
   }
   return 0;
 }

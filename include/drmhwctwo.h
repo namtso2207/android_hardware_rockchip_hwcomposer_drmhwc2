@@ -232,7 +232,7 @@ class DrmHwcTwo : public hwc2_device_t {
     std::vector<DrmMode> sf_modes_;
     hwc2_display_t handle_;
     HWC2::DisplayType type_;
-    uint32_t layer_idx_ = 0;
+    uint32_t layer_idx_ = 1;
     std::map<hwc2_layer_t, HwcLayer> layers_;
     HwcLayer client_layer_;
     UniqueFd retire_fence_;
