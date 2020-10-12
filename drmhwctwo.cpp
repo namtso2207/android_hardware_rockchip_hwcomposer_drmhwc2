@@ -646,6 +646,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
     layers[num_layers - 1] = l.first;
     fences[num_layers - 1] = l.second.take_release_fence();
     ALOGV("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
+    // the new fence semantics for a frame n by returning the fence from frame n-1. For frame 0,
+    //the adapter returns NO_FENCE.
+    l.second.manage_release_fence();
   }
   *num_elements = num_layers;
   return HWC2::Error::None;
@@ -656,10 +659,8 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
 
   if (fd < 0){
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &hwc2layer : layers_) {
-      hwc2layer.second.manage_release_fence();
 
       int releaseFenceFd = hwc2layer.second.release_fence();
-
       if (releaseFenceFd < 0)
         continue;
 
@@ -670,18 +671,6 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
         retire_fence_.Set(dup(releaseFenceFd));
       }
     }
-    client_layer_.manage_release_fence();
-    if(client_layer_.release_fence() > 0){
-      int releaseFenceFd = client_layer_.take_release_fence();
-      if(retire_fence_.get() >= 0){
-          int old_retire_fence = retire_fence_.get();
-          retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
-      }else{
-          retire_fence_.Set(dup(releaseFenceFd));
-      }
-      close(releaseFenceFd);
-    }
-    ALOGV("rk-debug AddFenceToRetireFence [%d]",retire_fence_.get());
     return;
   }else{
     if (retire_fence_.get() >= 0) {
@@ -823,8 +812,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     i = overlay_planes.erase(i);
   }
 
-//  ret = composition->CreateAndAssignReleaseFences();
-//  AddFenceToRetireFence(composition->take_out_fence());
+  ret = composition->CreateAndAssignReleaseFences();
+  AddFenceToRetireFence(composition->take_out_fence());
   ret = compositor_.QueueComposition(std::move(composition));
 
   return HWC2::Error::None;
@@ -848,6 +837,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   if (ret != HWC2::Error::None)
     return ret;
 
+  // The retire fence returned here is for the last frame, so return it and
+  // promote the next retire fence
   *retire_fence = retire_fence_.Release();
 
   ++frame_no_;
