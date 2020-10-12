@@ -139,7 +139,6 @@ struct DrmHwcLayer {
   buffer_handle_t sf_handle = NULL;
   int gralloc_buffer_usage = 0;
   DrmHwcBuffer buffer;
-  DrmHwcNativeHandle handle;
   uint32_t transform;
   DrmHwcBlending blending = DrmHwcBlending::kNone;
   uint16_t alpha = 0xff;
@@ -191,7 +190,7 @@ struct DrmHwcLayer {
   void SetDisplayFrame(hwc_rect_t const &frame);
 
   buffer_handle_t get_usable_handle() const {
-    return handle.get() != NULL ? handle.get() : sf_handle;
+    return sf_handle;
   }
 
   bool protected_usage() const {
