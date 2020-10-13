@@ -135,6 +135,8 @@ class DrmDisplayCompositor {
 
   std::unique_ptr<DrmDisplayComposition> active_composition_;
 
+  pthread_cond_t composite_queue_cond_;
+
   bool initialized_;
   bool active_;
   bool use_hw_overlays_;
