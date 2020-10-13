@@ -736,12 +736,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
     if(drm_hwc_layer.bMatch_){
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
-      ALOGD("Layer-id =%.3" PRIu32 ",comp_type = Device",drm_hwc_layer.uId_);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Layer-id =%.3" PRIu32 ",comp_type = Device",drm_hwc_layer.uId_);
     }else{
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Client);
-      ALOGD("Layer-id =%.3" PRIu32 ",comp_type = Client",drm_hwc_layer.uId_);
-
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Layer-id =%.3" PRIu32 ",comp_type = Client",drm_hwc_layer.uId_);
     }
   }
 
@@ -974,7 +973,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     String8 out;
     DumpDisplayLayersInfo(out);
     ALOGD("%s",out.string());
-
   }
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
@@ -1275,13 +1273,15 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
 
 void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
                                                  hwc_drm_display_t* ctx, uint32_t frame_no) {
-  drmHwcLayer->uId_ = layer_id;
-  drmHwcLayer->iZpos_ = z_order_;
-  drmHwcLayer->uFrameNo_ = frame_no;
-  drmHwcLayer->bFbTarget_ = false;
-  drmHwcLayer->bUse_ = true;
+  drmHwcLayer->uId_        = layer_id;
+  drmHwcLayer->iZpos_      = z_order_;
+  drmHwcLayer->uFrameNo_   = frame_no;
+  drmHwcLayer->bFbTarget_  = false;
+  drmHwcLayer->bUse_       = true;
   drmHwcLayer->bSkipLayer_ = (!buffer_ ? true:false);
   drmHwcLayer->eDataSpace_ = dataspace_;
+  drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
+
   switch (blending_) {
     case HWC2::BlendMode::None:
       drmHwcLayer->blending = DrmHwcBlending::kNone;
@@ -1298,8 +1298,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       break;
   }
 
-  OutputFd release_fence = release_fence_output();
-  drmHwcLayer->sf_handle = buffer_;
+  OutputFd release_fence     = release_fence_output();
+  drmHwcLayer->sf_handle     = buffer_;
   drmHwcLayer->acquire_fence = acquire_fence_.Release();
   drmHwcLayer->release_fence = std::move(release_fence);
 
@@ -1307,48 +1307,51 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
 
   hwc_rect_t display_frame;
-  display_frame.left = (int)(display_frame_.left * w_scale);
-  display_frame.right = (int)(display_frame_.right * w_scale);
-  display_frame.top = (int)(display_frame_.top * h_scale);
+
+  display_frame.left   = (int)(display_frame_.left   * w_scale);
+  display_frame.right  = (int)(display_frame_.right  * w_scale);
+  display_frame.top    = (int)(display_frame_.top    * h_scale);
   display_frame.bottom = (int)(display_frame_.bottom * h_scale);
 
   drmHwcLayer->SetDisplayFrame(display_frame);
-  drmHwcLayer->alpha = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
 
   if(buffer_){
-    drmHwcLayer->iFd_ = hwc_get_handle_primefd(gralloc_, buffer_);
-    drmHwcLayer->iWidth_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
+    drmHwcLayer->iFd_     = hwc_get_handle_primefd(gralloc_, buffer_);
+    drmHwcLayer->iWidth_  = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
     drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
     drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
-    drmHwcLayer->iBpp_ = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
   }else{
-    drmHwcLayer->iFd_ = -1;
-    drmHwcLayer->iWidth_ = -1;
+    drmHwcLayer->iFd_     = -1;
+    drmHwcLayer->iWidth_  = -1;
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
-    drmHwcLayer->iBpp_ = -1;
+    drmHwcLayer->iBpp_    = -1;
   }
+
   drmHwcLayer->Init();
 
+  return;
 }
 
 void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
                                          hwc_drm_display_t* ctx, uint32_t frame_no, bool validate) {
-  drmHwcLayer->uId_ = layer_id;
-  drmHwcLayer->uFrameNo_ = frame_no;
-  drmHwcLayer->bFbTarget_ = true;
-  drmHwcLayer->bUse_ = true;
+  drmHwcLayer->uId_        = layer_id;
+  drmHwcLayer->uFrameNo_   = frame_no;
+  drmHwcLayer->bFbTarget_  = true;
+  drmHwcLayer->bUse_       = true;
   drmHwcLayer->bSkipLayer_ = false;
-  drmHwcLayer->blending = DrmHwcBlending::kPreMult;
-  drmHwcLayer->iZpos_ = z_order_;
+  drmHwcLayer->blending    = DrmHwcBlending::kPreMult;
+  drmHwcLayer->iZpos_      = z_order_;
+  drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
 
   if(!validate){
-    OutputFd release_fence = release_fence_output();
-    drmHwcLayer->sf_handle = buffer_;
+    OutputFd release_fence     = release_fence_output();
+    drmHwcLayer->sf_handle     = buffer_;
     drmHwcLayer->acquire_fence = acquire_fence_.Release();
     drmHwcLayer->release_fence = std::move(release_fence);
   }
@@ -1357,33 +1360,35 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
 
   hwc_rect_t display_frame;
-  display_frame.left = (int)(display_frame_.left * w_scale);
-  display_frame.right = (int)(display_frame_.right * w_scale);
-  display_frame.top = (int)(display_frame_.top * h_scale);
+
+  display_frame.left   = (int)(display_frame_.left   * w_scale);
+  display_frame.right  = (int)(display_frame_.right  * w_scale);
+  display_frame.top    = (int)(display_frame_.top    * h_scale);
   display_frame.bottom = (int)(display_frame_.bottom * h_scale);
 
   drmHwcLayer->SetDisplayFrame(display_frame);
-  drmHwcLayer->alpha = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
 
   if(buffer_){
-    drmHwcLayer->iFd_ = hwc_get_handle_primefd(gralloc_, buffer_);
-    drmHwcLayer->iWidth_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
+    drmHwcLayer->iFd_     = hwc_get_handle_primefd(gralloc_, buffer_);
+    drmHwcLayer->iWidth_  = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
     drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
     drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
-    drmHwcLayer->iBpp_ = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
   }else{
-    drmHwcLayer->iFd_ = -1;
-    drmHwcLayer->iWidth_ = -1;
+    drmHwcLayer->iFd_     = -1;
+    drmHwcLayer->iWidth_  = -1;
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
-    drmHwcLayer->iBpp_ = -1;
+    drmHwcLayer->iBpp_    = -1;
   }
+
   drmHwcLayer->Init();
 
+  return;
 }
 
 
