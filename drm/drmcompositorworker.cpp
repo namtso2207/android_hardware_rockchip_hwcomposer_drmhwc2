@@ -27,7 +27,7 @@
 
 namespace android {
 
-//static const int64_t kSquashWait = 500000000LL;
+static const int64_t kSquashWait = 500000000LL;
 
 DrmCompositorWorker::DrmCompositorWorker(DrmDisplayCompositor *compositor)
     : Worker("drm-compositor", HAL_PRIORITY_URGENT_DISPLAY),
@@ -50,7 +50,7 @@ void DrmCompositorWorker::Routine() {
     // prevent wait_ret == -ETIMEDOUT which would trigger a SquashAll and be a
     // pointless drain on resources.
     int wait_ret = did_squash_all_ ? WaitForSignalOrExitLocked()
-                                   : WaitForSignalOrExitLocked();
+                                   : WaitForSignalOrExitLocked(kSquashWait);
     Unlock();
 
     switch (wait_ret) {
