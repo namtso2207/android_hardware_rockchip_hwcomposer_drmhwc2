@@ -23,7 +23,7 @@
 #include "rockchip/drmgralloc.h"
 #include "rockchip/platform/drmvop.h"
 
-#include <drm/drm_fourcc.h>
+#include <drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
@@ -31,6 +31,8 @@
 #include <hardware/gralloc.h>
 #include <log/log.h>
 
+
+#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
 
 namespace android {
 
@@ -90,6 +92,10 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
       return DRM_FORMAT_BGR565;
     case HAL_PIXEL_FORMAT_YV12:
       return DRM_FORMAT_YVU420;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12:
+      return DRM_FORMAT_NV12;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+      return DRM_FORMAT_NV12_10;
     default:
       ALOGE("Cannot convert hal format to drm format %u", hal_format);
       return -EINVAL;
@@ -108,6 +114,10 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
       return 16;
     case DRM_FORMAT_YVU420:
       return 12;
+    case DRM_FORMAT_NV12:
+      return 12;
+    case DRM_FORMAT_NV12_10:
+      return 15;
     default:
       ALOGE("Cannot convert hal format %u to bpp (returning 32)", drm_format);
       return 32;
@@ -132,6 +142,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 
   memset(bo, 0, sizeof(hwc_drm_bo_t));
+  if(format == HAL_PIXEL_FORMAT_YCrCb_NV12_10){
+      bo->width = width/1.25;
+      bo->width = ALIGN_DOWN(bo->width,2);
+  }else{
+      bo->width = width;
+  }
+
   bo->width = width;
   bo->height = height;
   bo->hal_format = format;
@@ -142,6 +159,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->pitches[0] = byte_stride;
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
+
+  if(format == HAL_PIXEL_FORMAT_YCrCb_NV12 || format == HAL_PIXEL_FORMAT_YCrCb_NV12_10){
+    bo->pitches[1] = bo->pitches[0];
+    bo->gem_handles[1] = gem_handle;
+    bo->offsets[1] = bo->pitches[1] * bo->height;
+  }
+
 
   ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
