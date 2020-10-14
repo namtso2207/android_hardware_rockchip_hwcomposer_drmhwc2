@@ -680,10 +680,11 @@ int PlanStageVop::MatchPlanes(
     ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),&zpos);
     // We don't have any planes left
-    if (ret == -ENOENT)
-      break;
-    else if (ret) {
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy");
+    if (ret == -ENOENT){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
+      return ret;
+    }else if (ret) {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
       return ret;
     }
   }
@@ -952,7 +953,59 @@ int PlanStageVop::TryMixVideoPolicy(
   int iPlaneSize = plane_groups.size();
   std::pair<int, int> layer_indices(-1, -1);
 
+  if((int)layers.size() < 4)
+    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
+  else
+    layer_indices.first = iPlaneSize - 1;
+  layer_indices.second = layers.size() - 1;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmpExceptFB(layers,tmp_layers);
+    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ResetLayerFromTmpExceptFB(layers,tmp_layers);
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(!ret)
+        return ret;
+      else{
+        ResetLayerFromTmp(layers,tmp_layers);
+        return -1;
+     }
+   }
+ }
 
+  ResetLayerFromTmp(layers,tmp_layers);
+  return ret;
+}
+
+/*************************mix up*************************
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+       HWC | 711aa61e80 | 0000 | 0000 | 00 | 0100 | RGBx_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.systemui.ImageWallpaper
+       HWC | 711ab1ef00 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.launcher3/com.android.launcher3.Launcher
+       HWC | 711aa61700 | 0000 | 0000 | 00 | 0100 | ? 00000017  |    0.0,    0.0, 3840.0, 2160.0 |  600,  562, 1160,  982 | SurfaceView - MediaView
+      GLES | 711ab1e580 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,  560.0,  420.0 |  600,  562, 1160,  982 | MediaView
+      GLES | 70b34c9c80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,    2.0 |    0,    0, 2400,    2 | StatusBar
+      GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
+      GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
+************************************************************/
+int PlanStageVop::TryMixUpPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  std::vector<DrmHwcLayer *> tmp_layers;
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  int iPlaneSize = plane_groups.size();
+  std::pair<int, int> layer_indices(-1, -1);
 
   if((int)layers.size() < 4)
     layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
@@ -980,60 +1033,7 @@ int PlanStageVop::TryMixVideoPolicy(
    }
  }
 
-  return ret;
-}
-
-/*************************mix up*************************
------------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
-       HWC | 711aa61e80 | 0000 | 0000 | 00 | 0100 | RGBx_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.systemui.ImageWallpaper
-       HWC | 711ab1ef00 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0, 1600.0 |    0,    0, 2400, 1600 | com.android.launcher3/com.android.launcher3.Launcher
-       HWC | 711aa61700 | 0000 | 0000 | 00 | 0100 | ? 00000017  |    0.0,    0.0, 3840.0, 2160.0 |  600,  562, 1160,  982 | SurfaceView - MediaView
-      GLES | 711ab1e580 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,  560.0,  420.0 |  600,  562, 1160,  982 | MediaView
-      GLES | 70b34c9c80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,    2.0 |    0,    0, 2400,    2 | StatusBar
-      GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
-      GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
-************************************************************/
-int PlanStageVop::TryMixUpPolicy(
-    std::vector<DrmCompositionPlane> *composition,
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
-    std::vector<PlaneGroup *> &plane_groups) {
-  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
-
-  ResetLayer(layers);
-  ResetPlaneGroups(plane_groups);
-
-  std::vector<DrmHwcLayer *> tmp_layers;
-  //save fb into tmp_layers
-  MoveFbToTmp(layers, tmp_layers);
-
-  int iPlaneSize = plane_groups.size();
-  std::pair<int, int> layer_indices(-1, -1);
-
-  if((int)layers.size() < 4 )
-    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
-  else
-    layer_indices.first = iPlaneSize - 1;
-  layer_indices.second = layers.size() - 1;
-  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
-  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-  if(!ret)
-   return ret;
-  else{
-    ResetLayerFromTmp(layers,tmp_layers);
-    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
-      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
-      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-      if(!ret)
-        return ret;
-      else{
-        ResetLayerFromTmp(layers,tmp_layers);
-        return -1;
-      }
-    }
-  }
-
+  ResetLayerFromTmp(layers,tmp_layers);
   return ret;
 }
 
@@ -1073,7 +1073,7 @@ int PlanStageVop::TryMixDownPolicy(
   if(!ret)
     return ret;
   else
-    ResetLayerFromTmp(layers,tmp_layers);
+    ResetLayerFromTmpExceptFB(layers,tmp_layers);
 
   if((int)layers.size() > iPlaneSize){
     layer_indices.first = 0;
@@ -1088,6 +1088,8 @@ int PlanStageVop::TryMixDownPolicy(
       return -1;
     }
   }
+
+  ResetLayerFromTmp(layers,tmp_layers);
   return ret;
 }
 
@@ -1154,7 +1156,6 @@ int PlanStageVop::TryMatchPolicyFirst(
     setHwcPolicy.insert(HWC_GLES_POLICY);
     return 0;
   }
-
 
   // Collect layer info
   iReqAfbcdCnt=0;
