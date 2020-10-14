@@ -109,7 +109,7 @@ class PlanStageVop : public Planner::PlanStage {
   bool HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups);
   int  CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*>& layers,uint32_t iPlaneSize);
   int  GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,std::vector<PlaneGroup *>&out_plane_groups);
-
+  void ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);
   void OutputMatchLayer(int iFirst, int iLast,

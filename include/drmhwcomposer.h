@@ -44,6 +44,11 @@ namespace android {
 
 #define UN_USED(arg)     (arg=arg)
 
+int hwc_get_int_property(const char* pcProperty,const char* default_value);
+bool hwc_get_bool_property(const char* pcProperty,const char* default_value);
+int hwc_get_string_property(const char* pcProperty,const char* default_value,char* retult);
+
+
 class Importer;
 
 class DrmHwcBuffer {

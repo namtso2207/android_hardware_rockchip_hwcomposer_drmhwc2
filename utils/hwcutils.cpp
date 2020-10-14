@@ -36,6 +36,56 @@
 
 namespace android {
 
+int hwc_get_int_property(const char* pcProperty,const char* default_value)
+{
+    char value[PROPERTY_VALUE_MAX];
+    int new_value = 0;
+
+    if(pcProperty == NULL || default_value == NULL)
+    {
+        ALOGE("hwc_get_int_property: invalid param");
+        return -1;
+    }
+
+    property_get(pcProperty, value, default_value);
+    new_value = atoi(value);
+
+    return new_value;
+}
+
+bool hwc_get_bool_property(const char* pcProperty,const char* default_value)
+{
+    char value[PROPERTY_VALUE_MAX];
+    bool result = false;
+
+    if(pcProperty == NULL || default_value == NULL)
+    {
+        ALOGE("hwc_get_int_property: invalid param");
+        return -1;
+    }
+
+    property_get(pcProperty, value, default_value);
+    if(!strcmp(value,"true"))
+        result = true;
+    else
+        result = false;
+
+    return result;
+}
+
+
+int hwc_get_string_property(const char* pcProperty,const char* default_value,char* retult)
+{
+    if(pcProperty == NULL || default_value == NULL || retult == NULL)
+    {
+        ALOGE("hwc_get_string_property: invalid param");
+        return -1;
+    }
+    property_get(pcProperty, retult, default_value);
+
+    return 0;
+}
+
 const hwc_drm_bo *DrmHwcBuffer::operator->() const {
   if (importer_ == NULL) {
     ALOGE("Access of non-existent BO");
@@ -258,7 +308,7 @@ std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{
 
 int DrmHwcLayer::DumpInfo(String8 &out){
     if(bFbTarget_)
-      out.appendFormat( "DrmLayerFB[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
                     "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d]\n",
                    uId_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
                    alpha,BlendingToString(blending).c_str(),

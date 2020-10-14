@@ -233,7 +233,7 @@ int PlanStageVop::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &la
             i++;
     }
 
-#if RK_SORT_AREA_BY_XPOS
+#if 1
   //sort layer by xpos
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
@@ -711,6 +711,38 @@ int  PlanStageVop::GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,
   }
   return out_plane_groups.size() > 0 ? 0 : -1;
 }
+
+void PlanStageVop::ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers,
+                                              std::vector<DrmHwcLayer*>& tmp_layers){
+  for (auto i = layers.begin(); i != layers.end();){
+      if((*i)->bFbTarget_){
+          tmp_layers.emplace_back(std::move(*i));
+          i = layers.erase(i);
+          continue;
+      }
+      i++;
+  }
+  for (auto i = tmp_layers.begin(); i != tmp_layers.end();){
+    if((*i)->bFbTarget_){
+      i++;
+      continue;
+    }
+    layers.emplace_back(std::move(*i));
+    i = tmp_layers.erase(i);
+  }
+  //sort
+  for (auto i = layers.begin(); i != layers.end()-1; i++){
+     for (auto j = i+1; j != layers.end(); j++){
+        if((*i)->iZpos_ > (*j)->iZpos_){
+           std::swap(*i, *j);
+        }
+     }
+  }
+
+  return;
+}
+
+
 void PlanStageVop::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
                                               std::vector<DrmHwcLayer*>& tmp_layers){
   for (auto i = tmp_layers.begin(); i != tmp_layers.end();){
@@ -922,7 +954,7 @@ int PlanStageVop::TryMixVideoPolicy(
 
 
 
-  if((int)layers.size() < 4 )
+  if((int)layers.size() < 4)
     layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
   else
     layer_indices.first = iPlaneSize - 1;
@@ -933,8 +965,9 @@ int PlanStageVop::TryMixVideoPolicy(
   if(!ret)
     return ret;
   else{
-    ResetLayerFromTmp(layers,tmp_layers);
+    ResetLayerFromTmpExceptFB(layers,tmp_layers);
     for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ResetLayerFromTmpExceptFB(layers,tmp_layers);
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
       int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -1114,6 +1147,14 @@ int PlanStageVop::TryMatchPolicyFirst(
     std::vector<PlaneGroup *> &plane_groups){
 
   setHwcPolicy.clear();
+
+  //force go into GPU
+  int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
+  if(!iMode){
+    setHwcPolicy.insert(HWC_GLES_POLICY);
+    return 0;
+  }
+
 
   // Collect layer info
   iReqAfbcdCnt=0;
