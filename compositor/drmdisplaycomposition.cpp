@@ -127,22 +127,16 @@ int DrmDisplayComposition::DisableUnusedPlanes(std::vector<DrmPlane *> *primary_
   if (type_ != DRM_COMPOSITION_TYPE_FRAME)
     return 0;
 
-
-  std::vector<PlaneGroup *> &all_plane_groups = drm_->GetPlaneGroups();
-  for(auto &plane_group : all_plane_groups){
-    for(auto &plane : *primary_planes){
-      uint64_t ret,share_id;
-      std::tie(ret, share_id) = plane->share_id_property().value();
-      if(share_id == plane_group->share_id && !(plane_group->bUse)){
-        AddPlaneDisable(plane);
-      }
+  for(auto &plane : *primary_planes){
+    if(!(plane->is_use())){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane id = %d",plane->id());
+      AddPlaneDisable(plane);
     }
-    for(auto &plane : *overlay_planes){
-      uint64_t ret,share_id;
-      std::tie(ret, share_id) = plane->share_id_property().value();
-      if(share_id == plane_group->share_id && !(plane_group->bUse)){
-        AddPlaneDisable(plane);
-      }
+  }
+  for(auto &plane : *overlay_planes){
+    if(!(plane->is_use())){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane id = %d",plane->id());
+      AddPlaneDisable(plane);
     }
   }
   return 0;
