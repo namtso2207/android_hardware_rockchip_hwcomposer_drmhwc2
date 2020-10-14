@@ -203,6 +203,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
    int DumpDisplayInfo(String8 &output);
    int DumpDisplayLayersInfo(String8 &output);
+   int DumpDisplayLayersInfo();
    bool PresentFinish(void) { return present_finish_; };
    int UpdateDisplayMode();
    int GetBestDisplayMode();

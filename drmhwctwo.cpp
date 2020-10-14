@@ -683,7 +683,7 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
 }
 
 bool SortByZpos(const DrmHwcLayer &drmHwcLayer1, const DrmHwcLayer &drmHwcLayer2){
-    return drmHwcLayer1.iZpos_ <= drmHwcLayer2.iZpos_;
+    return drmHwcLayer1.iZpos_ < drmHwcLayer2.iZpos_;
 }
 HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   drm_hwc_layers_.clear();
@@ -967,9 +967,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   HWC2::Error ret;
 
   if(LogLevel(DBG_DEBUG)){
-    String8 out;
-    DumpDisplayLayersInfo(out);
-    ALOGD("%s",out.string());
+    DumpDisplayLayersInfo();
   }
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
@@ -1029,9 +1027,9 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
   }
 
   output.append(
-              "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
-              "  id  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
+              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
   for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
       layer.DumpLayerInfo(output);
@@ -1053,16 +1051,43 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(String8 &output){
                         frame_no_);
 
   output.append(
-              "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
-              "  id  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
+              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
   for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
       layer.DumpLayerInfo(output);
   }
-  output.append("------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  output.append("------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
   return 0;
 }
+
+int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
+  String8 output;
+  output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, Type = %s-%u, Connector state = %s , frame_no = %d\n",handle_,
+                        connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
+                        connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED",
+                        frame_no_);
+
+  output.append(
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
+              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+
+  ALOGD("%s",output.string());
+
+  for (auto &map_layer : layers_) {
+      output.clear();
+      HwcLayer &layer = map_layer.second;
+      layer.DumpLayerInfo(output);
+      ALOGD("%s",output.string());
+  }
+  output.clear();
+  output.append("------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  ALOGD("%s",output.string());
+  return 0;
+}
+
 
 int DrmHwcTwo::HwcDisplay::GetBestDisplayMode(){
   char resolution[PROPERTY_VALUE_MAX];
@@ -1391,8 +1416,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 
-  output.appendFormat( " %04" PRIu32 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
-                    id_,to_string(validated_type_).c_str(),
+  output.appendFormat( " %04" PRIu32 " | %03" PRIu32 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
+                    id_,z_order_,to_string(validated_type_).c_str(),
                     intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(),
                     source_crop_.left, source_crop_.top, source_crop_.right, source_crop_.bottom,
                     display_frame_.left, display_frame_.top, display_frame_.right, display_frame_.bottom,
