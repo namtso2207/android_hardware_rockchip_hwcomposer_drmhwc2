@@ -936,6 +936,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     ALOGE("Failed to apply the dpms composition ret=%d", ret);
     return HWC2::Error::BadParameter;
   }
+
+  if(connector_){
+    connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
+    drm_->DisplayChanged();
+    drm_->UpdateDisplayRoute();
+  }
+
   return HWC2::Error::None;
 }
 
