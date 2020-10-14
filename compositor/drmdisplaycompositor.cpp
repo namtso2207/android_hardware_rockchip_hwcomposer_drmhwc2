@@ -889,20 +889,10 @@ int DrmDisplayCompositor::FlattenOnDisplay(
       overlay_planes.push_back(plane.get());
   }
 
-  ret = src->Plan(&primary_planes, &overlay_planes);
+  ret = src->DisableUnusedPlanes(&primary_planes, &overlay_planes);
   if (ret) {
     ALOGE("Failed to plan the composition ret = %d", ret);
     return ret;
-  }
-
-  // Disable the planes we're not using
-  for (auto i = primary_planes.begin(); i != primary_planes.end();) {
-    src->AddPlaneDisable(*i);
-    i = primary_planes.erase(i);
-  }
-  for (auto i = overlay_planes.begin(); i != overlay_planes.end();) {
-    src->AddPlaneDisable(*i);
-    i = overlay_planes.erase(i);
   }
 
   AutoLock lock(&lock_, __func__);

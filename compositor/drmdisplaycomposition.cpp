@@ -122,33 +122,29 @@ int DrmDisplayComposition::AddPlaneComposition(DrmCompositionPlane plane) {
   return 0;
 }
 
-int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
+int DrmDisplayComposition::DisableUnusedPlanes(std::vector<DrmPlane *> *primary_planes,
                                 std::vector<DrmPlane *> *overlay_planes) {
   if (type_ != DRM_COMPOSITION_TYPE_FRAME)
     return 0;
 
-  // Remove the planes we used from the pool before returning. This ensures they
-  // won't be reused by another display in the composition.
-  for (auto &i : composition_planes_) {
-    if (!i.plane())
-      continue;
 
-    // make sure that source layers are ordered based on zorder
-    std::sort(i.source_layers().begin(), i.source_layers().end());
-
-    std::vector<DrmPlane *> *container;
-    if (i.plane()->type() == DRM_PLANE_TYPE_PRIMARY)
-      container = primary_planes;
-    else
-      container = overlay_planes;
-    for (auto j = container->begin(); j != container->end(); ++j) {
-      if (*j == i.plane()) {
-        container->erase(j);
-        break;
+  std::vector<PlaneGroup *> &all_plane_groups = drm_->GetPlaneGroups();
+  for(auto &plane_group : all_plane_groups){
+    for(auto &plane : *primary_planes){
+      uint64_t ret,share_id;
+      std::tie(ret, share_id) = plane->share_id_property().value();
+      if(share_id == plane_group->share_id && !(plane_group->bUse)){
+        AddPlaneDisable(plane);
+      }
+    }
+    for(auto &plane : *overlay_planes){
+      uint64_t ret,share_id;
+      std::tie(ret, share_id) = plane->share_id_property().value();
+      if(share_id == plane_group->share_id && !(plane_group->bUse)){
+        AddPlaneDisable(plane);
       }
     }
   }
-
   return 0;
 }
 int DrmDisplayComposition::CreateNextTimelineFence(const char* fence_name) {

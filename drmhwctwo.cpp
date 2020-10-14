@@ -795,20 +795,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
 
   std::vector<DrmPlane *> primary_planes(primary_planes_);
   std::vector<DrmPlane *> overlay_planes(overlay_planes_);
-  ret = composition->Plan(&primary_planes, &overlay_planes);
+  ret = composition->DisableUnusedPlanes(&primary_planes, &overlay_planes);
   if (ret) {
     ALOGE("Failed to plan the composition ret=%d", ret);
     return HWC2::Error::BadConfig;
-  }
-
-  // Disable the planes we're not using
-  for (auto i = primary_planes.begin(); i != primary_planes.end();) {
-    composition->AddPlaneDisable(*i);
-    i = primary_planes.erase(i);
-  }
-  for (auto i = overlay_planes.begin(); i != overlay_planes.end();) {
-    composition->AddPlaneDisable(*i);
-    i = overlay_planes.erase(i);
   }
 
   ret = composition->CreateAndAssignReleaseFences();
