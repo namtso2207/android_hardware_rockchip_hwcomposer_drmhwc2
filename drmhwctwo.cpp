@@ -464,10 +464,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
   // it's possible this will result in stale modes, it'll all come out in the
   // wash when we try to set the active config later.
   if (!configs) {
-    int ret = connector_->UpdateModes();
-    if (ret) {
-      ALOGE("Failed to update display modes %d", ret);
-      return HWC2::Error::BadDisplay;
+    if (!connector_->ModesReady()) {
+      int ret = connector_->UpdateModes();
+      if(ret){
+        ALOGE("Failed to update display modes %d", ret);
+        return HWC2::Error::BadDisplay;
+      }
     }
   }
 
@@ -603,10 +605,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
     ALOGE("%s:Failed to get connector for display %d line=%d", __FUNCTION__,display,__LINE__);
     return HWC2::Error::None;
   }
-  int ret = connector_->UpdateModes();
-  if (ret) {
-    ALOGE("Failed to update display modes %d", ret);
-    return HWC2::Error::None;
+  if(!connector_->ModesReady()){
+    int ret = connector_->UpdateModes();
+    if (ret) {
+      ALOGE("Failed to update display modes %d", ret);
+      return HWC2::Error::None;
+    }
   }
   const std::vector<DrmHdr> hdr_support_list = connector_->get_hdr_support_list();
 
@@ -1434,6 +1438,7 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   hotplug(cb->second.data, displayid,
           (state == DRM_MODE_CONNECTED ? HWC2_CONNECTION_CONNECTED
                                        : HWC2_CONNECTION_DISCONNECTED));
+  usleep(200 * 1000);
 }
 
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
@@ -1457,13 +1462,15 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
   for (auto &conn : drm_->connectors()) {
     drmModeConnection old_state = conn->raw_state();
+    conn->ResetModesReady();
     drmModeConnection cur_state = conn->UpdateModes()
                                       ? DRM_MODE_UNKNOWNCONNECTION
                                       : conn->raw_state();
 
+    if(conn->ModesReady())
+      continue;
     if (cur_state == old_state)
       continue;
-
     ALOGI("hwc_hotplug: %s event @%" PRIu64 " for connector %u type=%s, type_id=%d\n",
           cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug", timestamp_us,
           conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());

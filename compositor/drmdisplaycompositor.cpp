@@ -307,6 +307,8 @@ int DrmDisplayCompositor::DisablePlanes(DrmDisplayComposition *display_comp) {
                                                       ->composition_planes();
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
+    if(!plane)
+      continue;
     ret = drmModeAtomicAddProperty(pset, plane->id(),
                                    plane->crtc_property().id(), 0) < 0 ||
           drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),

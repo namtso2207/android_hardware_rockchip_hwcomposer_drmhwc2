@@ -263,6 +263,8 @@ int DrmConnector::UpdateModes() {
   if (!preferred_mode_found && modes_.size() != 0) {
     preferred_mode_id_ = modes_[0].id();
   }
+
+  bModeReady_ = true;
   return 0;
 }
 

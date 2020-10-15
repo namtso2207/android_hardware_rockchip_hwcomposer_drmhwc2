@@ -57,6 +57,8 @@ class DrmConnector {
   bool valid_type() const;
 
   int UpdateModes();
+  void ResetModesReady(){ bModeReady_ = false;};
+  bool ModesReady(){ return bModeReady_;};
 
   const std::vector<DrmMode> &modes() const {
     return modes_;
@@ -157,6 +159,7 @@ class DrmConnector {
   uint32_t preferred_mode_id_;
   uint32_t possible_displays_;
 
+  bool bModeReady_;
   bool bSupportSt2084_;
   bool bSupportHLG_;
   struct hdr_static_metadata hdr_metadata_;
