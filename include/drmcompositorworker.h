@@ -34,7 +34,7 @@ class DrmCompositorWorker : public Worker {
   void Routine() override;
 
   DrmDisplayCompositor *compositor_;
-  bool did_squash_all_ = false;
+  int64_t kWaitTimeOut_ = 2000000LL; //2ms
 };
 }
 
