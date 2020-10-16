@@ -281,6 +281,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::BadDisplay;
   }
 
+
   if(!init_success_){
     planner_ = Planner::CreateInstance(drm_);
     if (!planner_) {
@@ -664,24 +665,38 @@ void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
   if (fd < 0){
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &hwc2layer : layers_) {
 
-      int releaseFenceFd = hwc2layer.second.release_fence();
-      if (releaseFenceFd < 0)
+      // the new fence semantics for a frame n by returning the fence from frame n-1. For frame 0,
+      // the adapter returns NO_FENCE.
+      hwc2layer.second.manage_next_release_fence();
+
+      int next_releaseFenceFd = hwc2layer.second.next_release_fence();
+      if (next_releaseFenceFd < 0)
         continue;
 
-      if (retire_fence_.get() >= 0) {
-        int old_retire_fence = retire_fence_.get();
-        retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, releaseFenceFd));
+      if (next_retire_fence_.get() >= 0) {
+        int old_retire_fence = next_retire_fence_.get();
+        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, next_releaseFenceFd));
       } else {
-        retire_fence_.Set(dup(releaseFenceFd));
+        next_retire_fence_.Set(dup(next_releaseFenceFd));
+      }
+    }
+    client_layer_.manage_next_release_fence();
+    int next_releaseFenceFd = client_layer_.next_release_fence();
+    if(next_releaseFenceFd > 0){
+      if (next_retire_fence_.get() >= 0) {
+        int old_retire_fence = next_retire_fence_.get();
+        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, next_releaseFenceFd));
+      } else {
+        next_retire_fence_.Set(dup(next_releaseFenceFd));
       }
     }
     return;
   }else{
-    if (retire_fence_.get() >= 0) {
-      int old_fence = retire_fence_.get();
-      retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
+    if (next_retire_fence_.get() >= 0) {
+      int old_fence = next_retire_fence_.get();
+      next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
     } else {
-      retire_fence_.Set(dup(fd));
+      next_retire_fence_.Set(dup(fd));
     }
   }
 }
@@ -833,6 +848,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   // The retire fence returned here is for the last frame, so return it and
   // promote the next retire fence
   *retire_fence = retire_fence_.Release();
+  retire_fence_ = std::move(next_retire_fence_);
 
   ++frame_no_;
   return HWC2::Error::None;
@@ -1578,7 +1594,6 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       auto &display_old = hwc2_->displays_.at(display_id);
       while(display_old.PresentFinish()){usleep(2*1000);}
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-      usleep(200 * 1000);
       display_id = extend->display();
       auto &display = hwc2_->displays_.at(display_id);
       drm_->UpdateDisplayRoute();

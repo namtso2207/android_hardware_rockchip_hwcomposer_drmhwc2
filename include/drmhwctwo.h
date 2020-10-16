@@ -79,11 +79,18 @@ class DrmHwcTwo : public hwc2_device_t {
     int release_fence() {
       return release_fence_.get();
     }
+    int next_release_fence() {
+      return next_release_fence_.get();
+    }
     int take_release_fence() {
       return release_fence_.Release();
     }
     void manage_release_fence() {
-      release_fence_.Set(release_fence_raw_);
+      release_fence_ = std::move(next_release_fence_);
+      next_release_fence_ = -1;
+    }
+    void manage_next_release_fence() {
+      next_release_fence_.Set(release_fence_raw_);
       release_fence_raw_ = -1;
     }
     OutputFd release_fence_output() {
@@ -124,6 +131,7 @@ class DrmHwcTwo : public hwc2_device_t {
     UniqueFd acquire_fence_;
     int release_fence_raw_ = -1;
     UniqueFd release_fence_;
+    UniqueFd next_release_fence_;
     hwc_rect_t display_frame_;
     float alpha_ = 1.0f;
     hwc_frect_t source_crop_;
