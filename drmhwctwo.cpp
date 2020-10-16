@@ -252,35 +252,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   drm_->DisplayChanged();
   drm_->UpdateDisplayRoute();
 
-  DrmCrtc *crtc = drm_->GetCrtcForDisplay(static_cast<int>(display));
-  if (!crtc) {
-    ALOGE("Failed to get crtc for display %d", static_cast<int>(display));
-    return HWC2::Error::BadDisplay;
-  }
-  std::vector<DrmPlane *> display_planes;
-  for (auto &plane : drm_->planes()) {
-    if (plane->GetCrtcSupported(*crtc))
-      display_planes.push_back(plane.get());
-  }
-
-  // Split up the given display planes into primary and overlay to properly
-  // interface with the composition
-  char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
-  property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "1");
-  bool use_overlay_planes = atoi(use_overlay_planes_prop);
-  for (auto &plane : display_planes) {
-    if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
-      primary_planes_.push_back(plane);
-    else if (use_overlay_planes && (((plane)->type() == DRM_PLANE_TYPE_OVERLAY) || (plane)->type() == DRM_PLANE_TYPE_CURSOR))
-      overlay_planes_.push_back(plane);
-  }
-
   crtc_ = drm_->GetCrtcForDisplay(display);
   if (!crtc_) {
     ALOGE("Failed to get crtc for display %d", display);
     return HWC2::Error::BadDisplay;
   }
-
 
   if(!init_success_){
     planner_ = Planner::CreateInstance(drm_);
@@ -299,6 +275,23 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     if (ret) {
       ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
       return HWC2::Error::BadDisplay;
+    }
+    std::vector<DrmPlane *> display_planes;
+    for (auto &plane : drm_->planes()) {
+      if (plane->GetCrtcSupported(*crtc_))
+        display_planes.push_back(plane.get());
+    }
+
+    // Split up the given display planes into primary and overlay to properly
+    // interface with the composition
+    char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
+    property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "1");
+    bool use_overlay_planes = atoi(use_overlay_planes_prop);
+    for (auto &plane : display_planes) {
+      if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
+        primary_planes_.push_back(plane);
+      else if (use_overlay_planes && (((plane)->type() == DRM_PLANE_TYPE_OVERLAY) || (plane)->type() == DRM_PLANE_TYPE_CURSOR))
+        overlay_planes_.push_back(plane);
     }
   }
 
