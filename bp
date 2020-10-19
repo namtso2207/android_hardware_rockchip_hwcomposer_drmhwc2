@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // =====================
-// libdrmhwc_utils.a
+// libdrmhwcutils.a
 // =====================
 cc_library_static {
-    name: "libdrmhwc_utils",
+    name: "libdrmhwcutils",
 
     srcs: ["utils/worker.cpp"],
 
@@ -35,7 +35,7 @@ cc_library_static {
 // hwcomposer.drm.so
 // =====================
 cc_defaults {
-    name: "hwcomposer.drm_defaults",
+    name: "hwcomposer.drm_hwc_defaults",
 
     shared_libs: [
         "libcutils",
@@ -54,7 +54,7 @@ cc_defaults {
         "system/core"
     ],
 
-    static_libs: ["libdrmhwc_utils"],
+    static_libs: ["libdrmhwcutils"],
 
     cflags: [
         "-Wall",
@@ -77,8 +77,8 @@ cc_defaults {
     vendor: true,
 }
 cc_library_static {
-    name: "drm_hwcomposer",
-    defaults: ["hwcomposer.drm_defaults"],
+    name: "rk_drm_hwcomposer",
+    defaults: ["hwcomposer.drm_hwc_defaults"],
     srcs: [
         "drmhwctwo.cpp",
 
@@ -112,8 +112,8 @@ cc_library_static {
 
 cc_library_shared {
     name: "hwcomposer.rk30board",
-    defaults: ["hwcomposer.drm_defaults"],
-    whole_static_libs: ["drm_hwcomposer"],
+    defaults: ["hwcomposer.drm_hwc_defaults"],
+    whole_static_libs: ["rk_drm_hwcomposer"],
     srcs: ["platform/platformdrmgeneric.cpp"],
     cppflags: ["-DUSE_DRM_GENERIC_IMPORTER"],
 }
