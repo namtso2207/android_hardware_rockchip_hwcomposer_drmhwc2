@@ -392,6 +392,9 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
   uint64_t alpha = 0xFF;
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
+  DrmDevice *drm = crtc->getDrmDevice();
+  DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
+  bool bHdrSupport = connector->is_hdmi_support_hdr();
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -474,12 +477,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
                           if ((*iter_layer)->blending == DrmHwcBlending::kPreMult)
                               alpha = (*iter_layer)->alpha;
 
-#ifdef TARGET_BOARD_PLATFORM_RK3328
-                          //disable global alpha feature for rk3328,since vop has bug on rk3328.
-                          b_alpha = false;
-#else
                           b_alpha = (*iter_plane)->alpha_property().id()?true:false;
-#endif
                           if(alpha != 0xFF)
                           {
                               if(!b_alpha)
@@ -495,7 +493,8 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
 
                           eotf = (*iter_layer)->uEOTF;
                           b_hdr2sdr = (*iter_plane)->get_hdr2sdr();
-                          if(eotf != TRADITIONAL_GAMMA_SDR)
+
+                          if(bHdrSupport && eotf != TRADITIONAL_GAMMA_SDR)
                           {
                               if(!b_hdr2sdr)
                               {
@@ -508,7 +507,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
                                   bNeed = true;
                           }
 
-#if USE_AFBC_LAYER
+
                           b_afbc = (*iter_plane)->get_afbc();
                           if((*iter_layer)->bFbTarget_ && (*iter_plane)->get_afbc_prop())
                           {
@@ -521,36 +520,10 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
                               else
                                   bNeed = true;
                           }
-#else
-                          UN_USED(b_afbc);
-
-#endif
-
-#ifdef TARGET_BOARD_PLATFORM_RK3288
-                          int src_w,src_h;
-
-                          src_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
-#if RK_VIDEO_SKIP_LINE
-                          if((*iter_layer)->iSkipLine_)
-                          {
-                              src_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top)/(*iter_layer)->iSkipLine_;
-                          }
-                          else
-#endif
-                              src_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
-
-                          float src_size = (float)src_w * src_h;
-                          if(src_size/(1536*2048) > 0.75)
-                          {
-                              bNeed = true;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) need by big area,src_size=%f,fbSize=%d",(*iter_plane)->id(),src_size,1536*2048);
-                          }
-#endif
 
 //                          //Reserve some plane with no need for specific features in current layer.
 //                          if(!bNeed && !bMulArea)
 //                          {
-//#if USE_AFBC_LAYER
 //                              if(!(*iter_layer)->bFbTarget_ && b_afbc)
 //                              {
 //                                  if(HasGetNoAfbcUsablePlanes(crtc,plane_groups))
@@ -559,7 +532,6 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
 //                                      continue;
 //                                  }
 //                              }
-//#endif
 
 //                              if(!(*iter_layer)->bYuv_ && b_yuv)
 //                              {

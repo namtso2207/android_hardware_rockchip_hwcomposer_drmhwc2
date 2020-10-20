@@ -149,7 +149,6 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       bo->width = width;
   }
 
-  bo->width = width;
   bo->height = height;
   bo->hal_format = format;
   bo->format = ConvertHalFormatToDrm(format);
