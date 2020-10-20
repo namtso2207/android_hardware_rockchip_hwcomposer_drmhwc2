@@ -44,6 +44,15 @@
 
 static const uint32_t kWaitWritebackFence = 100;  // ms
 
+#define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
+#define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
+#define IS_ALIGN(val,align)    (((val)&(align-1))==0)
+#ifndef ALIGN
+#define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
+#endif
+#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+
+
 namespace android {
 
 class CompositorVsyncCallback : public VsyncCallback {
@@ -473,6 +482,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     uint16_t eotf = TRADITIONAL_GAMMA_SDR;
     uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
 
+    int dst_l,dst_t,dst_w,dst_h;
+    int src_l,src_t,src_w,src_h;
+    bool afbcd = false, yuv = false;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
       if (source_layers.size() > 1) {
         ALOGE("Can't handle more than one source layer sz=%zu type=%d",
@@ -507,6 +519,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha;
       eotf = layer.uEOTF;
       colorspace = layer.uColorSpace;
+      afbcd = layer.bAfbcd_;
+      yuv = layer.bYuv_;
 
       if (plane->blend_property().id()) {
         blend = (layer.blending == DrmHwcBlending::kPreMult) ? 1:0;
@@ -543,6 +557,32 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       continue;
     }
+    src_l = (int)source_crop.left;
+    src_t = (int)source_crop.top;
+    src_w = (int)(source_crop.right - source_crop.left);
+    src_h = (int)(source_crop.bottom - source_crop.top);
+
+    dst_l = display_frame.left;
+    dst_t = display_frame.top;
+    dst_w = display_frame.right - display_frame.left;
+    dst_h = display_frame.bottom - display_frame.top;
+
+    if(afbcd){
+      src_l = IS_ALIGN(src_l, 16)?src_l:ALIGN(src_l, 16);
+      src_t = IS_ALIGN(src_t, 4)?src_t:ALIGN(src_t, 4);
+      src_w = IS_ALIGN(src_w, 16)?src_w:(ALIGN(src_w, 16)-16);
+      src_h = IS_ALIGN(src_h, 4)?src_h:(ALIGN(src_h, 4)-4);
+
+      dst_l = IS_ALIGN(dst_l, 16)?dst_l:ALIGN(dst_l, 16);
+      dst_t = IS_ALIGN(dst_t, 4)?dst_t:ALIGN(dst_t, 4);
+      dst_w = IS_ALIGN(dst_w, 16)?dst_w:(ALIGN(dst_w, 16)-16);
+      dst_h = IS_ALIGN(dst_h, 4)?dst_h:(ALIGN(dst_h, 4)-4);
+    }
+    if(yuv){
+      src_l = ALIGN_DOWN(src_l, 2);
+      src_t = ALIGN_DOWN(src_t, 2);
+    }
+
 
     ret = drmModeAtomicAddProperty(pset, plane->id(),
                                    plane->crtc_property().id(), crtc->id()) < 0;

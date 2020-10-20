@@ -165,9 +165,20 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     bo->offsets[1] = bo->pitches[1] * bo->height;
   }
 
+  __u64 modifier[4];
+  uint64_t internal_format;
+  memset(modifier, 0, sizeof(modifier));
+  gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
+                         handle, &internal_format);
+  if (internal_format & GRALLOC_ARM_INTFMT_AFBC){
+      ALOGV("KP : to set DRM_FORMAT_MOD_ARM_AFBC.");
+      modifier[0] = DRM_FORMAT_MOD_ARM_AFBC;
+  }
 
-  ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
-                      bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
+  ret = drmModeAddFB2_ext(drm_->fd(), bo->width, bo->height, bo->format,
+                      bo->gem_handles, bo->pitches, bo->offsets, modifier,
+		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
+
 
   ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,format=0x%x,bo->format=0x%x,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
       drm_->fd(), bo->width, bo->height, format,bo->format,

@@ -47,8 +47,10 @@ int DrmCrtc::Init() {
   if (ret)
     ALOGE("Could not get FEATURE property");
 
+
   uint64_t feature=0;
-  std::tie(feature, ret) = feature_property_.GetEnumValueWithName("afbdc");
+  feature_property_.set_feature("afbdc");
+  std::tie(ret,feature) = feature_property_.value();
   b_afbc_ = (feature ==1)?true:false;
 
 

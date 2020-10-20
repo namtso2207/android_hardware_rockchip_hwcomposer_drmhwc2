@@ -54,6 +54,11 @@
 #define HDR_ST2084_USAGE                                       0x2000000
 #define HDR_HLG_USAGE                                          0x3000000
 
+#define GRALLOC_ARM_INTFMT_EXTENSION_BIT_START          32
+/* This format will use AFBC */
+#define	GRALLOC_ARM_INTFMT_AFBC                     (1ULL << (GRALLOC_ARM_INTFMT_EXTENSION_BIT_START+0))
+#define MAGIC_USAGE_FOR_AFBC_LAYER                      (0x88)
+
 typedef enum DrmHdrType{
     DRM_HWC_DOLBY_VISION = 1,
     DRM_HWC_HDR10 = 2,

@@ -1382,6 +1382,10 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    int ret = gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
+                         buffer_, &drmHwcLayer->uInternalFormat_);
+    if(ret)
+      ALOGE("Failed to get internal_format for buffer %p (%d)", buffer_, ret);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -1391,6 +1395,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->iBpp_    = -1;
   }
+
 
   drmHwcLayer->Init();
 
@@ -1437,6 +1442,10 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    int ret = gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
+                         buffer_, &drmHwcLayer->uInternalFormat_);
+    if(ret)
+      ALOGE("Failed to get internal_format for buffer %p (%d)", buffer_, ret);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;

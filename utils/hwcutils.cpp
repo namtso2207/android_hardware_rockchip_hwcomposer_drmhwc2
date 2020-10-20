@@ -135,10 +135,12 @@ int DrmHwcLayer::Init() {
   bYuv_ = IsYuvFormat(iFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
+  bAfbcd_ = IsAfbcInternalFormat(uInternalFormat_);
+
+  // HDR
   bHdr_ = IsHdr(iUsage);
   uColorSpace = GetColorSpace(eDataSpace_);
   uEOTF = GetEOTF(eDataSpace_);
-
   return 0;
 }
 
@@ -213,6 +215,9 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
 }
 bool DrmHwcLayer::IsHdr(int usage){
   return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
+}
+bool DrmHwcLayer::IsAfbcInternalFormat(uint64_t internal_format){
+  return (internal_format & GRALLOC_ARM_INTFMT_AFBC);             // for Midgard gralloc r14
 }
 
 int DrmHwcLayer::GetSkipLine(){

@@ -175,6 +175,7 @@ struct DrmHwcLayer {
   int iStride_;
   int iUsage;
   int iBpp_;
+  uint64_t uInternalFormat_;
 
   bool bMatch_;
   bool bUse_;
@@ -206,6 +207,8 @@ struct DrmHwcLayer {
   }
   bool IsYuvFormat(int format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
+  bool IsAfbcInternalFormat(uint64_t internal_format);
+
   bool IsHdr(int usage);
   int GetSkipLine();
   v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
