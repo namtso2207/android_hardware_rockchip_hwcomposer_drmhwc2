@@ -394,7 +394,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
   bool bMulArea = layer_size > 0 ? true : false;
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
-  bool bHdrSupport = connector->is_hdmi_support_hdr();
+  bool bHdrSupport = connector->is_hdmi_support_hdr() && iSupportHdrCnt > 0;
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -1135,6 +1135,7 @@ int PlanStageVop::TryMatchPolicyFirst(
   iReqYuvCnt=0;
   iReqSkipCnt=0;
   iReqRotateCnt=0;
+  iReqHdrCnt=0;
   for(auto &layer : layers){
     if(layer->bSkipLayer_){
       iReqSkipCnt++;
@@ -1148,6 +1149,8 @@ int PlanStageVop::TryMatchPolicyFirst(
       iReqYuvCnt++;
     if(layer->transform != DrmHwcTransform::kRotate0)
       iReqRotateCnt++;
+    if(layer->bHdr_)
+      iReqHdrCnt++;
   }
 
   // Collect Plane resource info
@@ -1155,6 +1158,8 @@ int PlanStageVop::TryMatchPolicyFirst(
   iSupportScaleCnt=0;
   iSupportYuvCnt=0;
   iSupportRotateCnt=0;
+  iSupportHdrCnt=0;
+
   for(auto &plane_group : plane_groups){
     for(auto &p : plane_group->planes){
       if(p->get_afbc())
@@ -1165,13 +1170,16 @@ int PlanStageVop::TryMatchPolicyFirst(
         iSupportYuvCnt++;
       if(p->get_rotate())
         iSupportRotateCnt++;
+      if(p->get_hdr2sdr())
+        iSupportHdrCnt++;
     }
   }
 
-  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,skip=%d,"
-          "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d",__FUNCTION__,__LINE__,
-          iReqAfbcdCnt,iReqScaleCnt,iReqYuvCnt,iReqRotateCnt,iReqSkipCnt,
-          iSupportAfbcdCnt,iSupportScaleCnt,iSupportYuvCnt,iSupportRotateCnt);
+  ALOGD_IF(LogLevel(DBG_DEBUG),"request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d,skip=%d\n"
+          "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d, %s,line=%d,",
+          iReqAfbcdCnt,iReqScaleCnt,iReqYuvCnt,iReqRotateCnt,iReqHdrCnt,iReqSkipCnt,
+          iSupportAfbcdCnt,iSupportScaleCnt,iSupportYuvCnt,iSupportRotateCnt,iSupportHdrCnt,
+          __FUNCTION__,__LINE__);
   // Match policy first
   if(iReqAfbcdCnt <= iSupportAfbcdCnt &&
      iReqScaleCnt <= iSupportScaleCnt &&

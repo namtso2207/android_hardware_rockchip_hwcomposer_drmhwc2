@@ -992,6 +992,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     return HWC2::Error::BadConfig;
   }
 
+  SwitchHdrMode();
+
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     DrmHwcTwo::HwcLayer &layer = l.second;
     // We can only handle layers of Device type, send everything else to SF
@@ -1214,6 +1216,26 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
   return 0;
 }
 
+int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
+  bool exist_hdr_layer = false;
+  for(auto &drmHwcLayer : drm_hwc_layers_)
+    if(drmHwcLayer.bHdr_){
+      if(connector_->is_hdmi_support_hdr()){
+        exist_hdr_layer = true;
+        if(!ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(drmHwcLayer.eDataSpace_)){
+          ALOGD_IF(LogLevel(DBG_DEBUG),"Enable HDR mode success");
+          ctx_.hdr_mode = true;
+        }
+      }
+  }
+
+  if(!exist_hdr_layer && ctx_.hdr_mode)
+    if(!connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
+      ctx_.hdr_mode = false;
+    }
+  return 0;
+}
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
@@ -1358,6 +1380,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
     drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
+    drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
   }else{
     drmHwcLayer->iFd_     = -1;
@@ -1365,6 +1388,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
+    drmHwcLayer->iUsage   = -1;
     drmHwcLayer->iBpp_    = -1;
   }
 
@@ -1411,6 +1435,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
     drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
+    drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
   }else{
     drmHwcLayer->iFd_     = -1;
@@ -1418,6 +1443,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
+    drmHwcLayer->iUsage   = -1;
     drmHwcLayer->iBpp_    = -1;
   }
 

@@ -44,6 +44,16 @@
 
 #define PROPERTY_TYPE "vendor"
 
+/* hdr usage */
+/*usage & 0x0F000000
+  0x1000000 bt2020
+  0x2000000 st2084
+  0x3000000 hlg
+  0x4000000 dobly version
+ */
+#define HDR_ST2084_USAGE                                       0x2000000
+#define HDR_HLG_USAGE                                          0x3000000
+
 typedef enum DrmHdrType{
     DRM_HWC_DOLBY_VISION = 1,
     DRM_HWC_HDR10 = 2,
@@ -291,5 +301,6 @@ typedef struct hwc_drm_display {
   float h_scale;
   int display_timeline;
   int hotplug_timeline;
+  bool hdr_mode;
 } hwc_drm_display_t;
 #endif

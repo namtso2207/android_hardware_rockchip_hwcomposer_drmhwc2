@@ -100,6 +100,7 @@ class DrmConnector {
   bool isSupportSt2084() { return bSupportSt2084_; }
   bool isSupportHLG() { return bSupportHLG_; }
   bool is_hdmi_support_hdr() const;
+  int switch_hdmi_hdr_mode(android_dataspace_t colorspace);
 
   const DrmProperty &brightness_id_property() const;
   const DrmProperty &contrast_id_property() const;
@@ -163,6 +164,8 @@ class DrmConnector {
   bool bSupportSt2084_;
   bool bSupportHLG_;
   struct hdr_static_metadata hdr_metadata_;
+  int colorimetry_;
+  struct hdr_output_metadata last_hdr_metadata_;
 };
 }  // namespace android
 

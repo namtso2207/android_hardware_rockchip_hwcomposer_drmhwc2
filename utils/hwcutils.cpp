@@ -135,8 +135,10 @@ int DrmHwcLayer::Init() {
   bYuv_ = IsYuvFormat(iFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
+  bHdr_ = IsHdr(iUsage);
   uColorSpace = GetColorSpace(eDataSpace_);
   uEOTF = GetEOTF(eDataSpace_);
+
   return 0;
 }
 
@@ -208,6 +210,9 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
     fVScaleMul_ = (float) (src_h)/(dst_h);
   }
   return (fHScaleMul_ != 1.0 ) || ( fVScaleMul_ != 1.0);
+}
+bool DrmHwcLayer::IsHdr(int usage){
+  return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
 }
 
 int DrmHwcLayer::GetSkipLine(){

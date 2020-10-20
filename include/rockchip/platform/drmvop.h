@@ -128,11 +128,13 @@ class PlanStageVop : public Planner::PlanStage {
   int iReqYuvCnt=0;
   int iReqSkipCnt=0;
   int iReqRotateCnt=0;
+  int iReqHdrCnt=0;
 
   int iSupportAfbcdCnt=0;
   int iSupportScaleCnt=0;
   int iSupportYuvCnt=0;
   int iSupportRotateCnt=0;
+  int iSupportHdrCnt=0;
 };
 
 }  // namespace android

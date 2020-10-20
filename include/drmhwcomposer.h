@@ -162,6 +162,7 @@ struct DrmHwcLayer {
   bool bAfbcd_=false;
   bool bYuv_;
   bool bScale_;
+  bool bHdr_;
   bool bSkipLayer_;
   float fHScaleMul_;
   float fVScaleMul_;
@@ -172,6 +173,7 @@ struct DrmHwcLayer {
   int iWidth_;
   int iHeight_;
   int iStride_;
+  int iUsage;
   int iBpp_;
 
   bool bMatch_;
@@ -204,6 +206,7 @@ struct DrmHwcLayer {
   }
   bool IsYuvFormat(int format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
+  bool IsHdr(int usage);
   int GetSkipLine();
   v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
   supported_eotf_type GetEOTF(android_dataspace_t dataspace);
