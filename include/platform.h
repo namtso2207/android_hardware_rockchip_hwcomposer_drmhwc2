@@ -28,9 +28,6 @@
 
 #define UNUSED(x) (void)(x)
 
-
-
-
 namespace android {
 
 class DrmDevice;

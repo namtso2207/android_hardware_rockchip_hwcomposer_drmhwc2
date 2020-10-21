@@ -39,30 +39,32 @@
 #include "platform.h"
 #include "drmdevice.h"
 
+
+
 namespace android {
 class DrmDevice;
-
-typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
-
-typedef enum tagComposeMode
-{
-    HWC_OVERLAY_LOPICY,
-    HWC_MIX_SKIP_LOPICY,
-    HWC_MIX_VIDEO_LOPICY,
-    HWC_MIX_UP_LOPICY,
-    HWC_MIX_DOWN_LOPICY,
-    HWC_MIX_LOPICY,
-    HWC_GLES_POLICY,
-    HWC_RGA_OVERLAY_LOPICY,
-    HWC_3D_LOPICY,
-    HWC_DEBUG_POLICY
-}ComposeMode;
-
 
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
 // needed).
 class PlanStageVop : public Planner::PlanStage {
+
+typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
+
+typedef enum tagComposeMode
+{
+   HWC_OVERLAY_LOPICY,
+   HWC_MIX_SKIP_LOPICY,
+   HWC_MIX_VIDEO_LOPICY,
+   HWC_MIX_UP_LOPICY,
+   HWC_MIX_DOWN_LOPICY,
+   HWC_MIX_LOPICY,
+   HWC_GLES_POLICY,
+   HWC_RGA_OVERLAY_LOPICY,
+   HWC_3D_LOPICY,
+   HWC_DEBUG_POLICY
+}ComposeMode;
+
  public:
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
