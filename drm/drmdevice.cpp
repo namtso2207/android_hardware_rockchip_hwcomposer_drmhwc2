@@ -39,14 +39,6 @@
 
 #define DEFAULT_PRIORITY 10
 
-#define DRM_ATOMIC_ADD_PROP(object_id, prop_id, value) \
-  if (prop_id) { \
-    ret = drmModeAtomicAddProperty(pset, object_id, prop_id, value); \
-    if (ret < 0) { \
-      ALOGE("Failed to add prop[%d] to [%d]", prop_id, object_id); \
-    } \
-  }
-
 namespace android {
 
 DrmDevice::DrmDevice() : event_listener_(this) {

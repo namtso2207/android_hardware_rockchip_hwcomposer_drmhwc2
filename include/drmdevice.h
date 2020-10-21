@@ -35,6 +35,14 @@ namespace android {
 
 #define type_name_define(res) const char * res##_str(int type);
 
+#define DRM_ATOMIC_ADD_PROP(object_id, prop_id, value) \
+  if (prop_id) { \
+    ret = drmModeAtomicAddProperty(pset, object_id, prop_id, value); \
+    if (ret < 0) { \
+      ALOGE("Failed to add prop[%d] to [%d]", prop_id, object_id); \
+    } \
+  }
+
 class DrmDevice {
  public:
   DrmDevice();

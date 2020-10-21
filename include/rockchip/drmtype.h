@@ -306,6 +306,7 @@ typedef struct hwc_drm_display {
   int rel_yres;
   float w_scale;
   float h_scale;
+  int bcsh_timeline;
   int display_timeline;
   int hotplug_timeline;
   bool hdr_mode;
