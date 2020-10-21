@@ -298,8 +298,10 @@ enum flagBaseParameter
 };
 
 typedef struct hwc_drm_display {
+  bool bStandardSwitchResolution = false;
   int framebuffer_width;
   int framebuffer_height;
+  int vrefresh;
   int rel_xres;
   int rel_yres;
   float w_scale;

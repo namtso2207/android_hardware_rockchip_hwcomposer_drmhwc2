@@ -342,14 +342,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  DrmMode const &mode = connector_->active_mode();
-  if (mode.id() == 0)
-    return HWC2::Error::BadConfig;
 
-  ctx_.framebuffer_width = mode.h_display();
-  ctx_.framebuffer_height = mode.v_display();
+  if(ctx_.bStandardSwitchResolution){
+    DrmMode const &mode = connector_->active_mode();
+    if (mode.id() == 0)
+      return HWC2::Error::BadConfig;
 
-  *config = mode.id();
+    ctx_.framebuffer_width = mode.h_display();
+    ctx_.framebuffer_height = mode.v_display();
+
+    *config = mode.id();
+  }else{
+    *config = 0;
+  }
   return HWC2::Error::None;
 }
 
@@ -409,42 +414,77 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
                                                        int32_t attribute_in,
                                                        int32_t *value) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  auto mode = std::find_if(connector_->modes().begin(),
-                           connector_->modes().end(),
-                           [config](DrmMode const &m) {
-                             return m.id() == config;
-                           });
-  if (mode == connector_->modes().end()) {
-    ALOGE("Could not find active mode for %d", config);
-    return HWC2::Error::BadConfig;
-  }
 
-  static const int32_t kUmPerInch = 25400;
-  uint32_t mm_width = connector_->mm_width();
-  uint32_t mm_height = connector_->mm_height();
-  auto attribute = static_cast<HWC2::Attribute>(attribute_in);
-  switch (attribute) {
-    case HWC2::Attribute::Width:
-      *value = mode->h_display();
-      break;
-    case HWC2::Attribute::Height:
-      *value = mode->v_display();
-      break;
-    case HWC2::Attribute::VsyncPeriod:
-      // in nanoseconds
-      *value = 1000 * 1000 * 1000 / mode->v_refresh();
-      break;
-    case HWC2::Attribute::DpiX:
-      // Dots per 1000 inches
-      *value = mm_width ? (mode->h_display() * kUmPerInch) / mm_width : -1;
-      break;
-    case HWC2::Attribute::DpiY:
-      // Dots per 1000 inches
-      *value = mm_height ? (mode->v_display() * kUmPerInch) / mm_height : -1;
-      break;
-    default:
-      *value = -1;
+  if(ctx_.bStandardSwitchResolution){
+    auto mode = std::find_if(connector_->modes().begin(),
+                             connector_->modes().end(),
+                             [config](DrmMode const &m) {
+                               return m.id() == config;
+                             });
+    if (mode == connector_->modes().end()) {
+      ALOGE("Could not find active mode for %d", config);
       return HWC2::Error::BadConfig;
+    }
+
+    static const int32_t kUmPerInch = 25400;
+    uint32_t mm_width = connector_->mm_width();
+    uint32_t mm_height = connector_->mm_height();
+    auto attribute = static_cast<HWC2::Attribute>(attribute_in);
+    switch (attribute) {
+      case HWC2::Attribute::Width:
+        *value = mode->h_display();
+        break;
+      case HWC2::Attribute::Height:
+        *value = mode->v_display();
+        break;
+      case HWC2::Attribute::VsyncPeriod:
+        // in nanoseconds
+        *value = 1000 * 1000 * 1000 / mode->v_refresh();
+        break;
+      case HWC2::Attribute::DpiX:
+        // Dots per 1000 inches
+        *value = mm_width ? (mode->h_display() * kUmPerInch) / mm_width : -1;
+        break;
+      case HWC2::Attribute::DpiY:
+        // Dots per 1000 inches
+        *value = mm_height ? (mode->v_display() * kUmPerInch) / mm_height : -1;
+        break;
+      default:
+        *value = -1;
+        return HWC2::Error::BadConfig;
+    }
+  }else{
+
+    static const int32_t kUmPerInch = 25400;
+    uint32_t mm_width = connector_->mm_width();
+    uint32_t mm_height = connector_->mm_height();
+    int w = ctx_.framebuffer_width;
+    int h = ctx_.framebuffer_height;
+    int vrefresh = ctx_.vrefresh;
+    auto attribute = static_cast<HWC2::Attribute>(attribute_in);
+    switch (attribute) {
+      case HWC2::Attribute::Width:
+        *value = w;
+        break;
+      case HWC2::Attribute::Height:
+        *value = h;
+        break;
+      case HWC2::Attribute::VsyncPeriod:
+        // in nanoseconds
+        *value = 1000 * 1000 * 1000 / vrefresh;
+        break;
+      case HWC2::Attribute::DpiX:
+        // Dots per 1000 inches
+        *value = mm_width ? (w * kUmPerInch) / mm_width : -1;
+        break;
+      case HWC2::Attribute::DpiY:
+        // Dots per 1000 inches
+        *value = mm_height ? (h * kUmPerInch) / mm_height : -1;
+        break;
+      default:
+        *value = -1;
+        return HWC2::Error::BadConfig;
+    }
   }
   return HWC2::Error::None;
 }
@@ -466,84 +506,139 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
       }
     }
   }
+  if(ctx_.bStandardSwitchResolution){
+    // Since the upper layers only look at vactive/hactive/refresh, height and
+    // width, it doesn't differentiate interlaced from progressive and other
+    // similar modes. Depending on the order of modes we return to SF, it could
+    // end up choosing a suboptimal configuration and dropping the preferred
+    // mode. To workaround this, don't offer interlaced modes to SF if there is
+    // at least one non-interlaced alternative and only offer a single WxH@R
+    // mode with at least the prefered mode from in DrmConnector::UpdateModes()
 
-  // Since the upper layers only look at vactive/hactive/refresh, height and
-  // width, it doesn't differentiate interlaced from progressive and other
-  // similar modes. Depending on the order of modes we return to SF, it could
-  // end up choosing a suboptimal configuration and dropping the preferred
-  // mode. To workaround this, don't offer interlaced modes to SF if there is
-  // at least one non-interlaced alternative and only offer a single WxH@R
-  // mode with at least the prefered mode from in DrmConnector::UpdateModes()
+    // TODO: Remove the following block of code until AOSP handles all modes
+    std::vector<DrmMode> sel_modes;
 
-  // TODO: Remove the following block of code until AOSP handles all modes
-  std::vector<DrmMode> sel_modes;
+    // Add the preferred mode first to be sure it's not dropped
+    auto mode = std::find_if(connector_->modes().begin(),
+                             connector_->modes().end(), [&](DrmMode const &m) {
+                               return m.id() ==
+                                      connector_->get_preferred_mode_id();
+                             });
+    if (mode != connector_->modes().end())
+      sel_modes.push_back(*mode);
 
-  // Add the preferred mode first to be sure it's not dropped
-  auto mode = std::find_if(connector_->modes().begin(),
-                           connector_->modes().end(), [&](DrmMode const &m) {
-                             return m.id() ==
-                                    connector_->get_preferred_mode_id();
-                           });
-  if (mode != connector_->modes().end())
-    sel_modes.push_back(*mode);
+    // Add the active mode if different from preferred mode
+    if (connector_->active_mode().id() != connector_->get_preferred_mode_id())
+      sel_modes.push_back(connector_->active_mode());
 
-  // Add the active mode if different from preferred mode
-  if (connector_->active_mode().id() != connector_->get_preferred_mode_id())
-    sel_modes.push_back(connector_->active_mode());
+    // Cycle over the modes and filter out "similar" modes, keeping only the
+    // first ones in the order given by DRM (from CEA ids and timings order)
+    for (const DrmMode &mode : connector_->modes()) {
+      // TODO: Remove this when 3D Attributes are in AOSP
+      if (mode.flags() & DRM_MODE_FLAG_3D_MASK)
+        continue;
 
-  // Cycle over the modes and filter out "similar" modes, keeping only the
-  // first ones in the order given by DRM (from CEA ids and timings order)
-  for (const DrmMode &mode : connector_->modes()) {
-    // TODO: Remove this when 3D Attributes are in AOSP
-    if (mode.flags() & DRM_MODE_FLAG_3D_MASK)
-      continue;
+      // TODO: Remove this when the Interlaced attribute is in AOSP
+      if (mode.flags() & DRM_MODE_FLAG_INTERLACE) {
+        auto m = std::find_if(connector_->modes().begin(),
+                              connector_->modes().end(),
+                              [&mode](DrmMode const &m) {
+                                return !(m.flags() & DRM_MODE_FLAG_INTERLACE) &&
+                                       m.h_display() == mode.h_display() &&
+                                       m.v_display() == mode.v_display();
+                              });
+        if (m == connector_->modes().end())
+          sel_modes.push_back(mode);
 
-    // TODO: Remove this when the Interlaced attribute is in AOSP
-    if (mode.flags() & DRM_MODE_FLAG_INTERLACE) {
-      auto m = std::find_if(connector_->modes().begin(),
-                            connector_->modes().end(),
+        continue;
+      }
+
+      // Search for a similar WxH@R mode in the filtered list and drop it if
+      // another mode with the same WxH@R has already been selected
+      // TODO: Remove this when AOSP handles duplicates modes
+      auto m = std::find_if(sel_modes.begin(), sel_modes.end(),
                             [&mode](DrmMode const &m) {
-                              return !(m.flags() & DRM_MODE_FLAG_INTERLACE) &&
-                                     m.h_display() == mode.h_display() &&
-                                     m.v_display() == mode.v_display();
+                              return m.h_display() == mode.h_display() &&
+                                     m.v_display() == mode.v_display() &&
+                                     m.v_refresh() == mode.v_refresh();
                             });
-      if (m == connector_->modes().end())
+      if (m == sel_modes.end())
         sel_modes.push_back(mode);
-
-      continue;
     }
 
-    // Search for a similar WxH@R mode in the filtered list and drop it if
-    // another mode with the same WxH@R has already been selected
-    // TODO: Remove this when AOSP handles duplicates modes
-    auto m = std::find_if(sel_modes.begin(), sel_modes.end(),
-                          [&mode](DrmMode const &m) {
-                            return m.h_display() == mode.h_display() &&
-                                   m.v_display() == mode.v_display() &&
-                                   m.v_refresh() == mode.v_refresh();
-                          });
-    if (m == sel_modes.end())
-      sel_modes.push_back(mode);
+    auto num_modes = static_cast<uint32_t>(sel_modes.size());
+    if (!configs) {
+      *num_configs = num_modes;
+      return HWC2::Error::None;
+    }
+
+    uint32_t idx = 0;
+    for (const DrmMode &mode : sel_modes) {
+      if (idx >= *num_configs)
+        break;
+      configs[idx++] = mode.id();
+    }
+
+    sf_modes_.swap(sel_modes);
+
+    *num_configs = idx;
+  }else{
+
+    UpdateDisplayMode();
+    const DrmMode best_mode = connector_->best_mode();
+
+    char framebuffer_size[PROPERTY_VALUE_MAX];
+    uint32_t width = 0, height = 0 , vrefresh = 0 ;
+    if (handle_ == HWC_DISPLAY_PRIMARY)
+      property_get("persist.vendor.framebuffer.main", framebuffer_size, "use_baseparameter");
+    else
+      property_get("persist.vendor.framebuffer.aux", framebuffer_size, "use_baseparameter");
+
+    sscanf(framebuffer_size, "%dx%d@%d", &width, &height, &vrefresh);
+    if (width && height) {
+      ctx_.framebuffer_width = width;
+      ctx_.framebuffer_height = height;
+      ctx_.vrefresh = vrefresh ? vrefresh : 60;
+    } else if (best_mode.h_display() && best_mode.v_display() && best_mode.v_refresh()) {
+      ctx_.framebuffer_width = best_mode.h_display();
+      ctx_.framebuffer_height = best_mode.v_display();
+      ctx_.vrefresh = best_mode.v_refresh();
+      /*
+       * Limit to 1080p if large than 2160p
+       */
+      if (ctx_.framebuffer_height >= 2160 && ctx_.framebuffer_width >= ctx_.framebuffer_height) {
+        ctx_.framebuffer_width = ctx_.framebuffer_width * (1080.0 / ctx_.framebuffer_height);
+        ctx_.framebuffer_height = 1080;
+      }
+    } else {
+      ctx_.framebuffer_width = 1920;
+      ctx_.framebuffer_height = 1080;
+      ctx_.vrefresh = 60;
+      ALOGE("Failed to find available display mode for display %" PRIu64 "\n", handle_);
+    }
+
+    ctx_.rel_xres = best_mode.h_display();
+    ctx_.rel_yres = best_mode.v_display();
+
+    // AFBDC limit
+    bool disable_afbdc = false;
+    if(handle_ == HWC_DISPLAY_PRIMARY){
+      if(ctx_.framebuffer_width > 2560 || ctx_.framebuffer_width % 16 != 0 || ctx_.framebuffer_height % 8 != 0)
+         disable_afbdc = true;
+      if(disable_afbdc){
+        property_set( "vendor.gralloc.disable_afbc", "1");
+        ALOGI("%s:line=%d primary framebuffer size %dx%d not support AFBDC, to disable AFBDC\n",
+                 __FUNCTION__, __LINE__, ctx_.framebuffer_width,ctx_.framebuffer_height);
+      }
+    }
+    if (!configs) {
+      *num_configs = 1;
+      return HWC2::Error::None;
+    }
+    *num_configs = 1;
+    configs[0] = 0;
   }
 
-  auto num_modes = static_cast<uint32_t>(sel_modes.size());
-  if (!configs) {
-    *num_configs = num_modes;
-    return HWC2::Error::None;
-  }
-
-
-
-  uint32_t idx = 0;
-  for (const DrmMode &mode : sel_modes) {
-    if (idx >= *num_configs)
-      break;
-    configs[idx++] = mode.id();
-  }
-
-  sf_modes_.swap(sel_modes);
-
-  *num_configs = idx;
   return HWC2::Error::None;
 }
 
