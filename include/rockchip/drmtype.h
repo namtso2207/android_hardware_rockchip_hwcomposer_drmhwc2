@@ -309,5 +309,7 @@ typedef struct hwc_drm_display {
   int display_timeline;
   int hotplug_timeline;
   bool hdr_mode;
+  drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+  dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
 } hwc_drm_display_t;
 #endif

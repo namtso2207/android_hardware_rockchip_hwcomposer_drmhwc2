@@ -1066,6 +1066,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   // Enable/disable debug log
   UpdateLogLevel();
+  UpdateHdmiOutputFormat();
   UpdateDisplayMode();
   drm_->UpdateDisplayRoute();
 
@@ -1310,6 +1311,175 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
   }
   return 0;
 }
+
+
+bool DrmHwcTwo::HwcDisplay::ParseHdmiOutputFormat(char* strprop, drm_hdmi_output_type *format, dw_hdmi_rockchip_color_depth *depth) {
+    if (!strcmp(strprop, "Auto")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR_HQ;
+        *depth = ROCKCHIP_DEPTH_DEFAULT;
+        return true;
+    }
+
+    if (!strcmp(strprop, "RGB-8bit")) {
+        *format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+        *depth = ROCKCHIP_HDMI_DEPTH_8;
+        return true;
+    }
+
+    if (!strcmp(strprop, "RGB-10bit")) {
+        *format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+        *depth = ROCKCHIP_HDMI_DEPTH_10;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR444-8bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR444;
+        *depth = ROCKCHIP_HDMI_DEPTH_8;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR444-10bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR444;
+        *depth = ROCKCHIP_HDMI_DEPTH_10;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR422-8bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR422;
+        *depth = ROCKCHIP_HDMI_DEPTH_8;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR422-10bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR422;
+        *depth = ROCKCHIP_HDMI_DEPTH_10;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR420-8bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR420;
+        *depth = ROCKCHIP_HDMI_DEPTH_8;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR420-10bit")) {
+        *format = DRM_HDMI_OUTPUT_YCBCR420;
+        *depth = ROCKCHIP_HDMI_DEPTH_10;
+        return true;
+    }
+    ALOGE("hdmi output format is invalid. [%s]", strprop);
+    return false;
+}
+
+int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
+
+  if(!(connector_->hdmi_output_format_property().id()) && !(connector_->hdmi_output_depth_property().id()))
+    return 0;
+
+  int timeline = 0;
+  drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+  dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
+  int ret = 0;
+  int need_change_format = 0;
+  int need_change_depth = 0;
+  char prop_format[PROPERTY_VALUE_MAX];
+  timeline = property_get_int32( "vendor.display.timeline", -1);
+  drmModeAtomicReqPtr pset = NULL;
+  /*
+   * force update propetry when timeline is zero or not exist.
+   */
+  if (timeline && timeline == ctx_.display_timeline && ctx_.hotplug_timeline == drm_->timeline())
+      return 0;
+  //hd->display_timeline = timeline;//let update_display_bestmode function update the value.
+  //hd->hotplug_timeline = hd->ctx->drm.timeline();//let update_display_bestmode function update the value.
+  memset(prop_format, 0, sizeof(prop_format));
+  if (handle_ == HWC_DISPLAY_PRIMARY){
+    /* if resolution is null,set to "Auto" */
+    property_get("persist.vendor.color.main", prop_format, "Auto");
+    ret = ParseHdmiOutputFormat(prop_format, &color_format, &color_depth);
+    if (ret == false) {
+      ALOGE("Get color fail! to use default ");
+      color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+      color_depth = ROCKCHIP_DEPTH_DEFAULT;
+    }
+  }else{
+    /* if resolution is null,set to "Auto" */
+    property_get("persist.vendor.color.aux", prop_format, "Auto");
+    ret = ParseHdmiOutputFormat(prop_format, &color_format, &color_depth);
+    if (ret == false) {
+      ALOGE("Get color fail! to use default ");
+      color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+      color_depth = ROCKCHIP_DEPTH_DEFAULT;
+    }
+  }
+
+
+  if(ctx_.color_format != color_format) {
+      need_change_format = 1;
+  }
+
+  if(ctx_.color_depth != color_depth) {
+      need_change_depth = 1;
+  }
+  if(connector_->hdmi_output_format_property().id() > 0 && need_change_format > 0) {
+
+      pset = drmModeAtomicAlloc();
+      if (!pset) {
+          ALOGE("%s:line=%d Failed to allocate property set", __FUNCTION__, __LINE__);
+          return false;
+      }
+      ALOGD_IF(LogLevel(DBG_DEBUG),"%s: change hdmi output format: %d", __FUNCTION__, color_format);
+      ret = drmModeAtomicAddProperty(pset, connector_->id(), connector_->hdmi_output_format_property().id(), color_format);
+      if (ret < 0) {
+          ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, connector_->hdmi_output_format_property().id(), connector_->id());
+      }
+
+      if (ret < 0) {
+          ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+          drmModeAtomicFree(pset);
+          return false;
+      }
+      else
+      {
+          ctx_.color_format = color_format;
+      }
+  }
+
+  if(connector_->hdmi_output_depth_property().id() > 0 && need_change_depth > 0) {
+
+      if (!pset) {
+          pset = drmModeAtomicAlloc();
+      }
+      if (!pset) {
+          ALOGE("%s:line=%d Failed to allocate property set", __FUNCTION__, __LINE__);
+          return false;
+      }
+
+      ALOGD_IF(LogLevel(DBG_DEBUG),"%s: change hdmi output depth: %d", __FUNCTION__, color_depth);
+      ret = drmModeAtomicAddProperty(pset, connector_->id(), connector_->hdmi_output_depth_property().id(), color_depth);
+      if (ret < 0) {
+          ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, connector_->hdmi_output_depth_property().id(), connector_->id());
+      }
+
+      if (ret < 0) {
+          ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+          drmModeAtomicFree(pset);
+          return false;
+      }
+      else
+      {
+          ctx_.color_depth = color_depth;
+      }
+  }
+  if (pset != NULL) {
+      drmModeAtomicCommit(drm_->fd(), pset, DRM_MODE_ATOMIC_ALLOW_MODESET, drm_);
+      drmModeAtomicFree(pset);
+      pset = NULL;
+  }
+
+  return 0;
+}
+
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
   bool exist_hdr_layer = false;

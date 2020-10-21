@@ -214,6 +214,8 @@ class DrmHwcTwo : public hwc2_device_t {
    int DumpDisplayLayersInfo();
    bool PresentFinish(void) { return present_finish_; };
    int UpdateDisplayMode();
+   bool ParseHdmiOutputFormat(char* strprop, drm_hdmi_output_type *format, dw_hdmi_rockchip_color_depth *depth);
+   int UpdateHdmiOutputFormat();
    int SwitchHdrMode();
    int GetBestDisplayMode();
 
