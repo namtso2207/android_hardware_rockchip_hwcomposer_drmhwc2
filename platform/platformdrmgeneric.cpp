@@ -174,7 +174,11 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
                          handle, &internal_format);
   if (internal_format & GRALLOC_ARM_INTFMT_AFBC){
       ALOGV("KP : to set DRM_FORMAT_MOD_ARM_AFBC.");
+#ifdef ANDROID_R
       modifier[0] = DRM_FORMAT_MOD_ARM_AFBC(1);
+#else
+      modifier[0] = DRM_FORMAT_MOD_ARM_AFBC;
+#endif
   }
 
   ret = drmModeAddFB2_ext(drm_->fd(), bo->width, bo->height, bo->format,
