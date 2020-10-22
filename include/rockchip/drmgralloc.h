@@ -36,6 +36,10 @@
 #ifndef _DRM_GRALLOC_H_
 #define _DRM_GRALLOC_H_
 #include "rockchip/drmtype.h"
+#if USE_GRALLOC_4
+#include "rockchip/drmgralloc4.h"
+#endif
+
 
 #include <hardware/gralloc.h>
 #include <map>
@@ -68,8 +72,11 @@ private:
 	~DrmGralloc();
 	DrmGralloc(const DrmGralloc&);
 	DrmGralloc& operator=(const DrmGralloc&);
-  const gralloc_module_t *gralloc_;
 
+#if USE_GRALLOC_4
+#else
+  const gralloc_module_t *gralloc_;
+#endif
 };
 }
 

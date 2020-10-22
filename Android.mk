@@ -71,9 +71,14 @@ ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
 LOCAL_C_INCLUDES += \
   hardware/rockchip/hwcomposer/drmhwc2/include
 
-LOCAL_CPPFLAGS += -DANDROID_R -DUSE_GRALLOC4
+LOCAL_CPPFLAGS += -DANDROID_R -DUSE_GRALLOC_4=1
 
-else
+ifeq ($(USE_GRALLOC_4), 1)
+LOCAL_HEADER_LIBRARIES += \
+  libgralloc_headers
+endif
+
+else # Android 11
 LOCAL_C_INCLUDES += \
   hardware/rockchip/hwcomposer/include
 
@@ -127,6 +132,7 @@ LOCAL_SRC_FILES := \
   rockchip/utils/drmdebug.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
+  rockchip/drmgralloc4.cpp \
   rockchip/platform/drmvop.cpp \
   rockchip/platform/drmvop2.cpp
 
@@ -148,8 +154,14 @@ ifeq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \>= 26)))
 LOCAL_PROPRIETARY_MODULE := true
 endif
 
+LOCAL_LDFLAGS += \
+  out/soong/.intermediates/system/libhidl/libhidlbase/android_vendor.30_arm_armv8-a_cortex-a53_shared/libhidlbase.so \
+  out/soong/.intermediates/frameworks/native/libs/gralloc/types/libgralloctypes/android_vendor.30_arm_armv8-a_cortex-a53_shared/libgralloctypes.so \
+  out/soong/.intermediates/hardware/interfaces/graphics/mapper/4.0/android.hardware.graphics.mapper@4.0/android_vendor.30_arm_armv8-a_cortex-a53_shared/android.hardware.graphics.mapper@4.0.so
+
+
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -Wno-unused-function -Wno-unused-private-field -Wno-unused-function -Wno-unused-variable
+LOCAL_CFLAGS += -Wno-unused-function -Wno-unused-private-field -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
 LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES

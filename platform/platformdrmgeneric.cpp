@@ -19,7 +19,10 @@
 #include "platformdrmgeneric.h"
 #include "drmdevice.h"
 #include "platform.h"
+#if USE_GRALLOC_4
+#else
 #include "gralloc_drm_handle.h"
+#endif
 #include "rockchip/drmgralloc.h"
 #include "rockchip/platform/drmvop.h"
 #include "rockchip/platform/drmvop2.h"
@@ -254,10 +257,10 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
   if (handle == NULL)
     return false;
 
-  if (exclude_non_hwfb_) {
-    gralloc_drm_handle_t *hnd = gralloc_drm_handle(handle);
-    return hnd->usage & GRALLOC_USAGE_HW_FB;
-  }
+//  if (exclude_non_hwfb_) {
+//    gralloc_drm_handle_t *hnd = gralloc_drm_handle(handle);
+//    return hnd->usage & GRALLOC_USAGE_HW_FB;
+//  }
 
   return true;
 }
