@@ -71,7 +71,7 @@ ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
 LOCAL_C_INCLUDES += \
   hardware/rockchip/hwcomposer/drmhwc2/include
 
-LOCAL_CPPFLAGS += -DANDROID_R
+LOCAL_CPPFLAGS += -DANDROID_R -DUSE_GRALLOC4
 
 else
 LOCAL_C_INCLUDES += \
@@ -83,7 +83,7 @@ endif
 
 # API 29 -> Android 10.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
-ifeq ($(strip $(TARGET_BOARD_PLATFORM_GPU)), mali-tDVx)
+ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libgralloc/bifrost \
   hardware/rockchip/libgralloc/bifrost/src
@@ -142,6 +142,11 @@ MAJOR_VERSION := "RK_GRAPHICS_VER=commit-id:$(shell cd $(LOCAL_PATH) && git log 
 LOCAL_CPPFLAGS += -DRK_GRAPHICS_VER=\"$(MAJOR_VERSION)\"
 
 LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_HARDWARE)
+
+# API 26 -> Android 8.0
+ifeq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \>= 26)))
+LOCAL_PROPRIETARY_MODULE := true
+endif
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wno-unused-function -Wno-unused-private-field -Wno-unused-function -Wno-unused-variable

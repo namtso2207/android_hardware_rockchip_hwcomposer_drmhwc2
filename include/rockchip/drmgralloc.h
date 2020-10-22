@@ -41,19 +41,37 @@
 #include <map>
 #include <vector>
 
-int hwc_get_handle_width(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_height(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_format(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_stride(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_byte_stride(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_usage(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_size(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-int hwc_get_handle_attributes(const gralloc_module_t *gralloc, buffer_handle_t hnd, std::vector<int> *attrs);
-int hwc_get_handle_attibute(const gralloc_module_t *gralloc, buffer_handle_t hnd, attribute_flag_t flag);
-int hwc_get_handle_primefd(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-#if RK_DRM_GRALLOC
-uint32_t hwc_get_handle_phy_addr(const gralloc_module_t *gralloc, buffer_handle_t hnd);
-#endif
+namespace android {
+
+class DrmGralloc{
+public:
+	static DrmGralloc* getInstance(){
+		static DrmGralloc drmGralloc_;
+		return &drmGralloc_;
+	}
+
+  int hwc_get_handle_width(buffer_handle_t hnd);
+  int hwc_get_handle_height(buffer_handle_t hnd);
+  int hwc_get_handle_format(buffer_handle_t hnd);
+  int hwc_get_handle_stride(buffer_handle_t hnd);
+  int hwc_get_handle_byte_stride(buffer_handle_t hnd);
+  int hwc_get_handle_usage(buffer_handle_t hnd);
+  int hwc_get_handle_size(buffer_handle_t hnd);
+  int hwc_get_handle_attributes(buffer_handle_t hnd, std::vector<int> *attrs);
+  int hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t flag);
+  int hwc_get_handle_primefd(buffer_handle_t hnd);
+  uint32_t hwc_get_handle_phy_addr(buffer_handle_t hnd);
+  uint64_t hwc_get_handle_internal_format(buffer_handle_t hnd);
+
+private:
+	DrmGralloc();
+	~DrmGralloc();
+	DrmGralloc(const DrmGralloc&);
+	DrmGralloc& operator=(const DrmGralloc&);
+  const gralloc_module_t *gralloc_;
+
+};
+}
 
 #endif
 

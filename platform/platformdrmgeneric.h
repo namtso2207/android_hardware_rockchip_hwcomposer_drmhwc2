@@ -19,6 +19,7 @@
 
 #include "drmdevice.h"
 #include "platform.h"
+#include "rockchip/drmgralloc.h"
 
 #include <hardware/gralloc.h>
 
@@ -42,7 +43,7 @@ class DrmGenericImporter : public Importer {
   DrmDevice *drm_;
 
  private:
-  const gralloc_module_t *gralloc_;
+  DrmGralloc *drmGralloc_;
   bool exclude_non_hwfb_;
 };
 }  // namespace android

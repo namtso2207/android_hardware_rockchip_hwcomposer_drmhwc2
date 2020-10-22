@@ -19,12 +19,15 @@
 #include "resourcemanager.h"
 #include "vsyncworker.h"
 #include "platform.h"
+#include "rockchip/drmgralloc.h"
 
 #include <hardware/hwcomposer2.h>
 
 #include <map>
 
 namespace android {
+
+class DrmGralloc;
 
 class DrmHwcTwo : public hwc2_device_t {
  public:
@@ -38,9 +41,9 @@ class DrmHwcTwo : public hwc2_device_t {
  private:
   class HwcLayer {
    public:
-    HwcLayer(uint32_t layer_id, const gralloc_module_t *gralloc){
+    HwcLayer(uint32_t layer_id){
       id_ = layer_id;
-      gralloc_ = gralloc;
+      drmGralloc_ = DrmGralloc::getInstance();
     }
     HWC2::Composition sf_type() const {
       return sf_type_;
@@ -141,7 +144,7 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t z_order_ = 0;
     android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
     uint32_t id_;
-    const gralloc_module_t *gralloc_;
+    DrmGralloc *drmGralloc_;
   };
 
   struct HwcCallback {

@@ -221,7 +221,7 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       importer_(importer),
       handle_(handle),
       type_(type),
-      client_layer_(UINT32_MAX, resource_manager->gralloc()),
+      client_layer_(UINT32_MAX),
       init_success_(false){
 }
 
@@ -328,7 +328,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(layer_idx_,resource_manager_->gralloc()));
+  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(layer_idx_));
   *layer = static_cast<hwc2_layer_t>(layer_idx_);
   ++layer_idx_;
   return HWC2::Error::None;
@@ -1689,17 +1689,14 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
 
   if(buffer_){
-    drmHwcLayer->iFd_     = hwc_get_handle_primefd(gralloc_, buffer_);
-    drmHwcLayer->iWidth_  = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
-    drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
-    drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
-    drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
-    drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
+    drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
+    drmHwcLayer->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+    drmHwcLayer->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+    drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+    drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+    drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
-    int ret = gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
-                         buffer_, &drmHwcLayer->uInternalFormat_);
-    if(ret)
-      ALOGE("Failed to get internal_format for buffer %p (%d)", buffer_, ret);
+    drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -1749,17 +1746,14 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
 
   if(buffer_){
-    drmHwcLayer->iFd_     = hwc_get_handle_primefd(gralloc_, buffer_);
-    drmHwcLayer->iWidth_  = hwc_get_handle_attibute(gralloc_,buffer_,ATT_WIDTH);
-    drmHwcLayer->iHeight_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_HEIGHT);
-    drmHwcLayer->iStride_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_STRIDE);
-    drmHwcLayer->iFormat_ = hwc_get_handle_attibute(gralloc_,buffer_,ATT_FORMAT);
-    drmHwcLayer->iUsage   = hwc_get_handle_usage(gralloc_,buffer_);
+    drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
+    drmHwcLayer->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+    drmHwcLayer->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+    drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+    drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+    drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
-    int ret = gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
-                         buffer_, &drmHwcLayer->uInternalFormat_);
-    if(ret)
-      ALOGE("Failed to get internal_format for buffer %p (%d)", buffer_, ret);
+    drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;

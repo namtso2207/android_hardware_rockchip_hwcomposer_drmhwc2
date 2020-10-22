@@ -56,22 +56,15 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
 #endif
 
 DrmGenericImporter::DrmGenericImporter(DrmDevice *drm)
-    : drm_(drm), exclude_non_hwfb_(false) {
+    : drm_(drm),
+    exclude_non_hwfb_(false){
+    drmGralloc_ = DrmGralloc::getInstance();
 }
 
 DrmGenericImporter::~DrmGenericImporter() {
 }
 
 int DrmGenericImporter::Init() {
-  int ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                          (const hw_module_t **)&gralloc_);
-  if (ret) {
-    ALOGE("Failed to open gralloc module");
-    return ret;
-  }
-
-  ALOGI("Using %s gralloc module: %s\n", gralloc_->common.name,
-        gralloc_->common.author);
 
   char exclude_non_hwfb_prop[PROPERTY_VALUE_MAX];
   property_get("hwc.drm.exclude_non_hwfb_imports", exclude_non_hwfb_prop, "0");
@@ -129,12 +122,12 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
   int fd,width,height,byte_stride,format,usage;
-  fd = hwc_get_handle_primefd(gralloc_, handle);
-  width = hwc_get_handle_attibute(gralloc_,handle,ATT_WIDTH);
-  height = hwc_get_handle_attibute(gralloc_,handle,ATT_HEIGHT);
-  byte_stride = hwc_get_handle_attibute(gralloc_,handle,ATT_BYTE_STRIDE);
-  format = hwc_get_handle_attibute(gralloc_,handle,ATT_FORMAT);
-  usage = hwc_get_handle_usage(gralloc_,handle);
+  fd     = drmGralloc_->hwc_get_handle_primefd(handle);
+  width  = drmGralloc_->hwc_get_handle_attibute(handle,ATT_WIDTH);
+  height = drmGralloc_->hwc_get_handle_attibute(handle,ATT_HEIGHT);
+  format = drmGralloc_->hwc_get_handle_attibute(handle,ATT_FORMAT);
+  usage  = drmGralloc_->hwc_get_handle_usage(handle);
+  byte_stride = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE);
 
   uint32_t gem_handle;
   int ret = drmPrimeFDToHandle(drm_->fd(), fd, &gem_handle);
@@ -170,8 +163,8 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   __u64 modifier[4];
   uint64_t internal_format;
   memset(modifier, 0, sizeof(modifier));
-  gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT,
-                         handle, &internal_format);
+
+  internal_format = drmGralloc_->hwc_get_handle_internal_format(handle);
   if (internal_format & GRALLOC_ARM_INTFMT_AFBC){
       ALOGV("KP : to set DRM_FORMAT_MOD_ARM_AFBC.");
 #ifdef ANDROID_R

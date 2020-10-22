@@ -19,6 +19,7 @@
 
 #include "drmdevice.h"
 #include "platform.h"
+#include "rockchip/drmgralloc.h"
 
 #include <string.h>
 
@@ -32,7 +33,6 @@ class ResourceManager {
   int Init();
   DrmDevice *GetDrmDevice(int display);
   std::shared_ptr<Importer> GetImporter(int display);
-  const gralloc_module_t *gralloc();
   DrmConnector *AvailableWritebackConnector(int display);
   const std::vector<std::unique_ptr<DrmDevice>> &getDrmDevices() const {
     return drms_;
@@ -47,7 +47,7 @@ class ResourceManager {
   int num_displays_;
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
-  const gralloc_module_t *gralloc_;
+  DrmGralloc *drmGralloc_;
 };
 }  // namespace android
 

@@ -24,7 +24,9 @@
 
 namespace android {
 
-ResourceManager::ResourceManager() : num_displays_(0), gralloc_(NULL) {
+ResourceManager::ResourceManager() :
+  num_displays_(0) {
+  drmGralloc_ = DrmGralloc::getInstance();
 }
 
 int ResourceManager::Init() {
@@ -49,8 +51,7 @@ int ResourceManager::Init() {
     return ret ? -EINVAL : ret;
   }
 
-  return hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                       (const hw_module_t **)&gralloc_);
+  return 0;
 }
 
 int ResourceManager::AddDrmDevice(std::string path) {
@@ -103,9 +104,5 @@ std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
       return importers_[i];
   }
   return NULL;
-}
-
-const gralloc_module_t *ResourceManager::gralloc() {
-  return gralloc_;
 }
 }  // namespace android

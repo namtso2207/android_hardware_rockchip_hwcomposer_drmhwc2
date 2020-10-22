@@ -41,22 +41,31 @@
 #include <log/log.h>
 #include <inttypes.h>
 #include <errno.h>
+namespace android {
 
+DrmGralloc::DrmGralloc(){
+  int ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
+                         (const hw_module_t **)&gralloc_);
+  if(ret)
+    ALOGE("hw_get_module fail");
 
-int hwc_get_handle_width(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+}
+
+DrmGralloc::~DrmGralloc(){}
+int DrmGralloc::hwc_get_handle_width(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->width;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_WIDTH;
     int width = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &width);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &width);
     else
         ret = -EINVAL;
 
@@ -69,20 +78,20 @@ int hwc_get_handle_width(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-int hwc_get_handle_height(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_height(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->height;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_HEIGHT;
     int height = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &height);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &height);
     else
         ret = -EINVAL;
 
@@ -95,20 +104,20 @@ int hwc_get_handle_height(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-int hwc_get_handle_stride(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_stride(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->pixel_stride;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_STRIDE;
     int stride = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &stride);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &stride);
     else
         ret = -EINVAL;
 
@@ -121,20 +130,20 @@ int hwc_get_handle_stride(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-int hwc_get_handle_byte_stride(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_byte_stride(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->stride;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_BYTE_STRIDE;
     int byte_stride = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &byte_stride);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &byte_stride);
     else
         ret = -EINVAL;
 
@@ -147,20 +156,20 @@ int hwc_get_handle_byte_stride(const gralloc_module_t *gralloc, buffer_handle_t 
 #endif
 }
 
-int hwc_get_handle_format(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_format(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->format;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_FORMAT;
     int format = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &format);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &format);
     else
         ret = -EINVAL;
 
@@ -173,20 +182,20 @@ int hwc_get_handle_format(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-int hwc_get_handle_usage(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_usage(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->usage;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_USAGE;
     int usage = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &usage);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &usage);
     else
         ret = -EINVAL;
 
@@ -199,20 +208,20 @@ int hwc_get_handle_usage(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-int hwc_get_handle_size(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_size(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->size;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_SIZE;
     int size = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &size);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &size);
     else
         ret = -EINVAL;
 
@@ -237,7 +246,7 @@ int hwc_get_handle_size(const gralloc_module_t *gralloc, buffer_handle_t hnd)
     format = attrs[3]
     size   = attrs[4]
 */
-int hwc_get_handle_attributes(const gralloc_module_t *gralloc, buffer_handle_t hnd, std::vector<int> *attrs)
+int DrmGralloc::hwc_get_handle_attributes(buffer_handle_t hnd, std::vector<int> *attrs)
 {
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_ATTRIBUTES;
@@ -245,9 +254,9 @@ int hwc_get_handle_attributes(const gralloc_module_t *gralloc, buffer_handle_t h
     if (!hnd)
         return -EINVAL;
 
-    if(gralloc && gralloc->perform)
+    if(gralloc_ && gralloc_->perform)
     {
-        ret = gralloc->perform(gralloc, op, hnd, attrs);
+        ret = gralloc_->perform(gralloc_, op, hnd, attrs);
     }
     else
     {
@@ -262,7 +271,7 @@ int hwc_get_handle_attributes(const gralloc_module_t *gralloc, buffer_handle_t h
     return ret;
 }
 
-int hwc_get_handle_attibute(const gralloc_module_t *gralloc, buffer_handle_t hnd, attribute_flag_t flag)
+int DrmGralloc::hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t flag)
 {
     std::vector<int> attrs;
     int ret=0;
@@ -273,7 +282,7 @@ int hwc_get_handle_attibute(const gralloc_module_t *gralloc, buffer_handle_t hnd
         return -1;
     }
 
-    ret = hwc_get_handle_attributes(gralloc, hnd, &attrs);
+    ret = hwc_get_handle_attributes(hnd, &attrs);
     if(ret < 0)
     {
         ALOGE("getHandleAttributes fail %d for:%s",ret,strerror(ret));
@@ -293,20 +302,20 @@ int hwc_get_handle_attibute(const gralloc_module_t *gralloc, buffer_handle_t hnd
 @return fd: prime_fd. and driver can call the dma_buf_get to get the buffer
 
 */
-int hwc_get_handle_primefd(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+int DrmGralloc::hwc_get_handle_primefd(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->prime_fd;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_PRIME_FD;
     int fd = -1;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &fd);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &fd);
     else
         ret = -EINVAL;
 
@@ -319,21 +328,20 @@ int hwc_get_handle_primefd(const gralloc_module_t *gralloc, buffer_handle_t hnd)
 #endif
 }
 
-#if RK_DRM_GRALLOC
-uint32_t hwc_get_handle_phy_addr(const gralloc_module_t *gralloc, buffer_handle_t hnd)
+uint32_t DrmGralloc::hwc_get_handle_phy_addr(buffer_handle_t hnd)
 {
 #if RK_PER_MODE
     struct gralloc_drm_handle_t* drm_hnd = (struct gralloc_drm_handle_t *)hnd;
 
-    UN_USED(gralloc);
+    UN_USED(gralloc_);
     return drm_hnd->phy_addr;
 #else
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_PHY_ADDR;
     uint32_t phy_addr = 0;
 
-    if(gralloc && gralloc->perform)
-        ret = gralloc->perform(gralloc, op, hnd, &phy_addr);
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &phy_addr);
     else
         ret = -EINVAL;
 
@@ -345,5 +353,25 @@ uint32_t hwc_get_handle_phy_addr(const gralloc_module_t *gralloc, buffer_handle_
     return phy_addr;
 #endif
 }
-#endif
 
+uint64_t DrmGralloc::hwc_get_handle_internal_format(buffer_handle_t hnd)
+{
+
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT;
+    uint64_t uInternalFormat_ = 0;
+
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &uInternalFormat_);
+    else
+        ret = -EINVAL;
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
+    }
+
+    return uInternalFormat_;
+}
+
+}
