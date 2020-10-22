@@ -33,7 +33,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-OCAL_PATH := $(call my-dir)
+LOCAL_PATH := $(call my-dir)
 
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
@@ -60,8 +60,9 @@ LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
 
 LOCAL_C_INCLUDES := \
-  hardware/rockchip/hwcomposer2/include \
+  hardware/rockchip/hwcomposer/drmhwc2/include \
   hardware/rockchip/libgralloc/midgard \
+  external/libdrm \
   external/libdrm/include/drm \
   system/core \
   system/core/libsync/include
@@ -88,7 +89,8 @@ LOCAL_SRC_FILES := \
   rockchip/utils/drmdebug.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
-  rockchip/platform/drmvop.cpp
+  rockchip/platform/drmvop.cpp \
+  rockchip/platform/drmvop2.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \

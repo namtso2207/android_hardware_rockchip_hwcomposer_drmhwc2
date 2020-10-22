@@ -37,8 +37,6 @@
 #ifndef _DRM_TYPE_H_
 #define _DRM_TYPE_H_
 #include <libsystem/include/system/graphics-base-v1.0.h>
-#include <drm/drm.h>
-#include <inttypes.h>
 
 #include <hardware/gralloc.h>
 
