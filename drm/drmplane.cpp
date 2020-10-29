@@ -213,6 +213,38 @@ int DrmPlane::Init() {
     }
   }
 
+  ret = drm_->GetPlaneProperty(*this, "INPUT_WIDTH", &input_w_property_);
+  if (ret)
+    ALOGE("Could not get INPUT_WIDTH property");
+
+  ret = drm_->GetPlaneProperty(*this, "INPUT_HEIGHT", &input_h_property_);
+  if (ret)
+    ALOGE("Could not get INPUT_HEIGHT property");
+
+  ret = drm_->GetPlaneProperty(*this, "OUTPUT_WIDTH", &output_w_property_);
+  if (ret)
+    ALOGE("Could not get OUTPUT_WIDTH property");
+
+  ret = drm_->GetPlaneProperty(*this, "OUTPUT_HEIGHT", &output_h_property_);
+  if (ret)
+    ALOGE("Could not get OUTPUT_HEIGHT property");
+
+  ret = drm_->GetPlaneProperty(*this, "SCALE_RATE", &scale_rate_property_);
+  if (ret)
+    ALOGE("Could not get SCALE_RATE property");
+  else{
+    uint64_t scale_rate=0;
+    std::tie(ret,scale_rate) = scale_rate_property_.range_min();
+    if(!ret)
+      scale_min_ = 1/scale_rate;
+    else
+      ALOGE("Could not get INPUT_WIDTH range_min property");
+    std::tie(ret,scale_rate) = scale_rate_property_.range_max();
+    if(!ret)
+      scale_max_ = scale_rate;
+    else
+      ALOGE("Could not get INPUT_WIDTH range_max property");
+  }
 
   return 0;
 }
@@ -310,6 +342,30 @@ const DrmProperty &DrmPlane::feature_property() const {
   return feature_property_;
 }
 
+const DrmProperty &DrmPlane::name_property() const{
+  return name_property_;
+}
+
+const DrmProperty &DrmPlane::input_w_property() const{
+  return input_w_property_;
+}
+
+const DrmProperty &DrmPlane::input_h_property() const{
+  return input_h_property_;
+}
+
+const DrmProperty &DrmPlane::output_w_property() const{
+  return output_w_property_;
+}
+
+const DrmProperty &DrmPlane::output_h_property() const{
+  return output_h_property_;
+}
+
+const DrmProperty &DrmPlane::scale_rate_property() const{
+  return scale_rate_property_;
+}
+
 bool DrmPlane::get_scale(){
     return b_scale_;
 }
@@ -360,5 +416,10 @@ bool DrmPlane::is_reserved(){
 void DrmPlane::set_reserved(bool b_reserved) {
     b_reserved_ = b_reserved;
 }
+
+bool DrmPlane::is_support_scale(float scale_rate){
+  return (scale_rate > scale_min_) || (scale_rate < scale_max_ );
+}
+
 
 }  // namespace android

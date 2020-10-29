@@ -111,6 +111,12 @@ class DrmPlane {
   const DrmProperty &area_id_property() const;
   const DrmProperty &share_id_property() const;
   const DrmProperty &feature_property() const;
+  const DrmProperty &name_property() const;
+  const DrmProperty &input_w_property() const;
+  const DrmProperty &input_h_property() const;
+  const DrmProperty &output_w_property() const;
+  const DrmProperty &output_h_property() const;
+  const DrmProperty &scale_rate_property() const;
   bool is_use();
   void set_use(bool b_use);
   bool get_scale();
@@ -123,7 +129,7 @@ class DrmPlane {
   void set_yuv(bool b_yuv);
   bool is_reserved();
   void set_reserved(bool b_reserved);
-
+  bool is_support_scale(float scale_rate);
  inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
 
  private:
@@ -155,6 +161,11 @@ class DrmPlane {
   DrmProperty share_id_property_;
   DrmProperty feature_property_;
   DrmProperty name_property_;
+  DrmProperty input_w_property_;
+  DrmProperty input_h_property_;
+  DrmProperty output_w_property_;
+  DrmProperty output_h_property_;
+  DrmProperty scale_rate_property_;
 
   bool b_reserved_;
   bool b_use_;
@@ -167,6 +178,8 @@ class DrmPlane {
   bool b_afbc_prop_;
   DrmPlaneType win_type_;
   uint32_t rotate_;
+  float scale_min_=0.0;
+  float scale_max_=0.0;
 };
 }  // namespace android
 
