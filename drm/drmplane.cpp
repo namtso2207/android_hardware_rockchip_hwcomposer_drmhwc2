@@ -28,6 +28,29 @@
 
 namespace android {
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+struct plane_type_name plane_type_names[] = {
+  { DRM_PLANE_TYPE_CLUSTER0_WIN0, "Cluster0-win0" },
+  { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
+  { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
+  { DRM_PLANE_TYPE_CLUSTER1_WIN2, "Cluster1-win1" },
+  { DRM_PLANE_TYPE_ESMART0_WIN0, "Esmart0-win0" },
+  { DRM_PLANE_TYPE_ESMART1_WIN0, "Esmart1-win0" },
+  { DRM_PLANE_TYPE_SMART0_WIN0, "Smart0-win0" },
+  { DRM_PLANE_TYPE_SMART1_WIN0, "Smart1-win0" },
+  { DRM_PLANE_TYPE_Unknown, "unknown" },
+};
+
+struct plane_rotation_type_name plane_rotation_type_names[] = {
+  { DRM_PLANE_ROTATION_0, "rotate-0" },
+  { DRM_PLANE_ROTATION_90, "rotate-90" },
+  { DRM_PLANE_ROTATION_270, "rotate-270" },
+  { DRM_PLANE_ROTATION_X_MIRROR, "reflect-x" },
+  { DRM_PLANE_ROTATION_Y_MIRROR, "reflect-y" },
+  { DRM_PLANE_ROTATION_Unknown, "unknown" },
+};
+
 DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p)
     : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs) {
 }
@@ -118,10 +141,6 @@ int DrmPlane::Init() {
     return ret;
   }
 
-  ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
-  if (ret)
-    ALOGE("Could not get rotation property");
-
   ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
   if (ret)
     ALOGI("Could not get alpha property");
@@ -139,8 +158,12 @@ int DrmPlane::Init() {
     ALOGI("Could not get colorspace property");
 
   ret = drm_->GetPlaneProperty(*this, "ZPOS", &zpos_property_);
-  if (ret)
-    ALOGE("Could not get ZPOS property");
+  if (ret){
+    ALOGE("Could not get ZPOS property, try to get zpos property");
+    ret = drm_->GetPlaneProperty(*this, "zpos", &zpos_property_);
+    if (ret)
+      ALOGE("Could not get zpos property");
+  }
 
   ret = drm_->GetPlaneProperty(*this, "SHARE_FLAGS", &area_id_property_);
   if (ret)
@@ -154,32 +177,43 @@ int DrmPlane::Init() {
   if (ret)
     ALOGE("Could not get FEATURE property");
 
+  std::tie(ret,b_scale_)   = feature_property_.bitmask("scale");
+  std::tie(ret,b_alpha_)   = feature_property_.bitmask("alpha");
+  std::tie(ret,b_hdr2sdr_) = feature_property_.bitmask("hdr2sdr");
+  std::tie(ret,b_sdr2hdr_) = feature_property_.bitmask("sdr2hdr");
+  std::tie(ret,b_afbdc_)   = feature_property_.bitmask("afbdc");
+  b_afbc_prop_ = true;
 
-  uint64_t scale=0, alpha=0, hdr2sdr=0, sdr2hdr=0, afbdc=0;
 
-  feature_property_.set_feature("scale");
-  std::tie(ret,scale) = feature_property_.value();
-  b_scale_ = ((scale & DRM_PLANE_FEARURE_BIT_SCALE) > 0)?true:false;
+  bool find_name = false;
+  ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
+  if (ret)
+    ALOGE("Could not get FEATURE property");
+  else{
+    for(int i = 0; i < ARRAY_SIZE(plane_rotation_type_names); i++){
+      find_name = false;
+      std::tie(ret,find_name) = rotation_property_.bitmask(plane_rotation_type_names[i].name);
+      if(find_name){
+        rotate_ |= plane_rotation_type_names[i].type;
+      }
+    }
+  }
 
-  rotation_property_.set_feature("alpha");
-  std::tie(ret, alpha) = rotation_property_.value();
-  b_alpha_ = ((alpha & DRM_PLANE_FEARURE_BIT_ALPHA) > 0)?true:false;;
+  ret = drm_->GetPlaneProperty(*this, "NAME", &name_property_);
+  if (ret)
+    ALOGE("Could not get NAME property");
+  else{
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names); i++){
+      find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names[i].name);
+      if(find_name){
+        win_type_ = plane_type_names[i].type;
+        break;
+      }
+    }
+  }
 
-  feature_property_.set_feature("hdr2sdr");
-  std::tie(ret, hdr2sdr) = feature_property_.value();
-  b_hdr2sdr_ = ((hdr2sdr == DRM_PLANE_FEARURE_BIT_HDR2SDR) > 0)?true:false;
 
-  feature_property_.set_feature("sdr2hdr");
-  std::tie(ret, sdr2hdr) = feature_property_.value();
-  b_sdr2hdr_ = ((sdr2hdr & DRM_PLANE_FEARURE_BIT_SDR2HDR) > 0)?true:false;
-
-  feature_property_.set_feature("afbdc");
-  std::tie(ret, afbdc) = feature_property_.value();
-  b_afbdc_ = ((afbdc & DRM_PLANE_FEARURE_BIT_AFBDC) > 0)?true:false;
-  if(0xFF == afbdc)
-    b_afbc_prop_ = false;
-  else
-    b_afbc_prop_ = true;
   return 0;
 }
 
@@ -193,6 +227,10 @@ bool DrmPlane::GetCrtcSupported(const DrmCrtc &crtc) const {
 
 uint32_t DrmPlane::type() const {
   return type_;
+}
+
+DrmPlaneType DrmPlane::win_type() const{
+  return win_type_;
 }
 
 const DrmProperty &DrmPlane::crtc_property() const {
@@ -277,7 +315,8 @@ bool DrmPlane::get_scale(){
 }
 
 bool DrmPlane::get_rotate(){
-    return b_rotate_;
+    return (rotate_ & DRM_PLANE_ROTATION_90)
+        || (rotate_ & DRM_PLANE_ROTATION_270);
 }
 
 bool DrmPlane::get_hdr2sdr(){

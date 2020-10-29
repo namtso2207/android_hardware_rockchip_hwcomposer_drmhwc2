@@ -98,23 +98,17 @@ std::tuple<int, uint64_t> DrmProperty::value() const {
     case DRM_PROPERTY_TYPE_OBJECT:
       return std::make_tuple(0, value_);
     case DRM_PROPERTY_TYPE_BITMASK:
-        if(feature_name_ == NULL)
-        {
+        if(feature_name_ == NULL){
             ALOGE("You don't set feature name for %s",name_.c_str());
             return std::make_tuple(-EINVAL, 0);
         }
-        if(strlen(feature_name_) > 0)
-        {
-            for (auto &drm_enum : enums_)
-            {
-                if(!strncmp(drm_enum.name_.c_str(),(const char*)feature_name_,strlen(feature_name_)))
-                {
+        if(strlen(feature_name_) > 0){
+            for (auto &drm_enum : enums_){
+                if(!strncmp(drm_enum.name_.c_str(),(const char*)feature_name_,strlen(feature_name_))){
                     return std::make_tuple(0, (value_ & (1LL << drm_enum.value_)));
                 }
             }
-        }
-        else
-        {
+        }else{
             return std::make_tuple(0, 0xff);
         }
         return std::make_tuple(-EINVAL, 0);
@@ -122,6 +116,29 @@ std::tuple<int, uint64_t> DrmProperty::value() const {
       return std::make_tuple(-EINVAL, 0);
   }
 }
+
+std::tuple<int, bool> DrmProperty::bitmask(const char* name) const {
+  if (type_ != DRM_PROPERTY_TYPE_BITMASK)
+    return std::make_tuple(0, false);
+
+  if (values_.size() == 0)
+    return std::make_tuple(-ENOENT, false);
+
+  if(!name)
+    return std::make_tuple(-ENOENT, false);
+
+  if(strlen(name) > 0){
+      for (auto &drm_enum : enums_){
+          if(!strncmp(drm_enum.name_.c_str(),(const char*)feature_name_,strlen(feature_name_))){
+              return std::make_tuple(0, true);
+          }
+      }
+  }else{
+      return std::make_tuple(0, false);
+  }
+  return std::make_tuple(0, false);
+}
+
 
 bool DrmProperty::is_immutable() const {
   return id_ && (flags_ & DRM_MODE_PROP_IMMUTABLE);

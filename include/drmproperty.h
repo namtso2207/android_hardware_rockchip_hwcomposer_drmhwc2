@@ -42,6 +42,7 @@ class DrmProperty {
 
   void Init(drmModePropertyPtr p, uint64_t value);
   std::tuple<uint64_t, int> GetEnumValueWithName(std::string name) const;
+  std::tuple<int, bool> bitmask(const char* name) const;
 
   uint32_t id() const;
   std::string name() const;

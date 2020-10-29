@@ -26,6 +26,38 @@
 
 namespace android {
 
+enum DrmPlaneType{
+      DRM_PLANE_TYPE_CLUSTER0_WIN0 = 1 << 0,
+      DRM_PLANE_TYPE_CLUSTER0_WIN1 = 1 << 1,
+      DRM_PLANE_TYPE_CLUSTER1_WIN0 = 1 << 2,
+      DRM_PLANE_TYPE_CLUSTER1_WIN2 = 1 << 3,
+      DRM_PLANE_TYPE_ESMART0_WIN0 = 1 << 4,
+      DRM_PLANE_TYPE_ESMART1_WIN0 = 1 << 5,
+      DRM_PLANE_TYPE_SMART0_WIN0 = 1 << 6,
+      DRM_PLANE_TYPE_SMART1_WIN0 = 1 << 7,
+      DRM_PLANE_TYPE_Unknown = 0xff,
+};
+
+struct plane_type_name {
+  DrmPlaneType type;
+  const char *name;
+};
+
+enum DrmPlaneRotationType{
+      DRM_PLANE_ROTATION_0 = 1 << 0,
+      DRM_PLANE_ROTATION_90 = 1 << 1,
+      DRM_PLANE_ROTATION_270 = 1 << 2,
+      DRM_PLANE_ROTATION_X_MIRROR = 1 << 3,
+      DRM_PLANE_ROTATION_Y_MIRROR = 1 << 4,
+      DRM_PLANE_ROTATION_Unknown = 0xff,
+};
+
+struct plane_rotation_type_name {
+  DrmPlaneRotationType type;
+  const char *name;
+};
+
+
 enum DrmPlaneFeatureType{
       DRM_PLANE_FEARURE_SCALE   = 0,
       DRM_PLANE_FEARURE_ALPHA   = 1,
@@ -57,6 +89,8 @@ class DrmPlane {
   bool GetCrtcSupported(const DrmCrtc &crtc) const;
 
   uint32_t type() const;
+
+  DrmPlaneType win_type() const;
 
   const DrmProperty &crtc_property() const;
   const DrmProperty &fb_property() const;
@@ -120,17 +154,19 @@ class DrmPlane {
   DrmProperty area_id_property_;
   DrmProperty share_id_property_;
   DrmProperty feature_property_;
+  DrmProperty name_property_;
 
   bool b_reserved_;
   bool b_use_;
   bool b_yuv_;
   bool b_scale_;
   bool b_alpha_;
-  bool b_rotate_;
   bool b_hdr2sdr_;
   bool b_sdr2hdr_;
   bool b_afbdc_;
   bool b_afbc_prop_;
+  DrmPlaneType win_type_;
+  uint32_t rotate_;
 };
 }  // namespace android
 
