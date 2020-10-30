@@ -54,7 +54,10 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog \
 	libui \
 	libutils \
-        libsync_vendor
+        libsync_vendor \
+        libhidlbase \
+        libgralloctypes \
+        android.hardware.graphics.mapper@4.0
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -153,12 +156,6 @@ LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_HARDWARE)
 ifeq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \>= 26)))
 LOCAL_PROPRIETARY_MODULE := true
 endif
-
-LOCAL_LDFLAGS += \
-  out/soong/.intermediates/system/libhidl/libhidlbase/android_vendor.30_arm_armv8-a_cortex-a53_shared/libhidlbase.so \
-  out/soong/.intermediates/frameworks/native/libs/gralloc/types/libgralloctypes/android_vendor.30_arm_armv8-a_cortex-a53_shared/libgralloctypes.so \
-  out/soong/.intermediates/hardware/interfaces/graphics/mapper/4.0/android.hardware.graphics.mapper@4.0/android_vendor.30_arm_armv8-a_cortex-a53_shared/android.hardware.graphics.mapper@4.0.so
-
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wno-unused-function -Wno-unused-private-field -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
