@@ -129,7 +129,7 @@ std::tuple<int, bool> DrmProperty::bitmask(const char* name) const {
 
   if(strlen(name) > 0){
       for (auto &drm_enum : enums_){
-          if(!strncmp(drm_enum.name_.c_str(),(const char*)feature_name_,strlen(feature_name_))){
+          if(!strncmp(drm_enum.name_.c_str(),(const char*)name,strlen(name))){
               return std::make_tuple(0, true);
           }
       }
