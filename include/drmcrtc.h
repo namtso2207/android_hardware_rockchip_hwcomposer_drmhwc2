@@ -45,7 +45,8 @@ class DrmCrtc {
   bool can_overscan() const;
   bool get_afbc() const;
   bool get_alpha_scale() const;
-
+  uint32_t get_soc_id() const { return soc_id_; }
+  uint32_t get_port_id() const { return port_id_; }
   const DrmProperty &active_property() const;
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
@@ -80,7 +81,12 @@ class DrmCrtc {
   DrmProperty right_margin_property_;
   DrmProperty bottom_margin_property_;
   DrmProperty alpha_scale_property_;
+  DrmProperty soc_type_property_;
+  DrmProperty port_id_property_;
 
+  // Vop2
+  uint32_t soc_id_;
+  uint32_t port_id_;
 };
 }  // namespace android
 

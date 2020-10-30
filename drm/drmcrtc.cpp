@@ -92,6 +92,23 @@ int DrmCrtc::Init() {
     ALOGE("Failed to get OUT_FENCE_PTR property");
   }
 
+  ret = drm_->GetCrtcProperty(*this, "SOC_ID", &soc_type_property_);
+  if (ret) {
+    ALOGE("Failed to get SOC_ID property");
+  }
+  std::tie(ret, soc_id_) = soc_type_property_.value();
+  if(ret)
+    ALOGE("Failed to get SOC_ID value");
+
+  ret = drm_->GetCrtcProperty(*this, "PORT_ID", &port_id_property_);
+  if (ret) {
+    ALOGE("Failed to get PORT_ID property");
+  }
+  std::tie(ret, port_id_) = port_id_property_.value();
+  if(ret)
+    ALOGE("Failed to get SOC_ID value");
+
+
   return 0;
 }
 bool DrmCrtc::get_afbc() const {
