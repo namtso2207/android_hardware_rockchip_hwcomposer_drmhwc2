@@ -177,13 +177,13 @@ int DrmPlane::Init() {
   if (ret)
     ALOGE("Could not get FEATURE property");
 
+#ifdef VOP2
   std::tie(ret,b_scale_)   = feature_property_.bitmask("scale");
   std::tie(ret,b_alpha_)   = feature_property_.bitmask("alpha");
   std::tie(ret,b_hdr2sdr_) = feature_property_.bitmask("hdr2sdr");
   std::tie(ret,b_sdr2hdr_) = feature_property_.bitmask("sdr2hdr");
   std::tie(ret,b_afbdc_)   = feature_property_.bitmask("afbdc");
   b_afbc_prop_ = true;
-
 
   bool find_name = false;
   ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
@@ -246,6 +246,34 @@ int DrmPlane::Init() {
       ALOGE("Could not get INPUT_WIDTH range_max property");
   }
 
+#else
+
+  uint64_t scale=0, alpha=0, hdr2sdr=0, sdr2hdr=0, afbdc=0;
+
+  feature_property_.set_feature("scale");
+  std::tie(ret,scale) = feature_property_.value();
+  b_scale_ = ((scale & DRM_PLANE_FEARURE_BIT_SCALE) > 0)?true:false;
+
+  rotation_property_.set_feature("alpha");
+  std::tie(ret, alpha) = rotation_property_.value();
+  b_alpha_ = ((alpha & DRM_PLANE_FEARURE_BIT_ALPHA) > 0)?true:false;;
+
+  feature_property_.set_feature("hdr2sdr");
+  std::tie(ret, hdr2sdr) = feature_property_.value();
+  b_hdr2sdr_ = ((hdr2sdr == DRM_PLANE_FEARURE_BIT_HDR2SDR) > 0)?true:false;
+
+  feature_property_.set_feature("sdr2hdr");
+  std::tie(ret, sdr2hdr) = feature_property_.value();
+  b_sdr2hdr_ = ((sdr2hdr & DRM_PLANE_FEARURE_BIT_SDR2HDR) > 0)?true:false;
+
+  feature_property_.set_feature("afbdc");
+  std::tie(ret, afbdc) = feature_property_.value();
+  b_afbdc_ = ((afbdc & DRM_PLANE_FEARURE_BIT_AFBDC) > 0)?true:false;
+  if(0xFF == afbdc)
+    b_afbc_prop_ = false;
+  else
+    b_afbc_prop_ = true;
+#endif
   return 0;
 }
 
