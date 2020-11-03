@@ -103,31 +103,30 @@ LOCAL_CPPFLAGS += \
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
 
 LOCAL_C_INCLUDES += \
-  hardware/rockchip/hwcomposer/drmhwc2/include
+    hardware/rockchip/hwcomposer/drmhwc2/include
 
 LOCAL_CPPFLAGS += -DANDROID_R
 
 ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_CPPFLAGS += -DVOP2=1
+endif
 
-LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1 -DVOP2=1
+ifeq ($(TARGET_RK_GRALLOC_VERSION),4) # Gralloc 4.0
 
-USE_GRALLOC_4=1
-
-ifeq ($(USE_GRALLOC_4), 1)
+LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1
 
 LOCAL_SHARED_LIBRARIES += \
-	libhidlbase \
-	libgralloctypes \
-	android.hardware.graphics.mapper@4.0
+    libhidlbase \
+    libgralloctypes \
+    android.hardware.graphics.mapper@4.0
 
 LOCAL_SRC_FILES += \
-  rockchip/drmgralloc4.cpp
+    rockchip/drmgralloc4.cpp
 
 LOCAL_HEADER_LIBRARIES += \
-  libgralloc_headers
+    libgralloc_headers
 
-endif # USE_GRALLOC_4
-endif # Mali-tDVx mali-G52
+endif # Gralloc 4.0
 else  # Android 11
 
 LOCAL_C_INCLUDES += \
