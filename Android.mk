@@ -54,10 +54,7 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog \
 	libui \
 	libutils \
-        libsync_vendor \
-        libhidlbase \
-        libgralloctypes \
-        android.hardware.graphics.mapper@4.0
+	libsync_vendor
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -68,50 +65,6 @@ LOCAL_C_INCLUDES := \
   system/core \
   system/core/libsync/include
 
-# API 30 -> Android 11.0
-ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
-
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/hwcomposer/drmhwc2/include
-
-LOCAL_CPPFLAGS += -DANDROID_R -DUSE_GRALLOC_4=1
-
-ifeq ($(USE_GRALLOC_4), 1)
-LOCAL_HEADER_LIBRARIES += \
-  libgralloc_headers
-endif
-
-else # Android 11
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/hwcomposer/include
-
-LOCAL_CPPFLAGS += -DANDROID_Q
-
-endif
-
-# API 29 -> Android 10.0
-ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
-ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/libgralloc/bifrost \
-  hardware/rockchip/libgralloc/bifrost/src
-endif
-
-ifneq (,$(filter mali-t860 mali-t760, $(TARGET_BOARD_PLATFORM_GPU)))
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/libgralloc/midgard
-endif
-
-ifneq (,$(filter mali400 mali450, $(TARGET_BOARD_PLATFORM_GPU)))
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/libgralloc/utgard
-endif
-
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3368)
-LOCAL_C_INCLUDES += \
-  system/core/libion/original-kernel-headers
-endif
-endif
 
 LOCAL_SRC_FILES := \
   drmhwctwo.cpp \
@@ -135,7 +88,6 @@ LOCAL_SRC_FILES := \
   rockchip/utils/drmdebug.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
-  rockchip/drmgralloc4.cpp \
   rockchip/platform/drmvop.cpp \
   rockchip/platform/drmvop2.cpp
 
@@ -146,6 +98,64 @@ LOCAL_CPPFLAGS += \
   -DUSE_HWC2 \
   -DMALI_AFBC_GRALLOC \
   -DUSE_DRM_GENERIC_IMPORTER
+
+# API 30 -> Android 11.0
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
+
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/hwcomposer/drmhwc2/include
+
+LOCAL_CPPFLAGS += -DANDROID_R
+
+ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
+
+LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1
+
+ifeq ($(USE_GRALLOC_4), 1)
+
+LOCAL_SHARED_LIBRARIES += \
+	libhidlbase \
+	libgralloctypes \
+	android.hardware.graphics.mapper@4.0
+
+LOCAL_SRC_FILES += \
+  rockchip/drmgralloc4.cpp
+
+LOCAL_HEADER_LIBRARIES += \
+  libgralloc_headers
+endif # USE_GRALLOC_4
+endif # Mali-tDVx mali-G52
+else  # Android 11
+
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/hwcomposer/include
+
+endif
+
+# API 29 -> Android 10.0
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
+LOCAL_CPPFLAGS += -DANDROID_Q
+ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/bifrost \
+  hardware/rockchip/libgralloc/bifrost/src
+endif
+
+ifneq (,$(filter mali-t860 mali-t760, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/midgard
+endif
+
+ifneq (,$(filter mali400 mali450, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/utgard
+endif
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3368)
+LOCAL_C_INCLUDES += \
+  system/core/libion/original-kernel-headers
+endif
+endif
 
 MAJOR_VERSION := "RK_GRAPHICS_VER=commit-id:$(shell cd $(LOCAL_PATH) && git log  -1 --oneline | awk '{print $$1}')"
 LOCAL_CPPFLAGS += -DRK_GRAPHICS_VER=\"$(MAJOR_VERSION)\"
