@@ -111,6 +111,8 @@ ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
 
 LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1 -DVOP2=1
 
+USE_GRALLOC_4=1
+
 ifeq ($(USE_GRALLOC_4), 1)
 
 LOCAL_SHARED_LIBRARIES += \
@@ -123,6 +125,7 @@ LOCAL_SRC_FILES += \
 
 LOCAL_HEADER_LIBRARIES += \
   libgralloc_headers
+
 endif # USE_GRALLOC_4
 endif # Mali-tDVx mali-G52
 else  # Android 11
