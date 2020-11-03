@@ -839,6 +839,7 @@ int DrmDisplayCompositor::Composite() {
         ret = CommitFrame(composition.get(), true);
         if (ret) {
           ALOGE("Commit test failed for display %d, FIXME", display_);
+          ClearDisplay();
           return ret;
         }
       }
