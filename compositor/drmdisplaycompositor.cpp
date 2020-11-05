@@ -523,7 +523,21 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       yuv = layer.bYuv_;
 
       if (plane->blend_property().id()) {
-        blend = (layer.blending == DrmHwcBlending::kPreMult) ? 1:0;
+        switch (layer.blending) {
+          case DrmHwcBlending::kPreMult:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "Pre-multiplied");
+            break;
+          case DrmHwcBlending::kCoverage:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "Coverage");
+            break;
+          case DrmHwcBlending::kNone:
+          default:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "None");
+            break;
+        }
       }
 
       zpos = comp_plane.get_zpos();

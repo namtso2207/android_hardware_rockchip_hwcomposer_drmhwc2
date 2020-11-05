@@ -141,14 +141,6 @@ int DrmPlane::Init() {
     return ret;
   }
 
-  ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
-  if (ret)
-    ALOGI("Could not get alpha property");
-
-  ret = drm_->GetPlaneProperty(*this, "BLEND_MODE", &blend_mode_property_);
-  if (ret)
-    ALOGI("Could not get pixel blend mode property");
-
   ret = drm_->GetPlaneProperty(*this, "EOTF", &eotf_property_);
   if (ret)
     ALOGI("Could not get eotf property");
@@ -178,6 +170,15 @@ int DrmPlane::Init() {
     ALOGE("Could not get FEATURE property");
 
 #ifdef VOP2
+  ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
+  if (ret)
+    ALOGI("Could not get alpha property");
+
+  ret = drm_->GetPlaneProperty(*this, "pixel blend mode", &blend_mode_property_);
+  if (ret)
+    ALOGI("Could not get pixel blend mode property");
+
+
   std::tie(ret,b_scale_)   = feature_property_.bitmask("scale");
   std::tie(ret,b_alpha_)   = feature_property_.bitmask("alpha");
   std::tie(ret,b_hdr2sdr_) = feature_property_.bitmask("hdr2sdr");
@@ -247,6 +248,14 @@ int DrmPlane::Init() {
   }
 
 #else
+  ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
+  if (ret)
+    ALOGI("Could not get alpha property");
+
+  ret = drm_->GetPlaneProperty(*this, "BLEND_MODE", &blend_mode_property_);
+  if (ret)
+    ALOGI("Could not get pixel blend mode property");
+
 
   uint64_t scale=0, alpha=0, hdr2sdr=0, sdr2hdr=0, afbdc=0;
 
