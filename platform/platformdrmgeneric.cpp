@@ -27,7 +27,6 @@
 #include "rockchip/platform/drmvop.h"
 #include "rockchip/platform/drmvop2.h"
 
-
 #include <drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>

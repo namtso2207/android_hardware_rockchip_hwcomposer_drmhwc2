@@ -440,16 +440,12 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                       {
                           bool bNeed = false;
 
-                          b_yuv  = (*iter_plane)->get_yuv();
-                          if((*iter_layer)->bYuv_)
-                          {
-                              if(!b_yuv)
-                              {
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support yuv",(*iter_plane)->id());
-                                  continue;
-                              }
-                              else
-                                  bNeed = true;
+                          if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
+                            bNeed = true;
+                          }else{
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support format=0x%x afbcd = %d",(*iter_plane)->id(),(*iter_layer)->iFormat_,(*iter_layer)->bAfbcd_);
+                            continue;
+
                           }
 
                           b_scale = (*iter_plane)->get_scale();

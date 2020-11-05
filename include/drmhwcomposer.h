@@ -175,6 +175,7 @@ struct DrmHwcLayer {
   int iStride_;
   int iUsage;
   int iBpp_;
+  uint32_t uFourccFormat_;
   uint64_t uInternalFormat_;
 
   bool bMatch_;

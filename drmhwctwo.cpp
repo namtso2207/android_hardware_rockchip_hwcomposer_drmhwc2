@@ -1696,6 +1696,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    drmHwcLayer->uFourccFormat_   = ConvertHalFormatToDrm(drmHwcLayer->iFormat_);
     drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
@@ -1705,6 +1706,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->iBpp_    = -1;
+    drmHwcLayer->uFourccFormat_   = 0;
+    drmHwcLayer->uInternalFormat_ = 0;
   }
 
 
@@ -1753,6 +1756,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
     drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
+    drmHwcLayer->uFourccFormat_   = ConvertHalFormatToDrm(drmHwcLayer->iFormat_);
     drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
@@ -1762,6 +1766,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->iBpp_    = -1;
+    drmHwcLayer->uFourccFormat_   = 0;
+    drmHwcLayer->uInternalFormat_ = 0;
   }
 
   drmHwcLayer->Init();
