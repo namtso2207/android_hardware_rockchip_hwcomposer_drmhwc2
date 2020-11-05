@@ -34,7 +34,7 @@ struct plane_type_name plane_type_names[] = {
   { DRM_PLANE_TYPE_CLUSTER0_WIN0, "Cluster0-win0" },
   { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
   { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
-  { DRM_PLANE_TYPE_CLUSTER1_WIN2, "Cluster1-win1" },
+  { DRM_PLANE_TYPE_CLUSTER1_WIN1, "Cluster1-win1" },
   { DRM_PLANE_TYPE_ESMART0_WIN0, "Esmart0-win0" },
   { DRM_PLANE_TYPE_ESMART1_WIN0, "Esmart1-win0" },
   { DRM_PLANE_TYPE_SMART0_WIN0, "Smart0-win0" },
@@ -52,7 +52,7 @@ struct plane_rotation_type_name plane_rotation_type_names[] = {
 };
 
 DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p)
-    : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs) {
+    : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs), plane_(p) {
 }
 
 int DrmPlane::Init() {
@@ -169,6 +169,11 @@ int DrmPlane::Init() {
   if (ret)
     ALOGE("Could not get FEATURE property");
 
+  support_format_list.clear();
+  for (uint32_t j = 0; j < plane_->count_formats; j++) {
+    support_format_list.insert(plane_->formats[j]);
+  }
+
 #ifdef VOP2
   ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
   if (ret)
@@ -248,6 +253,7 @@ int DrmPlane::Init() {
   }
 
 #else
+
   ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
   if (ret)
     ALOGI("Could not get alpha property");
@@ -458,5 +464,13 @@ bool DrmPlane::is_support_scale(float scale_rate){
   return (scale_rate > scale_min_) || (scale_rate < scale_max_ );
 }
 
+bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
+  if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) > 0 && afbcd)
+    return support_format_list.count(format);
+  else if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) == 0 && !afbcd)
+    return support_format_list.count(format);
+  else
+    return false;
+}
 
 }  // namespace android

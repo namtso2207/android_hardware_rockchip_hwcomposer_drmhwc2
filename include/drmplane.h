@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <xf86drmMode.h>
 #include <vector>
+#include <set>
 
 namespace android {
 
@@ -30,11 +31,12 @@ enum DrmPlaneType{
       DRM_PLANE_TYPE_CLUSTER0_WIN0 = 1 << 0,
       DRM_PLANE_TYPE_CLUSTER0_WIN1 = 1 << 1,
       DRM_PLANE_TYPE_CLUSTER1_WIN0 = 1 << 2,
-      DRM_PLANE_TYPE_CLUSTER1_WIN2 = 1 << 3,
+      DRM_PLANE_TYPE_CLUSTER1_WIN1 = 1 << 3,
       DRM_PLANE_TYPE_ESMART0_WIN0 = 1 << 4,
       DRM_PLANE_TYPE_ESMART1_WIN0 = 1 << 5,
       DRM_PLANE_TYPE_SMART0_WIN0 = 1 << 6,
       DRM_PLANE_TYPE_SMART1_WIN0 = 1 << 7,
+      DRM_PLANE_TYPE_CLUSTER_MASK = 0xf,
       DRM_PLANE_TYPE_Unknown = 0xff,
 };
 
@@ -130,6 +132,7 @@ class DrmPlane {
   bool is_reserved();
   void set_reserved(bool b_reserved);
   bool is_support_scale(float scale_rate);
+  bool is_support_format(uint32_t format, bool afbcd);
  inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
 
  private:
@@ -180,6 +183,9 @@ class DrmPlane {
   uint32_t rotate_;
   float scale_min_=0.0;
   float scale_max_=0.0;
+
+  std::set<uint32_t> support_format_list;
+  drmModePlanePtr plane_;
 };
 }  // namespace android
 
