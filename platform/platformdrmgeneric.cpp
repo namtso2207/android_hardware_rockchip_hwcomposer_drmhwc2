@@ -168,7 +168,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
   internal_format = drmGralloc_->hwc_get_handle_internal_format(handle);
   if (internal_format & GRALLOC_ARM_INTFMT_AFBC){
-      ALOGV("KP : to set DRM_FORMAT_MOD_ARM_AFBC.");
+      ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d afbcd layer",drm_->fd(), bo->width, bo->height);
 #ifdef ANDROID_R
       modifier[0] = DRM_FORMAT_MOD_ARM_AFBC(1);
 #else

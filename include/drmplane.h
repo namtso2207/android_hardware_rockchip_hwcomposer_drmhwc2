@@ -133,13 +133,16 @@ class DrmPlane {
   void set_reserved(bool b_reserved);
   bool is_support_scale(float scale_rate);
   bool is_support_format(uint32_t format, bool afbcd);
- inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
+  inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
+  inline void set_current_crtc_bit(uint32_t current_crtc) { current_crtc_ = current_crtc;}
+  inline uint32_t get_current_crtc_bit() const{ return current_crtc_; }
 
  private:
   DrmDevice *drm_;
   uint32_t id_;
 
   uint32_t possible_crtc_mask_;
+  uint32_t current_crtc_;
 
   uint32_t type_;
 

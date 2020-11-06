@@ -22,6 +22,7 @@
 #include "rockchip/drmgralloc.h"
 
 #include <string.h>
+#include <set>
 
 namespace android {
 
@@ -40,11 +41,15 @@ class ResourceManager {
   int getDisplayCount() const {
     return num_displays_;
   }
-
+  inline void creatActiveDisplayCnt(int display) { active_display_.insert(display);}
+  inline void removeActiveDisplayCnt(int display) { active_display_.erase(display);}
+  inline uint32_t getActiveDisplayCnt() { return active_display_.size();}
+  int assignPlaneGroup(int display);
  private:
   int AddDrmDevice(std::string path);
 
   int num_displays_;
+  std::set<int> active_display_;
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
   DrmGralloc *drmGralloc_;

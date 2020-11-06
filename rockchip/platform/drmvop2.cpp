@@ -659,24 +659,13 @@ int PlanStageVop2::MatchPlanes(
 
   return 0;
 }
-int  PlanStageVop2::GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,
-                   std::vector<PlaneGroup *>&out_plane_groups){
-
+int  PlanStageVop2::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_plane_groups){
   DrmDevice *drm = crtc->getDrmDevice();
   out_plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
   for(auto &plane_group : all_plane_groups){
-    for(auto &plane : *planes){
-      uint64_t ret,share_id;
-      std::tie(ret, share_id) = plane->share_id_property().value();
-      if(share_id == plane_group->share_id){
-        for(auto &p : plane_group->planes)
-          p->set_use(false);
-        plane_group->bUse = false;
-        out_plane_groups.push_back(plane_group);
-        break;
-      }
-    }
+    if(plane_group->match_crtc(1 << crtc->pipe()))
+      out_plane_groups.push_back(plane_group);
   }
   return out_plane_groups.size() > 0 ? 0 : -1;
 }
@@ -1196,11 +1185,10 @@ int PlanStageVop2::TryMatchPolicyFirst(
 }
 int PlanStageVop2::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
-    std::vector<DrmPlane *> *planes) {
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc) {
   // Get PlaneGroup
   std::vector<PlaneGroup *> plane_groups;
-  int ret = GetPlaneGroups(crtc,planes,plane_groups);
+  int ret = GetPlaneGroups(crtc,plane_groups);
   if(ret){
     ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
     return -1;

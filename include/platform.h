@@ -39,7 +39,47 @@ typedef struct tagPlaneGroup{
 	uint32_t zpos;
 	uint32_t possible_crtcs;
 	uint64_t share_id;
+
+  // RK356x support dynamic switching
+  uint32_t current_crtc_mask;
+  uint32_t last_crtc_mask;
+  uint32_t necessary_wait_cnt;
 	std::vector<DrmPlane*> planes;
+
+
+  bool set_current_crtc( uint32_t crtc_mask ){
+    ALOGD_IF(LogLevel(DBG_INFO),"set_current_crtc = %x, last_crtc_mask=%x, possible_crtcs=%" PRIx32,
+             crtc_mask,last_crtc_mask,possible_crtcs);
+    if(!(possible_crtcs & crtc_mask))
+      return false;
+    last_crtc_mask = current_crtc_mask;
+    current_crtc_mask = crtc_mask;
+    necessary_wait_cnt = 0;
+    return true;
+  }
+
+   void reset_current_crtc(){
+    ALOGD_IF(LogLevel(DBG_INFO),"reset_current_crtc");
+    current_crtc_mask = last_crtc_mask;
+    return;
+  }
+
+  bool match_crtc(uint32_t crtc_mask){
+    ALOGD_IF(LogLevel(DBG_INFO),"Match_crtc: PlaneGroup share_id = %" PRIu64 ", current_crtc_mask=%x ,"
+             "crtc_mask=%x, possible_crtcs=%" PRIx32,share_id,current_crtc_mask,crtc_mask,possible_crtcs);
+    if(!(possible_crtcs & crtc_mask))
+      return false;
+    if(crtc_mask & current_crtc_mask){
+       if(necessary_wait_cnt < 3){
+         necessary_wait_cnt++;
+         return false;
+       }else{
+         return true;
+       }
+    }else{
+       return false;
+    }
+ }
 }PlaneGroup;
 
 class Importer {
@@ -75,8 +115,7 @@ class Planner {
 
     virtual int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                                 std::vector<DrmHwcLayer*> &layers,
-                                DrmCrtc *crtc,
-                                std::vector<DrmPlane *> *planes) = 0;
+                                DrmCrtc *crtc) = 0;
     virtual int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
                                 std::vector<DrmHwcLayer*> &layers,
                                 DrmCrtc *crtc,
@@ -103,9 +142,7 @@ class Planner {
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
   std::tuple<int, std::vector<DrmCompositionPlane>> TryHwcPolicy(
-      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
-      std::vector<DrmPlane *> *primary_planes,
-      std::vector<DrmPlane *> *overlay_planes);
+      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc);
 
   template <typename T, typename... A>
   void AddStage(A &&... args) {
@@ -114,9 +151,6 @@ class Planner {
   }
 
  private:
-  std::vector<DrmPlane *> GetUsablePlanes(
-      DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
-      std::vector<DrmPlane *> *overlay_planes);
 
   std::vector<std::unique_ptr<PlanStage>> stages_;
 };

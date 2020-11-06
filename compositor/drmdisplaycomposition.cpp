@@ -122,21 +122,25 @@ int DrmDisplayComposition::AddPlaneComposition(DrmCompositionPlane plane) {
   return 0;
 }
 
-int DrmDisplayComposition::DisableUnusedPlanes(std::vector<DrmPlane *> *primary_planes,
-                                std::vector<DrmPlane *> *overlay_planes) {
+int DrmDisplayComposition::DisableUnusedPlanes() {
   if (type_ != DRM_COMPOSITION_TYPE_FRAME)
     return 0;
 
-  for(auto &plane : *primary_planes){
-    if(!(plane->is_use())){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane id = %d",plane->id());
-      AddPlaneDisable(plane);
-    }
-  }
-  for(auto &plane : *overlay_planes){
-    if(!(plane->is_use())){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane id = %d",plane->id());
-      AddPlaneDisable(plane);
+  std::vector<PlaneGroup*> plane_groups = drm_->GetPlaneGroups();
+
+  //loop plane groups.
+  for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
+     iter != plane_groups.end(); ++iter) {
+    //loop plane
+    if((*iter)->match_crtc(crtc()->pipe())){
+      for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
+          !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
+          if ((*iter_plane)->GetCrtcSupported(*crtc()) && !(*iter_plane)->is_use()) {
+              ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d",(*iter_plane)->id());
+              AddPlaneDisable(*iter_plane);
+             // break;
+          }
+      }
     }
   }
   return 0;

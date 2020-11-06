@@ -65,8 +65,7 @@ typedef enum tagComposeMode
 
  public:
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
-                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
-                        std::vector<DrmPlane *> *planes);
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc);
 
  protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -108,7 +107,7 @@ typedef enum tagComposeMode
   bool GetCrtcSupported(const DrmCrtc &crtc, uint32_t possible_crtc_mask);
   bool HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups);
   int  CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*>& layers,uint32_t iPlaneSize);
-  int  GetPlaneGroups(DrmCrtc *crtc,std::vector<DrmPlane *> *planes,std::vector<PlaneGroup *>&out_plane_groups);
+  int  GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_plane_groups);
   void ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers, std::vector<DrmHwcLayer*>& tmp_layers);
   void MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,std::vector<DrmHwcLayer*>& tmp_layers);

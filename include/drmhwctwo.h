@@ -238,9 +238,7 @@ class DrmHwcTwo : public hwc2_device_t {
     std::vector<DrmHwcLayer> drm_hwc_layers_;
     std::vector<DrmCompositionPlane> composition_planes_;
 
-
-    std::vector<DrmPlane *> primary_planes_;
-    std::vector<DrmPlane *> overlay_planes_;
+    std::vector<PlaneGroup*> plane_group;
 
     VSyncWorker vsync_worker_;
     DrmConnector *connector_ = NULL;

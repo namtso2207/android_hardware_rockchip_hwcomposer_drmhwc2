@@ -22,35 +22,13 @@
 #include <log/log.h>
 
 namespace android {
-
-std::vector<DrmPlane *> Planner::GetUsablePlanes(
-    DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
-    std::vector<DrmPlane *> *overlay_planes) {
-  std::vector<DrmPlane *> usable_planes;
-  std::copy_if(primary_planes->begin(), primary_planes->end(),
-               std::back_inserter(usable_planes),
-               [=](DrmPlane *plane) { return plane->GetCrtcSupported(*crtc); });
-  std::copy_if(overlay_planes->begin(), overlay_planes->end(),
-               std::back_inserter(usable_planes),
-               [=](DrmPlane *plane) { return plane->GetCrtcSupported(*crtc); });
-  return usable_planes;
-}
-
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
-    std::vector<DrmPlane *> *primary_planes,
-    std::vector<DrmPlane *> *overlay_planes) {
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc) {
   std::vector<DrmCompositionPlane> composition;
-  std::vector<DrmPlane *> planes = GetUsablePlanes(crtc, primary_planes,
-                                                   overlay_planes);
-  if (planes.empty()) {
-    ALOGE("Display %d has no usable planes", crtc->display());
-    return std::make_tuple(-ENODEV, std::vector<DrmCompositionPlane>());
-  }
 
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
-    int ret = i->TryHwcPolicy(&composition, layers, crtc, &planes);
+    int ret = i->TryHwcPolicy(&composition, layers, crtc);
     if (ret) {
       ALOGE("Failed provision stage with ret %d", ret);
       return std::make_tuple(ret, std::vector<DrmCompositionPlane>());

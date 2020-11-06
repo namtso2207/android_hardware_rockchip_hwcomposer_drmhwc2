@@ -125,8 +125,7 @@ class DrmDisplayComposition {
   int SetDpmsMode(uint32_t dpms_mode);
   int SetDisplayMode(const DrmMode &display_mode);
 
-  int DisableUnusedPlanes(std::vector<DrmPlane *> *primary_planes,
-           std::vector<DrmPlane *> *overlay_planes);
+  int DisableUnusedPlanes();
   int CreateAndAssignReleaseFences();
   int SignalCompositionDone() {
     ALOGD_IF(LogLevel(DBG_DEBUG),"%s: signal frame = %" PRIu64, __FUNCTION__,frame_no_);

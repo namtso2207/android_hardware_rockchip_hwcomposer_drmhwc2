@@ -465,12 +465,21 @@ bool DrmPlane::is_support_scale(float scale_rate){
 }
 
 bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
+#ifdef VOP2
   if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) > 0 && afbcd)
     return support_format_list.count(format);
   else if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) == 0 && !afbcd)
     return support_format_list.count(format);
   else
     return false;
+#else
+  if(afbcd && get_afbc())
+    return support_format_list.count(format);
+  else if(!afbcd)
+    return support_format_list.count(format);
+  else
+    return false;
+#endif
 }
 
 }  // namespace android

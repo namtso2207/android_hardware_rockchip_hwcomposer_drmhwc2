@@ -228,6 +228,7 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   compositor_.ClearDisplay();
+  resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
@@ -276,26 +277,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
       ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
       return HWC2::Error::BadDisplay;
     }
-    std::vector<DrmPlane *> display_planes;
-    for (auto &plane : drm_->planes()) {
-      if (plane->GetCrtcSupported(*crtc_))
-        display_planes.push_back(plane.get());
-    }
-
-    // Split up the given display planes into primary and overlay to properly
-    // interface with the composition
-    char use_overlay_planes_prop[PROPERTY_VALUE_MAX];
-    property_get("hwc.drm.use_overlay_planes", use_overlay_planes_prop, "1");
-    bool use_overlay_planes = atoi(use_overlay_planes_prop);
-    for (auto &plane : display_planes) {
-      if (plane->type() == DRM_PLANE_TYPE_PRIMARY)
-        primary_planes_.push_back(plane);
-      else if (use_overlay_planes && (((plane)->type() == DRM_PLANE_TYPE_OVERLAY) || (plane)->type() == DRM_PLANE_TYPE_CURSOR))
-        overlay_planes_.push_back(plane);
-    }
   }
 
   init_success_ = true;
+
+  resource_manager_->creatActiveDisplayCnt(display);
+  resource_manager_->assignPlaneGroup(display);
 
   return ChosePreferredConfig();
 }
@@ -826,12 +813,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       layers.push_back(&drm_hwc_layers_[i]);
   }
 
-  std::vector<DrmPlane *> primary_planes(primary_planes_);
-  std::vector<DrmPlane *> overlay_planes(overlay_planes_);
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_,
-                                                            &primary_planes,
-                                                            &overlay_planes);
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;
@@ -900,9 +883,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   for(auto &composition_plane :composition_planes_)
     ret = composition->AddPlaneComposition(std::move(composition_plane));
 
-  std::vector<DrmPlane *> primary_planes(primary_planes_);
-  std::vector<DrmPlane *> overlay_planes(overlay_planes_);
-  ret = composition->DisableUnusedPlanes(&primary_planes, &overlay_planes);
+  ret = composition->DisableUnusedPlanes();
   if (ret) {
     ALOGE("Failed to plan the composition ret=%d", ret);
     return HWC2::Error::BadConfig;

@@ -22,6 +22,10 @@
 #include <sstream>
 #include <string>
 
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+
 namespace android {
 
 ResourceManager::ResourceManager() :
@@ -105,4 +109,94 @@ std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
   }
   return NULL;
 }
+struct assign_plane_group{
+	int conenctor_type;
+  uint64_t drm_type;
+};
+struct assign_plane_group assign_plane_group_1[] = {
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_ESMART0_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_SMART0_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP , DRM_PLANE_TYPE_SMART1_WIN0 },
+};
+
+struct assign_plane_group assign_plane_group_2[] = {
+  { DRM_MODE_CONNECTOR_eDP   , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP   , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
+  { DRM_MODE_CONNECTOR_HDMIA , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
+  { DRM_MODE_CONNECTOR_HDMIA , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
+  { DRM_MODE_CONNECTOR_eDP   , DRM_PLANE_TYPE_ESMART0_WIN0 },
+  { DRM_MODE_CONNECTOR_HDMIA , DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { DRM_MODE_CONNECTOR_eDP   , DRM_PLANE_TYPE_SMART0_WIN0 },
+  { DRM_MODE_CONNECTOR_HDMIA , DRM_PLANE_TYPE_SMART1_WIN0 },
+};
+
+int ResourceManager::assignPlaneGroup(int display){
+
+  DrmDevice * drm = GetDrmDevice(display);
+  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
+  uint32_t active_display_num = getActiveDisplayCnt();
+
+  if(active_display_num==0){
+    ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
+                                 __FUNCTION__,__LINE__,active_display_num);
+    return -1;
+  }
+
+  ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d, active_display_num = %u, display=%d",
+                               __FUNCTION__,__LINE__,active_display_num,display);
+
+
+#if VOP2
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(display);
+  DrmConnector *connector = drm->GetConnectorForDisplay(display);
+  int connector_type = connector->type();
+  uint32_t crtc_mask = 1 << crtc->pipe();
+
+  if(active_display_num == 1){
+    for(auto &plane_group : all_plane_group){
+        plane_group->set_current_crtc(crtc_mask);
+    }
+  }else if(active_display_num == 2){
+    for(auto &plane_group : all_plane_group){
+      for(uint32_t i = 0; i < ARRAY_SIZE(assign_plane_group_2); i++){
+        int assign_conn_type = assign_plane_group_2[i].conenctor_type;
+        uint64_t assign_win_type =  assign_plane_group_2[i].drm_type;
+        uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+        if(connector_type == assign_conn_type && plane_group_win_type == assign_win_type){
+          plane_group->set_current_crtc(crtc_mask);
+        }
+      }
+    }
+  }else{
+    for(auto &plane_group : all_plane_group){
+        plane_group->set_current_crtc(crtc_mask);
+    }
+  }
+
+#else
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(display);
+  uint32_t crtc_mask = 1 << crtc->pipe();
+  if(active_display_num == 1){
+    for(auto &plane_group : all_plane_group){
+        plane_group->set_current_crtc(crtc_mask);
+    }
+  }else if(active_display_num == 2){
+    for(auto &plane_group : all_plane_group){
+        plane_group->set_current_crtc(crtc_mask);
+    }
+  }else{
+    for(auto &plane_group : all_plane_group){
+        plane_group->set_current_crtc(crtc_mask);
+    }
+  }
+#endif
+  return 0;
+}
+
+
 }  // namespace android

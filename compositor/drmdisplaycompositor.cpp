@@ -527,19 +527,21 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
           case DrmHwcBlending::kPreMult:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "Pre-multiplied");
+            blend = 1;
             break;
           case DrmHwcBlending::kCoverage:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "Coverage");
+            blend = 0;
             break;
           case DrmHwcBlending::kNone:
           default:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "None");
+            blend = 0;
             break;
         }
       }
-
       zpos = comp_plane.get_zpos();
       if(zpos < 0)
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
@@ -946,7 +948,7 @@ int DrmDisplayCompositor::FlattenOnDisplay(
       overlay_planes.push_back(plane.get());
   }
 
-  ret = src->DisableUnusedPlanes(&primary_planes, &overlay_planes);
+  ret = src->DisableUnusedPlanes();
   if (ret) {
     ALOGE("Failed to plan the composition ret = %d", ret);
     return ret;
