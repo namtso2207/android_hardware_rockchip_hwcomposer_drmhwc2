@@ -25,6 +25,7 @@
 
 #include <map>
 #include <vector>
+#include <stack>
 
 #define UNUSED(x) (void)(x)
 
@@ -42,25 +43,28 @@ typedef struct tagPlaneGroup{
 
   // RK356x support dynamic switching
   uint32_t current_crtc_mask;
-  uint32_t last_crtc_mask;
   uint32_t necessary_wait_cnt;
+  std::stack<uint32_t> last_crtc_mask;
 	std::vector<DrmPlane*> planes;
 
 
   bool set_current_crtc( uint32_t crtc_mask ){
-    ALOGD_IF(LogLevel(DBG_INFO),"set_current_crtc = %x, last_crtc_mask=%x, possible_crtcs=%" PRIx32,
-             crtc_mask,last_crtc_mask,possible_crtcs);
+    ALOGD_IF(LogLevel(DBG_INFO),"set_current_crtc = %x, current_crtc_mask=%x, possible_crtcs=%" PRIx32,
+             crtc_mask,current_crtc_mask,possible_crtcs);
     if(!(possible_crtcs & crtc_mask))
       return false;
-    last_crtc_mask = current_crtc_mask;
+    last_crtc_mask.push(current_crtc_mask);
     current_crtc_mask = crtc_mask;
     necessary_wait_cnt = 0;
     return true;
   }
 
    void reset_current_crtc(){
-    ALOGD_IF(LogLevel(DBG_INFO),"reset_current_crtc");
-    current_crtc_mask = last_crtc_mask;
+    if(last_crtc_mask.size()>0){
+      current_crtc_mask = last_crtc_mask.top();
+      ALOGD_IF(LogLevel(DBG_INFO),"reset_current_crtc, reset current_crtc_mask to %x",current_crtc_mask);
+      last_crtc_mask.pop();
+    }
     return;
   }
 
