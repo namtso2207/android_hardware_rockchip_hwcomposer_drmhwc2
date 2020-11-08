@@ -35,11 +35,12 @@ class DrmDevice;
 class DrmPlanes;
 
 typedef struct tagPlaneGroup{
-	bool     b_reserved;
-	bool     bUse;
-	uint32_t zpos;
-	uint32_t possible_crtcs;
-	uint64_t share_id;
+  bool     b_reserved;
+  bool     bUse;
+  uint32_t zpos;
+  uint32_t possible_crtcs;
+  uint64_t share_id;
+  uint64_t win_type;
 
   // RK356x support dynamic switching
   uint32_t current_crtc_mask;

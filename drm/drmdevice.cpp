@@ -56,9 +56,9 @@ bool PlaneSortByZpos(const DrmPlane* plane1,const DrmPlane* plane2)
     return zpos1 < zpos2;
 }
 
-bool SortByZpos(const PlaneGroup* planeGroup1,const PlaneGroup* planeGroup2)
+bool SortByWinType(const PlaneGroup* planeGroup1,const PlaneGroup* planeGroup2)
 {
-    return planeGroup1->zpos < planeGroup2->zpos;
+    return planeGroup1->win_type < planeGroup2->win_type;
 }
 
 bool PlaneSortByArea(const DrmPlane*  plane1,const DrmPlane* plane2)
@@ -378,6 +378,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       plane_group->zpos = zpos;
       plane_group->possible_crtcs = p->possible_crtcs;
       plane_group->share_id = share_id;
+      plane_group->win_type = plane->win_type();
       plane_group->planes.push_back(plane.get());
       plane_groups_.push_back(plane_group);
     }
@@ -419,7 +420,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       }
   }
   ALOGD_IF(LogLevel(DBG_DEBUG),"--------------------sort plane--------------------");
-  std::sort(plane_groups_.begin(),plane_groups_.end(),SortByZpos);
+  std::sort(plane_groups_.begin(),plane_groups_.end(),SortByWinType);
   for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups_.begin();
          iter != plane_groups_.end(); ++iter)
   {
