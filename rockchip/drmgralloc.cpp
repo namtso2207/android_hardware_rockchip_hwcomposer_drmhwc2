@@ -458,4 +458,35 @@ uint64_t DrmGralloc::hwc_get_handle_internal_format(buffer_handle_t hnd)
 #endif
 }
 
+void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height){
+  void* cpu_addr = NULL;
+#if USE_GRALLOC_4
+  ret = gralloc4::lock(hnd,GRALLOC_USAGE_SW_READ_MASK,0,0,width,height,(void **)&cpu_addr);
+#else // #if USE_GRALLOC_4
+  if(gralloc_)
+    gralloc_->lock(gralloc_,
+                        hnd,
+                        GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK, //gr_handle->usage,
+                        0,
+                        0,
+                        width,
+                        height,
+                        (void **)&cpu_addr);
+#endif
+  return cpu_addr;
+}
+
+int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
+  int ret = 0;
+#if USE_GRALLOC_4
+  ret = gralloc4::unlock(hnd);
+#else   // USE_GRALLOC_4
+  ret = gralloc_->unlock(gralloc_, hnd);
+#endif  // USE_GRALLOC_4
+  return ret;
+}
+
+
+
+
 }

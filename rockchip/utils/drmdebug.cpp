@@ -87,6 +87,5 @@ bool LogLevel(LOG_LEVEL log_level){
 void IncFrameCnt() { g_frame++; }
 int GetFrameCnt(){ return g_frame;}
 
-
 }
 

@@ -107,6 +107,8 @@ class DrmHwcTwo : public hwc2_device_t {
     void PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
                         hwc_drm_display_t* ctx, uint32_t frame_no, bool validate);
     void DumpLayerInfo(String8 &output);
+
+    int DumpData();
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -215,6 +217,7 @@ class DrmHwcTwo : public hwc2_device_t {
    int DumpDisplayInfo(String8 &output);
    int DumpDisplayLayersInfo(String8 &output);
    int DumpDisplayLayersInfo();
+   int DumpAllLayerData();
    bool PresentFinish(void) { return present_finish_; };
    int UpdateDisplayMode();
    bool ParseHdmiOutputFormat(char* strprop, drm_hdmi_output_type *format, dw_hdmi_rockchip_color_depth *depth);

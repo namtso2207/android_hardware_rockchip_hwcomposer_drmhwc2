@@ -903,8 +903,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
 
-  HWC2::Error ret;
+  DumpAllLayerData();
 
+  HWC2::Error ret;
   ret = CreateComposition();
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
@@ -1180,8 +1181,20 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
   ALOGD("%s",output.string());
   return 0;
 }
-
-
+int DrmHwcTwo::HwcDisplay::DumpAllLayerData(){
+  int ret = 0;
+  char pro_value[PROPERTY_VALUE_MAX];
+  property_get( PROPERTY_TYPE ".dump",pro_value,0);
+  if(!strcmp(pro_value,"true")){
+    for (auto &map_layer : layers_) {
+      HwcLayer &layer = map_layer.second;
+      layer.DumpData();
+    }
+    if(client_layer_.buffer() != NULL)
+      client_layer_.DumpData();
+  }
+  return 0;
+}
 int DrmHwcTwo::HwcDisplay::GetBestDisplayMode(){
   char resolution[PROPERTY_VALUE_MAX];
   uint32_t width, height, flags;
@@ -1766,6 +1779,57 @@ void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
                     display_frame_.left, display_frame_.top, display_frame_.right, display_frame_.bottom,
                     dataspace_);
   return;
+}
+int DrmHwcTwo::HwcLayer::DumpData() {
+  if(!buffer_)
+    ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d LayerId=%u Buffer is null.",__FUNCTION__,__LINE__,id_);
+
+  void* cpu_addr = NULL;
+  static int frame_cnt =0;
+  int width,height,stride,byte_stride,format,size;
+  int ret = 0;
+  width  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+  height = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+  stride = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+  format = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+  size   = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
+  byte_stride = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE);
+
+  cpu_addr = drmGralloc_->hwc_get_handle_lock(buffer_,width,height);
+  if(ret){
+    ALOGE("%s,line=%d, LayerId=%u, lock fail ret = %d ",__FUNCTION__,__LINE__,id_,ret);
+    return ret;
+  }
+  FILE * pfile = NULL;
+  char data_name[100] ;
+  system("mkdir /data/dump/ && chmod /data/dump/ 777 ");
+  sprintf(data_name,"/data/dump/dmlayer%d_%d_%d_%d.bin",id_,stride,height,frame_cnt++);
+
+  pfile = fopen(data_name,"wb");
+  if(pfile)
+  {
+      fwrite((const void *)cpu_addr,(size_t)(size),1,pfile);
+      fflush(pfile);
+      fclose(pfile);
+      ALOGD(" dump surface layer_id=%d ,data_name %s,w:%d,h:%d,stride :%d,size=%d,cpu_addr=%p",
+          id_,data_name,width,height,byte_stride,size,cpu_addr);
+  }
+  else
+  {
+      ALOGE("Open %s fail", data_name);
+      ALOGD(" dump surface layer_id=%d ,data_name %s,w:%d,h:%d,stride :%d,size=%d,cpu_addr=%p",
+          id_,data_name,width,height,byte_stride,size,cpu_addr);
+  }
+
+
+  ret = drmGralloc_->hwc_get_handle_unlock(buffer_);
+  if(ret){
+    ALOGE("%s,line=%d, LayerId=%u, unlock fail ret = %d ",__FUNCTION__,__LINE__,id_,ret);
+    return ret;
+  }
+
+  return ret;
+
 }
 
 void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
