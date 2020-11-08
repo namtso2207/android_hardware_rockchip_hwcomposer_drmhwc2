@@ -458,15 +458,26 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                               else
                               {
-                                  if((*iter_layer)->fHScaleMul_ >= 8.0 || (*iter_layer)->fVScaleMul_ >= 8.0 ||
-                                      (*iter_layer)->fHScaleMul_ <= 0.125 || (*iter_layer)->fVScaleMul_ <= 0.125)
-                                  {
-                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                              (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
-                                      continue;
+#if VOP2
+                                  if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
+                                      (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_))
+                                    bNeed = true;
+                                  else{
+                                    ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
+                                            (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                                    continue;
+
                                   }
-                                  else
-                                      bNeed = true;
+#else
+                              if((*iter_layer)->fHScaleMul_ >= 8.0 || (*iter_layer)->fVScaleMul_ >= 8.0 ||
+                                  (*iter_layer)->fHScaleMul_ <= 0.125 || (*iter_layer)->fVScaleMul_ <= 0.125)
+                              {
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
+                                          (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                                  continue;
+                              }else
+                                  bNeed = true;
+#endif
                               }
                           }
 
