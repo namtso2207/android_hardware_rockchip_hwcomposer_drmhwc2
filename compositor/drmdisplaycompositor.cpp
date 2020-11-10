@@ -527,18 +527,15 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
           case DrmHwcBlending::kPreMult:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "Pre-multiplied");
-            blend = 1;
             break;
           case DrmHwcBlending::kCoverage:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "Coverage");
-            blend = 0;
             break;
           case DrmHwcBlending::kNone:
           default:
             std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
                 "None");
-            blend = 0;
             break;
         }
       }
