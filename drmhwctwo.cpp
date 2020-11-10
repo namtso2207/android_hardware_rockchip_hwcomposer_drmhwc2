@@ -951,13 +951,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
   // Setup the client layer's dimensions
   hwc_rect_t display_frame = {.left = 0,
                               .top = 0,
-                              .right = static_cast<int>(mode->h_display()),
-                              .bottom = static_cast<int>(mode->v_display())};
+                              .right = static_cast<int>(ctx_.framebuffer_width),
+                              .bottom = static_cast<int>(ctx_.framebuffer_height)};
   client_layer_.SetLayerDisplayFrame(display_frame);
   hwc_frect_t source_crop = {.left = 0.0f,
                              .top = 0.0f,
-                             .right = mode->h_display() + 0.0f,
-                             .bottom = mode->v_display() + 0.0f};
+                             .right = ctx_.framebuffer_width + 0.0f,
+                             .bottom = ctx_.framebuffer_height + 0.0f};
   client_layer_.SetLayerSourceCrop(source_crop);
 
   return HWC2::Error::None;
