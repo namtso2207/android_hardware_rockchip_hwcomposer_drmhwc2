@@ -514,20 +514,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                   bNeed = true;
                           }
 
-
-                          b_afbc = (*iter_plane)->get_afbc();
-                          if((*iter_layer)->bFbTarget_ && (*iter_plane)->get_afbc_prop())
-                          {
-                              if(!b_afbc)
-                              {
-                                  ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support afbc,layer", (*iter_plane)->id());
-                                  continue;
-                              }
-                              else
-                                  bNeed = true;
-                          }
-
 //                          //Reserve some plane with no need for specific features in current layer.
 //                          if(!bNeed && !bMulArea)
 //                          {
