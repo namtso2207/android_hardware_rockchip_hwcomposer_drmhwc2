@@ -132,7 +132,8 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
   for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
     //loop plane
-    if((*iter)->match_crtc(crtc()->pipe())){
+    uint32_t crtc_mask = 1 << crtc()->pipe();
+    if((*iter)->match_crtc(crtc_mask)){
       for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
           !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
           if ((*iter_plane)->GetCrtcSupported(*crtc()) && !(*iter_plane)->is_use()) {
