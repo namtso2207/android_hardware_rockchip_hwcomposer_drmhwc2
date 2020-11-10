@@ -477,7 +477,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     hwc_rect_t display_frame;
     hwc_frect_t source_crop;
     uint64_t rotation = 0;
-    uint64_t alpha = 0xFF;
+    uint64_t alpha = 0xFFFF;
     uint64_t blend = 0;
     uint16_t eotf = TRADITIONAL_GAMMA_SDR;
     uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
@@ -516,7 +516,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
       source_crop = layer.source_crop;
-      if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha;
+      if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha << 8;
       eotf = layer.uEOTF;
       colorspace = layer.uColorSpace;
       afbcd = layer.bAfbcd_;
