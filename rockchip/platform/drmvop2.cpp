@@ -751,7 +751,7 @@ void PlanStageVop2::OutputMatchLayer(int iFirst, int iLast,
   }
 
   int interval = layers.size()-1-iLast;
-  ALOGD_IF(LogLevel(DBG_DEBUG), "OutputMatchLayer iFirst=%d,interval=%d",iFirst,interval);
+  ALOGD_IF(LogLevel(DBG_DEBUG), "OutputMatchLayer iFirst=%d,iLast,=%d,interval=%d",iFirst,iLast,interval);
   for (auto i = layers.begin() + iFirst; i != layers.end() - interval;)
   {
       //move gles layers
@@ -878,6 +878,32 @@ int PlanStageVop2::TryMixSkipPolicy(
   if(!ret)
     return ret;
   else{
+    int first = skip_layer_indices.first;
+    int last = skip_layer_indices.second;
+    if(first > (layers.size() - last) && first != 0){
+      for(first--; first == 0; first--){
+        OutputMatchLayer(first, last, layers, tmp_layers);
+        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        if(ret){
+          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
+          ResetLayerFromTmp(layers,tmp_layers);
+          continue;
+        }else
+          return ret;
+      }
+      ResetLayerFromTmp(layers,tmp_layers);
+    }else if(last < layers.size()){
+      for(last++; last == layers.size(); last++){
+        OutputMatchLayer(first, last, layers, tmp_layers);
+        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        if(ret){
+          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
+          ResetLayerFromTmp(layers,tmp_layers);
+          continue;
+        }else
+          return ret;
+      }
+    }
     ResetLayerFromTmp(layers,tmp_layers);
     return -1;
   }

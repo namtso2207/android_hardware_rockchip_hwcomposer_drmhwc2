@@ -209,6 +209,7 @@ struct DrmHwcLayer {
   bool IsYuvFormat(int format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   bool IsAfbcInternalFormat(uint64_t internal_format);
+  bool IsSkipLayer();
 
   bool IsHdr(int usage);
   int GetSkipLine();

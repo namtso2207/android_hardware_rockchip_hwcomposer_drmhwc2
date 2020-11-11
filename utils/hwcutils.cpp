@@ -136,6 +136,7 @@ int DrmHwcLayer::Init() {
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
   bAfbcd_ = IsAfbcInternalFormat(uInternalFormat_);
+  bSkipLayer_ = IsSkipLayer();
 
   // HDR
   bHdr_ = IsHdr(iUsage);
@@ -218,6 +219,11 @@ bool DrmHwcLayer::IsHdr(int usage){
 }
 bool DrmHwcLayer::IsAfbcInternalFormat(uint64_t internal_format){
   return (internal_format & GRALLOC_ARM_INTFMT_AFBC);             // for Midgard gralloc r14
+}
+
+bool DrmHwcLayer::IsSkipLayer(){
+  return (!sf_handle ? true:false) ||
+         (iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102);
 }
 
 int DrmHwcLayer::GetSkipLine(){

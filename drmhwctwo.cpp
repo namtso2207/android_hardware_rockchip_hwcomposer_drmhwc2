@@ -1646,8 +1646,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->iZpos_      = z_order_;
   drmHwcLayer->uFrameNo_   = frame_no;
   drmHwcLayer->bFbTarget_  = false;
+  drmHwcLayer->bSkipLayer_ = false;
   drmHwcLayer->bUse_       = true;
-  drmHwcLayer->bSkipLayer_ = (!buffer_ ? true:false);
   drmHwcLayer->eDataSpace_ = dataspace_;
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
 
