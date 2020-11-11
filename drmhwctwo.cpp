@@ -1554,13 +1554,15 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
                                                 int32_t acquire_fence) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+//  ALOGD("SetLayerBuffer Layer-id=%" PRIu32 ",buffer = %p",id_,buffer);
   UniqueFd uf(acquire_fence);
 
-  // The buffer and acquire_fence are handled elsewhere
-  if (sf_type_ == HWC2::Composition::Client ||
-      sf_type_ == HWC2::Composition::Sideband ||
-      sf_type_ == HWC2::Composition::SolidColor)
-    return HWC2::Error::None;
+// Deleting the following logic may cause the problem that the handle cannot be updated
+//  // The buffer and acquire_fence are handled elsewhere
+//  if (sf_type_ == HWC2::Composition::Client ||
+//      sf_type_ == HWC2::Composition::Sideband ||
+//      sf_type_ == HWC2::Composition::SolidColor)
+//    return HWC2::Error::None;
 
   set_buffer(buffer);
   set_acquire_fence(uf.get());
@@ -1638,6 +1640,8 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
 
 void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
                                                  hwc_drm_display_t* ctx, uint32_t frame_no) {
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d , layer-id = %" PRIu64,__FUNCTION__,__LINE__,layer_id);
+
   drmHwcLayer->uId_        = layer_id;
   drmHwcLayer->iZpos_      = z_order_;
   drmHwcLayer->uFrameNo_   = frame_no;
