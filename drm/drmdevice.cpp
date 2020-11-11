@@ -367,7 +367,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     std::vector<PlaneGroup*>::const_iterator iter;
     for (iter = plane_groups_.begin();
      iter != plane_groups_.end(); ++iter){
-      if((*iter)->share_id == share_id && (*iter)->win_type == plane->win_type()){
+      if((*iter)->share_id == share_id){
         (*iter)->planes.push_back(plane.get());
         break;
       }
