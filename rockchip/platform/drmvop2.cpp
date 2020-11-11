@@ -43,6 +43,11 @@
 
 namespace android {
 
+void PlanStageVop2::Init(){
+  bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
+  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable = %d",bMultiAreaEnable);
+}
+
 bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
         for (std::vector<DrmHwcLayer*>::const_iterator iter = layer_vector.begin();
                iter != layer_vector.end(); ++iter) {
@@ -93,23 +98,16 @@ bool PlanStageVop2::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
 }
 
 bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
- #ifdef TARGET_BOARD_PLATFORM_RK3328
-     ALOGD_IF(LogLevel(DBG_INFO),"rk3328 can't support multi region");
-     return false;
- #endif
-    //multi region only support RGBA888 RGBX8888 RGB888 565 BGRA888
-    if(layer_one->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12
-        || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12
-    //RK3288 Rk3326 multi region format must be the same
-#if RK_MULTI_AREAS_FORMAT_LIMIT
+    if(!bMultiAreaEnable)
+      return false;
+
+    //multi region only support RGBA888 RGBX8888 RGB888 565 BGRA888 NV12
+    if(layer_one->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
+        || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || (layer_one->iFormat_ != layer_two->iFormat_)
-#endif
         || layer_one->alpha!= layer_two->alpha
-        || layer_one->bScale_ || layer_two->bScale_
         || IsRec1IntersectRec2(&layer_one->display_frame,&layer_two->display_frame)
- #if RK_HOR_INTERSECT_LIMIT
         || IsXIntersect(&layer_one->display_frame,&layer_two->display_frame)
- #endif
         )
     {
         ALOGD_IF(LogLevel(DBG_INFO),"is_layer_combine layer one alpha=%d,is_scale=%d",layer_one->alpha,layer_one->bScale_);

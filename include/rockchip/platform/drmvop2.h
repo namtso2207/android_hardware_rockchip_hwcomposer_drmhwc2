@@ -64,6 +64,8 @@ typedef enum tagComposeMode
 }ComposeMode;
 
  public:
+  PlanStageVop2(){ Init(); }
+  void Init();
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc);
 
@@ -134,6 +136,8 @@ typedef enum tagComposeMode
   int iSupportYuvCnt=0;
   int iSupportRotateCnt=0;
   int iSupportHdrCnt=0;
+
+  bool bMultiAreaEnable;
 };
 
 }  // namespace android
