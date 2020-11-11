@@ -773,6 +773,10 @@ std::tuple<int, uint32_t> DrmDisplayCompositor::CreateModeBlob(
 }
 
 void DrmDisplayCompositor::ClearDisplay() {
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return;
+
   if (!active_composition_)
     return;
 
@@ -787,9 +791,6 @@ void DrmDisplayCompositor::ApplyFrame(
     std::unique_ptr<DrmDisplayComposition> composition, int status,
     bool writeback) {
   ATRACE_CALL();
-  AutoLock lock(&lock_, __func__);
-  if (lock.Lock())
-    return;
   int ret = status;
 
   if (!ret) {
@@ -807,6 +808,10 @@ void DrmDisplayCompositor::ApplyFrame(
     ClearDisplay();
     return;
   }
+
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return;
   ++dump_frames_composited_;
   if(active_composition_){
       active_composition_->SignalCompositionDone();
