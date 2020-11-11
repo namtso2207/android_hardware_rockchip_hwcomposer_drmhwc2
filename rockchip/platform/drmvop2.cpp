@@ -414,20 +414,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                   //reset is_match to false
                   (*iter_layer)->bMatch_ = false;
 
-                  if(bMulArea
-                      && !(*iter_layer)->bYuv_
-                      && !(*iter_layer)->bScale_
-                      && !((*iter_layer)->blending == DrmHwcBlending::kPreMult && (*iter_layer)->alpha != 0xFF)
-                      && layer_size == 1
-                      && layer_size < (*iter)->planes.size())
-                  {
-                      if(HasPlanesWithSize(crtc, layer_size, plane_groups))
-                      {
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"Planes(%" PRIu64 ") don't need use multi area feature",(*iter)->share_id);
-                          continue;
-                      }
-                  }
-
                   //loop plane
                   for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
                       !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane)
