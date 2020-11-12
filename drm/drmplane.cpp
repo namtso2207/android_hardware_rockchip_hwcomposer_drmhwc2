@@ -35,10 +35,27 @@ struct plane_type_name plane_type_names[] = {
   { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
   { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
   { DRM_PLANE_TYPE_CLUSTER1_WIN1, "Cluster1-win1" },
+
   { DRM_PLANE_TYPE_ESMART0_WIN0, "Esmart0-win0" },
+  { DRM_PLANE_TYPE_ESMART0_WIN1, "Esmart0-win1" },
+  { DRM_PLANE_TYPE_ESMART0_WIN2, "Esmart0-win2" },
+  { DRM_PLANE_TYPE_ESMART0_WIN3, "Esmart0-win3" },
+
   { DRM_PLANE_TYPE_ESMART1_WIN0, "Esmart1-win0" },
+  { DRM_PLANE_TYPE_ESMART1_WIN1, "Esmart1-win1" },
+  { DRM_PLANE_TYPE_ESMART1_WIN2, "Esmart1-win2" },
+  { DRM_PLANE_TYPE_ESMART1_WIN3, "Esmart1-win3" },
+
   { DRM_PLANE_TYPE_SMART0_WIN0, "Smart0-win0" },
+  { DRM_PLANE_TYPE_SMART0_WIN1, "Smart0-win1" },
+  { DRM_PLANE_TYPE_SMART0_WIN2, "Smart0-win2" },
+  { DRM_PLANE_TYPE_SMART0_WIN3, "Smart0-win3" },
+
   { DRM_PLANE_TYPE_SMART1_WIN0, "Smart1-win0" },
+  { DRM_PLANE_TYPE_SMART1_WIN1, "Smart1-win1" },
+  { DRM_PLANE_TYPE_SMART1_WIN2, "Smart1-win2" },
+  { DRM_PLANE_TYPE_SMART1_WIN3, "Smart1-win3" },
+
   { DRM_PLANE_TYPE_Unknown, "unknown" },
 };
 
@@ -219,6 +236,9 @@ int DrmPlane::Init() {
     }
   }
 
+  if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
+    b_scale_ = false;
+  }
   ret = drm_->GetPlaneProperty(*this, "INPUT_WIDTH", &input_w_property_);
   if (ret)
     ALOGE("Could not get INPUT_WIDTH property");
