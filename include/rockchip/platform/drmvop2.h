@@ -138,6 +138,9 @@ typedef enum tagComposeMode
   int iSupportHdrCnt=0;
 
   bool bMultiAreaEnable;
+  bool bMultiAreaScaleEnable;
+  int  iMultiAreaMode;
+  bool bSmartScaleEnable;
 };
 
 }  // namespace android

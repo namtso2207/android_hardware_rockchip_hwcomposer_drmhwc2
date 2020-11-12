@@ -45,7 +45,18 @@ namespace android {
 
 void PlanStageVop2::Init(){
   bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
-  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable = %d",bMultiAreaEnable);
+
+  /* vendor.hwc.multi_area_mode:
+   *   0:xpos
+   *   1:xpos + ypos
+   *   2:ypos
+   */
+  iMultiAreaMode = hwc_get_int_property("vendor.hwc.multi_area_mode","0");
+  bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
+
+  bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
+  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable=%d, iMultiAreaMode=%d, bMultiAreaScaleEnable=%d",
+            bMultiAreaEnable,iMultiAreaMode,bMultiAreaScaleEnable);
 }
 
 bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
@@ -106,6 +117,7 @@ bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_t
         || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || (layer_one->iFormat_ != layer_two->iFormat_)
         || layer_one->alpha!= layer_two->alpha
+        || ((layer_one->bScale_ || layer_two->bScale_) && !bMultiAreaScaleEnable)
         || IsRec1IntersectRec2(&layer_one->display_frame,&layer_two->display_frame)
         || IsXIntersect(&layer_one->display_frame,&layer_two->display_frame)
         )
@@ -199,7 +211,17 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
 
                         if(is_combine)
                         {
-                            layer_map[zpos].emplace_back(layer_one);
+                            int xpos_max = 0;
+                            if(layer_map[zpos].size()>1 && iMultiAreaMode==1){
+                              for(auto &layer : layer_map[zpos])
+                                  if(layer->display_frame.left > xpos_max)
+                                      xpos_max = layer->display_frame.left;
+                              if(layer_one->display_frame.left < xpos_max)
+                                is_combine = false;
+                              else
+                                layer_map[zpos].emplace_back(layer_one);
+                            }else
+                              layer_map[zpos].emplace_back(layer_one);
                         }
                     }
                 }
@@ -231,37 +253,37 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
             i++;
     }
 
-#if 1
-  //sort layer by xpos
-  for (LayerMap::iterator iter = layer_map.begin();
-       iter != layer_map.end(); ++iter) {
-        if(iter->second.size() > 1) {
-            for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                for(uint32_t j=i+1;j < iter->second.size();j++) {
-                     if(iter->second[i]->display_frame.left > iter->second[j]->display_frame.left) {
-                        ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
-                        std::swap(iter->second[i],iter->second[j]);
-                     }
-                 }
-            }
-        }
+  if(iMultiAreaMode < 2){
+    //sort layer by xpos
+    for (LayerMap::iterator iter = layer_map.begin();
+         iter != layer_map.end(); ++iter) {
+          if(iter->second.size() > 1) {
+              for(uint32_t i=0;i < iter->second.size()-1;i++) {
+                  for(uint32_t j=i+1;j < iter->second.size();j++) {
+                       if(iter->second[i]->display_frame.left > iter->second[j]->display_frame.left) {
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
+                          std::swap(iter->second[i],iter->second[j]);
+                       }
+                   }
+              }
+          }
+    }
+  }else{
+    //sort layer by ypos
+    for (LayerMap::iterator iter = layer_map.begin();
+         iter != layer_map.end(); ++iter) {
+          if(iter->second.size() > 1) {
+              for(uint32_t i=0;i < iter->second.size()-1;i++) {
+                  for(uint32_t j=i+1;j < iter->second.size();j++) {
+                       if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
+                          std::swap(iter->second[i],iter->second[j]);
+                       }
+                   }
+              }
+          }
+    }
   }
-#else
-  //sort layer by ypos
-  for (LayerMap::iterator iter = layer_map.begin();
-       iter != layer_map.end(); ++iter) {
-        if(iter->second.size() > 1) {
-            for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                for(uint32_t j=i+1;j < iter->second.size();j++) {
-                     if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
-                        ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
-                        std::swap(iter->second[i],iter->second[j]);
-                     }
-                 }
-            }
-        }
-  }
-#endif
 
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
@@ -382,7 +404,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
                    std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos) {
-  uint32_t combine_layer_count = 0;
+
   uint32_t layer_size = layers.second.size();
   bool b_yuv=false,b_scale=false,b_alpha=false,b_hdr2sdr=false,b_afbc=false;
   std::vector<PlaneGroup *> ::const_iterator iter;
@@ -397,6 +419,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   //loop plane groups.
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
+     uint32_t combine_layer_count = 0;
      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,possible_crtcs=0x%x",
                   __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse, (1<<crtc->pipe()), (*iter)->possible_crtcs);
       //find the match zpos plane group
@@ -1193,6 +1216,8 @@ int PlanStageVop2::TryMatchPolicyFirst(
 int PlanStageVop2::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc) {
+
+  Init();
   // Get PlaneGroup
   std::vector<PlaneGroup *> plane_groups;
   int ret = GetPlaneGroups(crtc,plane_groups);
