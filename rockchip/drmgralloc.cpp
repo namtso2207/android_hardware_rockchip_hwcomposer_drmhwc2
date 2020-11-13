@@ -461,7 +461,11 @@ uint64_t DrmGralloc::hwc_get_handle_internal_format(buffer_handle_t hnd)
 void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height){
   void* cpu_addr = NULL;
 #if USE_GRALLOC_4
-  ret = gralloc4::lock(hnd,GRALLOC_USAGE_SW_READ_MASK,0,0,width,height,(void **)&cpu_addr);
+  int ret = gralloc4::lock(hnd,GRALLOC_USAGE_SW_READ_MASK,0,0,width,height,(void **)&cpu_addr);
+  if(ret != 0)
+  {
+    ALOGE("%s: fail to lock buffer, ret : %d",  __FUNCTION__, ret);
+  }
 #else // #if USE_GRALLOC_4
   if(gralloc_)
     gralloc_->lock(gralloc_,
@@ -479,7 +483,7 @@ void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height
 int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
   int ret = 0;
 #if USE_GRALLOC_4
-  ret = gralloc4::unlock(hnd);
+  gralloc4::unlock(hnd);
 #else   // USE_GRALLOC_4
   ret = gralloc_->unlock(gralloc_, hnd);
 #endif  // USE_GRALLOC_4
