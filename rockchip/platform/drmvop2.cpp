@@ -1118,6 +1118,9 @@ int PlanStageVop2::TryMatchPolicyFirst(
   iReqRotateCnt=0;
   iReqHdrCnt=0;
   for(auto &layer : layers){
+    if(layer->bFbTarget_)
+      continue;
+
     if(layer->bSkipLayer_){
       iReqSkipCnt++;
       continue;
