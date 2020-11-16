@@ -46,17 +46,11 @@ namespace android {
 void PlanStageVop2::Init(){
   bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
 
-  /* vendor.hwc.multi_area_mode:
-   *   0:xpos
-   *   1:xpos + ypos
-   *   2:ypos
-   */
-  iMultiAreaMode = hwc_get_int_property("vendor.hwc.multi_area_mode","0");
   bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
 
   bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
-  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable=%d, iMultiAreaMode=%d, bMultiAreaScaleEnable=%d",
-            bMultiAreaEnable,iMultiAreaMode,bMultiAreaScaleEnable);
+  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
+            bMultiAreaEnable,bMultiAreaScaleEnable);
 }
 
 bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
@@ -210,19 +204,7 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
                         }
 
                         if(is_combine)
-                        {
-                            int xpos_max = 0;
-                            if(layer_map[zpos].size()>1 && iMultiAreaMode==1){
-                              for(auto &layer : layer_map[zpos])
-                                  if(layer->display_frame.left > xpos_max)
-                                      xpos_max = layer->display_frame.left;
-                              if(layer_one->display_frame.left < xpos_max)
-                                is_combine = false;
-                              else
-                                layer_map[zpos].emplace_back(layer_one);
-                            }else
-                              layer_map[zpos].emplace_back(layer_one);
-                        }
+                            layer_map[zpos].emplace_back(layer_one);
                     }
                 }
 
@@ -253,37 +235,21 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
             i++;
     }
 
-  if(iMultiAreaMode < 2){
-    //sort layer by xpos
-    for (LayerMap::iterator iter = layer_map.begin();
-         iter != layer_map.end(); ++iter) {
-          if(iter->second.size() > 1) {
-              for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                  for(uint32_t j=i+1;j < iter->second.size();j++) {
-                       if(iter->second[i]->display_frame.left > iter->second[j]->display_frame.left) {
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
-                          std::swap(iter->second[i],iter->second[j]);
-                       }
-                   }
-              }
-          }
-    }
-  }else{
-    //sort layer by ypos
-    for (LayerMap::iterator iter = layer_map.begin();
-         iter != layer_map.end(); ++iter) {
-          if(iter->second.size() > 1) {
-              for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                  for(uint32_t j=i+1;j < iter->second.size();j++) {
-                       if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
-                          std::swap(iter->second[i],iter->second[j]);
-                       }
-                   }
-              }
-          }
-    }
+  // RK356x sort layer by ypos
+  for (LayerMap::iterator iter = layer_map.begin();
+       iter != layer_map.end(); ++iter) {
+        if(iter->second.size() > 1) {
+            for(uint32_t i=0;i < iter->second.size()-1;i++) {
+                for(uint32_t j=i+1;j < iter->second.size();j++) {
+                     if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
+                        ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
+                        std::swap(iter->second[i],iter->second[j]);
+                     }
+                 }
+            }
+        }
   }
+
 
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
