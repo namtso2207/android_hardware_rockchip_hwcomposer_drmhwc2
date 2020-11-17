@@ -38,7 +38,11 @@ LOCAL_PATH := $(call my-dir)
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk356x)
+ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
+        BOARD_USES_DRM_HWCOMPOSER2=false
+else  # BUILD_WITH_RK_EBOOK
         BOARD_USES_DRM_HWCOMPOSER2=true
+endif # BUILD_WITH_RK_EBOOK
 else
         BOARD_USES_DRM_HWCOMPOSER=true
 endif
