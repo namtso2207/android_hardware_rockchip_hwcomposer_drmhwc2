@@ -778,8 +778,21 @@ int PlanStageVop2::TryMixSkipPolicy(
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
 
-  int iPlaneSize = plane_groups.size();
   int skipCnt = 0;
+
+  int iPlaneSize = plane_groups.size();
+
+  if(iReqAfbcdCnt == 0){
+    for(auto &plane_group : plane_groups){
+      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+        iPlaneSize--;
+    }
+  }
+
+  if(iPlaneSize == 0){
+    ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
+              __FUNCTION__,__LINE__,iPlaneSize);
+  }
 
   std::vector<DrmHwcLayer *> tmp_layers;
   // Since we can't composite HWC_SKIP_LAYERs by ourselves, we'll let SF
@@ -806,45 +819,49 @@ int PlanStageVop2::TryMixSkipPolicy(
 
   if(skip_layer_indices.first != -1){
     skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+  }else{
+    ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, can't find any skip layer, first = %d, second = %d",
+              __FUNCTION__,__LINE__,skip_layer_indices.first,skip_layer_indices.second);
+    return -1;
   }
 
   //OPT: Adjust skip_layer_indices.first and skip_layer_indices.second to limit in iPlaneSize.
   if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
-    int tmp_index = -1;
-    if(skip_layer_indices.first != 0){
-      tmp_index = skip_layer_indices.first;
-      //try decrease first skip index to 0.
-      skip_layer_indices.first = 0;
-      skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
-      if(((int)layers.size() - skipCnt + 1) > iPlaneSize && skip_layer_indices.second != (int)layers.size()-1){
-        skip_layer_indices.first = tmp_index;
-        tmp_index = skip_layer_indices.second;
-        //try increase second skip index to last index.
-        skip_layer_indices.second = layers.size()-1;
+      int tmp_index = -1;
+      if(skip_layer_indices.first != 0){
+        tmp_index = skip_layer_indices.first;
+        //try decrease first skip index to 0.
+        skip_layer_indices.first = 0;
         skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
-        if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+        if(((int)layers.size() - skipCnt + 1) > iPlaneSize && skip_layer_indices.second != (int)layers.size()-1){
+          skip_layer_indices.first = tmp_index;
+          tmp_index = skip_layer_indices.second;
+          //try increase second skip index to last index.
+          skip_layer_indices.second = layers.size()-1;
+          skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+          if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+            ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+            ResetLayerFromTmp(layers,tmp_layers);
+            return -1;
+          }
+        }
+      }else{
+        if(skip_layer_indices.second != (int)layers.size()-1){
+          //try increase second skip index to last index-1.
+          skip_layer_indices.second = layers.size()-2;
+          skipCnt = skip_layer_indices.second + 1;
+          if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
+              ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
+              ResetLayerFromTmp(layers,tmp_layers);
+              return -1;
+          }
+        }else{
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
           ResetLayerFromTmp(layers,tmp_layers);
           return -1;
         }
-      }
-    }else{
-      if(skip_layer_indices.second != (int)layers.size()-1){
-        //try increase second skip index to last index-1.
-        skip_layer_indices.second = layers.size()-2;
-        skipCnt = skip_layer_indices.second + 1;
-        if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
-            ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
-            ResetLayerFromTmp(layers,tmp_layers);
-            return -1;
-        }
-      }else{
-        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
-        ResetLayerFromTmp(layers,tmp_layers);
-        return -1;
-      }
-   }
-}
+     }
+  }
 
   OutputMatchLayer(skip_layer_indices.first, skip_layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -853,7 +870,7 @@ int PlanStageVop2::TryMixSkipPolicy(
   else{
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
-    if(first > (layers.size() - last) && first != 0){
+    if(first > (layers.size() - 1 - last) && first != 0){
       for(first--; first == 0; first--){
         OutputMatchLayer(first, last, layers, tmp_layers);
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -866,7 +883,7 @@ int PlanStageVop2::TryMixSkipPolicy(
       }
       ResetLayerFromTmp(layers,tmp_layers);
     }else if(last < layers.size()){
-      for(last++; last == layers.size(); last++){
+      for(last++; last == layers.size() - 1; last++){
         OutputMatchLayer(first, last, layers, tmp_layers);
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
@@ -909,7 +926,7 @@ int PlanStageVop2::TryMixVideoPolicy(
   if((int)layers.size() < 4)
     layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
   else
-    layer_indices.first = iPlaneSize - 1;
+    layer_indices.first = 3;
   layer_indices.second = layers.size() - 1;
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
   OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
@@ -958,12 +975,27 @@ int PlanStageVop2::TryMixUpPolicy(
   MoveFbToTmp(layers, tmp_layers);
 
   int iPlaneSize = plane_groups.size();
+
+  if(iReqAfbcdCnt == 0){
+    for(auto &plane_group : plane_groups){
+      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+        iPlaneSize--;
+    }
+  }
+
+  if(iPlaneSize == 0){
+    ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
+              __FUNCTION__,__LINE__,iPlaneSize);
+  }
+
+
+
   std::pair<int, int> layer_indices(-1, -1);
 
   if((int)layers.size() < 4)
     layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
   else
-    layer_indices.first = iPlaneSize - 1;
+    layer_indices.first = 3;
   layer_indices.second = layers.size() - 1;
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
   OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
@@ -1156,6 +1188,7 @@ int PlanStageVop2::TryMatchPolicyFirst(
         iSupportRotateCnt++;
       if(p->get_hdr2sdr())
         iSupportHdrCnt++;
+      break;
     }
   }
 
@@ -1174,9 +1207,8 @@ int PlanStageVop2::TryMatchPolicyFirst(
   else{
     setHwcPolicy.insert(HWC_MIX_LOPICY);
     setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-    setHwcPolicy.insert(HWC_MIX_DOWN_LOPICY);
     setHwcPolicy.insert(HWC_GLES_POLICY);
-    if(iSupportYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+    if(iReqYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
     if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
   }
 
@@ -1207,7 +1239,6 @@ int PlanStageVop2::TryHwcPolicy(
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
       setHwcPolicy.insert(HWC_MIX_LOPICY);
       setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-      setHwcPolicy.insert(HWC_MIX_DOWN_LOPICY);
       setHwcPolicy.insert(HWC_GLES_POLICY);
       if(iSupportYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
       if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);

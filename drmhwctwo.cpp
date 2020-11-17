@@ -49,9 +49,11 @@
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
       String8 output; \
-      for(auto &drmHwcLayer : drmHwcLayers) \
+      for(auto &drmHwcLayer : drmHwcLayers) {\
         drmHwcLayer.DumpInfo(output); \
-      ALOGD_IF(LogLevel(log_level),"%s",output.string()); \
+        ALOGD_IF(LogLevel(log_level),"%s",output.string()); \
+        output.clear(); \
+      }\
     }
 
 namespace android {
