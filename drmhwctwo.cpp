@@ -74,6 +74,23 @@ class DrmVsyncCallback : public VsyncCallback {
   hwc2_function_pointer_t hook_;
 };
 
+class DrmInvalidateCallback : public InvalidateCallback {
+ public:
+  DrmInvalidateCallback(hwc2_callback_data_t data, hwc2_function_pointer_t hook)
+      : data_(data), hook_(hook) {
+  }
+
+  void Callback(int display) {
+    auto hook = reinterpret_cast<HWC2_PFN_REFRESH>(hook_);
+    hook(data_, display);
+  }
+
+ private:
+  hwc2_callback_data_t data_;
+  hwc2_function_pointer_t hook_;
+};
+
+
 DrmHwcTwo::DrmHwcTwo() {
   common.tag = HARDWARE_DEVICE_TAG;
   common.version = HWC_DEVICE_API_VERSION_2_0;
@@ -205,7 +222,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
     case HWC2::Callback::Refresh: {
       for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
            displays_)
-        d.second.RegisterVsyncCallback(data, function);
+        d.second.RegisterInvalidateCallback(data, function);
         break;
     }
     default:
@@ -279,6 +296,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
       ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
       return HWC2::Error::BadDisplay;
     }
+
+    ret = invalidate_worker_.Init(display);
+    if (ret) {
+      ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
+      return HWC2::Error::BadDisplay;
+    }
   }
 
   init_success_ = true;
@@ -305,6 +328,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   auto callback = std::make_shared<DrmVsyncCallback>(data, func);
   vsync_worker_.RegisterCallback(std::move(callback));
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::RegisterInvalidateCallback(
+    hwc2_callback_data_t data, hwc2_function_pointer_t func) {
+  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  auto callback = std::make_shared<DrmInvalidateCallback>(data, func);
+  invalidate_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
 }
 

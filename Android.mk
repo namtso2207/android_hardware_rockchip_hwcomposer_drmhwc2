@@ -93,7 +93,8 @@ LOCAL_SRC_FILES := \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
   rockchip/platform/drmvop.cpp \
-  rockchip/platform/drmvop2.cpp
+  rockchip/platform/drmvop2.cpp \
+  rockchip/invalidateworker.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \

@@ -20,6 +20,7 @@
 #include "vsyncworker.h"
 #include "platform.h"
 #include "rockchip/drmgralloc.h"
+#include "rockchip/invalidateworker.h"
 
 #include <hardware/hwcomposer2.h>
 
@@ -167,6 +168,9 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
+
+    HWC2::Error RegisterInvalidateCallback(hwc2_callback_data_t data,
+                                      hwc2_function_pointer_t func);
     void ClearDisplay();
 
     // HWC Hooks
@@ -244,6 +248,7 @@ class DrmHwcTwo : public hwc2_device_t {
     std::vector<PlaneGroup*> plane_group;
 
     VSyncWorker vsync_worker_;
+    InvalidateWorker invalidate_worker_;
     DrmConnector *connector_ = NULL;
     DrmCrtc *crtc_ = NULL;
     std::vector<DrmMode> sf_modes_;
