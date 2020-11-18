@@ -210,8 +210,8 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->hal_format = format;
   bo->format = ConvertHalFormatToDrm(format);
   bo->usage = usage;
-  bo->pixel_stride = (byte_stride) /
-                     DrmFormatToBitsPerPixel(bo->format);
+//  bo->pixel_stride = (byte_stride) /
+//                     DrmFormatToBitsPerPixel(bo->format);
   bo->pitches[0] = byte_stride;
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
