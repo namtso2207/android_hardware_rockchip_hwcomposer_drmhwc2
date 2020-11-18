@@ -222,7 +222,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     bo->offsets[1] = bo->pitches[1] * bo->height;
   }
 
-  __u64 modifier[4];
+  uint64_t modifier[4];
   uint64_t internal_format;
   memset(modifier, 0, sizeof(modifier));
 
@@ -240,7 +240,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 #endif
   }
 
-  ret = drmModeAddFB2_ext(drm_->fd(), bo->width, bo->height, bo->format,
+  ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
 
