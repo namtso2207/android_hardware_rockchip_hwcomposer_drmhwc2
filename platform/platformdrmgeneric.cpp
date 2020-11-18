@@ -111,7 +111,6 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
     case DRM_FORMAT_YUV420:
     case DRM_FORMAT_YVU420:
       return 8;
-
     case DRM_FORMAT_ARGB4444:
     case DRM_FORMAT_XRGB4444:
     case DRM_FORMAT_ABGR4444:
@@ -169,6 +168,19 @@ uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
   }
 }
 
+uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
+  switch (drm_format) {
+    case DRM_FORMAT_NV12:
+    case DRM_FORMAT_NV21:
+    case DRM_FORMAT_NV16:
+    case DRM_FORMAT_NV61:
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
   int fd,width,height,byte_stride,format,usage;
@@ -204,7 +216,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
-  if(format == HAL_PIXEL_FORMAT_YCrCb_NV12 || format == HAL_PIXEL_FORMAT_YCrCb_NV12_10){
+  if(DrmFormatToPlaneNum(bo->format) == 2){
     bo->pitches[1] = bo->pitches[0];
     bo->gem_handles[1] = gem_handle;
     bo->offsets[1] = bo->pitches[1] * bo->height;
@@ -219,8 +231,12 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d afbcd layer",drm_->fd(), bo->width, bo->height);
 #ifdef ANDROID_R
       modifier[0] = DRM_FORMAT_MOD_ARM_AFBC(1);
+      if(DrmFormatToPlaneNum(bo->format) == 2)
+        modifier[1] = DRM_FORMAT_MOD_ARM_AFBC(1);
 #else
       modifier[0] = DRM_FORMAT_MOD_ARM_AFBC;
+      if(DrmFormatToPlaneNum(bo->format) == 2)
+        modifier[1] = DRM_FORMAT_MOD_ARM_AFBC;
 #endif
   }
 

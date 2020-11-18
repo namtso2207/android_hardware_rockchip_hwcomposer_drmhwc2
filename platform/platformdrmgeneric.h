@@ -38,6 +38,7 @@ class DrmGenericImporter : public Importer {
 
   uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   uint32_t DrmFormatToBitsPerPixel(uint32_t drm_format);
+  uint32_t DrmFormatToPlaneNum(uint32_t drm_format);
 
  protected:
   DrmDevice *drm_;
