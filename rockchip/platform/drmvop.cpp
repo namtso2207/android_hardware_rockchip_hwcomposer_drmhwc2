@@ -383,7 +383,7 @@ bool PlanStageVop::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<
 int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos) {
+                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best=false) {
   uint32_t combine_layer_count = 0;
   uint32_t layer_size = layers.second.size();
   bool b_yuv=false,b_scale=false,b_alpha=false,b_hdr2sdr=false,b_afbc=false;

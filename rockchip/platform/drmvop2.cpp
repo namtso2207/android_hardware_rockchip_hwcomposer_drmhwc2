@@ -369,7 +369,7 @@ bool PlanStageVop2::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector
 int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos) {
+                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best=false) {
 
   uint32_t layer_size = layers.second.size();
   bool b_yuv=false,b_scale=false,b_alpha=false,b_hdr2sdr=false,b_afbc=false;
@@ -403,12 +403,22 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                   //reset is_match to false
                   (*iter_layer)->bMatch_ = false;
 
+                  if(match_best){
+                      if(!((*iter)->win_type & (*iter_layer)->iBestPlaneType)){
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d, plane_group win-type = 0x%" PRIx64 " , layer best-type = %x, not match ",
+                          __LINE__,(*iter)->win_type, (*iter_layer)->iBestPlaneType);
+                          continue;
+                      }
+                  }
+
                   //loop plane
                   for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
                       !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane)
                   {
                       ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,plane(%d) is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
                               (*iter_plane)->id(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
+
+
                       if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
                       {
                           bool bNeed = false;
@@ -601,6 +611,35 @@ void PlanStageVop2::ResetLayer(std::vector<DrmHwcLayer*>& layers){
     }
     return;
 }
+
+int PlanStageVop2::MatchBestPlanes(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  composition->clear();
+  LayerMap layer_map;
+  int ret = CombineLayer(layer_map, layers, plane_groups.size());
+
+  // Fill up the remaining planes
+  int zpos = 0;
+  for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
+    ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+                      crtc, std::make_pair(i->first, i->second),&zpos, true);
+    // We don't have any planes left
+    if (ret == -ENOENT){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
+      return ret;
+    }else if (ret) {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
+      return ret;
+    }
+  }
+
+  return 0;
+}
+
 
 int PlanStageVop2::MatchPlanes(
     std::vector<DrmCompositionPlane> *composition,
@@ -1119,7 +1158,19 @@ int PlanStageVop2::TryGLESPolicy(
   ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
-  int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
+
+  if(fb_target.size()==1){
+    DrmHwcLayer* fb_layer = fb_target[0];
+    if(fb_layer->bAfbcd_){
+      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
+    }else if(fb_layer->bScale_){
+      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+    }else{
+      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+    }
+
+  }
+  int ret = MatchBestPlanes(composition,fb_target,crtc,plane_groups);
   if(!ret)
     return ret;
   else{

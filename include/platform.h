@@ -131,7 +131,7 @@ class Planner {
     virtual int MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos) = 0;
+                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best) = 0;
   };
 
   // Creates a planner instance with platform-specific planning stages

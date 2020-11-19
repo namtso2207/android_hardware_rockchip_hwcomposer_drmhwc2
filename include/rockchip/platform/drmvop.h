@@ -122,7 +122,7 @@ typedef enum tagComposeMode
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos);
+                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best);
  private:
   std::set<ComposeMode> setHwcPolicy;
   int iReqAfbcdCnt=0;

@@ -182,6 +182,8 @@ struct DrmHwcLayer {
   bool bUse_;
   bool bMix_;
 
+  int iBestPlaneType=0;
+
   int iGroupId_;
   int iShareId_;
   int iSkipLine_;
