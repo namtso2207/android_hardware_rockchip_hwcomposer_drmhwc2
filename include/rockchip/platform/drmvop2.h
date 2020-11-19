@@ -67,7 +67,7 @@ typedef enum tagComposeMode
   PlanStageVop2(){ Init(); }
   void Init();
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
-                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc);
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc, bool gles_policy);
 
  protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -95,7 +95,8 @@ typedef enum tagComposeMode
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
   int TryMatchPolicyFirst(std::vector<DrmHwcLayer*> &layers,
-                               std::vector<PlaneGroup *> &plane_groups);
+                               std::vector<PlaneGroup *> &plane_groups,
+                               bool gles_policy);
 
   bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);
   int  IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2);

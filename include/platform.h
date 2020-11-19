@@ -120,7 +120,7 @@ class Planner {
 
     virtual int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                                 std::vector<DrmHwcLayer*> &layers,
-                                DrmCrtc *crtc) = 0;
+                                DrmCrtc *crtc, bool gles_policy) = 0;
     virtual int MatchPlanes(std::vector<DrmCompositionPlane> *composition,
                                 std::vector<DrmHwcLayer*> &layers,
                                 DrmCrtc *crtc,
@@ -147,7 +147,7 @@ class Planner {
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
   std::tuple<int, std::vector<DrmCompositionPlane>> TryHwcPolicy(
-      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc);
+      std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc, bool gles_policy);
 
   template <typename T, typename... A>
   void AddStage(A &&... args) {

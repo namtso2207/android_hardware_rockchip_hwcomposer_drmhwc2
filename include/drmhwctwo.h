@@ -29,6 +29,10 @@
 namespace android {
 
 class DrmGralloc;
+class DrmHwcTwo;
+
+
+DrmHwcTwo *g_ctx = NULL;
 
 class DrmHwcTwo : public hwc2_device_t {
  public:
@@ -230,6 +234,9 @@ class DrmHwcTwo : public hwc2_device_t {
    int SwitchHdrMode();
    int GetBestDisplayMode();
 
+   int StaticScreenOptSet(bool isGLESComp);
+   int EntreStaticScreen(uint64_t refresh, int refresh_cnt);
+
    private:
     HWC2::Error ValidatePlanes();
     HWC2::Error InitDrmHwcLayer();
@@ -263,6 +270,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool init_success_;
     bool present_finish_;
     hwc_drm_display_t ctx_;
+    bool static_screen_opt_;
 
     uint32_t frame_no_ = 0;
   };
@@ -330,6 +338,15 @@ class DrmHwcTwo : public hwc2_device_t {
   HWC2::Error CreateDisplay(hwc2_display_t displ, HWC2::DisplayType type);
   void HandleDisplayHotplug(hwc2_display_t displayid, int state);
   void HandleInitialHotplugState(DrmDevice *drmDevice);
+
+  static void StaticScreenOptHandler(int sig){
+    if (sig == SIGALRM)
+      if(g_ctx!=NULL){
+        HwcDisplay &display = g_ctx->displays_.at(0);
+        display.EntreStaticScreen(60,1);
+    }
+    return;
+};
 
   ResourceManager resource_manager_;
   std::map<hwc2_display_t, HwcDisplay> displays_;

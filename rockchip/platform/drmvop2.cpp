@@ -1131,13 +1131,14 @@ int PlanStageVop2::TryGLESPolicy(
 
 int PlanStageVop2::TryMatchPolicyFirst(
     std::vector<DrmHwcLayer*> &layers,
-    std::vector<PlaneGroup *> &plane_groups){
+    std::vector<PlaneGroup *> &plane_groups,
+    bool gles_policy){
 
   setHwcPolicy.clear();
 
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
-  if(!iMode){
+  if(!iMode || gles_policy){
     setHwcPolicy.insert(HWC_GLES_POLICY);
     return 0;
   }
@@ -1216,7 +1217,8 @@ int PlanStageVop2::TryMatchPolicyFirst(
 }
 int PlanStageVop2::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc) {
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    bool gles_policy) {
 
   Init();
   // Get PlaneGroup
@@ -1228,7 +1230,7 @@ int PlanStageVop2::TryHwcPolicy(
   }
 
   // Clear HWC policy list
-  TryMatchPolicyFirst(layers,plane_groups);
+  TryMatchPolicyFirst(layers,plane_groups,gles_policy);
 
   // Try to match overlay policy
   if(setHwcPolicy.count(HWC_OVERLAY_LOPICY)){

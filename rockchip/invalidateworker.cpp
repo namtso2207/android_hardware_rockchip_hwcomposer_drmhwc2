@@ -117,10 +117,11 @@ void InvalidateWorker::Routine() {
   int64_t timestamp;
   ret = SyntheticWaitVBlank(&timestamp);
   last_timestamp_ = timestamp;
-  if(refresh_cnt_ > 0)
-    refresh_cnt_--;
 
   bool enable = (refresh_cnt_ > 0 || refresh_cnt_ < 0);
+
+  if(refresh_cnt_ > 0)
+    refresh_cnt_--;
   std::shared_ptr<InvalidateCallback> callback(callback_);
   Unlock();
 

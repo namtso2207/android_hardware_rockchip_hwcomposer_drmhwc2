@@ -847,7 +847,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_);
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;
@@ -954,6 +954,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   retire_fence_ = std::move(next_retire_fence_);
 
   ++frame_no_;
+
+  StaticScreenOptSet(static_screen_opt_);
+
   return HWC2::Error::None;
 }
 
@@ -1578,6 +1581,31 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
   return 0;
 }
 
+
+int DrmHwcTwo::HwcDisplay::StaticScreenOptSet(bool isGLESComp){
+    struct itimerval tv = {{0,0},{0,0}};
+    if (!isGLESComp) {
+        int interval_value = hwc_get_int_property( "vendor.hwc.static_screen_opt_time", "2500");
+        interval_value = interval_value > 5000? 5000:interval_value;
+        interval_value = interval_value < 250? 250:interval_value;
+        tv.it_value.tv_sec = interval_value / 1000;
+        tv.it_value.tv_usec=( interval_value % 1000) * 1000;
+        ALOGD_IF(LogLevel(DBG_DEBUG),"reset timer! interval_value = %d",interval_value);
+    } else {
+        static_screen_opt_=false;
+        tv.it_value.tv_usec = 0;
+        ALOGD_IF(LogLevel(DBG_DEBUG),"close timer!");
+    }
+    setitimer(ITIMER_REAL, &tv, NULL);
+    return 0;
+}
+
+int DrmHwcTwo::HwcDisplay::EntreStaticScreen(uint64_t refresh, int refresh_cnt){
+    static_screen_opt_=true;
+    invalidate_worker_.InvalidateControl(refresh, refresh_cnt);
+    return 0;
+}
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
   blending_ = static_cast<HWC2::BlendMode>(mode);
@@ -1894,6 +1922,7 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
       }
     }
 }
+
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
@@ -2263,6 +2292,10 @@ int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
     ALOGE("Failed to initialize DrmHwcTwo err=%d\n", err);
     return -EINVAL;
   }
+  g_ctx = ctx.get();
+
+
+  signal(SIGALRM, StaticScreenOptHandler);
 
   ctx->common.module = const_cast<hw_module_t *>(module);
   *dev = &ctx->common;

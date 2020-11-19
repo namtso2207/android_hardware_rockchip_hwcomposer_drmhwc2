@@ -23,12 +23,12 @@
 
 namespace android {
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc) {
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc, bool gles_policy) {
   std::vector<DrmCompositionPlane> composition;
 
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
-    int ret = i->TryHwcPolicy(&composition, layers, crtc);
+    int ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
     if (ret) {
       ALOGE("Failed provision stage with ret %d", ret);
       return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
