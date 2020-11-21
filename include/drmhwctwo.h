@@ -341,10 +341,10 @@ class DrmHwcTwo : public hwc2_device_t {
 
   static void StaticScreenOptHandler(int sig){
     if (sig == SIGALRM)
-      if(g_ctx!=NULL){
-        HwcDisplay &display = g_ctx->displays_.at(0);
-        display.EntreStaticScreen(60,1);
-    }
+//      if(g_ctx!=NULL){
+//        HwcDisplay &display = g_ctx->displays_.at(0);
+//        display.EntreStaticScreen(60,1);
+//    }
     return;
 };
 

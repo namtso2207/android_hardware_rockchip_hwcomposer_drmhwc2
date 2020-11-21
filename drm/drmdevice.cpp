@@ -940,7 +940,7 @@ int DrmDevice::UpdateDisplayRoute(void)
   {
     DrmCrtc *crtc = primary->encoder()->crtc();
     if(!crtc->get_afbc()){
-      property_set( PROPERTY_TYPE ".gralloc.disable_afbc", "1");
+      //property_set( PROPERTY_TYPE ".gralloc.disable_afbc", "1");
       ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d primary conn[%d] crtc=%d support AFBC(%d), to disable AFBC\n",
                __FUNCTION__, __LINE__, primary->id(), crtc->id(),crtc->get_afbc());
     }
