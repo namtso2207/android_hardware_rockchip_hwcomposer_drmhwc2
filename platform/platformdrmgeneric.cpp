@@ -87,8 +87,9 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
       return DRM_FORMAT_ABGR8888;
     case HAL_PIXEL_FORMAT_RGBA_1010102:
       return DRM_FORMAT_ABGR2101010;
+    //Fix color error in NenaMark2 and Taiji
     case HAL_PIXEL_FORMAT_RGB_565:
-      return DRM_FORMAT_BGR565;
+      return DRM_FORMAT_RGB565;
     case HAL_PIXEL_FORMAT_YV12:
       return DRM_FORMAT_YVU420;
     case HAL_PIXEL_FORMAT_YCrCb_NV12:
