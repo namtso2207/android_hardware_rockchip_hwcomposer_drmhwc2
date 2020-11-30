@@ -54,6 +54,8 @@
 #define ENABLE_DEBUG_LOG
 #include <custom_log.h>
 
+#include <inttypes.h>
+
 #include <sync/sync.h>
 
 #include "mali_gralloc_formats.h"
@@ -64,6 +66,8 @@
 #include <android/hardware/graphics/mapper/4.0/IMapper.h>
 #include <gralloctypes/Gralloc4.h>
 // #include <aidl/arm/graphics/ArmMetadataType.h>
+
+#include "rockchip/drmtype.h"
 
 using android::hardware::graphics::mapper::V4_0::Error;
 using android::hardware::graphics::mapper::V4_0::IMapper;
@@ -184,6 +188,8 @@ static int get_metadata(IMapper &mapper, buffer_handle_t handle, IMapper::Metada
  */
 uint64_t get_internal_format_from_fourcc(uint32_t fourcc, uint64_t modifier)
 {
+    uint64_t internal_format = 0;
+
     /* Clean the modifier bits in the internal format. */
     struct table_entry
     {
@@ -221,11 +227,20 @@ uint64_t get_internal_format_from_fourcc(uint32_t fourcc, uint64_t modifier)
         { HAL_PIXEL_FORMAT_YCBCR_P010, DRM_FORMAT_P010 },
     };
 
+    V("'modifier' : 0x%" PRIx64, modifier);
+
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
     {
         if (table[i].fourcc == fourcc)
         {
-            return table[i].internal;
+            internal_format = table[i].internal;
+
+            if ( AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16) )
+            {
+                internal_format = internal_format | GRALLOC_ARM_INTFMT_AFBC;    // 本应该是 MALI_GRALLOC_INTFMT_AFBC_BASIC.
+            }
+
+            return internal_format;
         }
     }
 
