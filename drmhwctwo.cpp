@@ -1157,14 +1157,14 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
   }
 
   output.append(
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
-              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
       layer.DumpLayerInfo(output);
   }
-  output.append("------+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   output.append("DrmHwcLayer Dump:\n");
 
   for(auto &drmHwcLayer : drm_hwc_layers_)
@@ -1181,14 +1181,15 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(String8 &output){
                         frame_no_);
 
   output.append(
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
-              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+
   for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
       layer.DumpLayerInfo(output);
   }
-  output.append("------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   return 0;
 }
 
@@ -1200,10 +1201,9 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
                         frame_no_);
 
   output.append(
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n"
-              "  id  |  z  |    type   |    handle    |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
-
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   ALOGD("%s",output.string());
 
   for (auto &map_layer : layers_) {
@@ -1213,7 +1213,7 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
       ALOGD("%s",output.string());
   }
   output.clear();
-  output.append("------+-----+-----------+--------------+-------------+------------+--------------------------------+------------------------+------\n");
+  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   ALOGD("%s",output.string());
   return 0;
 }
@@ -1769,7 +1769,6 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->uInternalFormat_ = 0;
   }
 
-
   drmHwcLayer->Init();
 
   return;
@@ -1837,7 +1836,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 
-  output.appendFormat( " %04" PRIu32 " | %03" PRIu32 " | %9s | %012" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
+  output.appendFormat( " %04" PRIu32 " | %03" PRIu32 " | %9s | %-18.18" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
                     id_,z_order_,to_string(validated_type_).c_str(),
                     intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(),
                     source_crop_.left, source_crop_.top, source_crop_.right, source_crop_.bottom,

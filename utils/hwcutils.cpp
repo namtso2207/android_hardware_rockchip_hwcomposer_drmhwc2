@@ -218,7 +218,10 @@ bool DrmHwcLayer::IsHdr(int usage){
   return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
 }
 bool DrmHwcLayer::IsAfbcInternalFormat(uint64_t internal_format){
-  return (internal_format & GRALLOC_ARM_INTFMT_AFBC);             // for Midgard gralloc r14
+  if(bFbTarget_){
+    return hwc_get_int_property("vendor.gralloc.disable_afbc","0") == 0;
+  }else
+    return (internal_format & GRALLOC_ARM_INTFMT_AFBC);             // for Midgard gralloc r14
 }
 
 bool DrmHwcLayer::IsSkipLayer(){
@@ -325,14 +328,14 @@ std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{
 int DrmHwcLayer::DumpInfo(String8 &out){
     if(bFbTarget_)
       out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
-                    "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d]\n",
+                    "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],afbcd=%d\n",
                    uId_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
                    alpha,BlendingToString(blending).c_str(),
                    source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
-                   display_frame.left,display_frame.top,display_frame.right,display_frame.bottom);
+                   display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bAfbcd_);
     else
       out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
-                        "source_crop[l,t,r,b]=[%4.2f,%4.2f,%4.2f,%4.2f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d\n",
+                        "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d\n",
                        uId_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
                        alpha,BlendingToString(blending).c_str(),
                        source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
