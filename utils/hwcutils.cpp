@@ -20,6 +20,8 @@
 #include "drmhwcomposer.h"
 #include "platform.h"
 
+#include <drm_fourcc.h>
+
 #include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
 #include <cutils/properties.h>
@@ -135,7 +137,7 @@ int DrmHwcLayer::Init() {
   bYuv_ = IsYuvFormat(iFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
-  bAfbcd_ = IsAfbcInternalFormat(uInternalFormat_);
+  bAfbcd_ = IsAfbcModifier(uModifier_);
   bSkipLayer_ = IsSkipLayer();
 
   // HDR
@@ -217,11 +219,11 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
 bool DrmHwcLayer::IsHdr(int usage){
   return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
 }
-bool DrmHwcLayer::IsAfbcInternalFormat(uint64_t internal_format){
+bool DrmHwcLayer::IsAfbcModifier(uint64_t modifier){
   if(bFbTarget_){
     return hwc_get_int_property("vendor.gralloc.disable_afbc","0") == 0;
   }else
-    return (internal_format & GRALLOC_ARM_INTFMT_AFBC);             // for Midgard gralloc r14
+    return AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16);             // for Midgard gralloc r14
 }
 
 bool DrmHwcLayer::IsSkipLayer(){

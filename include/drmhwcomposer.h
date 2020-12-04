@@ -174,9 +174,8 @@ struct DrmHwcLayer {
   int iHeight_;
   int iStride_;
   int iUsage;
-  int iBpp_;
   uint32_t uFourccFormat_;
-  uint64_t uInternalFormat_;
+  uint64_t uModifier_;
 
   bool bMatch_;
   bool bUse_;
@@ -210,7 +209,7 @@ struct DrmHwcLayer {
   }
   bool IsYuvFormat(int format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
-  bool IsAfbcInternalFormat(uint64_t internal_format);
+  bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();
 
   bool IsHdr(int usage);

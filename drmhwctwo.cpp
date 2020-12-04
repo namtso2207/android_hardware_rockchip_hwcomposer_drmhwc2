@@ -1754,9 +1754,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
-    drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
-    drmHwcLayer->uFourccFormat_   = ConvertHalFormatToDrm(drmHwcLayer->iFormat_);
-    drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
+    drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+    drmHwcLayer->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -1764,9 +1763,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->iBpp_    = -1;
     drmHwcLayer->uFourccFormat_   = 0;
-    drmHwcLayer->uInternalFormat_ = 0;
+    drmHwcLayer->uModifier_ = 0;
   }
 
   drmHwcLayer->Init();
@@ -1813,9 +1811,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
     drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
-    drmHwcLayer->iBpp_    = android::bytesPerPixel(drmHwcLayer->iFormat_);
-    drmHwcLayer->uFourccFormat_   = ConvertHalFormatToDrm(drmHwcLayer->iFormat_);
-    drmHwcLayer->uInternalFormat_ = drmGralloc_->hwc_get_handle_internal_format(buffer_);
+    drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+    drmHwcLayer->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -1823,9 +1820,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->iBpp_    = -1;
     drmHwcLayer->uFourccFormat_   = 0;
-    drmHwcLayer->uInternalFormat_ = 0;
+    drmHwcLayer->uModifier_ = 0;
   }
 
   drmHwcLayer->Init();

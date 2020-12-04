@@ -433,6 +433,30 @@ uint32_t DrmGralloc::hwc_get_handle_phy_addr(buffer_handle_t hnd)
 #endif
 }
 
+uint64_t DrmGralloc::hwc_get_handle_format_modifier(buffer_handle_t hnd)
+{
+#if USE_GRALLOC_4
+    uint64_t format_modifier = 0;
+    format_modifier = gralloc4::get_format_modifier(hnd);
+    return format_modifier;
+#else // #if USE_GRALLOC_4
+    return 0;
+#endif
+}
+
+
+uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
+{
+#if USE_GRALLOC_4
+    uint32_t fourcc_format = 0;
+    fourcc_format = gralloc4::get_fourcc_format(hnd);
+    return fourcc_format;
+#else // #if USE_GRALLOC_4
+    return 0;
+#endif
+}
+
+
 uint64_t DrmGralloc::hwc_get_handle_internal_format(buffer_handle_t hnd)
 {
 #if USE_GRALLOC_4

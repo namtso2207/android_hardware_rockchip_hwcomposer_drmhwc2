@@ -89,7 +89,7 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
       return DRM_FORMAT_ABGR2101010;
     //Fix color error in NenaMark2 and Taiji
     case HAL_PIXEL_FORMAT_RGB_565:
-      return DRM_FORMAT_RGB565;
+      return DRM_FORMAT_BGR565;
     case HAL_PIXEL_FORMAT_YV12:
       return DRM_FORMAT_YVU420;
     case HAL_PIXEL_FORMAT_YCrCb_NV12:
@@ -185,13 +185,16 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
-  int fd,width,height,byte_stride,format,usage;
+  int fd,width,height,byte_stride,usage;
+  uint32_t fourcc_format;
+  uint64_t format_modifier;
   fd     = drmGralloc_->hwc_get_handle_primefd(handle);
   width  = drmGralloc_->hwc_get_handle_attibute(handle,ATT_WIDTH);
   height = drmGralloc_->hwc_get_handle_attibute(handle,ATT_HEIGHT);
-  format = drmGralloc_->hwc_get_handle_attibute(handle,ATT_FORMAT);
   usage  = drmGralloc_->hwc_get_handle_usage(handle);
-  byte_stride = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE);
+  byte_stride     = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE);
+  fourcc_format   = drmGralloc_->hwc_get_handle_fourcc_format(handle);
+  format_modifier = drmGralloc_->hwc_get_handle_format_modifier(handle);
 
   uint32_t gem_handle;
   int ret = drmPrimeFDToHandle(drm_->fd(), fd, &gem_handle);
@@ -201,7 +204,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 
   memset(bo, 0, sizeof(hwc_drm_bo_t));
-  if(format == HAL_PIXEL_FORMAT_YCrCb_NV12_10){
+  if(fourcc_format == DRM_FORMAT_YUV420_10BIT){
       bo->width = width/1.25;
       bo->width = ALIGN_DOWN(bo->width,2);
   }else{
@@ -209,8 +212,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 
   bo->height = height;
-  bo->hal_format = format;
-  bo->format = ConvertHalFormatToDrm(format);
+  bo->format = fourcc_format;
   bo->usage = usage;
 //  bo->pixel_stride = (byte_stride) /
 //                     DrmFormatToBitsPerPixel(bo->format);
@@ -228,8 +230,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   uint64_t internal_format;
   memset(modifier, 0, sizeof(modifier));
 
-  internal_format = drmGralloc_->hwc_get_handle_internal_format(handle);
-  if (internal_format & GRALLOC_ARM_INTFMT_AFBC){
+  if (AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (format_modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)){
       ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d afbcd layer",drm_->fd(), bo->width, bo->height);
 #ifdef ANDROID_R
       modifier[0] = DRM_FORMAT_MOD_ARM_AFBC(1);
@@ -247,14 +248,14 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
 
 
-  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,format=0x%x,bo->format=0x%x,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
-      drm_->fd(), bo->width, bo->height, format,bo->format,
+  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+      drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
       gem_handle, bo->pitches[0], bo->fb_id);
 
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
-    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,format=0x%x,bo->format=0x%x,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
-    drm_->fd(), bo->width, bo->height, format,bo->format,
+    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+    drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
     gem_handle, bo->pitches[0], bo->fb_id);
     return ret;
   }

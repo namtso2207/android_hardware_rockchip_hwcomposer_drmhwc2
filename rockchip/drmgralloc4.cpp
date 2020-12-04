@@ -201,7 +201,7 @@ uint64_t get_internal_format_from_fourcc(uint32_t fourcc, uint64_t modifier)
         { MALI_GRALLOC_FORMAT_INTERNAL_RAW16, DRM_FORMAT_R16 },
         { MALI_GRALLOC_FORMAT_INTERNAL_RGBA_8888, DRM_FORMAT_ABGR8888 },
         { MALI_GRALLOC_FORMAT_INTERNAL_BGRA_8888, DRM_FORMAT_ARGB8888 },
-        { MALI_GRALLOC_FORMAT_INTERNAL_RGB_565, DRM_FORMAT_RGB565 },
+        { MALI_GRALLOC_FORMAT_INTERNAL_RGB_565, DRM_FORMAT_BGR565 },
         { MALI_GRALLOC_FORMAT_INTERNAL_RGBX_8888, DRM_FORMAT_XBGR8888 },
         { MALI_GRALLOC_FORMAT_INTERNAL_RGB_888, DRM_FORMAT_BGR888 },
         { MALI_GRALLOC_FORMAT_INTERNAL_RGBA_1010102, DRM_FORMAT_ABGR2101010 },
@@ -244,7 +244,7 @@ uint64_t get_internal_format_from_fourcc(uint32_t fourcc, uint64_t modifier)
         }
     }
 
-    LOG_ALWAYS_FATAL("unexpected fourcc : 0x%x", fourcc);
+    LOG_ALWAYS_FATAL("unexpected fourcc : 0x%x = %c%c%c%c", fourcc, fourcc , fourcc >> 8,fourcc >> 16,fourcc >> 24);
     return 0;
 }
 
@@ -271,6 +271,31 @@ android::status_t static decodeArmPlaneFds(const hidl_vec<uint8_t>& input, std::
  * Global Functions Implementation
  * ---------------------------------------------------------------------------------------------------------
  */
+
+uint64_t get_format_modifier(buffer_handle_t handle)
+{
+
+  auto &mapper = get_service();
+  uint64_t modifier;
+
+  /* 获取 format_modifier. */
+  int err = get_metadata(mapper, handle, MetadataType_PixelFormatModifier, decodePixelFormatModifier, &modifier);
+  assert(err == android::NO_ERROR);
+
+  return modifier;
+}
+
+uint32_t get_fourcc_format(buffer_handle_t handle)
+{
+    auto &mapper = get_service();
+    uint32_t fourcc;
+
+    /* 获取 format_fourcc. */
+    int err = get_metadata(mapper, handle, MetadataType_PixelFormatFourCC, decodePixelFormatFourCC, &fourcc);
+    assert(err == android::NO_ERROR);
+
+    return fourcc;
+}
 
 uint64_t get_internal_format(buffer_handle_t handle)
 {
