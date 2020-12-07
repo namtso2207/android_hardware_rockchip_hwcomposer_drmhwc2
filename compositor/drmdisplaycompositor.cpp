@@ -580,17 +580,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     dst_w = display_frame.right - display_frame.left;
     dst_h = display_frame.bottom - display_frame.top;
 
-    if(afbcd){
-      src_l = IS_ALIGN(src_l, 16)?src_l:ALIGN(src_l, 16);
-      src_t = IS_ALIGN(src_t, 4)?src_t:ALIGN(src_t, 4);
-      src_w = IS_ALIGN(src_w, 16)?src_w:(ALIGN(src_w, 16)-16);
-      src_h = IS_ALIGN(src_h, 4)?src_h:(ALIGN(src_h, 4)-4);
-
-      dst_l = IS_ALIGN(dst_l, 16)?dst_l:ALIGN(dst_l, 16);
-      dst_t = IS_ALIGN(dst_t, 4)?dst_t:ALIGN(dst_t, 4);
-      dst_w = IS_ALIGN(dst_w, 16)?dst_w:(ALIGN(dst_w, 16)-16);
-      dst_h = IS_ALIGN(dst_h, 4)?dst_h:(ALIGN(dst_h, 4)-4);
-    }
     if(yuv){
       src_l = ALIGN_DOWN(src_l, 2);
       src_t = ALIGN_DOWN(src_t, 2);
@@ -603,31 +592,31 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                     plane->fb_property().id(), fb_id) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->crtc_x_property().id(),
-                                    display_frame.left) < 0;
+                                    dst_l) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->crtc_y_property().id(),
-                                    display_frame.top) < 0;
+                                    dst_t) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->crtc_w_property().id(),
-                                    display_frame.right - display_frame.left) <
+                                    dst_w) <
            0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->crtc_h_property().id(),
-                                    display_frame.bottom - display_frame.top) <
+                                    dst_h) <
            0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->src_x_property().id(),
-                                    (int)(source_crop.left) << 16) < 0;
+                                    (int)(src_l) << 16) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->src_y_property().id(),
-                                    (int)(source_crop.top) << 16) < 0;
+                                    (int)(src_t) << 16) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->src_w_property().id(),
-                                    (int)(source_crop.right - source_crop.left)
+                                    (int)(src_w)
                                         << 16) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                     plane->src_h_property().id(),
-                                    (int)(source_crop.bottom - source_crop.top)
+                                    (int)(src_h)
                                         << 16) < 0;
     ret |= drmModeAtomicAddProperty(pset, plane->id(),
                                    plane->zpos_property().id(), zpos) < 0;
@@ -644,12 +633,12 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
             << " plane=" << (plane ? plane->id() : -1)
             << " crct id=" << crtc->id()
             << " fb id=" << fb_id
-            << " display_frame[" << display_frame.left << ","
-            << display_frame.top << "," << display_frame.right - display_frame.left
-            << "," << display_frame.bottom  - display_frame.top << "]"
-            << " source_crop[" << source_crop.left << ","
-            << source_crop.top << "," << source_crop.right - source_crop.left
-            << "," << source_crop.bottom - source_crop.top << "]"
+            << " display_frame[" << dst_l << ","
+            << dst_t << "," << dst_w
+            << "," << dst_h << "]"
+            << " source_crop[" << src_l << ","
+            << src_t << "," << src_w
+            << "," << src_h << "]"
             << ", zpos=" << zpos
             ;
     index++;
