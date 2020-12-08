@@ -134,30 +134,33 @@ void VSyncWorker::Routine() {
   if (!enabled)
     return;
 
-  DrmCrtc *crtc = drm_->GetCrtcForDisplay(display);
-  if (!crtc) {
-    ALOGE("Failed to get crtc for display");
-    return;
-  }
-  uint32_t high_crtc = (crtc->pipe() << DRM_VBLANK_HIGH_CRTC_SHIFT);
-
-  drmVBlank vblank;
-  memset(&vblank, 0, sizeof(vblank));
-  vblank.request.type = (drmVBlankSeqType)(
-      DRM_VBLANK_RELATIVE | (high_crtc & DRM_VBLANK_HIGH_CRTC_MASK));
-  vblank.request.sequence = 1;
-
   int64_t timestamp;
-  ret = drmWaitVBlank(drm_->fd(), &vblank);
-  if (ret == -EINTR) {
-    return;
-  } else if (ret) {
+  DrmCrtc *crtc = drm_->GetCrtcForDisplay(display);
+
+  if (!crtc) {
     ret = SyntheticWaitVBlank(&timestamp);
     if (ret)
       return;
   } else {
-    timestamp = (int64_t)vblank.reply.tval_sec * kOneSecondNs +
-                (int64_t)vblank.reply.tval_usec * 1000;
+    uint32_t high_crtc = (crtc->pipe() << DRM_VBLANK_HIGH_CRTC_SHIFT);
+
+    drmVBlank vblank;
+    memset(&vblank, 0, sizeof(vblank));
+    vblank.request.type = (drmVBlankSeqType)(
+        DRM_VBLANK_RELATIVE | (high_crtc & DRM_VBLANK_HIGH_CRTC_MASK));
+    vblank.request.sequence = 1;
+
+    ret = drmWaitVBlank(drm_->fd(), &vblank);
+    if (ret == -EINTR) {
+      return;
+    } else if (ret) {
+      ret = SyntheticWaitVBlank(&timestamp);
+      if (ret)
+        return;
+    } else {
+      timestamp = (int64_t)vblank.reply.tval_sec * kOneSecondNs +
+                  (int64_t)vblank.reply.tval_usec * 1000;
+    }
   }
 
   /*
