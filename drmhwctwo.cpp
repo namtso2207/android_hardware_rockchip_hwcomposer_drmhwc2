@@ -1983,7 +1983,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                                       ? DRM_MODE_UNKNOWNCONNECTION
                                       : conn->raw_state();
 
-    if(conn->ModesReady())
+    if(!conn->ModesReady())
       continue;
     if (cur_state == old_state)
       continue;
@@ -2049,7 +2049,6 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       display.ClearDisplay();
     }
     return;
-
   }
 
   DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
