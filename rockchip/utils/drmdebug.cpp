@@ -41,7 +41,7 @@
 #include "rockchip/utils/drmdebug.h"
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.1.20"
+#define GHWC_VERSION                    "HWC2-1.1.21"
 
 namespace android {
 
@@ -69,11 +69,11 @@ int UpdateLogLevel()
   char value[PROPERTY_VALUE_MAX];
   property_get("vendor.hwc.log", value, "0");
   if(!strcmp(value,"info"))
-    g_log_level = DBG_INFO;
+    g_log_level = DBG_FETAL | DBG_ERROR | DBG_WARN | DBG_INFO;
   else if(!strcmp(value,"debug"))
-    g_log_level = DBG_INFO | DBG_DEBUG;
+    g_log_level = DBG_FETAL | DBG_ERROR | DBG_WARN | DBG_INFO | DBG_DEBUG;
   else if(!strcmp(value,"verbose"))
-    g_log_level = DBG_INFO | DBG_DEBUG | DBG_VERBOSE;
+    g_log_level = DBG_FETAL | DBG_ERROR | DBG_WARN | DBG_INFO | DBG_DEBUG | DBG_VERBOSE;
   else if(!strcmp(value,"all"))
     g_log_level = DBG_MARSK;
   else
