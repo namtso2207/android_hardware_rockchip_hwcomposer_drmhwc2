@@ -177,6 +177,8 @@ class DrmHwcTwo : public hwc2_device_t {
                                       hwc2_function_pointer_t func);
     void ClearDisplay();
 
+    HWC2::Error CheckDisplayState();
+
     // HWC Hooks
     HWC2::Error AcceptDisplayChanges();
     HWC2::Error CreateLayer(hwc2_layer_t *layer);

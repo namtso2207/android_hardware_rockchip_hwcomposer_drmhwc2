@@ -312,6 +312,41 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   return ChosePreferredConfig();
 }
 
+HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
+  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  int display = static_cast<int>(handle_);
+
+  if(!init_success_){
+    ALOGE_IF(LogLevel(DBG_ERROR),"Display %d not init success! %s,line=%d", display,
+          __FUNCTION__, __LINE__);
+    return HWC2::Error::BadDisplay;
+  }
+
+  connector_ = drm_->GetConnectorForDisplay(display);
+  if (!connector_) {
+    ALOGE_IF(LogLevel(DBG_ERROR),"Failed to get connector for display %d, %s,line=%d",
+          display, __FUNCTION__, __LINE__);
+    return HWC2::Error::BadDisplay;
+  }
+
+  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+    ALOGE_IF(LogLevel(DBG_ERROR),"Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init, %s,line=%d\n",
+          connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
+          __FUNCTION__, __LINE__);
+    return HWC2::Error::NoResources;
+  }
+
+  crtc_ = drm_->GetCrtcForDisplay(display);
+  if (!crtc_) {
+    ALOGE_IF(LogLevel(DBG_ERROR),"Failed to get crtc for display %d, %s,line=%d", display,
+          __FUNCTION__, __LINE__);
+    return HWC2::Error::BadDisplay;
+  }
+
+  return HWC2::Error::None;
+}
+
+
 HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   // Fetch the number of modes from the display
@@ -939,14 +974,22 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   DumpAllLayerData();
 
   HWC2::Error ret;
-  ret = CreateComposition();
-  if (ret == HWC2::Error::BadLayer) {
-    // Can we really have no client or device layers?
+  ret = CheckDisplayState();
+  if(ret != HWC2::Error::None){
+    ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
+          __FUNCTION__, __LINE__);
     *retire_fence = -1;
     return HWC2::Error::None;
+  }else{
+    ret = CreateComposition();
+    if (ret == HWC2::Error::BadLayer) {
+      // Can we really have no client or device layers?
+      *retire_fence = -1;
+      return HWC2::Error::None;
+    }
+    if (ret != HWC2::Error::None)
+      return ret;
   }
-  if (ret != HWC2::Error::None)
-    return ret;
 
   // The retire fence returned here is for the last frame, so return it and
   // promote the next retire fence
@@ -1096,6 +1139,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   if(LogLevel(DBG_DEBUG)){
     DumpDisplayLayersInfo();
+  }
+
+  ret = CheckDisplayState();
+  if(ret != HWC2::Error::None){
+    ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
+          __FUNCTION__, __LINE__);
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+      l.second.set_validated_type(HWC2::Composition::Device);
+    return HWC2::Error::None;
   }
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
