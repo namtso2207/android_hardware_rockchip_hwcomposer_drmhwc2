@@ -428,7 +428,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support format=0x%x afbcd = %d",(*iter_plane)->id(),(*iter_layer)->iFormat_,(*iter_layer)->bAfbcd_);
                             continue;
-
                           }
 
                           b_scale = (*iter_plane)->get_scale();

@@ -25,6 +25,8 @@
 #include "rockchip/utils/drmdebug.h"
 #include "rockchip/drmgralloc.h"
 
+#include <drm_fourcc.h>
+
 #include <inttypes.h>
 #include <string>
 
@@ -882,7 +884,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, true);
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;
@@ -1639,7 +1641,7 @@ int DrmHwcTwo::HwcDisplay::StaticScreenOptSet(bool isGLESComp){
     if (!isGLESComp) {
         int interval_value = hwc_get_int_property( "vendor.hwc.static_screen_opt_time", "2500");
         interval_value = interval_value > 5000? 5000:interval_value;
-        interval_value = interval_value < 250? 250:interval_value;
+        interval_value = interval_value < 16? 16:interval_value;
         tv.it_value.tv_sec = interval_value / 1000;
         tv.it_value.tv_usec=( interval_value % 1000) * 1000;
         ALOGD_IF(LogLevel(DBG_DEBUG),"reset timer! interval_value = %d",interval_value);
@@ -1807,6 +1809,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
     drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
     drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+    if(drmHwcLayer->uFourccFormat_ == 0x30313050)
+    drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV12_10;
     drmHwcLayer->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
   }else{
     drmHwcLayer->iFd_     = -1;

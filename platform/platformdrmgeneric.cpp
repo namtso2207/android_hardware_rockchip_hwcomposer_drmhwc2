@@ -194,6 +194,9 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   usage  = drmGralloc_->hwc_get_handle_usage(handle);
   byte_stride     = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE);
   fourcc_format   = drmGralloc_->hwc_get_handle_fourcc_format(handle);
+
+  if(fourcc_format == 0x30313050)
+    fourcc_format = DRM_FORMAT_NV12_10;
   format_modifier = drmGralloc_->hwc_get_handle_format_modifier(handle);
 
   uint32_t gem_handle;
@@ -204,7 +207,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 
   memset(bo, 0, sizeof(hwc_drm_bo_t));
-  if(fourcc_format == DRM_FORMAT_YUV420_10BIT){
+  if(fourcc_format == DRM_FORMAT_NV12_10){
       bo->width = width/1.25;
       bo->width = ALIGN_DOWN(bo->width,2);
   }else{
