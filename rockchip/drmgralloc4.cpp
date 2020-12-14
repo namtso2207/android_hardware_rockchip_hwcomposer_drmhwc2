@@ -341,7 +341,7 @@ int get_height(buffer_handle_t handle, uint64_t* height)
     return err;
 }
 
-int get_pixel_stride(buffer_handle_t handle, int* pixel_stride)
+int get_bit_per_pixel(buffer_handle_t handle, int* bit_per_pixel)
 {
     auto &mapper = get_service();
     std::vector<PlaneLayout> layouts;
@@ -354,42 +354,43 @@ int get_pixel_stride(buffer_handle_t handle, int* pixel_stride)
         return err;
     }
 
-    /* 若 'format_requested' "不是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
-    if ( format_requested != HAL_PIXEL_FORMAT_YCrCb_NV12_10 )
+    err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
+    if (err != android::OK || layouts.size() < 1)
     {
-        err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
-        if (err != android::OK || layouts.size() < 1)
-        {
-            E("Failed to get plane layouts. err : %d", err);
-            return err;
-        }
-
-        if ( layouts.size() > 1 )
-        {
-            W("it's not reasonable to get global pixel_stride of buffer with planes more than 1.");
-        }
-
-        *pixel_stride = (layouts[0].widthInSamples);
-    }
-    /* 否则, 即 'format_requested' "是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
-    else
-    {
-        uint64_t width;
-        int byte_stride;
-
-        err = get_width(handle, &width);
-        if (err != android::OK )
-        {
-            E("err : %d", err);
-            return err;
-        }
-
-        // .trick : from CSY : 分配 rk_video_decoder 输出 buffers 时, 要求的 byte_stride of buffer in NV12_10, 已经通过 width 传入.
-        //          原理上, NV12_10 的 pixel_stride 和 byte_stride 是不同的, 但是这里保留 之前 rk_drm_gralloc 的赋值方式.
-        byte_stride = (int)width;
-        *pixel_stride = byte_stride;
+        E("Failed to get plane layouts. err : %d", err);
+        return err;
     }
 
+    if ( layouts.size() > 1 )
+    {
+        W("it's not reasonable to get global pixel_stride of buffer with planes more than 1.");
+    }
+
+    *bit_per_pixel = (layouts[0].sampleIncrementInBits);
+
+    return err;
+}
+
+
+int get_pixel_stride(buffer_handle_t handle, int* pixel_stride)
+{
+    int byte_stride = 0;
+    int err = get_byte_stride(handle, &byte_stride);
+    if (err != android::OK )
+    {
+        E("err : %d", err);
+        return err;
+    }
+
+    int bit_per_pixel = 0;
+    err = get_bit_per_pixel(handle, &bit_per_pixel);
+    if (err != android::OK )
+    {
+        E("err : %d", err);
+        return err;
+    }
+
+    *pixel_stride = byte_stride * 8 / bit_per_pixel;
     return err;
 }
 
