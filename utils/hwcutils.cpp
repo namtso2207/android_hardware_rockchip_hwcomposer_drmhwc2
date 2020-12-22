@@ -139,6 +139,7 @@ int DrmHwcLayer::Init() {
   iSkipLine_  = GetSkipLine();
   bAfbcd_ = IsAfbcModifier(uModifier_);
   bSkipLayer_ = IsSkipLayer();
+  bGlesCompose_ = IsGlesCompose();
 
   // HDR
   bHdr_ = IsHdr(iUsage);
@@ -227,10 +228,15 @@ bool DrmHwcLayer::IsAfbcModifier(uint64_t modifier){
 }
 
 bool DrmHwcLayer::IsSkipLayer(){
-  return (!sf_handle ? true:false) ||
-         (iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102);
+  return (!sf_handle ? true:false);
 }
 
+bool DrmHwcLayer::IsGlesCompose(){
+  if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
+    return true;
+
+  return false;
+}
 int DrmHwcLayer::GetSkipLine(){
     int skip_line = 0;
     if(bYuv_){
@@ -337,11 +343,11 @@ int DrmHwcLayer::DumpInfo(String8 &out){
                    display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bAfbcd_);
     else
       out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Transform=%-8.8s Blend[a=%d]=%-8.8s "
-                        "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d\n",
+                        "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d,gles=%d\n",
                        uId_,iWidth_,iHeight_,iStride_,iFormat_,TransformToString(transform).c_str(),
                        alpha,BlendingToString(blending).c_str(),
                        source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
-                       display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_);
+                       display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,bGlesCompose_);
     return 0;
 }
 

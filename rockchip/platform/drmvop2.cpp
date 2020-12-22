@@ -845,7 +845,7 @@ int PlanStageVop2::TryMixSkipPolicy(
   //caculate the first and last skip layer
   int i = 0;
   for (auto &layer : layers) {
-    if (!layer->bSkipLayer_){
+    if (!layer->bSkipLayer_ && !layer->bGlesCompose_){
       i++;
       continue;
     }

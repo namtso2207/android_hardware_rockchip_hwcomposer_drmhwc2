@@ -181,6 +181,8 @@ struct DrmHwcLayer {
   bool bUse_;
   bool bMix_;
 
+  bool bGlesCompose_=false;
+
   int iBestPlaneType=0;
 
   int iGroupId_;
@@ -211,6 +213,7 @@ struct DrmHwcLayer {
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();
+  bool IsGlesCompose();
 
   bool IsHdr(int usage);
   int GetSkipLine();
