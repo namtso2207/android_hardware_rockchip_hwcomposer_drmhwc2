@@ -232,8 +232,16 @@ bool DrmHwcLayer::IsSkipLayer(){
 }
 
 bool DrmHwcLayer::IsGlesCompose(){
+  // RK356x can't overlay RGBA1010102
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
     return true;
+
+  // RK356x can't overlay act_w % 4 != 0 afbcd layer.
+  if(bAfbcd_){
+    int act_w = static_cast<int>(source_crop.right - source_crop.left);
+    if(act_w % 4 != 0)
+      return true;
+  }
 
   return false;
 }
