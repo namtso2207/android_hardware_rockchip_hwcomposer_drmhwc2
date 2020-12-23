@@ -1815,7 +1815,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->uFourccFormat_   = 0;
+    drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
     drmHwcLayer->uModifier_ = 0;
   }
 
@@ -1872,7 +1872,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->uFourccFormat_   = 0;
+    drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
     drmHwcLayer->uModifier_ = 0;
   }
 
