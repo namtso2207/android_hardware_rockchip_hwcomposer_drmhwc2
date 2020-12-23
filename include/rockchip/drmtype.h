@@ -164,7 +164,8 @@ typedef enum attribute_flag {
     ATT_STRIDE,
     ATT_FORMAT,
     ATT_SIZE,
-    ATT_BYTE_STRIDE
+    ATT_BYTE_STRIDE,
+    ATT_BYTE_STRIDE_WORKROUND
 }attribute_flag_t;
 
 /*
