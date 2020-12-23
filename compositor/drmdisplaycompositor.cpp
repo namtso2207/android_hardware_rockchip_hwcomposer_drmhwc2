@@ -95,8 +95,20 @@ void DrmDisplayCompositor::FrameWorker::QueueFrame(
   frame.composition = std::move(composition);
   frame.status = status;
   frame_queue_.push(std::move(frame));
-  Unlock();
+  /*
+   * Fix a null-point crash bug.
+   * --------- beginning of crash
+   * Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xb8 in tid 6074 (frame-worker), pid 6049 (composer@2.1-se)
+   * pid: 6049, tid: 6074, name: frame-worker  >>> /vendor/bin/hw/android.hardware.graphics.composer@2.1-service <<<
+   * uid: 1000
+   * signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xb8
+   * backtrace:
+   *       #00 pc 000000000003230c  /vendor/lib64/hw/hwcomposer.rk30board.so (android::DrmDisplayCompositor::CommitFrame(..))
+   *       #01 pc 0000000000030e70  /vendor/lib64/hw/hwcomposer.rk30board.so (android::DrmDisplayCompositor::ApplyFrame(..))
+   *       #02 pc 0000000000030d0c  /vendor/lib64/hw/hwcomposer.rk30board.so (android::DrmDisplayCompositor::FrameWorker::Routine()+308)
+   */
   Signal();
+  Unlock();
 }
 
 void DrmDisplayCompositor::FrameWorker::Routine() {
@@ -111,6 +123,10 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
   if (!frame_queue_.empty()) {
     frame = std::move(frame_queue_.front());
     frame_queue_.pop();
+  }else{ // frame_queue_ is empty
+    ALOGW("%s,line=%d frame_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
+    Unlock();
+    return;
   }
   Unlock();
 
