@@ -228,7 +228,7 @@ bool DrmHwcLayer::IsHdr(int usage){
 }
 bool DrmHwcLayer::IsAfbcModifier(uint64_t modifier){
   if(bFbTarget_){
-    return hwc_get_int_property("vendor.gralloc.disable_afbc","0") == 0;
+    return hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") == 0;
   }else
     return AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16);             // for Midgard gralloc r14
 }
