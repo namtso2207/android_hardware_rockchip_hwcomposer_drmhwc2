@@ -202,9 +202,9 @@ int DrmPlane::Init() {
 
 
   std::tie(ret,b_scale_)   = feature_property_.bitmask("scale");
-  std::tie(ret,b_alpha_)   = feature_property_.bitmask("alpha");
-  std::tie(ret,b_hdr2sdr_) = feature_property_.bitmask("hdr2sdr");
-  std::tie(ret,b_sdr2hdr_) = feature_property_.bitmask("sdr2hdr");
+  b_alpha_ = true;
+  b_hdr2sdr_ = true;
+  b_sdr2hdr_ = true;
   std::tie(ret,b_afbdc_)   = feature_property_.bitmask("afbdc");
   b_afbc_prop_ = true;
 

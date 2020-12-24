@@ -191,6 +191,12 @@ bool DrmHwcLayer::IsYuvFormat(int format){
     case HAL_PIXEL_FORMAT_YCrCb_NV12:
     case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
     case HAL_PIXEL_FORMAT_YCrCb_NV12_VIDEO:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP_10:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP_10:
+    case HAL_PIXEL_FORMAT_YCBCR_422_I:
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_I:
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I:
+    case HAL_PIXEL_FORMAT_Y210:
       return true;
     default:
       return false;
