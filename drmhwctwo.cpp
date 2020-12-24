@@ -882,7 +882,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, true);
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;

@@ -1189,7 +1189,7 @@ int PlanStageVop2::TryMatchPolicyFirst(
 
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
-  if(!iMode || gles_policy){
+  if(iMode!=1 || gles_policy){
     setHwcPolicy.insert(HWC_GLES_POLICY);
     return 0;
   }
