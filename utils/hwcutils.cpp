@@ -168,6 +168,12 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
 }
 
 void DrmHwcLayer::SetTransform(int32_t sf_transform) {
+  int HWC_TRANSFORM_ROT_MASK = 0x7;
+  if(sf_transform & ~HWC_TRANSFORM_ROT_MASK){
+    transform = sf_transform;
+    return;
+  }
+
   transform = DrmHwcTransform::kRotate0;
   // 270* and 180* cannot be combined with flips. More specifically, they
   // already contain both horizontal and vertical flips, so those fields are
@@ -249,6 +255,11 @@ bool DrmHwcLayer::IsGlesCompose(){
       return true;
   }
 
+  int HWC_TRANSFORM_ROT_MASK = 0x7;
+  if(transform & ~HWC_TRANSFORM_ROT_MASK){
+    return true;
+  }
+
   return false;
 }
 int DrmHwcLayer::GetSkipLine(){
@@ -320,6 +331,8 @@ std::string DrmHwcLayer::TransformToString(uint32_t transform) const{
   switch (transform) {
     case DrmHwcTransform::kIdentity:
       return "IDENTITY";
+    case DrmHwcTransform::kRotate0:
+      return "ROTATE0";
     case DrmHwcTransform::kFlipH:
       return "FLIPH";
     case DrmHwcTransform::kFlipV:
@@ -349,17 +362,17 @@ std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{
 
 int DrmHwcLayer::DumpInfo(String8 &out){
     if(bFbTarget_)
-      out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
                     "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],afbcd=%d\n",
                    uId_,iWidth_,iHeight_,iStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
-                   TransformToString(transform).c_str(),alpha,BlendingToString(blending).c_str(),
+                   TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                    source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                    display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bAfbcd_);
     else
-      out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
                         "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d,gles=%d\n",
                        uId_,iWidth_,iHeight_,iStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
-                       TransformToString(transform).c_str(),alpha,BlendingToString(blending).c_str(),
+                       TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                        source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                        display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,bGlesCompose_);
     return 0;
