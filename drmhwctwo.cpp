@@ -2048,7 +2048,6 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       auto &display = hwc2_->displays_.at(display_id);
       display.ClearDisplay();
     }
-    return;
   }
 
   DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
@@ -2072,35 +2071,31 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   if (!extend) {
     if(old_extend){
       int display_id = old_extend->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      drm_->UpdateDisplayRoute();
-      display.ClearDisplay();
-      //while(display.PresentFinish()){usleep(2*1000);}
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-    }else{
-      return;
     }
   }else{
     if(!old_extend){
       int display_id = extend->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      drm_->UpdateDisplayRoute();
-      display.Init();
-      //while(display.PresentFinish()){usleep(2*1000);}
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
     }else{
       int display_id = old_extend->display();
-      auto &display_old = hwc2_->displays_.at(display_id);
-      //while(display_old.PresentFinish()){usleep(2*1000);}
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
       display_id = extend->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      drm_->UpdateDisplayRoute();
-      display.Init();
-      //while(display.PresentFinish()){usleep(2*1000);}
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
     }
   }
+
+  drm_->UpdateDisplayRoute();
+  for(auto &display_map : hwc2_->displays_){
+    auto display_id = display_map.first;
+    auto &display = display_map.second;
+    DrmConnector* conn = drm_->GetConnectorForDisplay(display_id);
+    if(conn->raw_state() != DRM_MODE_CONNECTED)
+      display.ClearDisplay();
+    else
+      display.Init();
+  }
+
   return;
 }
 
