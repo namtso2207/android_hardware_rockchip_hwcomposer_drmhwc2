@@ -382,6 +382,11 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
   bool bHdrSupport = connector->is_hdmi_support_hdr() && iSupportHdrCnt > 0;
 
+  static bool b_cluster0_used = false;
+  static bool b_cluster1_used = false;
+  static bool b_cluster0_two_win_mode = false;
+  static bool b_cluster1_two_win_mode = false;
+
   //loop plane groups.
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
@@ -422,6 +427,26 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                       if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
                       {
                           bool bNeed = false;
+
+                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                                b_cluster0_used = false;
+                                b_cluster0_two_win_mode = true;
+                          }
+
+                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                                b_cluster1_used = false;
+                                b_cluster1_two_win_mode = true;
+                          }
+
+                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0 && !b_cluster0_two_win_mode ){
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                            continue;
+                          }
+
+                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0 && !b_cluster1_two_win_mode ){
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                            continue;
+                          }
 
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
@@ -569,7 +594,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if(rotation && !(rotation & (*iter_plane)->get_rotate()))
                               continue;
 
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,,zops = %d",(*iter_layer)->uId_,
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
                               (*iter_plane)->id(),*zpos);
                           //Find the match plane for layer,it will be commit.
                           composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_);
@@ -577,6 +602,22 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           (*iter_plane)->set_use(true);
                           composition_planes->back().set_zpos(*zpos);
                           combine_layer_count++;
+
+                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                              b_cluster0_used = true;
+                              if(input_w > 2048 || output_w > 2048 || rotation != 0){
+                                  b_cluster0_two_win_mode = false;
+                              }else{
+                                  b_cluster0_two_win_mode = true;
+                              }
+                          }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                              b_cluster0_used = true;
+                              if(input_w > 2048 || output_w > 2048 || rotation != 0){
+                                  b_cluster1_two_win_mode = false;
+                              }else{
+                                  b_cluster1_two_win_mode = true;
+                              }
+                          }
                           break;
 
                       }
