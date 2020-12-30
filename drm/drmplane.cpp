@@ -191,7 +191,6 @@ int DrmPlane::Init() {
     support_format_list.insert(plane_->formats[j]);
   }
 
-#ifdef VOP2
   ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
   if (ret)
     ALOGI("Could not get alpha property");
@@ -242,18 +241,49 @@ int DrmPlane::Init() {
   ret = drm_->GetPlaneProperty(*this, "INPUT_WIDTH", &input_w_property_);
   if (ret)
     ALOGE("Could not get INPUT_WIDTH property");
-
+  else{
+    uint64_t input_w_max=0;
+    std::tie(ret,input_w_max) = input_w_property_.range_max();
+    if(!ret)
+      input_w_max_ = input_w_max;
+    else
+      ALOGE("Could not get INPUT_WIDTH range_max property");
+  }
   ret = drm_->GetPlaneProperty(*this, "INPUT_HEIGHT", &input_h_property_);
   if (ret)
     ALOGE("Could not get INPUT_HEIGHT property");
+  else{
+    uint64_t input_h_max=0;
+    std::tie(ret,input_h_max) = input_h_property_.range_max();
+    if(!ret)
+      input_h_max_ = input_h_max;
+    else
+      ALOGE("Could not get INPUT_HEIGHT range_max property");
+  }
 
   ret = drm_->GetPlaneProperty(*this, "OUTPUT_WIDTH", &output_w_property_);
   if (ret)
     ALOGE("Could not get OUTPUT_WIDTH property");
+  else{
+    uint64_t output_w_max=0;
+    std::tie(ret,output_w_max) = output_w_property_.range_max();
+    if(!ret)
+      output_w_max_ = output_w_max;
+    else
+      ALOGE("Could not get OUTPUT_WIDTH range_max property");
+  }
 
   ret = drm_->GetPlaneProperty(*this, "OUTPUT_HEIGHT", &output_h_property_);
   if (ret)
     ALOGE("Could not get OUTPUT_HEIGHT property");
+  else{
+    uint64_t output_h_max=0;
+    std::tie(ret,output_h_max) = output_h_property_.range_max();
+    if(!ret)
+      output_h_max_ = output_h_max;
+    else
+      ALOGE("Could not get OUTPUT_HEIGHT range_max property");
+  }
 
   ret = drm_->GetPlaneProperty(*this, "SCALE_RATE", &scale_rate_property_);
   if (ret)
@@ -264,51 +294,13 @@ int DrmPlane::Init() {
     if(!ret)
       scale_min_ = 1/scale_rate;
     else
-      ALOGE("Could not get INPUT_WIDTH range_min property");
+      ALOGE("Could not get SCALE_RATE range_min property");
     std::tie(ret,scale_rate) = scale_rate_property_.range_max();
     if(!ret)
       scale_max_ = scale_rate;
     else
-      ALOGE("Could not get INPUT_WIDTH range_max property");
+      ALOGE("Could not get SCALE_RATE range_max property");
   }
-
-#else
-
-  ret = drm_->GetPlaneProperty(*this, "GLOBAL_ALPHA", &alpha_property_);
-  if (ret)
-    ALOGI("Could not get alpha property");
-
-  ret = drm_->GetPlaneProperty(*this, "BLEND_MODE", &blend_mode_property_);
-  if (ret)
-    ALOGI("Could not get pixel blend mode property");
-
-
-  uint64_t scale=0, alpha=0, hdr2sdr=0, sdr2hdr=0, afbdc=0;
-
-  feature_property_.set_feature("scale");
-  std::tie(ret,scale) = feature_property_.value();
-  b_scale_ = ((scale & DRM_PLANE_FEARURE_BIT_SCALE) > 0)?true:false;
-
-  rotation_property_.set_feature("alpha");
-  std::tie(ret, alpha) = rotation_property_.value();
-  b_alpha_ = ((alpha & DRM_PLANE_FEARURE_BIT_ALPHA) > 0)?true:false;;
-
-  feature_property_.set_feature("hdr2sdr");
-  std::tie(ret, hdr2sdr) = feature_property_.value();
-  b_hdr2sdr_ = ((hdr2sdr == DRM_PLANE_FEARURE_BIT_HDR2SDR) > 0)?true:false;
-
-  feature_property_.set_feature("sdr2hdr");
-  std::tie(ret, sdr2hdr) = feature_property_.value();
-  b_sdr2hdr_ = ((sdr2hdr & DRM_PLANE_FEARURE_BIT_SDR2HDR) > 0)?true:false;
-
-  feature_property_.set_feature("afbdc");
-  std::tie(ret, afbdc) = feature_property_.value();
-  b_afbdc_ = ((afbdc & DRM_PLANE_FEARURE_BIT_AFBDC) > 0)?true:false;
-  if(0xFF == afbdc)
-    b_afbc_prop_ = false;
-  else
-    b_afbc_prop_ = true;
-#endif
   return 0;
 }
 
@@ -458,6 +450,30 @@ bool DrmPlane::get_yuv(){
     return b_yuv_;
 }
 
+int DrmPlane::get_scale_rate_max(){
+    return scale_max_;
+}
+
+int DrmPlane::get_scale_rate_min(){
+    return scale_min_;
+}
+
+int DrmPlane::get_input_w_max(){
+    return input_w_max_;
+}
+
+int DrmPlane::get_input_h_max(){
+    return input_h_max_;
+}
+
+int DrmPlane::get_output_w_max(){
+    return output_w_max_;
+}
+
+int DrmPlane::get_output_h_max(){
+    return output_h_max_;
+}
+
 void DrmPlane::set_yuv(bool b_yuv)
 {
     b_yuv_ = b_yuv;
@@ -481,7 +497,15 @@ void DrmPlane::set_reserved(bool b_reserved) {
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){
-  return (scale_rate > scale_min_) || (scale_rate < scale_max_ );
+  return (scale_rate > scale_min_) || (scale_rate < scale_max_);
+}
+
+bool DrmPlane::is_support_input(int input_w, int input_h){
+  return (input_w <= input_w_max_) && (input_h <= input_h_max_);
+}
+
+bool DrmPlane::is_support_output(int output_w, int output_h){
+  return (output_w <= output_w_max_) && (output_h <= output_h_max_);
 }
 
 bool DrmPlane::is_support_format(uint32_t format, bool afbcd){

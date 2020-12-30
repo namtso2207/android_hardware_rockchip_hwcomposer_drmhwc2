@@ -430,6 +430,28 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             continue;
 
                           }
+                          int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
+                          int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
+                          if((*iter_plane)->is_support_input(input_w,input_h)){
+                            bNeed = true;
+                          }else{
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support intput (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->id(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
+                            continue;
+
+                          }
+
+                          int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                          int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
+
+                          if((*iter_plane)->is_support_output(output_w,output_h)){
+                            bNeed = true;
+                          }else{
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                            continue;
+
+                          }
 
                           b_scale = (*iter_plane)->get_scale();
                           if((*iter_layer)->bScale_)
@@ -441,7 +463,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                               else
                               {
-#if VOP2
                                   if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
                                       (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_))
                                     bNeed = true;
@@ -451,16 +472,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                     continue;
 
                                   }
-#else
-                              if((*iter_layer)->fHScaleMul_ >= 8.0 || (*iter_layer)->fVScaleMul_ >= 8.0 ||
-                                  (*iter_layer)->fHScaleMul_ <= 0.125 || (*iter_layer)->fVScaleMul_ <= 0.125)
-                              {
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                          (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
-                                  continue;
-                              }else
-                                  bNeed = true;
-#endif
                               }
                           }
 
@@ -496,7 +507,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               else
                                   bNeed = true;
                           }
-
 //                          //Reserve some plane with no need for specific features in current layer.
 //                          if(!bNeed && !bMulArea)
 //                          {

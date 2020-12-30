@@ -150,10 +150,18 @@ class DrmPlane {
   bool get_afbc();
   bool get_afbc_prop();
   bool get_yuv();
+  int get_scale_rate_max();
+  int get_scale_rate_min();
+  int get_input_w_max();
+  int get_input_h_max();
+  int get_output_w_max();
+  int get_output_h_max();
   void set_yuv(bool b_yuv);
   bool is_reserved();
   void set_reserved(bool b_reserved);
   bool is_support_scale(float scale_rate);
+  bool is_support_input(int input_w, int input_h);
+  bool is_support_output(int output_w, int output_h);
   bool is_support_format(uint32_t format, bool afbcd);
   inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
   inline void set_current_crtc_bit(uint32_t current_crtc) { current_crtc_ = current_crtc;}
@@ -206,6 +214,10 @@ class DrmPlane {
   bool b_afbc_prop_;
   DrmPlaneType win_type_;
   uint32_t rotate_;
+  int input_w_max_;
+  int input_h_max_;
+  int output_w_max_;
+  int output_h_max_;
   float scale_min_=0.0;
   float scale_max_=0.0;
 
