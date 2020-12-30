@@ -453,7 +453,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support format=0x%x afbcd = %d",(*iter_plane)->id(),(*iter_layer)->iFormat_,(*iter_layer)->bAfbcd_);
                             continue;
-
                           }
                           int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
                           int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
@@ -681,9 +680,13 @@ int PlanStageVop2::MatchBestPlanes(
     // We don't have any planes left
     if (ret == -ENOENT){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
+      ResetLayer(layers);
+      ResetPlaneGroups(plane_groups);
       return ret;
     }else if (ret) {
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
+      ResetLayer(layers);
+      ResetPlaneGroups(plane_groups);
       return ret;
     }
   }
@@ -707,12 +710,11 @@ int PlanStageVop2::MatchPlanes(
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
     ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),&zpos);
-    // We don't have any planes left
-    if (ret == -ENOENT){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
-      return ret;
-    }else if (ret) {
+    if (ret) {
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
+      ResetLayer(layers);
+      ResetPlaneGroups(plane_groups);
+      composition->clear();
       return ret;
     }
   }
@@ -961,7 +963,7 @@ int PlanStageVop2::TryMixSkipPolicy(
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
     if(first > (layers.size() - 1 - last) && first != 0){
-      for(first--; first == 0; first--){
+      for(first--; first <= 0; first--){
         OutputMatchLayer(first, last, layers, tmp_layers);
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
@@ -973,7 +975,7 @@ int PlanStageVop2::TryMixSkipPolicy(
       }
       ResetLayerFromTmp(layers,tmp_layers);
     }else if(last < layers.size()){
-      for(last++; last == layers.size() - 1; last++){
+      for(last++; last <= layers.size() - 1; last++){
         OutputMatchLayer(first, last, layers, tmp_layers);
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
@@ -1256,7 +1258,7 @@ int PlanStageVop2::TryMatchPolicyFirst(
     if(layer->bFbTarget_)
       continue;
 
-    if(layer->bSkipLayer_){
+    if(layer->bSkipLayer_ || layer->bGlesCompose_){
       iReqSkipCnt++;
       continue;
     }
