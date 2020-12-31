@@ -34,6 +34,9 @@
 #include <log/log.h>
 #include <utils/Trace.h>
 
+#include <linux/fb.h>
+
+
 
 #define ALOGD_HWC2_INFO(log_level) \
     ALOGD_IF(LogLevel(log_level),"%s,line=%d",__FUNCTION__,__LINE__)
@@ -1105,6 +1108,28 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     ALOGE("Failed to apply the dpms composition ret=%d", ret);
     return HWC2::Error::BadParameter;
   }
+
+  int fb0_fd = resource_manager_->getFb0Fd();
+  if(fb0_fd<=0)
+    ALOGE_IF(LogLevel(DBG_ERROR),"%s,line=%d fb0_fd = %d can't operation /dev/graphics/fb0 node.",
+              __FUNCTION__,__LINE__,fb0_fd);
+  int fb_blank = 0;
+  if(dpms_value == DRM_MODE_DPMS_OFF)
+    fb_blank = FB_BLANK_POWERDOWN;
+  else if(dpms_value == DRM_MODE_DPMS_ON)
+    fb_blank = FB_BLANK_UNBLANK;
+  else
+    ALOGE("dpmsValue is invalid value= %" PRIu64 "",dpms_value);
+  if(fb_blank != fb_blanked && fb0_fd > 0){
+    int err = ioctl(fb0_fd, FBIOBLANK, fb_blank);
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s Notice fb_blank to fb=%d", __FUNCTION__, fb_blank);
+    if (err < 0) {
+      ALOGE("fb_blank ioctl failed(%d) display=%" PRIu64 ",fb_blank=%d,dpmsValue=%" PRIu64 "",
+          errno,handle_,fb_blank,dpms_value);
+    }
+  }
+
+  fb_blanked = fb_blank;
 
   if(connector_){
     connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
@@ -2334,7 +2359,6 @@ int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
     return -EINVAL;
   }
   g_ctx = ctx.get();
-
 
   signal(SIGALRM, StaticScreenOptHandler);
 

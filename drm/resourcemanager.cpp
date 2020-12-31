@@ -55,6 +55,12 @@ int ResourceManager::Init() {
     return ret ? -EINVAL : ret;
   }
 
+  fb0_fd = open("/dev/graphics/fb0", O_RDWR, 0);
+  if(fb0_fd < 0){
+    ALOGE("Open fb0 fail in %s",__FUNCTION__);
+  }
+
+
   return 0;
 }
 
