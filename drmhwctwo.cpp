@@ -1683,6 +1683,12 @@ int DrmHwcTwo::HwcDisplay::EntreStaticScreen(uint64_t refresh, int refresh_cnt){
     return 0;
 }
 
+int DrmHwcTwo::HwcDisplay::InvalidateControl(uint64_t refresh, int refresh_cnt){
+    invalidate_worker_.InvalidateControl(refresh, refresh_cnt);
+    return 0;
+}
+
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
   blending_ = static_cast<HWC2::BlendMode>(mode);
@@ -2117,8 +2123,10 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     DrmConnector* conn = drm_->GetConnectorForDisplay(display_id);
     if(conn->raw_state() != DRM_MODE_CONNECTED)
       display.ClearDisplay();
-    else
+    else{
       display.Init();
+      display.InvalidateControl(5,20);
+    }
   }
 
   return;

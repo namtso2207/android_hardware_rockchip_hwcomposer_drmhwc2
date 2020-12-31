@@ -238,6 +238,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
    int StaticScreenOptSet(bool isGLESComp);
    int EntreStaticScreen(uint64_t refresh, int refresh_cnt);
+   int InvalidateControl(uint64_t refresh, int refresh_cnt);
 
    private:
     HWC2::Error ValidatePlanes();
