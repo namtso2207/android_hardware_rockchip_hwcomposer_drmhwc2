@@ -122,12 +122,63 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
+int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle, int width,
+                                         int height, int layerCount, int format,
+                                         int usage, int stride) {
+  native_handle_t *handle_copy;
+  GraphicBufferMapper &gm(GraphicBufferMapper::get());
+  int ret;
+
+#ifdef HWC2_USE_OLD_GB_IMPORT
+  UNUSED(width);
+  UNUSED(height);
+  UNUSED(layerCount);
+  UNUSED(format);
+  UNUSED(usage);
+  UNUSED(stride);
+  ret = gm.importBuffer(handle, const_cast<buffer_handle_t *>(&handle_copy));
+#else
+  ret = gm.importBuffer(handle, width, height, layerCount, format, usage,
+                        stride, const_cast<buffer_handle_t *>(&handle_copy));
+#endif
+  if (ret) {
+    ALOGE("Failed to import buffer handle %d", ret);
+    return ret;
+  }
+
+  Clear();
+
+  handle_ = handle_copy;
+
+  return 0;
+}
+
+DrmHwcNativeHandle::~DrmHwcNativeHandle() {
+  Clear();
+}
+
+void DrmHwcNativeHandle::Clear() {
+  if (handle_ != NULL) {
+    GraphicBufferMapper &gm(GraphicBufferMapper::get());
+    int ret = gm.freeBuffer(handle_);
+    if (ret) {
+      ALOGE("Failed to free buffer handle %d", ret);
+    }
+    handle_ = NULL;
+  }
+}
+
 int DrmHwcLayer::ImportBuffer(Importer *importer) {
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)
     return ret;
 
   const hwc_drm_bo *bo = buffer.operator->();
+
+  ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height, bo->layer_cnt,
+                                bo->hal_format, bo->usage, bo->pixel_stride);
+  if (ret)
+    return ret;
 
   gralloc_buffer_usage = bo->usage;
 

@@ -185,13 +185,14 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
-  int fd,width,height,byte_stride,usage;
+  int fd,width,height,byte_stride,usage,hal_format;
   uint32_t fourcc_format;
   uint64_t format_modifier;
   fd     = drmGralloc_->hwc_get_handle_primefd(handle);
   width  = drmGralloc_->hwc_get_handle_attibute(handle,ATT_WIDTH);
   height = drmGralloc_->hwc_get_handle_attibute(handle,ATT_HEIGHT);
   usage  = drmGralloc_->hwc_get_handle_usage(handle);
+  hal_format = drmGralloc_->hwc_get_handle_format(handle);
   byte_stride     = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE_WORKROUND);
   fourcc_format   = drmGralloc_->hwc_get_handle_fourcc_format(handle);
   format_modifier = drmGralloc_->hwc_get_handle_format_modifier(handle);
@@ -209,6 +210,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->height = height;
   bo->format = fourcc_format;
   bo->usage = usage;
+  bo->hal_format = hal_format;
 //  bo->pixel_stride = (byte_stride) /
 //                     DrmFormatToBitsPerPixel(bo->format);
   bo->pitches[0] = byte_stride;
