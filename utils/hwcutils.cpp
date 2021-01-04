@@ -175,8 +175,10 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 
   const hwc_drm_bo *bo = buffer.operator->();
 
-  ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height, bo->layer_cnt,
-                                bo->hal_format, bo->usage, bo->pixel_stride);
+  // Fix YUV can't importBuffer bug.
+  // layerCount is always 1 and pixel_stride is always 0.
+  ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height, 1/*bo->layer_cnt*/,
+                                bo->hal_format, bo->usage, 0/*bo->pixel_stride*/);
   if (ret)
     return ret;
 
