@@ -292,7 +292,7 @@ int DrmPlane::Init() {
     uint64_t scale_rate=0;
     std::tie(ret,scale_rate) = scale_rate_property_.range_min();
     if(!ret)
-      scale_min_ = 1/scale_rate;
+      scale_min_ = 1/(scale_rate * 1.0);
     else
       ALOGE("Could not get SCALE_RATE range_min property");
     std::tie(ret,scale_rate) = scale_rate_property_.range_max();
@@ -497,7 +497,7 @@ void DrmPlane::set_reserved(bool b_reserved) {
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){
-  return (scale_rate > scale_min_) || (scale_rate < scale_max_);
+  return (scale_rate > scale_min_) && (scale_rate < scale_max_);
 }
 
 bool DrmPlane::is_support_input(int input_w, int input_h){

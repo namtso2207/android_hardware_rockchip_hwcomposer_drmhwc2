@@ -511,7 +511,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               {
 
                                   if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
-                                      (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_))
+                                      (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
                                     bNeed = true;
                                   else{
                                     ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
