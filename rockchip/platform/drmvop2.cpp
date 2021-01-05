@@ -384,6 +384,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
   static bool b_cluster0_used = false;
   static bool b_cluster1_used = false;
+  static int i_cluster0_used_dst_x_offset = 0;
+  static int i_cluster1_used_dst_x_offset = 0;
   static bool b_cluster0_two_win_mode = false;
   static bool b_cluster1_two_win_mode = false;
 
@@ -431,21 +433,41 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                                 b_cluster0_used = false;
                                 b_cluster0_two_win_mode = true;
+                                i_cluster0_used_dst_x_offset = 0;
                           }
 
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
                                 b_cluster1_used = false;
                                 b_cluster1_two_win_mode = true;
+                                i_cluster1_used_dst_x_offset = 0;
                           }
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0 && !b_cluster0_two_win_mode ){
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
-                            continue;
+                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
+                            if(!b_cluster0_two_win_mode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+                            if((i_cluster0_used_dst_x_offset % 2) !=  (dst_x_offset % 2)){
+                              b_cluster0_two_win_mode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),i_cluster0_used_dst_x_offset,dst_x_offset);
+                              continue;
+                            }
+
                           }
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0 && !b_cluster1_two_win_mode ){
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
-                            continue;
+                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0){
+                            if(!b_cluster1_two_win_mode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+
+                            if((i_cluster1_used_dst_x_offset % 2) !=  (dst_x_offset % 2)){
+                              b_cluster1_two_win_mode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),i_cluster1_used_dst_x_offset,dst_x_offset);
+                              continue;
+                            }
                           }
 
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
@@ -487,6 +509,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                               else
                               {
+
                                   if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
                                       (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_))
                                     bNeed = true;
@@ -604,6 +627,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                               b_cluster0_used = true;
+                              i_cluster0_used_dst_x_offset = (*iter_layer)->display_frame.left;
                               if(input_w > 2048 || output_w > 2048 || rotation != 0){
                                   b_cluster0_two_win_mode = false;
                               }else{
@@ -611,6 +635,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                           }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
                               b_cluster0_used = true;
+                              i_cluster1_used_dst_x_offset = (*iter_layer)->display_frame.left;
                               if(input_w > 2048 || output_w > 2048 || rotation != 0){
                                   b_cluster1_two_win_mode = false;
                               }else{
