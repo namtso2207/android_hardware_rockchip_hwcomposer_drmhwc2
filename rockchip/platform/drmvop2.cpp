@@ -988,12 +988,12 @@ int PlanStageVop2::TryMixSkipPolicy(
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
     if(first > (layers.size() - 1 - last) && first != 0){
-      for(first--; first <= 0; first--){
+      for(first--; first >= 0; first--){
         OutputMatchLayer(first, last, layers, tmp_layers);
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
-          ResetLayerFromTmp(layers,tmp_layers);
+          ResetLayerFromTmpExceptFB(layers,tmp_layers);
           continue;
         }else
           return ret;
@@ -1005,7 +1005,7 @@ int PlanStageVop2::TryMixSkipPolicy(
         int ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
-          ResetLayerFromTmp(layers,tmp_layers);
+          ResetLayerFromTmpExceptFB(layers,tmp_layers);
           continue;
         }else
           return ret;
@@ -1205,6 +1205,8 @@ int PlanStageVop2::TryMixPolicy(
     ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
+    else
+      return ret;
   }
 
   if(setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){

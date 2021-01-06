@@ -41,7 +41,7 @@
 #include "rockchip/utils/drmdebug.h"
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.1.42"
+#define GHWC_VERSION                    "HWC2-1.1.43"
 
 namespace android {
 
