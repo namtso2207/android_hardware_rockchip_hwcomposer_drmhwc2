@@ -313,6 +313,15 @@ bool DrmHwcLayer::IsGlesCompose(){
     return true;
   }
 
+  switch(sf_composition){
+    case HWC2::Composition::Client:
+    case HWC2::Composition::Sideband:
+    case HWC2::Composition::SolidColor:
+      return true;
+    default:
+      break;
+  }
+
   return false;
 }
 int DrmHwcLayer::GetSkipLine(){

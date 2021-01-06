@@ -24,7 +24,7 @@
 #include <utils/String8.h>
 
 #include <hardware/hardware.h>
-#include <hardware/hwcomposer.h>
+#include <hardware/hwcomposer2.h>
 
 #include "autofd.h"
 #include "drmhwcgralloc.h"
@@ -147,6 +147,7 @@ struct DrmHwcLayer {
   DrmHwcNativeHandle handle;
   uint32_t transform;
   DrmHwcBlending blending = DrmHwcBlending::kNone;
+  HWC2::Composition sf_composition;
   uint16_t alpha = 0xff;
   hwc_frect_t source_crop;
   hwc_rect_t display_frame;

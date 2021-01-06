@@ -1157,6 +1157,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateDisplayMode();
   drm_->UpdateDisplayRoute();
 
+
   *num_types = 0;
   *num_requests = 0;
 
@@ -1171,7 +1172,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
           __FUNCTION__, __LINE__);
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-      l.second.set_validated_type(HWC2::Composition::Device);
+      l.second.set_validated_type(HWC2::Composition::Client);
     return HWC2::Error::None;
   }
 
@@ -1234,14 +1235,20 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
   }
 
   output.append(
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
-              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
-  for (auto &map_layer : layers_) {
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |  sf-type  |  hwc-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+  for (uint32_t z_order = 0; z_order <= layers_.size(); z_order++) {
+    for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
-      layer.DumpLayerInfo(output);
+      if(layer.z_order() == z_order){
+        layer.DumpLayerInfo(output);
+        break;
+      }
+    }
   }
-  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+
+  output.append("------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   output.append("DrmHwcLayer Dump:\n");
 
   for(auto &drmHwcLayer : drm_hwc_layers_)
@@ -1258,15 +1265,19 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(String8 &output){
                         frame_no_);
 
   output.append(
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
-              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
-
-  for (auto &map_layer : layers_) {
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |  req-type | fina-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+  for (uint32_t z_order = 0; z_order <= layers_.size(); z_order++) {
+    for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
-      layer.DumpLayerInfo(output);
+      if(layer.z_order() == z_order){
+        layer.DumpLayerInfo(output);
+        break;
+      }
+    }
   }
-  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+  output.append("------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   return 0;
 }
 
@@ -1278,19 +1289,23 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
                         frame_no_);
 
   output.append(
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
-              "  id  |  z  |    type   |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
-              "------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n"
+              "  id  |  z  |  sf-type  |  hwc-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace \n"
+              "------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   ALOGD("%s",output.string());
-
-  for (auto &map_layer : layers_) {
-      output.clear();
+  for (uint32_t z_order = 0; z_order <= layers_.size(); z_order++) {
+    for (auto &map_layer : layers_) {
       HwcLayer &layer = map_layer.second;
-      layer.DumpLayerInfo(output);
-      ALOGD("%s",output.string());
+      if(layer.z_order() == z_order){
+        output.clear();
+        layer.DumpLayerInfo(output);
+        ALOGD("%s",output.string());
+        break;
+      }
+    }
   }
   output.clear();
-  output.append("------+-----+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
+  output.append("------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------\n");
   ALOGD("%s",output.string());
   return 0;
 }
@@ -1701,8 +1716,8 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
 //  ALOGD("SetLayerBuffer Layer-id=%" PRIu32 ",buffer = %p",id_,buffer);
   UniqueFd uf(acquire_fence);
 
-// Deleting the following logic may cause the problem that the handle cannot be updated
-//  // The buffer and acquire_fence are handled elsewhere
+  //Deleting the following logic may cause the problem that the handle cannot be updated
+  // The buffer and acquire_fence are handled elsewhere
 //  if (sf_type_ == HWC2::Composition::Client ||
 //      sf_type_ == HWC2::Composition::Sideband ||
 //      sf_type_ == HWC2::Composition::SolidColor)
@@ -1720,7 +1735,7 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerColor(hwc_color_t color) {
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerCompositionType(int32_t type) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  ALOGD_HWC2_LAYER_INFO(DBG_DEBUG, id_);
   sf_type_ = static_cast<HWC2::Composition>(type);
   return HWC2::Error::None;
 }
@@ -1784,8 +1799,6 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
 
 void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
                                                  hwc_drm_display_t* ctx, uint32_t frame_no) {
-  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d , layer-id = %" PRIu64,__FUNCTION__,__LINE__,layer_id);
-
   drmHwcLayer->uId_        = layer_id;
   drmHwcLayer->iZpos_      = z_order_;
   drmHwcLayer->uFrameNo_   = frame_no;
@@ -1794,6 +1807,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->bUse_       = true;
   drmHwcLayer->eDataSpace_ = dataspace_;
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
+  drmHwcLayer->sf_composition = sf_type();
 
   switch (blending_) {
     case HWC2::BlendMode::None:
@@ -1915,8 +1929,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 
-  output.appendFormat( " %04" PRIu32 " | %03" PRIu32 " | %9s | %-18.18" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
-                    id_,z_order_,to_string(validated_type_).c_str(),
+  output.appendFormat( " %04" PRIu32 " | %03" PRIu32 " | %9s | %9s | %-18.18" PRIxPTR " | %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d | %x\n",
+                    id_,z_order_,to_string(sf_type_).c_str(),to_string(validated_type_).c_str(),
                     intptr_t(buffer_), to_string(transform_).c_str(), to_string(blending_).c_str(),
                     source_crop_.left, source_crop_.top, source_crop_.right, source_crop_.bottom,
                     display_frame_.left, display_frame_.top, display_frame_.right, display_frame_.bottom,
