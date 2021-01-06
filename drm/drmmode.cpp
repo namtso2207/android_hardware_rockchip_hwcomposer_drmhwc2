@@ -113,6 +113,11 @@ bool DrmMode::equal(uint32_t width, uint32_t height, float vrefresh,
   if (fabs(v_refresh - vrefresh) > 1.0f)
     return false;
 
+//  ALOGD("rk-debug req  : w=%d,h=%d,fps=%d,hsync_start=%d,hsync_end=%d,htotal=%d,vsync_start=%d,vsync_end=%d,vtotal=%d,flags=%x",
+//        width,height,vrefresh_temp,hsync_start,hsync_end,htotal,vsync_start,vsync_end,vtotal,flags);
+//  ALOGD("rk-debug check: w=%d,h=%d,fps=%d,hsync_start=%d,hsync_end=%d,htotal=%d,vsync_start=%d,vsync_end=%d,vtotal=%d,flags=%x , id=%d",
+//        h_display_,v_display_,v_refresh_temp,h_sync_start_,h_sync_end_,h_total_,v_sync_start_,v_sync_end_,v_total_,flags_,id());
+
   if (h_display_ == width && v_display_ == height &&
       hsync_start == h_sync_start_ && hsync_end == h_sync_end_ &&
       vsync_start == v_sync_start_ && vsync_end == v_sync_end_ &&
