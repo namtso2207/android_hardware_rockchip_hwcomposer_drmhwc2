@@ -227,33 +227,23 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   uint64_t internal_format;
   memset(modifier, 0, sizeof(modifier));
 
-  if (AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (format_modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d afbcd layer",drm_->fd(), bo->width, bo->height);
-#ifdef ANDROID_R
-      modifier[0] = DRM_FORMAT_MOD_ARM_AFBC(1);
-      if(DrmFormatToPlaneNum(bo->format) == 2)
-        modifier[1] = DRM_FORMAT_MOD_ARM_AFBC(1);
-#else
-      modifier[0] = DRM_FORMAT_MOD_ARM_AFBC;
-      if(DrmFormatToPlaneNum(bo->format) == 2)
-        modifier[1] = DRM_FORMAT_MOD_ARM_AFBC;
-#endif
-  }
+  modifier[0] = format_modifier;
+  if(DrmFormatToPlaneNum(bo->format) == 2)
+    modifier[1] = format_modifier;
 
   ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
 
-
-  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
       drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-      gem_handle, bo->pitches[0], bo->fb_id);
+      gem_handle, bo->pitches[0], bo->fb_id,format_modifier);
 
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
-    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d",
+    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier=%" PRIx64 ,
     drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-    gem_handle, bo->pitches[0], bo->fb_id);
+    gem_handle, bo->pitches[0], bo->fb_id,format_modifier);
     return ret;
   }
 
