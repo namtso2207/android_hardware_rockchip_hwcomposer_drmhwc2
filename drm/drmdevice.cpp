@@ -37,6 +37,10 @@
 #include <cutils/properties.h>
 #include <log/log.h>
 
+//XML prase
+#include <tinyxml2.h>
+
+
 #define DEFAULT_PRIORITY 10
 
 namespace android {
@@ -73,7 +77,77 @@ bool PlaneSortByArea(const DrmPlane*  plane1,const DrmPlane* plane2)
     return area1 < area2;
 }
 
+void DrmDevice::init_white_modes(void){
+  tinyxml2::XMLDocument doc;
+
+  doc.LoadFile("/system/usr/share/resolution_white.xml");
+
+  tinyxml2::XMLElement* root=doc.RootElement();
+  /* usr tingxml2 to parse resolution.xml */
+  if (!root)
+    return;
+
+  tinyxml2::XMLElement* resolution =root->FirstChildElement("resolution");
+
+  while (resolution) {
+    drmModeModeInfo m;
+
+  #define PARSE(x) \
+    tinyxml2::XMLElement* _##x = resolution->FirstChildElement(#x); \
+    if (!_##x) { \
+      ALOGE("------> failed to parse %s\n", #x); \
+      resolution = resolution->NextSiblingElement(); \
+      continue; \
+    } \
+    m.x = atoi(_##x->GetText())
+  #define PARSE_HEX(x) \
+    tinyxml2::XMLElement* _##x = resolution->FirstChildElement(#x); \
+    if (!_##x) { \
+      ALOGE("------> failed to parse %s\n", #x); \
+      resolution = resolution->NextSiblingElement(); \
+      continue; \
+    } \
+    sscanf(_##x->GetText(), "%x", &m.x);
+
+    PARSE(clock);
+    PARSE(hdisplay);
+    PARSE(hsync_start);
+    PARSE(hsync_end);
+    PARSE(hskew);
+    PARSE(vdisplay);
+    PARSE(vsync_start);
+    PARSE(vsync_end);
+    PARSE(vscan);
+    PARSE(vrefresh);
+    PARSE(htotal);
+    PARSE(vtotal);
+    PARSE_HEX(flags);
+
+    DrmMode mode(&m);
+    /* add modes in "resolution.xml" to white list */
+    white_modes_.push_back(mode);
+    resolution = resolution->NextSiblingElement();
+  }
+}
+
+bool DrmDevice::mode_verify(const DrmMode &m) {
+  if (!white_modes_.size())
+    return true;
+
+  for (const DrmMode &mode : white_modes_) {
+    if (mode.h_display() == m.h_display() && mode.v_display() == m.v_display() &&
+	mode.h_total() == m.h_total() && mode.v_total() == m.v_total() &&
+	mode.clock() == m.clock() && mode.flags() == m.flags())
+      return true;
+  }
+  return false;
+}
+
 std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
+
+
+  init_white_modes();
+
   /* TODO: Use drmOpenControl here instead */
   fd_.Set(open(path, O_RDWR));
   if (fd() < 0) {

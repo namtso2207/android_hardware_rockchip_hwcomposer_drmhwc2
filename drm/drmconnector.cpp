@@ -221,36 +221,29 @@ int DrmConnector::UpdateModes() {
     bool exists = false;
     for (const DrmMode &mode : modes_) {
       if (mode == c->modes[i]) {
-        new_modes.push_back(mode);
-        exists = true;
-        break;
-      }
-    }
-    if (!exists) {
-      DrmMode m(&c->modes[i]);
-      m.set_id(drm_->next_mode_id());
-      new_modes.push_back(m);
-    }
-
-    //Get original mode from connector
-    std::vector<DrmMode> new_raw_modes;
-    for (int i = 0; i < c->count_modes; ++i) {
-      bool exists = false;
-      for (const DrmMode &mode : modes_) {
-        if (mode == c->modes[i]) {
-          new_raw_modes.push_back(mode);
-          exists = true;
-          break;
+        if(type_ == DRM_MODE_CONNECTOR_HDMIA || type_ == DRM_MODE_CONNECTOR_DisplayPort){
+            //filter mode by /system/usr/share/resolution_white.xml.
+            if(drm_->mode_verify(mode)){
+                new_modes.push_back(mode);
+                exists = true;
+                break;
+            }
+        }else{
+            new_modes.push_back(mode);
+            exists = true;
+            break;
         }
       }
-      if (exists)
-        continue;
-
-      DrmMode m(&c->modes[i]);
-      m.set_id(drm_->next_mode_id());
-      new_raw_modes.push_back(m);
     }
-    raw_modes_.swap(new_raw_modes);
+    if (exists)
+      continue;
+
+    DrmMode m(&c->modes[i]);
+    if ((type_ == DRM_MODE_CONNECTOR_HDMIA || type_ == DRM_MODE_CONNECTOR_DisplayPort) && !drm_->mode_verify(m))
+      continue;
+
+    m.set_id(drm_->next_mode_id());
+    new_modes.push_back(m);
 
     // Use only the first DRM_MODE_TYPE_PREFERRED mode found
     if (!preferred_mode_found &&
@@ -260,6 +253,26 @@ int DrmConnector::UpdateModes() {
     }
   }
   modes_.swap(new_modes);
+
+  //Get original mode from connector
+  std::vector<DrmMode> new_raw_modes;
+  for (int i = 0; i < c->count_modes; ++i) {
+    bool exists = false;
+    for (const DrmMode &mode : modes_) {
+      if (mode == c->modes[i]) {
+        new_raw_modes.push_back(mode);
+        exists = true;
+        break;
+      }
+    }
+    if (exists)
+      continue;
+
+    DrmMode m(&c->modes[i]);
+    m.set_id(drm_->next_mode_id());
+    new_raw_modes.push_back(m);
+  }
+
   if (!preferred_mode_found && modes_.size() != 0) {
     preferred_mode_id_ = modes_[0].id();
   }

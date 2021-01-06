@@ -132,8 +132,10 @@ class DrmDevice {
   bool is_hdr_panel_support_st2084(DrmConnector *conn) const;
   bool is_hdr_panel_support_HLG(DrmConnector *conn) const;
   bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
+  bool mode_verify(const DrmMode &mode);
 
  private:
+  void init_white_modes(void);
   void ConfigurePossibleDisplays();
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
@@ -162,6 +164,7 @@ class DrmDevice {
   std::pair<uint32_t, uint32_t> min_resolution_;
   std::pair<uint32_t, uint32_t> max_resolution_;
   std::map<int, int> displays_;
+  std::vector<DrmMode> white_modes_;
 };
 }  // namespace android
 

@@ -58,7 +58,8 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog \
 	libui \
 	libutils \
-	libsync_vendor
+	libsync_vendor \
+        libtinyxml2
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -67,7 +68,8 @@ LOCAL_C_INCLUDES := \
   external/libdrm \
   external/libdrm/include/drm \
   system/core \
-  system/core/libsync/include
+  system/core/libsync/include \
+  external/tinyxml2
 
 
 LOCAL_SRC_FILES := \
