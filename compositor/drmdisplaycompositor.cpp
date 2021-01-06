@@ -162,7 +162,7 @@ DrmDisplayCompositor::~DrmDisplayCompositor() {
   if (!initialized_)
     return;
 
-  vsync_worker_.Exit();
+  //vsync_worker_.Exit();
   int ret = pthread_mutex_lock(&lock_);
   if (ret)
     ALOGE("Failed to acquire compositor lock %d", ret);
@@ -197,7 +197,7 @@ int DrmDisplayCompositor::Init(ResourceManager *resource_manager, int display) {
   display_ = display;
   DrmDevice *drm = resource_manager_->GetDrmDevice(display);
   if (!drm) {
-    ALOGE("Could not find drmdevice for display");
+    ALOGE("Could not find drmdevice for display %d",display);
     return -EINVAL;
   }
   int ret = pthread_mutex_init(&lock_, NULL);
@@ -222,9 +222,9 @@ int DrmDisplayCompositor::Init(ResourceManager *resource_manager, int display) {
 
   pthread_cond_init(&composite_queue_cond_, NULL);
 
-  vsync_worker_.Init(drm, display_);
-  auto callback = std::make_shared<CompositorVsyncCallback>(this);
-  vsync_worker_.RegisterCallback(callback);
+//  vsync_worker_.Init(drm, display_);
+//  auto callback = std::make_shared<CompositorVsyncCallback>(this);
+//  vsync_worker_.RegisterCallback(callback);
 
   initialized_ = true;
   return 0;
@@ -789,7 +789,7 @@ void DrmDisplayCompositor::ClearDisplay() {
     return;
 
   active_composition_.reset(NULL);
-  vsync_worker_.VSyncControl(false);
+  //vsync_worker_.VSyncControl(false);
 }
 
 void DrmDisplayCompositor::ApplyFrame(
@@ -824,8 +824,8 @@ void DrmDisplayCompositor::ApplyFrame(
 
   active_composition_.swap(composition);
 
-  flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
-  vsync_worker_.VSyncControl(!writeback);
+  //flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
+  //vsync_worker_.VSyncControl(!writeback);
 }
 int DrmDisplayCompositor::Composite() {
   ATRACE_CALL();
@@ -1198,6 +1198,7 @@ int DrmDisplayCompositor::FlattenActiveComposition() {
     ALOGV("No writeback connector available");
     return -EINVAL;
   }
+
 
   if (writeback_conn->display() != display_) {
     return FlattenConcurrent(writeback_conn);
