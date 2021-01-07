@@ -305,6 +305,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
       ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
       return HWC2::Error::BadDisplay;
     }
+
+    ChosePreferredConfig();
   }
 
   init_success_ = true;
@@ -312,7 +314,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup(display);
 
-  return ChosePreferredConfig();
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
@@ -2085,10 +2087,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   if (primary != old_primary) {
     drm_->SetPrimaryDisplay(primary);
     int display_id = primary->display();
-    if (primary->raw_state() == DRM_MODE_CONNECTED) {
-      auto &display = hwc2_->displays_.at(display_id);
-      display.ChosePreferredConfig();
-    }else{
+    if (primary->raw_state() != DRM_MODE_CONNECTED) {
       auto &display = hwc2_->displays_.at(display_id);
       display.ClearDisplay();
     }
@@ -2120,11 +2119,15 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   }else{
     if(!old_extend){
       int display_id = extend->display();
+      auto &display = hwc2_->displays_.at(display_id);
+      display.ChosePreferredConfig();
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
     }else{
       int display_id = old_extend->display();
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
       display_id = extend->display();
+      auto &display = hwc2_->displays_.at(display_id);
+      display.ChosePreferredConfig();
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
     }
   }
