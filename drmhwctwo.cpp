@@ -983,6 +983,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   if(ret != HWC2::Error::None){
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
           __FUNCTION__, __LINE__);
+    ClearDisplay();
     *retire_fence = -1;
     return HWC2::Error::None;
   }else{
@@ -1159,7 +1160,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateDisplayMode();
   drm_->UpdateDisplayRoute();
 
-
   *num_types = 0;
   *num_requests = 0;
 
@@ -1169,17 +1169,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     DumpDisplayLayersInfo();
   }
 
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
+    l.second.set_validated_type(HWC2::Composition::Invalid);
+
   ret = CheckDisplayState();
   if(ret != HWC2::Error::None){
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
           __FUNCTION__, __LINE__);
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-      l.second.set_validated_type(HWC2::Composition::Client);
+    ClearDisplay();
     return HWC2::Error::None;
   }
-
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    l.second.set_validated_type(HWC2::Composition::Invalid);
 
   ret = ValidatePlanes();
   if (ret != HWC2::Error::None){

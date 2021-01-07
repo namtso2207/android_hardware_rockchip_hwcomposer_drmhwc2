@@ -41,9 +41,15 @@ class ResourceManager {
   int getDisplayCount() const {
     return num_displays_;
   }
-  inline void creatActiveDisplayCnt(int display) { active_display_.insert(display);}
-  inline void removeActiveDisplayCnt(int display) { active_display_.erase(display);}
-  inline uint32_t getActiveDisplayCnt() { return active_display_.size();}
+  void creatActiveDisplayCnt(int display) {
+    if(active_display_.count(display) == 0)
+      active_display_.insert(display);
+  }
+  void removeActiveDisplayCnt(int display) {
+    if(active_display_.count(display) > 0)
+      active_display_.erase(display);
+  }
+  uint32_t getActiveDisplayCnt() { return active_display_.size();}
   int assignPlaneGroup(int display);
   int getFb0Fd() { return fb0_fd;};
  private:
