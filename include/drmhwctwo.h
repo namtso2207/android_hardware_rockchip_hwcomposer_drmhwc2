@@ -169,6 +169,7 @@ class DrmHwcTwo : public hwc2_device_t {
                HWC2::DisplayType type);
     HwcDisplay(const HwcDisplay &) = delete;
     HWC2::Error Init();
+    HWC2::Error CheckStateAndReinit();
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);

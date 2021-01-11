@@ -126,6 +126,7 @@ void VSyncWorker::Routine() {
     }
   }
 
+
   bool enabled = enabled_;
   int display = display_;
   std::shared_ptr<VsyncCallback> callback(callback_);

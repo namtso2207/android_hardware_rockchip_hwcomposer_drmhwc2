@@ -274,6 +274,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   UpdateDisplayMode();
   drm_->DisplayChanged();
   drm_->UpdateDisplayRoute();
+  drm_->UpdateDisplayMode();
+
+  int ret = vsync_worker_.Init(drm_, display);
+  if (ret) {
+    ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
+    return HWC2::Error::BadDisplay;
+  }
+
+  ret = invalidate_worker_.Init(display);
+  if (ret) {
+    ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
+    return HWC2::Error::BadDisplay;
+  }
 
   crtc_ = drm_->GetCrtcForDisplay(display);
   if (!crtc_) {
@@ -281,41 +294,91 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::BadDisplay;
   }
 
-  if(!init_success_){
-    planner_ = Planner::CreateInstance(drm_);
-    if (!planner_) {
-      ALOGE("Failed to create planner instance for composition");
-      return HWC2::Error::NoResources;
-    }
-
-    int ret = compositor_.Init(resource_manager_, display);
-    if (ret) {
-      ALOGE("Failed display compositor init for display %d (%d)", display, ret);
-      return HWC2::Error::NoResources;
-    }
-
-    ret = vsync_worker_.Init(drm_, display);
-    if (ret) {
-      ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
-      return HWC2::Error::BadDisplay;
-    }
-
-    ret = invalidate_worker_.Init(display);
-    if (ret) {
-      ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
-      return HWC2::Error::BadDisplay;
-    }
-
-    ChosePreferredConfig();
+  planner_ = Planner::CreateInstance(drm_);
+  if (!planner_) {
+    ALOGE("Failed to create planner instance for composition");
+    return HWC2::Error::NoResources;
   }
 
-  init_success_ = true;
+  ret = compositor_.Init(resource_manager_, display);
+  if (ret) {
+    ALOGE("Failed display compositor init for display %d (%d)", display, ret);
+    return HWC2::Error::NoResources;
+  }
 
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup(display);
 
+  HWC2::Error error = ChosePreferredConfig();
+  if(error != HWC2::Error::None){
+    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
+    return error;
+  }
+
+  init_success_ = true;
+
   return HWC2::Error::None;
 }
+
+
+HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
+
+  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  if(init_success_)
+    return HWC2::Error::None;
+
+  int display = static_cast<int>(handle_);
+
+  connector_ = drm_->GetConnectorForDisplay(display);
+  if (!connector_) {
+    ALOGE("Failed to get connector for display %d", display);
+    return HWC2::Error::BadDisplay;
+  }
+
+  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+    ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
+          connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
+    return HWC2::Error::NoResources;
+  }
+
+  UpdateDisplayMode();
+  drm_->DisplayChanged();
+  drm_->UpdateDisplayRoute();
+  drm_->UpdateDisplayMode();
+
+  crtc_ = drm_->GetCrtcForDisplay(display);
+  if (!crtc_) {
+    ALOGE("Failed to get crtc for display %d", display);
+    return HWC2::Error::BadDisplay;
+  }
+
+  planner_ = Planner::CreateInstance(drm_);
+  if (!planner_) {
+    ALOGE("Failed to create planner instance for composition");
+    return HWC2::Error::NoResources;
+  }
+
+  int ret = compositor_.Init(resource_manager_, display);
+  if (ret) {
+    ALOGE("Failed display compositor init for display %d (%d)", display, ret);
+    return HWC2::Error::NoResources;
+  }
+
+  resource_manager_->creatActiveDisplayCnt(display);
+  resource_manager_->assignPlaneGroup(display);
+
+  HWC2::Error error = ChosePreferredConfig();
+  if(error != HWC2::Error::None){
+    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
+    return error;
+  }
+
+  init_success_ = true;
+
+
+  return HWC2::Error::None;
+}
+
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
@@ -1138,6 +1201,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
     drm_->DisplayChanged();
     drm_->UpdateDisplayRoute();
+    drm_->UpdateDisplayMode();
   }
 
   return HWC2::Error::None;
@@ -1159,6 +1223,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateHdmiOutputFormat();
   UpdateDisplayMode();
   drm_->UpdateDisplayRoute();
+  drm_->UpdateDisplayMode();
 
   *num_types = 0;
   *num_requests = 0;
@@ -2132,6 +2197,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   }
 
   drm_->UpdateDisplayRoute();
+  drm_->UpdateDisplayMode();
   for(auto &display_map : hwc2_->displays_){
     auto display_id = display_map.first;
     auto &display = display_map.second;
@@ -2139,7 +2205,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     if(conn->raw_state() != DRM_MODE_CONNECTED)
       display.ClearDisplay();
     else{
-      display.Init();
+      display.CheckStateAndReinit();
       display.InvalidateControl(5,20);
     }
   }

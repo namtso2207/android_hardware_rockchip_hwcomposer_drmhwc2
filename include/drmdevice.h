@@ -109,6 +109,7 @@ class DrmDevice {
   void DisplayChanged(void);
   void SetPrimaryDisplay(DrmConnector *c);
   void SetExtendDisplay(DrmConnector *c);
+  int UpdateDisplayMode(void);
   int UpdateDisplayRoute(void);
   int UpdatePropertys(void);
   void ClearDisplay(void);

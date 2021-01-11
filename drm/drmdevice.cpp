@@ -898,24 +898,104 @@ int DrmDevice::UpdatePropertys(void)
 
 
 static pthread_mutex_t diplay_route_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-int DrmDevice::UpdateDisplayRoute(void)
-{
-  bool mode_changed = false;
+int DrmDevice::UpdateDisplayMode(void){
   int i;
-
   pthread_mutex_lock(&diplay_route_mutex);
+  bool mode_changed = false;
   for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
     DrmConnector *conn = GetConnectorFromType(i);
 
-    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id())
+    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id() ||
+        !conn->encoder() || !conn->encoder()->crtc())
       continue;
     if (conn->current_mode() == conn->active_mode())
       continue;
     mode_changed = true;
   }
 
-  if (!enable_changed_ && !mode_changed)
+  if (!mode_changed)
+  {
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  if (!pset) {
+    ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -ENOMEM;
+  }
+
+  int ret;
+  uint32_t blob_id[HWC_NUM_PHYSICAL_DISPLAY_TYPES] = {0};
+
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    DrmConnector *conn = GetConnectorFromType(i);
+
+    if (!conn)
+      continue;
+    if (conn->state() != DRM_MODE_CONNECTED ||
+        !conn->current_mode().id() || !conn->encoder() ||
+        !conn->encoder()->crtc()) {
+        DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), 0);
+      continue;
+    }
+
+    struct drm_mode_modeinfo drm_mode;
+    memset(&drm_mode, 0, sizeof(drm_mode));
+    conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+    ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
+    if (ret)
+      continue;
+
+    DrmCrtc *crtc = conn->encoder()->crtc();
+
+//    connector->SetDpmsMode(DRM_MODE_DPMS_ON);
+//    DRM_ATOMIC_ADD_PROP(conn->id(), conn->dpms_property().id(), DRM_MODE_DPMS_ON);
+    DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), crtc->id());
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[i]);
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
+  }
+
+  uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+  ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+  if (ret < 0) {
+    ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+    drmModeAtomicFree(pset);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return ret;
+  }
+
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    if (blob_id[i])
+      DestroyPropertyBlob(blob_id[i]);
+  }
+  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
+    DrmConnector *conn = GetConnectorFromType(i);
+
+    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id())
+      continue;
+
+    if (!conn->encoder() || !conn->encoder()->crtc())
+      continue;
+    conn->set_active_mode(conn->current_mode());
+  }
+
+  drmModeAtomicFree(pset);
+
+  hotplug_timeline++;
+
+  pthread_mutex_unlock(&diplay_route_mutex);
+  return 0;
+}
+
+int DrmDevice::UpdateDisplayRoute(void)
+{
+  int i;
+
+  pthread_mutex_lock(&diplay_route_mutex);
+
+  if (!enable_changed_)
   {
     pthread_mutex_unlock(&diplay_route_mutex);
     return 0;
