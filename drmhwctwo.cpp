@@ -425,6 +425,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
     return HWC2::Error::BadDisplay;
   }
 
+  if(!layers_.size()){
+    ALOGE_IF(LogLevel(DBG_ERROR),"display %d layer size is %zu, %s,line=%d", display, layers_.size(),
+          __FUNCTION__, __LINE__);
+    return HWC2::Error::BadLayer;
+  }
+
   return HWC2::Error::None;
 }
 
@@ -473,8 +479,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  layers_.erase(layer);
-  return HWC2::Error::None;
+  if(layers_.count(layer)){
+    layers_.erase(layer);
+    return HWC2::Error::None;
+  }else{
+    return HWC2::Error::BadLayer;
+  }
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
@@ -1088,27 +1098,29 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
-  auto mode = std::find_if(connector_->modes().begin(),
-                           connector_->modes().end(),
-                           [config](DrmMode const &m) {
-                             return m.id() == config;
-                           });
-  if (mode == connector_->modes().end()) {
-    ALOGE("Could not find active mode for %d", config);
-    return HWC2::Error::BadConfig;
+  if(ctx_.bStandardSwitchResolution){
+    auto mode = std::find_if(connector_->modes().begin(),
+                             connector_->modes().end(),
+                             [config](DrmMode const &m) {
+                               return m.id() == config;
+                             });
+    if (mode == connector_->modes().end()) {
+      ALOGE("Could not find active mode for %d", config);
+      return HWC2::Error::BadConfig;
+    }
+
+  //  std::unique_ptr<DrmDisplayComposition> composition = compositor_
+  //                                                           .CreateComposition();
+  //  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
+  //  int ret = composition->SetDisplayMode(*mode);
+  //  ret = compositor_.QueueComposition(std::move(composition));
+  //  if (ret) {
+  //    ALOGE("Failed to queue dpms composition on %d", ret);
+  //    return HWC2::Error::BadConfig;
+  //  }
+
+    connector_->set_active_mode(*mode);
   }
-
-//  std::unique_ptr<DrmDisplayComposition> composition = compositor_
-//                                                           .CreateComposition();
-//  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
-//  int ret = composition->SetDisplayMode(*mode);
-//  ret = compositor_.QueueComposition(std::move(composition));
-//  if (ret) {
-//    ALOGE("Failed to queue dpms composition on %d", ret);
-//    return HWC2::Error::BadConfig;
-//  }
-
-  connector_->set_active_mode(*mode);
 
   // Setup the client layer's dimensions
   hwc_rect_t display_frame = {.left = 0,
@@ -1142,7 +1154,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
 
   if (mode != HAL_COLOR_MODE_NATIVE)
-    return HWC2::Error::Unsupported;
+    return HWC2::Error::BadParameter;
 
   color_mode_ = mode;
   return HWC2::Error::None;
@@ -1152,7 +1164,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
                                                      int32_t hint) {
   ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   // TODO: Force client composition if we get this
-  return unsupported(__func__, matrix, hint);
+  unsupported(__func__, matrix, hint);
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
@@ -1174,9 +1187,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     case HWC2::PowerMode::On:
       dpms_value = DRM_MODE_DPMS_ON;
       break;
-    default:
+    case HWC2::PowerMode::Doze:
+    case HWC2::PowerMode::DozeSuspend:
       ALOGI("Power mode %d is unsupported\n", mode);
       return HWC2::Error::Unsupported;
+    default:
+      ALOGI("Power mode %d is BadParameter\n", mode);
+      return HWC2::Error::BadParameter;
   };
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
@@ -1810,7 +1827,8 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerColor(hwc_color_t color) {
   ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
   // TODO: Punt to client composition here?
-  return unsupported(__func__, color);
+  unsupported(__func__, color);
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerCompositionType(int32_t type) {
