@@ -237,6 +237,8 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
+  if(!initialized_)
+    return -EPERM;
 
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
@@ -249,7 +251,7 @@ int DrmDisplayCompositor::QueueComposition(
        * frames asap.
        */
       active_ = (composition->dpms_mode() == DRM_MODE_DPMS_ON);
-      break;
+      return 0;
     case DRM_COMPOSITION_TYPE_MODESET:
       break;
     case DRM_COMPOSITION_TYPE_EMPTY:
@@ -778,6 +780,9 @@ std::tuple<int, uint32_t> DrmDisplayCompositor::CreateModeBlob(
 }
 
 void DrmDisplayCompositor::ClearDisplay() {
+  if(!initialized_)
+    return;
+
   AutoLock lock(&lock_, __func__);
   if (lock.Lock())
     return;
