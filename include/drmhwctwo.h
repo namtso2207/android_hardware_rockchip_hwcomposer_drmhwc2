@@ -221,6 +221,9 @@ class DrmHwcTwo : public hwc2_device_t {
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){
         return layers_;
     }
+    bool has_layer(hwc2_layer_t layer) {
+      return layers_.count(layer) > 0;
+    }
     HwcLayer &get_layer(hwc2_layer_t layer) {
       return layers_.at(layer);
     }
@@ -312,17 +315,29 @@ class DrmHwcTwo : public hwc2_device_t {
   static int32_t DisplayHook(hwc2_device_t *dev, hwc2_display_t display_handle,
                              Args... args) {
     DrmHwcTwo *hwc = toDrmHwcTwo(dev);
-    HwcDisplay &display = hwc->displays_.at(display_handle);
-    return static_cast<int32_t>((display.*func)(std::forward<Args>(args)...));
+    if(hwc->displays_.count(display_handle)){
+      HwcDisplay &display = hwc->displays_.at(display_handle);
+      return static_cast<int32_t>((display.*func)(std::forward<Args>(args)...));
+    }else{
+      return static_cast<int32_t>(HWC2::Error::BadDisplay);
+    }
   }
 
   template <typename HookType, HookType func, typename... Args>
   static int32_t LayerHook(hwc2_device_t *dev, hwc2_display_t display_handle,
                            hwc2_layer_t layer_handle, Args... args) {
     DrmHwcTwo *hwc = toDrmHwcTwo(dev);
-    HwcDisplay &display = hwc->displays_.at(display_handle);
-    HwcLayer &layer = display.get_layer(layer_handle);
-    return static_cast<int32_t>((layer.*func)(std::forward<Args>(args)...));
+    if(hwc->displays_.count(display_handle)){
+      HwcDisplay &display = hwc->displays_.at(display_handle);
+      if(display.has_layer(layer_handle)){
+        HwcLayer &layer = display.get_layer(layer_handle);
+        return static_cast<int32_t>((layer.*func)(std::forward<Args>(args)...));
+      }else{
+        return static_cast<int32_t>(HWC2::Error::BadLayer);
+      }
+    }else{
+      return static_cast<int32_t>(HWC2::Error::BadDisplay);
+    }
   }
 
   // hwc2_device_t hooks

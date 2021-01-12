@@ -193,11 +193,25 @@ uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
   return 0;
 }
 
+static bool isValid(HWC2::Callback descriptor) {
+    switch (descriptor) {
+        case HWC2::Callback::Hotplug: // Fall-through
+        case HWC2::Callback::Refresh: // Fall-through
+        case HWC2::Callback::Vsync: return true;
+        default: return false;
+    }
+}
+
 HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
                                         hwc2_callback_data_t data,
                                         hwc2_function_pointer_t function) {
   ALOGD_HWC2_INFO(DBG_VERBOSE);
+
   auto callback = static_cast<HWC2::Callback>(descriptor);
+
+  if (!isValid(callback)) {
+      return HWC2::Error::BadParameter;
+  }
 
   if (!function) {
     callbacks_.erase(callback);
@@ -2063,7 +2077,6 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   hotplug(cb->second.data, displayid,
           (state == DRM_MODE_CONNECTED ? HWC2_CONNECTION_CONNECTED
                                        : HWC2_CONNECTION_DISCONNECTED));
-  usleep(200 * 1000);
 }
 
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
@@ -2072,6 +2085,9 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
         continue;
       for (auto &crtc : drmDevice->crtc()) {
         if(conn->display() != crtc->display())
+          continue;
+        // HWC_DISPLAY_PRIMARY display have been hotplug
+        if(conn->display() == HWC_DISPLAY_PRIMARY)
           continue;
         ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
           conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
