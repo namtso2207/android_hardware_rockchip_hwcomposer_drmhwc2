@@ -237,8 +237,6 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
-  if(!initialized_)
-    return -EPERM;
 
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
@@ -260,6 +258,9 @@ int DrmDisplayCompositor::QueueComposition(
       ALOGE("Unknown composition type %d/%d", composition->type(), display_);
       return -ENOENT;
   }
+
+  if(!initialized_)
+    return -EPERM;
 
   int ret = pthread_mutex_lock(&lock_);
   if (ret) {
