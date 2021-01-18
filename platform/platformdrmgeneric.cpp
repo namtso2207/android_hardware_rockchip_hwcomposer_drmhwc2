@@ -322,6 +322,7 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<PlanStageVop2>();
+  planner->AddStage<PlanStageVop>();
   return planner;
 }
 #endif

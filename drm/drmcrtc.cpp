@@ -106,7 +106,7 @@ int DrmCrtc::Init() {
   }
   std::tie(ret, port_id_) = port_id_property_.value();
   if(ret)
-    ALOGE("Failed to get SOC_ID value");
+    ALOGE("Failed to get PORT_ID value");
 
 
   return 0;

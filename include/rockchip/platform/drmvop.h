@@ -66,6 +66,8 @@ typedef enum tagComposeMode
 }ComposeMode;
 
  public:
+
+  bool SupportPlatform(uint32_t soc_id){ return false;};
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc, bool gles_policy);
 

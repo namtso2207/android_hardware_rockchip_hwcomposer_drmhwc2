@@ -118,6 +118,8 @@ class Planner {
     virtual ~PlanStage() {
     }
 
+    virtual bool SupportPlatform(uint32_t soc_id) = 0;
+
     virtual int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                                 std::vector<DrmHwcLayer*> &layers,
                                 DrmCrtc *crtc, bool gles_policy) = 0;

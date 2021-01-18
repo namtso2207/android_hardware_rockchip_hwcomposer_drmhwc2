@@ -1399,5 +1399,17 @@ int PlanStageVop2::TryHwcPolicy(
   ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
   return -1;
 }
+
+bool PlanStageVop2::SupportPlatform(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3566:
+    case 0x3568:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 }
 

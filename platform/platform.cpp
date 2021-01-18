@@ -28,10 +28,12 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
 
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
-    int ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
-    if (ret) {
-      ALOGE("Failed provision stage with ret %d", ret);
-      return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+    if(i->SupportPlatform(crtc->get_soc_id())){
+      int ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
+      if (ret) {
+        ALOGE("Failed provision stage with ret %d", ret);
+        return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+      }
     }
   }
 
