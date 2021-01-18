@@ -150,6 +150,8 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Transform transform_ = HWC2::Transform::None;
     uint32_t z_order_ = 0;
     android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
+    std::string layer_name_;
+
     uint32_t id_;
     DrmGralloc *drmGralloc_;
   };

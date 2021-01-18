@@ -444,6 +444,38 @@ int DrmGralloc::hwc_get_handle_primefd(buffer_handle_t hnd)
 #endif
 }
 
+int DrmGralloc::hwc_get_handle_name(buffer_handle_t hnd, std::string &name){
+#if USE_GRALLOC_4
+
+    int err = gralloc4::get_name(hnd, name);
+    if (err != android::OK)
+    {
+        ALOGE("Failed to get buffer share_fd, err : %d", err);
+        return -1;
+    }
+
+    return (int)err;
+#else   // USE_GRALLOC_4
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_PRIME_FD;
+    int fd = -1;
+
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &fd);
+    else
+        ret = -EINVAL;
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
+    }
+
+    return fd;
+#endif
+
+}
+
+
 uint32_t DrmGralloc::hwc_get_handle_phy_addr(buffer_handle_t hnd)
 {
 #if USE_GRALLOC_4

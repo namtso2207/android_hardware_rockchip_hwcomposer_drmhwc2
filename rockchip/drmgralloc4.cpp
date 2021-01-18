@@ -98,6 +98,8 @@ using android::gralloc4::MetadataType_Width;
 using android::gralloc4::decodeWidth;
 using android::gralloc4::MetadataType_Height;
 using android::gralloc4::decodeHeight;
+using android::gralloc4::MetadataType_Name;
+using android::gralloc4::decodeName;
 
 using aidl::android::hardware::graphics::common::Dataspace;
 using aidl::android::hardware::graphics::common::PlaneLayout;
@@ -307,17 +309,17 @@ uint64_t get_format_modifier(buffer_handle_t handle)
 uint32_t convertToNV12(uint32_t origin_fourcc){
     switch(origin_fourcc){
       case DRM_FORMAT_YUV420_10BIT:
-        ALOGW_IF(LogLevel(android::DBG_INFO),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
+        ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
                  origin_fourcc, origin_fourcc >> 8, origin_fourcc >> 16, origin_fourcc >> 24,
                  DRM_FORMAT_NV12_10, DRM_FORMAT_NV12_10 >> 8, DRM_FORMAT_NV12_10 >> 16, DRM_FORMAT_NV12_10 >> 24);
         return DRM_FORMAT_NV12_10;
       case DRM_FORMAT_YUV420_8BIT:
-        ALOGW_IF(LogLevel(android::DBG_INFO),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
+        ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
                  origin_fourcc, origin_fourcc >> 8, origin_fourcc >> 16, origin_fourcc >> 24,
                  DRM_FORMAT_NV12, DRM_FORMAT_NV12 >> 8, DRM_FORMAT_NV12 >> 16, DRM_FORMAT_NV12 >> 24);
         return DRM_FORMAT_NV12;
       case DRM_FORMAT_YUYV:
-        ALOGW_IF(LogLevel(android::DBG_INFO),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
+        ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: fourcc %c%c%c%c => %c%c%c%c",__FUNCTION__,__LINE__,
                  origin_fourcc, origin_fourcc >> 8, origin_fourcc >> 16, origin_fourcc >> 24,
                  DRM_FORMAT_NV16, DRM_FORMAT_NV16 >> 8, DRM_FORMAT_NV16 >> 16, DRM_FORMAT_NV16 >> 24);
         return DRM_FORMAT_NV16;
@@ -522,11 +524,11 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
         if(format_requested == HAL_PIXEL_FORMAT_YUV420_8BIT_I
            || format_requested == HAL_PIXEL_FORMAT_YUV420_10BIT_I
            || format_requested == HAL_PIXEL_FORMAT_Y210){
-            ALOGW_IF(LogLevel(android::DBG_INFO),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
                       __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) * 2 / 3);
             *byte_stride = (layouts[0].strideInBytes) * 2 / 3;
         }else if(format_requested == HAL_PIXEL_FORMAT_YCBCR_422_I){
-            ALOGW_IF(LogLevel(android::DBG_INFO),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
                       __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) / 2);
             *byte_stride = (layouts[0].strideInBytes) / 2;
         }else{
@@ -619,6 +621,20 @@ int get_share_fd(buffer_handle_t handle, int* share_fd)
 
     return err;
 }
+
+int get_name(buffer_handle_t handle, std::string &name)
+{
+    auto &mapper = get_service();
+
+    int err = get_metadata(mapper, handle, MetadataType_Name, decodeName, &name);
+    if (err != android::OK)
+    {
+        ALOGE("err : %d", err);
+    }
+
+    return err;
+}
+
 
 status_t importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle)
 {

@@ -148,12 +148,12 @@ int ResourceManager::assignPlaneGroup(int display){
   uint32_t active_display_num = getActiveDisplayCnt();
 
   if(active_display_num==0){
-    ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
+    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
                                  __FUNCTION__,__LINE__,active_display_num);
     return -1;
   }
 
-  ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d, active_display_num = %u, display=%d",
+  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u, display=%d",
                                __FUNCTION__,__LINE__,active_display_num,display);
 
 

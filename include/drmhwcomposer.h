@@ -178,6 +178,7 @@ struct DrmHwcLayer {
   int iUsage;
   uint32_t uFourccFormat_;
   uint64_t uModifier_;
+  std::string sLayerName_;
 
   bool bMatch_;
   bool bUse_;

@@ -49,7 +49,7 @@ void PlanStageVop2::Init(){
   bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
 
   bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
-  ALOGI_IF(LogLevel(DBG_INFO),"PlanStageVop2::Init bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
+  ALOGI_IF(LogLevel(DBG_DEBUG),"PlanStageVop2::Init bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
             bMultiAreaEnable,bMultiAreaScaleEnable);
 }
 
@@ -116,8 +116,8 @@ bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_t
         || IsXIntersect(&layer_one->display_frame,&layer_two->display_frame)
         )
     {
-        ALOGD_IF(LogLevel(DBG_INFO),"is_layer_combine layer one alpha=%d,is_scale=%d",layer_one->alpha,layer_one->bScale_);
-        ALOGD_IF(LogLevel(DBG_INFO),"is_layer_combine layer two alpha=%d,is_scale=%d",layer_two->alpha,layer_two->bScale_);
+        ALOGD_IF(LogLevel(DBG_DEBUG),"is_layer_combine layer one alpha=%d,is_scale=%d",layer_one->alpha,layer_one->bScale_);
+        ALOGD_IF(LogLevel(DBG_DEBUG),"is_layer_combine layer two alpha=%d,is_scale=%d",layer_two->alpha,layer_two->bScale_);
         return false;
     }
 
@@ -257,7 +257,7 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
         for(std::vector<DrmHwcLayer*>::const_iterator iter_layer = iter->second.begin();
             iter_layer != iter->second.end();++iter_layer)
         {
-             ALOGD_IF(LogLevel(DBG_DEBUG),"\tlayer id=%u",(*iter_layer)->uId_);
+             ALOGD_IF(LogLevel(DBG_DEBUG),"\tlayer id=%u , name=%s",(*iter_layer)->uId_,(*iter_layer)->sLayerName_.c_str());
         }
   }
 

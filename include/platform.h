@@ -50,7 +50,7 @@ typedef struct tagPlaneGroup{
 
 
   bool set_current_crtc( uint32_t crtc_mask ){
-    ALOGD_IF(LogLevel(DBG_INFO),"set_current_crtc = %x, current_crtc_mask=%x, possible_crtcs=%" PRIx32,
+    ALOGD_IF(LogLevel(DBG_DEBUG),"set_current_crtc = %x, current_crtc_mask=%x, possible_crtcs=%" PRIx32,
              crtc_mask,current_crtc_mask,possible_crtcs);
     if(!(possible_crtcs & crtc_mask))
       return false;
@@ -63,14 +63,14 @@ typedef struct tagPlaneGroup{
    void reset_current_crtc(){
     if(last_crtc_mask.size()>0){
       current_crtc_mask = last_crtc_mask.top();
-      ALOGD_IF(LogLevel(DBG_INFO),"reset_current_crtc, reset current_crtc_mask to %x",current_crtc_mask);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"reset_current_crtc, reset current_crtc_mask to %x",current_crtc_mask);
       last_crtc_mask.pop();
     }
     return;
   }
 
   bool match_crtc(uint32_t crtc_mask){
-    ALOGD_IF(LogLevel(DBG_INFO),"Match_crtc: PlaneGroup share_id = %" PRIu64 ", current_crtc_mask=%x ,"
+    ALOGD_IF(LogLevel(DBG_DEBUG),"Match_crtc: PlaneGroup share_id = %" PRIu64 ", current_crtc_mask=%x ,"
              "crtc_mask=%x, possible_crtcs=%" PRIx32,share_id,current_crtc_mask,crtc_mask,possible_crtcs);
     if(!(possible_crtcs & crtc_mask))
       return false;

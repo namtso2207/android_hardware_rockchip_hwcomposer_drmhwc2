@@ -40,9 +40,6 @@
 
 #include "rockchip/utils/drmdebug.h"
 
-/*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.1.58"
-
 namespace android {
 
 unsigned int g_log_level;

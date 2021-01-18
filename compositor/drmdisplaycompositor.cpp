@@ -648,6 +648,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     std::ostringstream out_log;
 
     out_log << "DrmDisplayCompositor[" << index << "]"
+            << " frame_no=" << display_comp->frame_no()
             << " display=" << display_
             << " plane=" << (plane ? plane->id() : -1)
             << " crct id=" << crtc->id()
@@ -721,7 +722,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     }
 
 
-    ALOGD_IF(LogLevel(DBG_DEBUG),"%s",out_log.str().c_str());
+    ALOGD_IF(LogLevel(DBG_INFO) && test_only,"%s",out_log.str().c_str());
     out_log.clear();
   }
 
