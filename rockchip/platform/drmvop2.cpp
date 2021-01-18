@@ -1404,6 +1404,9 @@ bool PlanStageVop2::SupportPlatform(uint32_t soc_id){
   switch(soc_id){
     case 0x3566:
     case 0x3568:
+    // after ECO
+    case 0x3566a:
+    case 0x3568a:
       return true;
     default:
       break;
