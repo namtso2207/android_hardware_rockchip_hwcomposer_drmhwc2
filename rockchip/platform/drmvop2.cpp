@@ -442,6 +442,12 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                 i_cluster1_used_dst_x_offset = 0;
                           }
 
+                          if(b_cluster0_used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) == 0)
+                            b_cluster0_two_win_mode = false;
+
+                          if(b_cluster1_used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) == 0)
+                            b_cluster1_two_win_mode = false;
+
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
                             if(!b_cluster0_two_win_mode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
