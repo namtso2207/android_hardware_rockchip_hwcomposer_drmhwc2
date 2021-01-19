@@ -36,18 +36,10 @@
 
 #include <linux/fb.h>
 
+namespace android {
 
-
-#define ALOGD_HWC2_INFO(log_level) \
-    ALOGD_IF(LogLevel(log_level),"%s,line=%d",__FUNCTION__,__LINE__)
-
-#define ALOGD_HWC2_DISPLAY_INFO(log_level, display_id) \
-    ALOGD_IF(LogLevel(log_level),"%s, Display-id=%" PRIu64 ",line=%d",__FUNCTION__,\
-                        display_id, __LINE__)
-
-#define ALOGD_HWC2_LAYER_INFO(log_level, layer_id) \
-    ALOGD_IF(LogLevel(log_level),"%s, Layer-id=%" PRIu32 ",line=%d",__FUNCTION__,\
-                        layer_id, __LINE__)
+#define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
 
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
@@ -58,8 +50,6 @@
         output.clear(); \
       }\
     }
-
-namespace android {
 
 class DrmVsyncCallback : public VsyncCallback {
  public:
@@ -104,7 +94,8 @@ DrmHwcTwo::DrmHwcTwo() {
 
 HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
                                      HWC2::DisplayType type) {
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,displ);
+
   DrmDevice *drm = resource_manager_.GetDrmDevice(displ);
   std::shared_ptr<Importer> importer = resource_manager_.GetImporter(displ);
   if (!drm || !importer) {
@@ -119,7 +110,7 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
 }
 
 HWC2::Error DrmHwcTwo::Init() {
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE();
   int rv = resource_manager_.Init();
   if (rv) {
     ALOGE("Can't initialize the resource manager %d", rv);
@@ -155,14 +146,14 @@ static inline void supported(char const *func) {
 HWC2::Error DrmHwcTwo::CreateVirtualDisplay(uint32_t width, uint32_t height,
                                             int32_t *format,
                                             hwc2_display_t *display) {
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE("w=%u,h=%u",width,height);
   // TODO: Implement virtual display
   return unsupported(__func__, width, height, format, display);
 }
 
 HWC2::Error DrmHwcTwo::DestroyVirtualDisplay(hwc2_display_t display) {
 
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE();
   // TODO: Implement virtual display
   return unsupported(__func__, display);
 }
@@ -190,7 +181,7 @@ void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
 }
 
 uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE();
   // TODO: Implement virtual display
   unsupported(__func__);
   return 0;
@@ -208,7 +199,7 @@ static bool isValid(HWC2::Callback descriptor) {
 HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
                                         hwc2_callback_data_t data,
                                         hwc2_function_pointer_t function) {
-  ALOGD_HWC2_INFO(DBG_VERBOSE);
+  HWC2_ALOGD_IF_VERBOSE();
 
   auto callback = static_cast<HWC2::Callback>(descriptor);
 
@@ -265,14 +256,14 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 }
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   compositor_.ClearDisplay();
   resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   int display = static_cast<int>(handle_);
 
@@ -340,7 +331,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   if(init_success_)
     return HWC2::Error::None;
 
@@ -398,7 +389,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   int display = static_cast<int>(handle_);
 
   if(!init_success_){
@@ -439,7 +430,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
 
 
 HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   // Fetch the number of modes from the display
   uint32_t num_configs;
   HWC2::Error err = GetDisplayConfigs(&num_configs, NULL);
@@ -451,7 +442,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
     hwc2_callback_data_t data, hwc2_function_pointer_t func) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   auto callback = std::make_shared<DrmVsyncCallback>(data, func);
   vsync_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
@@ -459,29 +450,29 @@ HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
 
 HWC2::Error DrmHwcTwo::HwcDisplay::RegisterInvalidateCallback(
     hwc2_callback_data_t data, hwc2_function_pointer_t func) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   auto callback = std::make_shared<DrmInvalidateCallback>(data, func);
   invalidate_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     l.second.accept_type_change();
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
   layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(layer_idx_));
   *layer = static_cast<hwc2_layer_t>(layer_idx_);
   ++layer_idx_;
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,*layer);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,layer);
   if(layers_.count(layer)){
     layers_.erase(layer);
     return HWC2::Error::None;
@@ -491,7 +482,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
 
   if(ctx_.bStandardSwitchResolution){
     DrmMode const &mode = connector_->active_mode();
@@ -505,12 +496,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
   }else{
     *config = 0;
   }
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 "config-id=%d" ,handle_,*config);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetChangedCompositionTypes(
     uint32_t *num_elements, hwc2_layer_t *layers, int32_t *types) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   uint32_t num_changes = 0;
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     if (l.second.type_changed()) {
@@ -523,6 +515,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetChangedCompositionTypes(
   }
   if (!layers && !types)
     *num_elements = num_changes;
+
   return HWC2::Error::None;
 }
 
@@ -530,7 +523,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetClientTargetSupport(uint32_t width,
                                                           uint32_t height,
                                                           int32_t /*format*/,
                                                           int32_t dataspace) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   std::pair<uint32_t, uint32_t> min = drm_->min_resolution();
   std::pair<uint32_t, uint32_t> max = drm_->max_resolution();
 
@@ -550,7 +543,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetClientTargetSupport(uint32_t width,
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetColorModes(uint32_t *num_modes,
                                                  int32_t *modes) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   if (!modes)
     *num_modes = 1;
 
@@ -563,7 +556,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetColorModes(uint32_t *num_modes,
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
                                                        int32_t attribute_in,
                                                        int32_t *value) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   if(ctx_.bStandardSwitchResolution){
     auto mode = std::find_if(connector_->modes().begin(),
@@ -641,7 +634,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
                                                      hwc2_config_t *configs) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   // Since this callback is normally invoked twice (once to get the count, and
   // once to populate configs), we don't really want to read the edid
   // redundantly. Instead, only update the modes on the first invocation. While
@@ -793,7 +786,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayName(uint32_t *size, char *name) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   std::ostringstream stream;
   stream << "display-" << connector_->id();
   std::string string = stream.str();
@@ -812,7 +805,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
                                                       uint32_t *num_elements,
                                                       hwc2_layer_t *layers,
                                                       int32_t *layer_requests) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   // TODO: I think virtual display should request
   //      HWC2_DISPLAY_REQUEST_WRITE_CLIENT_TARGET_TO_OUTPUT here
   unsupported(__func__, display_requests, num_elements, layers, layer_requests);
@@ -821,13 +814,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayType(int32_t *type) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   *type = static_cast<int32_t>(type_);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDozeSupport(int32_t *support) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   *support = 0;
   return HWC2::Error::None;
 }
@@ -835,7 +828,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDozeSupport(int32_t *support) {
 HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
     uint32_t *num_types, int32_t *types, float * max_luminance,
     float *max_average_luminance, float * min_luminance) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   int display = static_cast<int>(handle_);
   int HdrIndex = 0;
@@ -873,7 +866,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
 HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
                                                     hwc2_layer_t *layers,
                                                     int32_t *fences) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   uint32_t num_layers = 0;
 
@@ -898,7 +891,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 }
 
 void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   if (fd < 0){
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &hwc2layer : layers_) {
@@ -965,7 +958,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   int ret;
 
   InitDrmHwcLayer();
@@ -1002,7 +995,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
 
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   int ret;
   std::vector<DrmCompositionDisplayLayersMap> layers_map;
   layers_map.emplace_back();
@@ -1064,7 +1057,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
 HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   ATRACE_CALL();
 
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   DumpAllLayerData();
 
@@ -1100,7 +1093,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   if(ctx_.bStandardSwitchResolution){
     auto mode = std::find_if(connector_->modes().begin(),
                              connector_->modes().end(),
@@ -1144,7 +1137,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
                                                    int32_t acquire_fence,
                                                    int32_t dataspace,
                                                    hwc_region_t /*damage*/) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", Buffer=%p, acq_fence=%d, dataspace=%x",
+                         handle_,target,acquire_fence,dataspace);
   UniqueFd uf(acquire_fence);
 
   client_layer_.set_buffer(target);
@@ -1154,7 +1148,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", mode=%x",handle_,mode);
 
   if (mode != HAL_COLOR_MODE_NATIVE)
     return HWC2::Error::BadParameter;
@@ -1165,7 +1159,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorMode(int32_t mode) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
                                                      int32_t hint) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", hint=%x",handle_,hint);
   // TODO: Force client composition if we get this
   unsupported(__func__, matrix, hint);
   return HWC2::Error::None;
@@ -1173,13 +1167,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
                                                    int32_t release_fence) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", buffer=%p, rel_fence=%d",handle_,buffer,release_fence);
   // TODO: Need virtual display support
   return unsupported(__func__, buffer, release_fence);
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", mode_in=%d",handle_,mode_in);
 
   uint64_t dpms_value = 0;
   auto mode = static_cast<HWC2::PowerMode>(mode_in);
@@ -1242,7 +1236,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", enable=%d",handle_,enabled);
   vsync_worker_.VSyncControl(HWC2_VSYNC_ENABLE == enabled);
   return HWC2::Error::None;
 }
@@ -1250,7 +1244,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetVsyncEnabled(int32_t enabled) {
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
   ATRACE_CALL();
-  ALOGD_HWC2_DISPLAY_INFO(DBG_VERBOSE,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
   // Enable/disable debug log
   UpdateLogLevel();
   UpdateBCSH();
@@ -1299,6 +1293,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", x=%d, y=%d" ,id_,x,y);
   cursor_x_ = x;
   cursor_y_ = y;
   return HWC2::Error::None;
@@ -1804,15 +1799,14 @@ int DrmHwcTwo::HwcDisplay::InvalidateControl(uint64_t refresh, int refresh_cnt){
 
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", blend=%d" ,id_,mode);
   blending_ = static_cast<HWC2::BlendMode>(mode);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
                                                 int32_t acquire_fence) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
-//  ALOGD("SetLayerBuffer Layer-id=%" PRIu32 ",buffer = %p",id_,buffer);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", buffer=%p, acq_fence=%d" ,id_,buffer,acquire_fence);
   UniqueFd uf(acquire_fence);
 
   //Deleting the following logic may cause the problem that the handle cannot be updated
@@ -1828,71 +1822,71 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerColor(hwc_color_t color) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", color [r,g,b,a]=[%d,%d,%d,%d]" ,id_,color.r,color.g,color.b,color.a);
   // TODO: Punt to client composition here?
   unsupported(__func__, color);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerCompositionType(int32_t type) {
-  ALOGD_HWC2_LAYER_INFO(DBG_DEBUG, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", type=0x%x" ,id_,type);
   sf_type_ = static_cast<HWC2::Composition>(type);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerDataspace(int32_t dataspace) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", dataspace=0x%x" ,id_,dataspace);
   dataspace_ = static_cast<android_dataspace_t>(dataspace);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerDisplayFrame(hwc_rect_t frame) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", frame=[%d,%d,%d,%d]" ,id_,frame.left,frame.top,frame.right,frame.bottom);
   display_frame_ = frame;
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerPlaneAlpha(float alpha) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", alpha=%f" ,id_,alpha);
   alpha_ = alpha;
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSidebandStream(
     const native_handle_t *stream) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d",id_);
   // TODO: We don't support sideband
   return unsupported(__func__, stream);
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSourceCrop(hwc_frect_t crop) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", frame=[%f,%f,%f,%f]" ,id_,crop.left,crop.top,crop.right,crop.bottom);
   source_crop_ = crop;
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSurfaceDamage(hwc_region_t damage) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d",id_);
   // TODO: We don't use surface damage, marking as unsupported
   unsupported(__func__, damage);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerTransform(int32_t transform) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d" ", transform=%x",id_,transform);
   transform_ = static_cast<HWC2::Transform>(transform);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerVisibleRegion(hwc_region_t visible) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d",id_);
   // TODO: We don't use this information, marking as unsupported
   unsupported(__func__, visible);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
-  ALOGD_HWC2_LAYER_INFO(DBG_VERBOSE, id_);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d" ", z=%d",id_,order);
   z_order_ = order;
   return HWC2::Error::None;
 }
