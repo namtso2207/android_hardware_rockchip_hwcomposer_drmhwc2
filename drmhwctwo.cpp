@@ -2064,7 +2064,9 @@ int DrmHwcTwo::HwcLayer::DumpData() {
   FILE * pfile = NULL;
   char data_name[100] ;
   system("mkdir /data/dump/ && chmod /data/dump/ 777 ");
-  sprintf(data_name,"/data/dump/dmlayer%d_%d_%d_%d.bin",id_,stride,height,frame_cnt++);
+  sprintf(data_name,"/data/dump/%d_%5.5s_id-%d_%dx%d_z-%d.bin",
+          frame_cnt++,layer_name_.size() < 5 ? "unset" : layer_name_.c_str(),
+          id_,stride,height,z_order_);
 
   pfile = fopen(data_name,"wb");
   if(pfile)
