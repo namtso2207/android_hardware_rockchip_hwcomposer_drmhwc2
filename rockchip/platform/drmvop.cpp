@@ -668,7 +668,7 @@ int  PlanStageVop::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_p
   out_plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
   for(auto &plane_group : all_plane_groups){
-    if(plane_group->match_crtc(crtc->pipe()))
+    if(plane_group->acquire(crtc->pipe()))
       out_plane_groups.push_back(plane_group);
   }
   return out_plane_groups.size() > 0 ? 0 : -1;

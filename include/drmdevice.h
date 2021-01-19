@@ -77,6 +77,7 @@ class DrmDevice {
   }
 
   DrmConnector *GetConnectorForDisplay(int display) const;
+  int GetTypeForConnector(DrmConnector *conn) const;
   DrmConnector *GetConnectorFromType(int display_type) const ;
   DrmConnector *GetWritebackConnectorForDisplay(int display) const;
   DrmConnector *AvailableWritebackConnector(int display) const;

@@ -41,50 +41,75 @@ typedef struct tagPlaneGroup{
   uint32_t possible_crtcs;
   uint64_t share_id;
   uint64_t win_type;
-
-  // RK356x support dynamic switching
-  uint32_t current_crtc_mask;
-  uint32_t necessary_wait_cnt;
-  std::stack<uint32_t> last_crtc_mask;
 	std::vector<DrmPlane*> planes;
 
+  // RK356x support dynamic switching
+  uint32_t enable_possible_crtc=0;
+  uint32_t disable_possible_crtc=0;
+  uint32_t disable_necessary_cnt=0;
+  uint32_t current_crtc=0;
+  uint32_t current_possible_crtcs=0;
 
-  bool set_current_crtc( uint32_t crtc_mask ){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"set_current_crtc = %x, current_crtc_mask=%x, possible_crtcs=%" PRIx32,
-             crtc_mask,current_crtc_mask,possible_crtcs);
+  bool is_release(uint32_t   crtc_mask){
+    if((crtc_mask & current_crtc) > 0 && !(crtc_mask & current_possible_crtcs)){
+      return true;
+    }
+    return false;
+  }
+  bool release(uint32_t crtc_mask){
     if(!(possible_crtcs & crtc_mask))
       return false;
-    last_crtc_mask.push(current_crtc_mask);
-    current_crtc_mask = crtc_mask;
-    necessary_wait_cnt = 0;
+
+    if(!(current_crtc & crtc_mask))
+      return false;
+
+    enable_possible_crtc = 0;
+    disable_possible_crtc = 0;
+
     return true;
   }
 
-   void reset_current_crtc(){
-    if(last_crtc_mask.size()>0){
-      current_crtc_mask = last_crtc_mask.top();
-      ALOGD_IF(LogLevel(DBG_DEBUG),"reset_current_crtc, reset current_crtc_mask to %x",current_crtc_mask);
-      last_crtc_mask.pop();
-    }
-    return;
-  }
-
-  bool match_crtc(uint32_t crtc_mask){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"Match_crtc: PlaneGroup share_id = %" PRIu64 ", current_crtc_mask=%x ,"
-             "crtc_mask=%x, possible_crtcs=%" PRIx32,share_id,current_crtc_mask,crtc_mask,possible_crtcs);
+  bool release_necessary_cnt(uint32_t crtc_mask){
     if(!(possible_crtcs & crtc_mask))
       return false;
-    if(crtc_mask & current_crtc_mask){
-       if(necessary_wait_cnt < 3){
-         necessary_wait_cnt++;
-         return false;
-       }else{
-         return true;
-       }
+
+    if(!(current_crtc & crtc_mask))
+      return false;
+
+    if(disable_necessary_cnt < 3){
+      disable_necessary_cnt++;
+      disable_possible_crtc=0;
     }else{
-       return false;
+      enable_possible_crtc=0;
+      disable_necessary_cnt=0;
     }
- }
+
+    return true;
+  }
+
+  bool acquire(uint32_t crtc_mask){
+    if(!(possible_crtcs & crtc_mask))
+      return false;
+
+    if(!(current_possible_crtcs & crtc_mask))
+      return false;
+
+    if(!disable_possible_crtc && !enable_possible_crtc){
+      current_crtc = crtc_mask;
+    }
+
+    if(!(current_crtc & crtc_mask))
+      return false;
+
+    enable_possible_crtc = crtc_mask;
+    disable_possible_crtc = crtc_mask;
+    return true;
+  }
+
+  bool set_current_possible_crtcs(uint32_t crtc_mask){
+    current_possible_crtcs = crtc_mask;
+    return true;
+  }
 }PlaneGroup;
 
 class Importer {

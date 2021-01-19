@@ -131,17 +131,25 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
   //loop plane groups.
   for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
+    bool release_plane = false;
+    bool disable_plane = false;
     //loop plane
     uint32_t crtc_mask = 1 << crtc()->pipe();
-    if((*iter)->match_crtc(crtc_mask)){
-      for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
-          !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
-          if ((*iter_plane)->GetCrtcSupported(*crtc()) && !(*iter_plane)->is_use()) {
-              ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d",(*iter_plane)->id());
-              AddPlaneDisable(*iter_plane);
-             // break;
-          }
-      }
+    if((*iter)->is_release(crtc_mask) && (*iter)->release_necessary_cnt(crtc_mask)){
+        release_plane = true;
+    }else if((*iter)->acquire(crtc_mask)){
+        disable_plane = true;
+    }
+    if(release_plane || disable_plane){
+        for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
+              !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
+              if ((*iter_plane)->GetCrtcSupported(*crtc()) && !(*iter_plane)->is_use()) {
+                  ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d %s",
+                            (*iter_plane)->id(),release_plane ? "release_necessary_cnt plane" : "");
+                  AddPlaneDisable(*iter_plane);
+                 // break;
+              }
+        }
     }
   }
   return 0;

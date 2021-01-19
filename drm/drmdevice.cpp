@@ -565,6 +565,14 @@ DrmConnector *DrmDevice::GetConnectorForDisplay(int display) const {
   return NULL;
 }
 
+int DrmDevice::GetTypeForConnector(DrmConnector *conn) const {
+  if (conn == primary_)
+    return HWC_DISPLAY_PRIMARY;
+  else if (conn == extend_)
+    return HWC_DISPLAY_EXTERNAL;
+  return -1;
+}
+
 DrmConnector *DrmDevice::GetWritebackConnectorForDisplay(int display) const {
   for (auto &conn : writeback_connectors_) {
     if (conn->display() == display)

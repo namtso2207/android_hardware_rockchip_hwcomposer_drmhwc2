@@ -258,6 +258,27 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   compositor_.ClearDisplay();
+
+  DrmCrtc *crtc = crtc_;
+  if(init_success_ && crtc != NULL){
+    uint32_t crtc_mask = 1 << crtc->pipe();
+    std::vector<PlaneGroup*> plane_groups = drm_->GetPlaneGroups();
+    //loop plane groups.
+    for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
+       iter != plane_groups.end(); ++iter) {
+      //loop plane
+      if((*iter)->is_release(crtc_mask) && (*iter)->release(crtc_mask)){
+          for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
+                !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
+                if ((*iter_plane)->GetCrtcSupported(*crtc_)) {
+                    ALOGD_IF(LogLevel(DBG_DEBUG),"ClearDisplay plane_groups plane id=%d %s",
+                              (*iter_plane)->id(),"release plane");
+                   break;
+                }
+          }
+      }
+    }
+  }
   resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
 }
 
@@ -332,8 +353,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
-  if(init_success_)
-    return HWC2::Error::None;
 
   int display = static_cast<int>(handle_);
 
@@ -360,6 +379,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::BadDisplay;
   }
 
+  resource_manager_->creatActiveDisplayCnt(display);
+  resource_manager_->assignPlaneGroup(display);
+
+  if(init_success_){
+    return HWC2::Error::None;
+  }
+
   planner_ = Planner::CreateInstance(drm_);
   if (!planner_) {
     ALOGE("Failed to create planner instance for composition");
@@ -372,8 +398,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
-  resource_manager_->creatActiveDisplayCnt(display);
-  resource_manager_->assignPlaneGroup(display);
 
   HWC2::Error error = ChosePreferredConfig();
   if(error != HWC2::Error::None){

@@ -393,8 +393,10 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
      uint32_t combine_layer_count = 0;
-     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,possible_crtcs=0x%x",
-                  __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse, (1<<crtc->pipe()), (*iter)->possible_crtcs);
+     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
+                                   "current_possible_crtcs=0x%x,possible_crtcs=0x%x",
+                                   __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
+                                   (1<<crtc->pipe()), (*iter)->current_possible_crtcs,(*iter)->possible_crtcs);
       //find the match zpos plane group
       if(!(*iter)->bUse && !(*iter)->b_reserved)
       {
@@ -757,7 +759,7 @@ int  PlanStageVop2::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_
   out_plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
   for(auto &plane_group : all_plane_groups){
-    if(plane_group->match_crtc(1 << crtc->pipe()))
+    if(plane_group->acquire(1 << crtc->pipe()))
       out_plane_groups.push_back(plane_group);
   }
   return out_plane_groups.size() > 0 ? 0 : -1;
