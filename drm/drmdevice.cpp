@@ -944,6 +944,8 @@ int DrmDevice::UpdateDisplayMode(void){
     struct drm_mode_modeinfo drm_mode;
     memset(&drm_mode, 0, sizeof(drm_mode));
     conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
+              conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
     ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
     if (ret)
       continue;
@@ -1163,6 +1165,8 @@ int DrmDevice::UpdateDisplayRoute(void)
     struct drm_mode_modeinfo drm_mode;
     memset(&drm_mode, 0, sizeof(drm_mode));
     conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
+              conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
     ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
     if (ret)
       continue;

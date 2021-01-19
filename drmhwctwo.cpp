@@ -1510,6 +1510,11 @@ int DrmHwcTwo::HwcDisplay::GetBestDisplayMode(){
   return -ENOENT;
 }
 
+int DrmHwcTwo::HwcDisplay::HoplugEventTmeline(){
+  ctx_.hotplug_timeline++;
+  return 0;
+}
+
 int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
   int timeline;
 
@@ -1528,7 +1533,6 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
   }
   return 0;
 }
-
 
 bool DrmHwcTwo::HwcDisplay::ParseHdmiOutputFormat(char* strprop, drm_hdmi_output_type *format, dw_hdmi_rockchip_color_depth *depth) {
     if (!strcmp(strprop, "Auto")) {
@@ -2185,13 +2189,21 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     return;
   }
 
-  if (primary != old_primary) {
-    drm_->SetPrimaryDisplay(primary);
+  if(primary){
     int display_id = primary->display();
-    if (primary->raw_state() != DRM_MODE_CONNECTED) {
+    drm_->SetPrimaryDisplay(primary);
+    if (primary->raw_state() == DRM_MODE_CONNECTED) {
+      auto &display = hwc2_->displays_.at(display_id);
+      display.HoplugEventTmeline();
+      display.UpdateDisplayMode();
+    }
+
+    if (primary != old_primary) {
+      int display_id = old_primary->display();
       auto &display = hwc2_->displays_.at(display_id);
       display.ClearDisplay();
     }
+
   }
 
   DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
@@ -2235,6 +2247,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
   drm_->UpdateDisplayRoute();
   drm_->UpdateDisplayMode();
+
   for(auto &display_map : hwc2_->displays_){
     auto display_id = display_map.first;
     auto &display = display_map.second;
