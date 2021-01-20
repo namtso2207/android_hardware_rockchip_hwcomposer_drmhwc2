@@ -2250,24 +2250,26 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     }
   }
   drm_->SetExtendDisplay(extend);
-  if (!extend) {
-    if(old_extend){
-      int display_id = old_extend->display();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-    }
-  }else{
-    if(!old_extend){
-      int display_id = extend->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      display.ChosePreferredConfig();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+  if(extend != old_extend){
+    if (!extend) {
+      if(old_extend){
+        int display_id = old_extend->display();
+        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+      }
     }else{
-      int display_id = old_extend->display();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-      display_id = extend->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      display.ChosePreferredConfig();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+      if(!old_extend){
+        int display_id = extend->display();
+        auto &display = hwc2_->displays_.at(display_id);
+        display.ChosePreferredConfig();
+        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+      }else{
+        int display_id = old_extend->display();
+        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+        display_id = extend->display();
+        auto &display = hwc2_->displays_.at(display_id);
+        display.ChosePreferredConfig();
+        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+      }
     }
   }
 
