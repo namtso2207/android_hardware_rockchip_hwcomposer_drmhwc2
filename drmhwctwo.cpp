@@ -38,6 +38,13 @@
 
 namespace android {
 
+
+#define fourcc_code(a, b, c, d) ((__u32)(a) | ((__u32)(b) << 8) | \
+             ((__u32)(c) << 16) | ((__u32)(d) << 24))
+
+#define DRM_FORMAT_ABGR8888	fourcc_code('A', 'B', '2', '4')
+
+
 #define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
     ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
 
@@ -2044,7 +2051,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iStride_ = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
+    drmHwcLayer->uFourccFormat_   = DRM_FORMAT_ABGR8888; // fb target default DRM_FORMAT_ABGR8888
     drmHwcLayer->uModifier_ = 0;
     drmHwcLayer->sLayerName_.clear();
   }
