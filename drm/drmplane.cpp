@@ -214,9 +214,11 @@ int DrmPlane::Init() {
   else{
     for(int i = 0; i < ARRAY_SIZE(plane_rotation_type_names); i++){
       find_name = false;
-      std::tie(ret,find_name) = rotation_property_.bitmask(plane_rotation_type_names[i].name);
+      int value = 0;
+      std::tie(value,find_name) = rotation_property_.bitmask(plane_rotation_type_names[i].name);
       if(find_name){
-        rotate_ |= plane_rotation_type_names[i].type;
+        rotate_ |= value;
+        ALOGD("rk-debug plane-id = %d name=%s, value=0x%x",id(),plane_rotation_type_names[i].name,value);
       }
     }
   }
@@ -524,6 +526,14 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
   else
     return false;
 #endif
+}
+
+int DrmPlane::get_transform(){
+  return rotate_;
+}
+
+bool DrmPlane::is_support_transform(int transform){
+  return (transform & rotate_) == transform;
 }
 
 }  // namespace android

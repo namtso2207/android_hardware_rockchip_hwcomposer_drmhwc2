@@ -220,29 +220,36 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
   display_frame = frame;
 }
 
-void DrmHwcLayer::SetTransform(int32_t sf_transform) {
-  int HWC_TRANSFORM_ROT_MASK = 0x7;
-  if(sf_transform & ~HWC_TRANSFORM_ROT_MASK){
-    transform = sf_transform;
-    return;
-  }
-
-  transform = DrmHwcTransform::kRotate0;
-  // 270* and 180* cannot be combined with flips. More specifically, they
-  // already contain both horizontal and vertical flips, so those fields are
-  // redundant in this case. 90* rotation can be combined with either horizontal
-  // flip or vertical flip, so treat it differently
-  if (sf_transform == HWC_TRANSFORM_ROT_270) {
-    transform = DrmHwcTransform::kRotate270;
-  } else if (sf_transform == HWC_TRANSFORM_ROT_180) {
-    transform = DrmHwcTransform::kRotate180;
-  } else {
-    if (sf_transform & HWC_TRANSFORM_FLIP_H)
-      transform |= DrmHwcTransform::kFlipH;
-    if (sf_transform & HWC_TRANSFORM_FLIP_V)
-      transform |= DrmHwcTransform::kFlipV;
-    if (sf_transform & HWC_TRANSFORM_ROT_90)
-      transform |= DrmHwcTransform::kRotate90;
+void DrmHwcLayer::SetTransform(HWC2::Transform sf_transform) {
+  switch (sf_transform) {
+      case HWC2::Transform::None:
+        transform = DRM_MODE_ROTATE_0;
+        break;
+      case HWC2::Transform::FlipH :
+        transform = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X;
+        break;
+      case HWC2::Transform::FlipV :
+        transform = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y;
+        break;
+      case HWC2::Transform::Rotate90 :
+        transform = DRM_MODE_ROTATE_90;
+        break;
+      case HWC2::Transform::Rotate180 :
+        //transform = DRM_MODE_ROTATE_180;
+        transform = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y;
+        break;
+      case HWC2::Transform::Rotate270 :
+        transform = DRM_MODE_ROTATE_270;
+        break;
+      case HWC2::Transform::FlipHRotate90 :
+        transform = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90;
+        break;
+      case HWC2::Transform::FlipVRotate90 :
+        transform = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90;
+        break;
+      default:
+        transform = -1;
+        ALOGE("Unknow transform 0x%x",sf_transform);
   }
 }
 bool DrmHwcLayer::IsYuvFormat(int format){
@@ -308,8 +315,7 @@ bool DrmHwcLayer::IsGlesCompose(){
       return true;
   }
 
-  int HWC_TRANSFORM_ROT_MASK = 0x7;
-  if(transform & ~HWC_TRANSFORM_ROT_MASK){
+  if(transform == -1){
     return true;
   }
 
@@ -391,22 +397,24 @@ supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
 
 std::string DrmHwcLayer::TransformToString(uint32_t transform) const{
   switch (transform) {
-    case DrmHwcTransform::kIdentity:
-      return "IDENTITY";
-    case DrmHwcTransform::kRotate0:
-      return "ROTATE0";
-    case DrmHwcTransform::kFlipH:
-      return "FLIPH";
-    case DrmHwcTransform::kFlipV:
-      return "FLIPV";
-    case DrmHwcTransform::kRotate90:
-      return "ROTATE90";
-    case DrmHwcTransform::kRotate180:
-      return "ROTATE180";
-    case DrmHwcTransform::kRotate270:
-      return "ROTATE270";
-    default:
-      return "<invalid>";
+      case DRM_MODE_ROTATE_0:
+        return "None";
+      case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X:
+        return "FlipH";
+      case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y:
+        return "FlipV";
+      case DRM_MODE_ROTATE_90:
+        return "Rotate90";
+      case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y:
+        return "Rotate180";
+      case DRM_MODE_ROTATE_270:
+        return "Rotate270";
+      case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90:
+        return "FlipHRotate90";
+      case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90:
+        return "FlipVRotate90";
+      default:
+        return "Unknown";
   }
 }
 std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{

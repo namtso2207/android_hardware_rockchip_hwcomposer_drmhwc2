@@ -1971,7 +1971,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
 
   drmHwcLayer->SetDisplayFrame(display_frame);
   drmHwcLayer->SetSourceCrop(source_crop_);
-  drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
+  drmHwcLayer->SetTransform(transform_);
 
   if(buffer_){
     drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
@@ -2031,7 +2031,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
   drmHwcLayer->SetDisplayFrame(display_frame);
   drmHwcLayer->SetSourceCrop(source_crop_);
-  drmHwcLayer->SetTransform(static_cast<int32_t>(transform_));
+  drmHwcLayer->SetTransform(transform_);
 
   if(buffer_){
     drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);

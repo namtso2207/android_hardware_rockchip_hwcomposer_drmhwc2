@@ -610,19 +610,33 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 //                                  }
 //                              }
 //                          }
-                          rotation = 0;
-                          if ((*iter_layer)->transform & DrmHwcTransform::kFlipH)
-                              rotation |= 1 << DRM_REFLECT_X;
-                          if ((*iter_layer)->transform & DrmHwcTransform::kFlipV)
-                              rotation |= 1 << DRM_REFLECT_Y;
-                          if ((*iter_layer)->transform & DrmHwcTransform::kRotate90)
-                              rotation |= 1 << DRM_ROTATE_90;
-                          else if ((*iter_layer)->transform & DrmHwcTransform::kRotate180)
-                              rotation |= 1 << DRM_ROTATE_180;
-                          else if ((*iter_layer)->transform & DrmHwcTransform::kRotate270)
-                              rotation |= 1 << DRM_ROTATE_270;
-                          if(rotation && !(rotation & (*iter_plane)->get_rotate()))
+                          // Only YUV use Cluster rotate
+                          if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                            if(!(*iter_plane)->is_support_transform((*iter_layer)->transform)){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
+                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
+                            }
+                            // Cluster rotate must 64 align
+                            if(((*iter_layer)->iStride_ % 64 != 0)){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and iStride_ = %d",
+                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_layer)->iStride_);
+                              continue;
+                            }
+                            //Cluster rotate input_h must <= 2048
+                            if(input_h > 2048){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and input_h = %d",
+                                      (*iter_plane)->id(), (*iter_layer)->transform,input_h);
+                              continue;
+                            }
+
+                          }else{
+                            if(!(*iter_plane)->is_support_transform((*iter_layer)->transform)){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
+                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
+                              continue;
+                            }
+                          }
 
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
                               (*iter_plane)->id(),*zpos);
@@ -636,7 +650,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                               b_cluster0_used = true;
                               i_cluster0_used_dst_x_offset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || rotation != 0){
+                              if(input_w > 2048 || output_w > 2048 ||
+                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   b_cluster0_two_win_mode = false;
                               }else{
                                   b_cluster0_two_win_mode = true;
@@ -644,7 +659,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
                               b_cluster0_used = true;
                               i_cluster1_used_dst_x_offset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || rotation != 0){
+                              if(input_w > 2048 || output_w > 2048 ||
+                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   b_cluster1_two_win_mode = false;
                               }else{
                                   b_cluster1_two_win_mode = true;

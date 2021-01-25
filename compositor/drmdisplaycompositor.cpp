@@ -562,19 +562,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       if(zpos < 0)
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 
-      rotation = 0;
-      if (layer.transform & DrmHwcTransform::kFlipH)
-        rotation |= DRM_MODE_REFLECT_X;
-      if (layer.transform & DrmHwcTransform::kFlipV)
-        rotation |= DRM_MODE_REFLECT_Y;
-      if (layer.transform & DrmHwcTransform::kRotate90)
-        rotation |= DRM_MODE_ROTATE_90;
-      else if (layer.transform & DrmHwcTransform::kRotate180)
-        rotation |= DRM_MODE_ROTATE_180;
-      else if (layer.transform & DrmHwcTransform::kRotate270)
-        rotation |= DRM_MODE_ROTATE_270;
-      else
-        rotation |= DRM_MODE_ROTATE_0;
+      rotation = layer.transform;
     }
 
     // Disable the plane if there's no framebuffer
