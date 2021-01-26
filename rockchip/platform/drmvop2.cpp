@@ -418,6 +418,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                       {
                           bool bNeed = false;
 
+                          // Cluster
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.bClu0TwoWinMode = true;
@@ -464,6 +465,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             }
                           }
 
+                          // Format
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
                           }else{
@@ -471,6 +473,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             continue;
                           }
 
+                          // Input info
                           int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
                           int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
                           if((*iter_plane)->is_support_input(input_w,input_h)){
@@ -482,6 +485,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
                           }
 
+                          // Output info
                           int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
                           int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
 
@@ -494,6 +498,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
                           }
 
+                          // Scale
                           b_scale = (*iter_plane)->get_scale();
                           if((*iter_layer)->bScale_)
                           {
@@ -517,9 +522,9 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                           }
 
+                          // Alpha
                           if ((*iter_layer)->blending == DrmHwcBlending::kPreMult)
                               alpha = (*iter_layer)->alpha;
-
                           b_alpha = (*iter_plane)->alpha_property().id()?true:false;
                           if(alpha != 0xFF)
                           {
@@ -534,9 +539,9 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                   bNeed = true;
                           }
 
+                          // HDR
                           eotf = (*iter_layer)->uEOTF;
                           b_hdr2sdr = (*iter_plane)->get_hdr2sdr();
-
                           if(bHdrSupport && eotf != TRADITIONAL_GAMMA_SDR)
                           {
                               if(!b_hdr2sdr)
@@ -549,54 +554,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               else
                                   bNeed = true;
                           }
-//                          //Reserve some plane with no need for specific features in current layer.
-//                          if(!bNeed && !bMulArea)
-//                          {
-//                              if(!(*iter_layer)->bFbTarget_ && b_afbc)
-//                              {
-//                                  if(HasGetNoAfbcUsablePlanes(crtc,plane_groups))
-//                                  {
-//                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) don't need use afbc feature",(*iter_plane)->id());
-//                                      continue;
-//                                  }
-//                              }
 
-//                              if(!(*iter_layer)->bYuv_ && b_yuv)
-//                              {
-//                                  if(HasGetNoYuvUsablePlanes(crtc,plane_groups))
-//                                  {
-//                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) don't need use yuv feature",(*iter_plane)->id());
-//                                      continue;
-//                                  }
-//                              }
-
-//                              if(!(*iter_layer)->bScale_ && b_scale)
-//                              {
-//                                  if(HasGetNoScaleUsablePlanes(crtc,plane_groups))
-//                                  {
-//                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) don't need use scale feature",(*iter_plane)->id());
-//                                      continue;
-//                                  }
-//                              }
-
-//                              if(alpha == 0xFF && b_alpha)
-//                              {
-//                                  if(HasGetNoAlphaUsablePlanes(crtc,plane_groups))
-//                                  {
-//                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) don't need use alpha feature",(*iter_plane)->id());
-//                                      continue;
-//                                  }
-//                              }
-
-//                              if(eotf == TRADITIONAL_GAMMA_SDR && b_hdr2sdr)
-//                              {
-//                                  if(HasGetNoEotfUsablePlanes(crtc,plane_groups))
-//                                  {
-//                                      ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) don't need use eotf feature",(*iter_plane)->id());
-//                                      continue;
-//                                  }
-//                              }
-//                          }
                           // Only YUV use Cluster rotate
                           if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                             if(!(*iter_plane)->is_support_transform((*iter_layer)->transform)){
@@ -634,6 +592,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           composition_planes->back().set_zpos(*zpos);
                           combine_layer_count++;
 
+                          // Cluster disable two win mode?
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
