@@ -308,10 +308,17 @@ bool DrmHwcLayer::IsGlesCompose(){
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
     return true;
 
-  // RK356x can't overlay act_w % 4 != 0 afbcd layer.
+  // RK356x Cluster can't overlay act_w % 4 != 0 afbcd layer.
   if(bAfbcd_){
     int act_w = static_cast<int>(source_crop.right - source_crop.left);
     if(act_w % 4 != 0)
+      return true;
+  }
+
+  // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
+  if(!bAfbcd_){
+    int act_w = static_cast<int>(source_crop.right - source_crop.left);
+    if(act_w % 16 == 1 && fHScaleMul_ < 1.0)
       return true;
   }
 
