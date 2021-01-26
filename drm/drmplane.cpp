@@ -218,7 +218,6 @@ int DrmPlane::Init() {
       std::tie(value,find_name) = rotation_property_.bitmask(plane_rotation_type_names[i].name);
       if(find_name){
         rotate_ |= value;
-        ALOGD("rk-debug plane-id = %d name=%s, value=0x%x",id(),plane_rotation_type_names[i].name,value);
       }
     }
   }

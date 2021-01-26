@@ -249,7 +249,7 @@ void DrmHwcLayer::SetTransform(HWC2::Transform sf_transform) {
         break;
       default:
         transform = -1;
-        ALOGE("Unknow transform 0x%x",sf_transform);
+        ALOGE_IF(LogLevel(DBG_DEBUG),"Unknow sf transform 0x%x",sf_transform);
   }
 }
 bool DrmHwcLayer::IsYuvFormat(int format){
