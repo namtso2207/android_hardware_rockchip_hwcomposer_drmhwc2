@@ -44,13 +44,6 @@
 namespace android {
 
 void PlanStageVop2::Init(){
-  bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
-
-  bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
-
-  bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
-  ALOGI_IF(LogLevel(DBG_DEBUG),"PlanStageVop2::Init bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
-            bMultiAreaEnable,bMultiAreaScaleEnable);
 }
 
 bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
@@ -103,7 +96,7 @@ bool PlanStageVop2::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
 }
 
 bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
-    if(!bMultiAreaEnable)
+    if(!ctx.state.bMultiAreaEnable)
       return false;
 
     //multi region only support RGBA888 RGBX8888 RGB888 565 BGRA888 NV12
@@ -111,7 +104,7 @@ bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_t
         || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || (layer_one->iFormat_ != layer_two->iFormat_)
         || layer_one->alpha!= layer_two->alpha
-        || ((layer_one->bScale_ || layer_two->bScale_) && !bMultiAreaScaleEnable)
+        || ((layer_one->bScale_ || layer_two->bScale_) && !ctx.state.bMultiAreaScaleEnable)
         || IsRec1IntersectRec2(&layer_one->display_frame,&layer_two->display_frame)
         || IsXIntersect(&layer_one->display_frame,&layer_two->display_frame)
         )
@@ -380,7 +373,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   bool bMulArea = layer_size > 0 ? true : false;
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
-  bool bHdrSupport = connector->is_hdmi_support_hdr() && iSupportHdrCnt > 0;
+  bool bHdrSupport = connector->is_hdmi_support_hdr() && ctx.support.iHdrCnt > 0;
 
   static bool b_cluster0_used = false;
   static bool b_cluster1_used = false;
@@ -923,7 +916,7 @@ int PlanStageVop2::TryMixSkipPolicy(
 
   int iPlaneSize = plane_groups.size();
 
-  if(iReqAfbcdCnt == 0){
+  if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
       if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
         iPlaneSize--;
@@ -1117,7 +1110,7 @@ int PlanStageVop2::TryMixUpPolicy(
 
   int iPlaneSize = plane_groups.size();
 
-  if(iReqAfbcdCnt == 0){
+  if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
       if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
         iPlaneSize--;
@@ -1225,7 +1218,7 @@ int PlanStageVop2::TryMixPolicy(
     std::vector<PlaneGroup *> &plane_groups) {
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
   int ret;
-  if(setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
     ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
@@ -1233,18 +1226,18 @@ int PlanStageVop2::TryMixPolicy(
       return ret;
   }
 
-  if(setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){
     ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
   }
-  if(setHwcPolicy.count(HWC_MIX_UP_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_UP_LOPICY)){
     ret = TryMixUpPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
 
   }
-  if(setHwcPolicy.count(HWC_MIX_DOWN_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_DOWN_LOPICY)){
     ret = TryMixDownPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
@@ -1284,88 +1277,98 @@ int PlanStageVop2::TryGLESPolicy(
   return 0;
 }
 
-int PlanStageVop2::TryMatchPolicyFirst(
+int PlanStageVop2::InitContext(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
     bool gles_policy){
 
-  setHwcPolicy.clear();
+  ctx.state.setHwcPolicy.clear();
+
+  ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
+
+  ctx.state.bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
+
+  ctx.state.bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
+  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
+            __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
 
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
   if(iMode!=1 || gles_policy){
-    setHwcPolicy.insert(HWC_GLES_POLICY);
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
     return 0;
   }
 
   // Collect layer info
-  iReqAfbcdCnt=0;
-  iReqScaleCnt=0;
-  iReqYuvCnt=0;
-  iReqSkipCnt=0;
-  iReqRotateCnt=0;
-  iReqHdrCnt=0;
+  ctx.request.iAfbcdCnt=0;
+  ctx.request.iScaleCnt=0;
+  ctx.request.iYuvCnt=0;
+  ctx.request.iSkipCnt=0;
+  ctx.request.iRotateCnt=0;
+  ctx.request.iHdrCnt=0;
   for(auto &layer : layers){
     if(layer->bFbTarget_)
       continue;
 
     if(layer->bSkipLayer_ || layer->bGlesCompose_){
-      iReqSkipCnt++;
+      ctx.request.iSkipCnt++;
       continue;
     }
     if(layer->bAfbcd_)
-      iReqAfbcdCnt++;
+      ctx.request.iAfbcdCnt++;
     if(layer->bScale_)
-      iReqScaleCnt++;
+      ctx.request.iScaleCnt++;
     if(layer->bYuv_)
-      iReqYuvCnt++;
-    if(layer->transform != DrmHwcTransform::kRotate0)
-      iReqRotateCnt++;
+      ctx.request.iYuvCnt++;
+    if(layer->transform != DRM_MODE_ROTATE_0)
+      ctx.request.iRotateCnt++;
     if(layer->bHdr_)
-      iReqHdrCnt++;
+      ctx.request.iHdrCnt++;
   }
 
   // Collect Plane resource info
-  iSupportAfbcdCnt=0;
-  iSupportScaleCnt=0;
-  iSupportYuvCnt=0;
-  iSupportRotateCnt=0;
-  iSupportHdrCnt=0;
+  ctx.support.iAfbcdCnt=0;
+  ctx.support.iScaleCnt=0;
+  ctx.support.iYuvCnt=0;
+  ctx.support.iRotateCnt=0;
+  ctx.support.iHdrCnt=0;
 
   for(auto &plane_group : plane_groups){
     for(auto &p : plane_group->planes){
       if(p->get_afbc())
-        iSupportAfbcdCnt++;
+        ctx.support.iAfbcdCnt++;
       if(p->get_scale())
-        iSupportScaleCnt++;
+        ctx.support.iScaleCnt++;
       if(p->get_yuv())
-        iSupportYuvCnt++;
+        ctx.support.iYuvCnt++;
       if(p->get_rotate())
-        iSupportRotateCnt++;
+        ctx.support.iRotateCnt++;
       if(p->get_hdr2sdr())
-        iSupportHdrCnt++;
+        ctx.support.iHdrCnt++;
       break;
     }
   }
 
   ALOGD_IF(LogLevel(DBG_DEBUG),"request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d,skip=%d\n"
           "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d, %s,line=%d,",
-          iReqAfbcdCnt,iReqScaleCnt,iReqYuvCnt,iReqRotateCnt,iReqHdrCnt,iReqSkipCnt,
-          iSupportAfbcdCnt,iSupportScaleCnt,iSupportYuvCnt,iSupportRotateCnt,iSupportHdrCnt,
+          ctx.request.iAfbcdCnt,ctx.request.iScaleCnt,ctx.request.iYuvCnt,
+          ctx.request.iRotateCnt,ctx.request.iHdrCnt,ctx.request.iSkipCnt,
+          ctx.support.iAfbcdCnt,ctx.support.iScaleCnt,ctx.support.iYuvCnt,
+          ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
   // Match policy first
-  if(iReqAfbcdCnt <= iSupportAfbcdCnt &&
-     iReqScaleCnt <= iSupportScaleCnt &&
-     iReqYuvCnt <= iSupportYuvCnt &&
-     iReqRotateCnt <= iSupportRotateCnt &&
-     iReqSkipCnt == 0)
-    setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
+  if(ctx.request.iAfbcdCnt <= ctx.support.iAfbcdCnt &&
+     ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
+     ctx.request.iYuvCnt <= ctx.support.iYuvCnt &&
+     ctx.request.iRotateCnt <= ctx.support.iRotateCnt &&
+     ctx.request.iSkipCnt == 0)
+    ctx.state.setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
   else{
-    setHwcPolicy.insert(HWC_MIX_LOPICY);
-    setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-    setHwcPolicy.insert(HWC_GLES_POLICY);
-    if(iReqYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
-    if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
+    ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
+    ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    if(ctx.request.iYuvCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+    if(ctx.request.iSkipCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
   }
 
   return 0;
@@ -1375,7 +1378,6 @@ int PlanStageVop2::TryHwcPolicy(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     bool gles_policy) {
 
-  Init();
   // Get PlaneGroup
   std::vector<PlaneGroup *> plane_groups;
   int ret = GetPlaneGroups(crtc,plane_groups);
@@ -1384,37 +1386,37 @@ int PlanStageVop2::TryHwcPolicy(
     return -1;
   }
 
-  // Clear HWC policy list
-  TryMatchPolicyFirst(layers,plane_groups,gles_policy);
+  // Init context
+  InitContext(layers,plane_groups,gles_policy);
 
   // Try to match overlay policy
-  if(setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
     ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
     else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
-      setHwcPolicy.insert(HWC_MIX_LOPICY);
-      setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-      setHwcPolicy.insert(HWC_GLES_POLICY);
-      if(iSupportYuvCnt > 0) setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
-      if(iReqSkipCnt > 0) setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
+      ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
+      ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+      if(ctx.support.iYuvCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+      if(ctx.request.iSkipCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
     }
   }
 
   // Try to match mix policy
-  if(setHwcPolicy.count(HWC_MIX_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
     ret = TryMixPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
     else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match mix policy fail, try to match other policy.");
-      setHwcPolicy.insert(HWC_GLES_POLICY);
+      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
     }
   }
 
   // Try to match GLES policy
-  if(setHwcPolicy.count(HWC_GLES_POLICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_GLES_POLICY)){
     ret = TryGLESPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;

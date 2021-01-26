@@ -49,8 +49,7 @@ class PlanStageVop2 : public Planner::PlanStage {
 
 typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
-typedef enum tagComposeMode
-{
+typedef enum tagComposeMode{
    HWC_OVERLAY_LOPICY,
    HWC_MIX_SKIP_LOPICY,
    HWC_MIX_VIDEO_LOPICY,
@@ -62,6 +61,38 @@ typedef enum tagComposeMode
    HWC_3D_LOPICY,
    HWC_DEBUG_POLICY
 }ComposeMode;
+
+typedef struct RequestContext{
+  int iAfbcdCnt=0;
+  int iScaleCnt=0;
+  int iYuvCnt=0;
+  int iSkipCnt=0;
+  int iRotateCnt=0;
+  int iHdrCnt=0;
+} ReqCtx;
+
+typedef struct SupportContext{
+  int iAfbcdCnt=0;
+  int iScaleCnt=0;
+  int iYuvCnt=0;
+  int iRotateCnt=0;
+  int iHdrCnt=0;
+} SupCtx;
+
+typedef struct StateContext{
+  bool bMultiAreaEnable;
+  bool bMultiAreaScaleEnable;
+  bool bMultiAreaMode;
+  bool bSmartScaleEnable;
+
+  std::set<ComposeMode> setHwcPolicy;
+} StaCtx;
+
+typedef struct DrmVop2Context{
+  ReqCtx request;
+  SupCtx support;
+  StaCtx state;
+} Vop2Ctx;
 
  public:
   PlanStageVop2(){ Init(); }
@@ -99,7 +130,7 @@ typedef enum tagComposeMode
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
 
-  int TryMatchPolicyFirst(std::vector<DrmHwcLayer*> &layers,
+  int InitContext(std::vector<DrmHwcLayer*> &layers,
                                std::vector<PlaneGroup *> &plane_groups,
                                bool gles_policy);
 
@@ -129,24 +160,7 @@ typedef enum tagComposeMode
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best);
  private:
-  std::set<ComposeMode> setHwcPolicy;
-  int iReqAfbcdCnt=0;
-  int iReqScaleCnt=0;
-  int iReqYuvCnt=0;
-  int iReqSkipCnt=0;
-  int iReqRotateCnt=0;
-  int iReqHdrCnt=0;
-
-  int iSupportAfbcdCnt=0;
-  int iSupportScaleCnt=0;
-  int iSupportYuvCnt=0;
-  int iSupportRotateCnt=0;
-  int iSupportHdrCnt=0;
-
-  bool bMultiAreaEnable;
-  bool bMultiAreaScaleEnable;
-  int  iMultiAreaMode;
-  bool bSmartScaleEnable;
+  Vop2Ctx ctx;
 };
 
 }  // namespace android
