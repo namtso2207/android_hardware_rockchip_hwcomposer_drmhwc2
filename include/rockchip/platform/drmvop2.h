@@ -80,10 +80,19 @@ typedef struct SupportContext{
 } SupCtx;
 
 typedef struct StateContext{
-  bool bMultiAreaEnable;
-  bool bMultiAreaScaleEnable;
-  bool bMultiAreaMode;
-  bool bSmartScaleEnable;
+  // Cluster 0/1 two win mode
+  bool bClu0TwoWinMode=false;
+  bool bClu1TwoWinMode=false;
+  bool bClu0Used=false;
+  bool bClu1Used=false;
+  int iClu0UsedDstXOffset=0;
+  int iClu1UsedDstXOffset=0;
+
+  // Multi area
+  bool bMultiAreaEnable=false;
+  bool bMultiAreaScaleEnable=false;
+  bool bMultiAreaMode=false;
+  bool bSmartScaleEnable=false;
 
   std::set<ComposeMode> setHwcPolicy;
 } StaCtx;
