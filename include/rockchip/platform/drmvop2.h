@@ -63,16 +63,33 @@ typedef enum tagComposeMode{
 }ComposeMode;
 
 typedef struct RequestContext{
+  int iSkipCnt=0;
+
+  // Afbcd info
   int iAfbcdCnt=0;
+  int iAfbcdScaleCnt=0;
+  int iAfbcdYuvCnt=0;
+  int iAfbcdRotateCnt=0;
+  int iAfbcdHdrCnt=0;
+
+  // No Afbcd info
+  int iCnt=0;
   int iScaleCnt=0;
   int iYuvCnt=0;
-  int iSkipCnt=0;
   int iRotateCnt=0;
   int iHdrCnt=0;
 } ReqCtx;
 
 typedef struct SupportContext{
+  // Afbcd info
   int iAfbcdCnt=0;
+  int iAfbcdScaleCnt=0;
+  int iAfbcdYuvCnt=0;
+  int iAfbcdRotateCnt=0;
+  int iAfbcdHdrCnt=0;
+
+  // No Afbcd info
+  int iCnt=0;
   int iScaleCnt=0;
   int iYuvCnt=0;
   int iRotateCnt=0;
@@ -138,7 +155,11 @@ typedef struct DrmVop2Context{
   int MatchBestPlanes(std::vector<DrmCompositionPlane> *composition,
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
-
+  bool TryOverlay();
+  void TryMix();
+  void InitStateContext();
+  void InitRequestContext(std::vector<DrmHwcLayer*> &layers);
+  void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
   int InitContext(std::vector<DrmHwcLayer*> &layers,
                                std::vector<PlaneGroup *> &plane_groups,
                                bool gles_policy);

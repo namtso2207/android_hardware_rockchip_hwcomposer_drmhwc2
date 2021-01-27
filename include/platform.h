@@ -35,7 +35,7 @@ class DrmDevice;
 class DrmPlanes;
 
 typedef struct tagPlaneGroup{
-  bool     b_reserved;
+  bool     bReserved;
   bool     bUse;
   uint32_t zpos;
   uint32_t possible_crtcs;

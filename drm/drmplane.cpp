@@ -490,11 +490,11 @@ void DrmPlane::set_use(bool b_use)
 }
 
 bool DrmPlane::is_reserved(){
-  return b_reserved_;
+  return bReserved_;
 }
 
-void DrmPlane::set_reserved(bool b_reserved) {
-    b_reserved_ = b_reserved;
+void DrmPlane::set_reserved(bool bReserved) {
+    bReserved_ = bReserved;
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){

@@ -384,7 +384,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                    __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
                                    (1<<crtc->pipe()), (*iter)->current_possible_crtcs,(*iter)->possible_crtcs);
       //find the match zpos plane group
-      if(!(*iter)->bUse && !(*iter)->b_reserved)
+      if(!(*iter)->bUse && !(*iter)->bReserved)
       {
           ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
 
@@ -1230,27 +1230,7 @@ int PlanStageVop2::TryGLESPolicy(
   return 0;
 }
 
-int PlanStageVop2::InitContext(
-    std::vector<DrmHwcLayer*> &layers,
-    std::vector<PlaneGroup *> &plane_groups,
-    bool gles_policy){
-
-  ctx.state.setHwcPolicy.clear();
-
-  ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
-
-  ctx.state.bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
-
-  ctx.state.bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
-  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
-            __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
-
-  //force go into GPU
-  int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
-  if(iMode!=1 || gles_policy){
-    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-    return 0;
-  }
+void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
   // Collect layer info
   ctx.request.iAfbcdCnt=0;
@@ -1259,6 +1239,7 @@ int PlanStageVop2::InitContext(
   ctx.request.iSkipCnt=0;
   ctx.request.iRotateCnt=0;
   ctx.request.iHdrCnt=0;
+
   for(auto &layer : layers){
     if(layer->bFbTarget_)
       continue;
@@ -1267,18 +1248,42 @@ int PlanStageVop2::InitContext(
       ctx.request.iSkipCnt++;
       continue;
     }
-    if(layer->bAfbcd_)
-      ctx.request.iAfbcdCnt++;
-    if(layer->bScale_)
-      ctx.request.iScaleCnt++;
-    if(layer->bYuv_)
-      ctx.request.iYuvCnt++;
-    if(layer->transform != DRM_MODE_ROTATE_0)
-      ctx.request.iRotateCnt++;
-    if(layer->bHdr_)
-      ctx.request.iHdrCnt++;
-  }
 
+    if(layer->bAfbcd_){
+      ctx.request.iAfbcdCnt++;
+
+      if(layer->bScale_)
+        ctx.request.iAfbcdScaleCnt++;
+
+      if(layer->bYuv_)
+        ctx.request.iAfbcdYuvCnt++;
+
+      if(layer->transform != DRM_MODE_ROTATE_0)
+        ctx.request.iAfbcdRotateCnt++;
+
+      if(layer->bHdr_)
+        ctx.request.iAfbcdHdrCnt++;
+
+    }else{
+
+      ctx.request.iCnt++;
+
+      if(layer->bScale_)
+        ctx.request.iScaleCnt++;
+
+      if(layer->bYuv_)
+        ctx.request.iYuvCnt++;
+
+      if(layer->transform != DRM_MODE_ROTATE_0)
+        ctx.request.iRotateCnt++;
+
+      if(layer->bHdr_)
+        ctx.request.iHdrCnt++;
+    }
+  }
+  return;
+}
+void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
   // Collect Plane resource info
   ctx.support.iAfbcdCnt=0;
   ctx.support.iScaleCnt=0;
@@ -1288,19 +1293,93 @@ int PlanStageVop2::InitContext(
 
   for(auto &plane_group : plane_groups){
     for(auto &p : plane_group->planes){
-      if(p->get_afbc())
+      if(p->get_afbc()){
+
         ctx.support.iAfbcdCnt++;
-      if(p->get_scale())
-        ctx.support.iScaleCnt++;
-      if(p->get_yuv())
-        ctx.support.iYuvCnt++;
-      if(p->get_rotate())
-        ctx.support.iRotateCnt++;
-      if(p->get_hdr2sdr())
-        ctx.support.iHdrCnt++;
+
+        if(p->get_scale())
+          ctx.support.iAfbcdScaleCnt++;
+
+        if(p->get_yuv())
+          ctx.support.iAfbcdYuvCnt++;
+
+        if(p->get_rotate())
+          ctx.support.iAfbcdRotateCnt++;
+
+        if(p->get_hdr2sdr())
+          ctx.support.iAfbcdHdrCnt++;
+
+      }else{
+
+        ctx.support.iCnt++;
+
+        if(p->get_scale())
+          ctx.support.iScaleCnt++;
+
+        if(p->get_yuv())
+          ctx.support.iYuvCnt++;
+
+        if(p->get_rotate())
+          ctx.support.iRotateCnt++;
+
+        if(p->get_hdr2sdr())
+          ctx.support.iHdrCnt++;
+      }
       break;
     }
   }
+  return;
+}
+
+void PlanStageVop2::InitStateContext(){
+  ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","false");
+
+  ctx.state.bMultiAreaScaleEnable = hwc_get_int_property("vendor.hwc.multi_area_scale_mode","false");
+
+  ctx.state.bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
+  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
+            __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
+  return;
+}
+
+bool PlanStageVop2::TryOverlay(){
+  if(ctx.request.iAfbcdCnt <= ctx.support.iAfbcdCnt &&
+     ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
+     ctx.request.iYuvCnt <= ctx.support.iYuvCnt &&
+     ctx.request.iRotateCnt <= ctx.support.iRotateCnt &&
+     ctx.request.iSkipCnt == 0){
+    ctx.state.setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
+    return true;
+  }
+  return false;
+}
+
+void PlanStageVop2::TryMix(){
+  ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
+  ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+  if(ctx.support.iYuvCnt > 0 || ctx.support.iAfbcdYuvCnt > 0)
+    ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
+  if(ctx.request.iSkipCnt > 0)
+    ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
+}
+
+int PlanStageVop2::InitContext(
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups,
+    bool gles_policy){
+
+  ctx.state.setHwcPolicy.clear();
+
+  //force go into GPU
+  int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
+  if(iMode!=1 || gles_policy){
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    return 0;
+  }
+
+  InitRequestContext(layers);
+  InitSupportContext(plane_groups);
+  InitStateContext();
 
   ALOGD_IF(LogLevel(DBG_DEBUG),"request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d,skip=%d\n"
           "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d, %s,line=%d,",
@@ -1309,20 +1388,10 @@ int PlanStageVop2::InitContext(
           ctx.support.iAfbcdCnt,ctx.support.iScaleCnt,ctx.support.iYuvCnt,
           ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
+
   // Match policy first
-  if(ctx.request.iAfbcdCnt <= ctx.support.iAfbcdCnt &&
-     ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
-     ctx.request.iYuvCnt <= ctx.support.iYuvCnt &&
-     ctx.request.iRotateCnt <= ctx.support.iRotateCnt &&
-     ctx.request.iSkipCnt == 0)
-    ctx.state.setHwcPolicy.insert(HWC_OVERLAY_LOPICY);
-  else{
-    ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
-    ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-    if(ctx.request.iYuvCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
-    if(ctx.request.iSkipCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
-  }
+  if(!TryOverlay())
+    TryMix();
 
   return 0;
 }
@@ -1349,11 +1418,7 @@ int PlanStageVop2::TryHwcPolicy(
       return 0;
     else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
-      ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
-      ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
-      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-      if(ctx.support.iYuvCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
-      if(ctx.request.iSkipCnt > 0) ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
+      TryMix();
     }
   }
 

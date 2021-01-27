@@ -159,7 +159,7 @@ class DrmPlane {
   int get_transform();
   void set_yuv(bool b_yuv);
   bool is_reserved();
-  void set_reserved(bool b_reserved);
+  void set_reserved(bool bReserved);
   bool is_support_scale(float scale_rate);
   bool is_support_input(int input_w, int input_h);
   bool is_support_output(int output_w, int output_h);
@@ -205,7 +205,7 @@ class DrmPlane {
   DrmProperty output_h_property_;
   DrmProperty scale_rate_property_;
 
-  bool b_reserved_;
+  bool bReserved_;
   bool b_use_;
   bool b_yuv_;
   bool b_scale_;

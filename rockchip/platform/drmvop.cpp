@@ -402,7 +402,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,possible_crtcs=0x%x",
                   __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse, (1<<crtc->pipe()), (*iter)->possible_crtcs);
       //find the match zpos plane group
-      if(!(*iter)->bUse && !(*iter)->b_reserved)
+      if(!(*iter)->bUse && !(*iter)->bReserved)
       {
           ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
 
