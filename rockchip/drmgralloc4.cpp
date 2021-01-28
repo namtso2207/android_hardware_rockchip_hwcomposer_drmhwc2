@@ -411,7 +411,7 @@ int get_bit_per_pixel(buffer_handle_t handle, int* bit_per_pixel)
 
     if ( layouts.size() > 1 )
     {
-        W("it's not reasonable to get global pixel_stride of buffer with planes more than 1.");
+        // W("it's not reasonable to get global pixel_stride of buffer with planes more than 1.");
     }
 
     *bit_per_pixel = (layouts[0].sampleIncrementInBits);
@@ -468,7 +468,7 @@ int get_byte_stride(buffer_handle_t handle, int* byte_stride)
 
         if ( layouts.size() > 1 )
         {
-            W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
+            // W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
         }
         *byte_stride = (layouts[0].strideInBytes);
     }
@@ -517,7 +517,7 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
 
         if ( layouts.size() > 1 )
         {
-            W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
+            // W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
         }
 
 #if WORKROUND_FOR_VOP2_DRIVER==1
