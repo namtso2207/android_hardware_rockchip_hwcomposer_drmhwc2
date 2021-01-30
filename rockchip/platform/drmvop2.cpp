@@ -603,7 +603,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                   ctx.state.bClu0TwoWinMode = true;
                               }
                           }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
-                              ctx.state.bClu0Used = true;
+                              ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
                               if(input_w > 2048 || output_w > 2048 ||
                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
