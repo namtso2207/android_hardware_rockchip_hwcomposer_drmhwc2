@@ -556,31 +556,28 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }
 
                           // Only YUV use Cluster rotate
-                          if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                            if(!(*iter_plane)->is_support_transform((*iter_layer)->transform)){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
-                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
-                              continue;
-                            }
-                            // Cluster rotate must 64 align
-                            if(((*iter_layer)->iStride_ % 64 != 0)){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and iStride_ = %d",
-                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_layer)->iStride_);
-                              continue;
-                            }
-                            //Cluster rotate input_h must <= 2048
-                            if(input_h > 2048){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and input_h = %d",
-                                      (*iter_plane)->id(), (*iter_layer)->transform,input_h);
-                              continue;
+                          if((*iter_plane)->is_support_transform((*iter_layer)->transform)){
+                            if(((*iter_layer)->transform & (DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              // Cluster rotate must 64 align
+                              if(((*iter_layer)->iStride_ % 64 != 0)){
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
+                                        (*iter_plane)->id(), (*iter_layer)->transform,(*iter_layer)->iStride_);
+                                continue;
+                              }
                             }
 
+                            if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              //Cluster rotate input_h must <= 2048
+                              if(input_h > 2048){
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and input_h = %d",
+                                        (*iter_plane)->id(), (*iter_layer)->transform,input_h);
+                                continue;
+                              }
+                            }
                           }else{
-                            if(!(*iter_plane)->is_support_transform((*iter_layer)->transform)){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
                                       (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
-                            }
                           }
 
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
