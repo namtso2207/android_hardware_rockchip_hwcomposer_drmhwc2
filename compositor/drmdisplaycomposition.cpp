@@ -143,7 +143,7 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
     if(release_plane || disable_plane){
         for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
               !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
-              if ((*iter_plane)->GetCrtcSupported(*crtc()) && !(*iter_plane)->is_use()) {
+              if (!(*iter_plane)->is_use()) {
                   ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d %s",
                             (*iter_plane)->id(),release_plane ? "release_necessary_cnt plane" : "");
                   AddPlaneDisable(*iter_plane);

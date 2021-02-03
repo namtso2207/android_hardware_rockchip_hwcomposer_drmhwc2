@@ -88,6 +88,9 @@ typedef struct tagPlaneGroup{
   }
 
   bool acquire(uint32_t crtc_mask){
+    if(possible_crtcs == crtc_mask)
+      return true;
+
     if(!(possible_crtcs & crtc_mask))
       return false;
 
