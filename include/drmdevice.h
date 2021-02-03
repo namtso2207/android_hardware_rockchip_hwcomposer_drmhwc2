@@ -135,6 +135,7 @@ class DrmDevice {
   bool is_hdr_panel_support_HLG(DrmConnector *conn) const;
   bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
   bool mode_verify(const DrmMode &mode);
+  int getSocId(){ return soc_id_; };
 
  private:
   void init_white_modes(void);
@@ -147,6 +148,7 @@ class DrmDevice {
   int AttachWriteback(DrmConnector *display_conn);
 
   UniqueFd fd_;
+  int soc_id_;
   uint32_t mode_id_ = 0;
   bool enable_changed_;
   DrmConnector *primary_;

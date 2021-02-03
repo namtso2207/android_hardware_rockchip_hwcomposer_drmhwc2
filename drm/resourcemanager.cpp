@@ -60,7 +60,6 @@ int ResourceManager::Init() {
     ALOGE("Open fb0 fail in %s",__FUNCTION__);
   }
 
-
   return 0;
 }
 
@@ -70,6 +69,10 @@ int ResourceManager::AddDrmDevice(std::string path) {
   std::tie(ret, displays_added) = drm->Init(path.c_str(), num_displays_);
   if (ret)
     return ret;
+
+  //Get soc id
+  soc_id_ = drm->getSocId();
+
   std::shared_ptr<Importer> importer;
   importer.reset(Importer::CreateInstance(drm.get()));
   if (!importer) {

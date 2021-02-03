@@ -152,6 +152,13 @@ struct DrmHwcLayer {
   hwc_frect_t source_crop;
   hwc_rect_t display_frame;
 
+  // Commit mirror function
+  int iFbWidth_;
+  int iFbHeight_;
+  float fHScaleMulMirror_;
+  float fVScaleMulMirror_;
+  hwc_rect_t display_frame_mirror;
+
   UniqueFd acquire_fence;
   OutputFd release_fence;
 
@@ -203,6 +210,7 @@ struct DrmHwcLayer {
   void SetTransform(HWC2::Transform sf_transform);
   void SetSourceCrop(hwc_frect_t const &crop);
   void SetDisplayFrame(hwc_rect_t const &frame);
+  void SetDisplayFrameMirror(hwc_rect_t const &frame);
 
   buffer_handle_t get_usable_handle() const {
     return handle.get() != NULL ? handle.get() : sf_handle;

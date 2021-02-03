@@ -494,6 +494,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
     int fb_id = -1;
     hwc_rect_t display_frame;
+    // Commit mirror function
+    hwc_rect_t display_frame_mirror;
     hwc_frect_t source_crop;
     uint64_t rotation = 0;
     uint64_t alpha = 0xFFFF;
@@ -534,6 +536,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
+      display_frame_mirror = layer.display_frame_mirror;
       source_crop = layer.source_crop;
       if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha << 8;
       eotf = layer.uEOTF;
@@ -582,10 +585,18 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     src_w = (int)(source_crop.right - source_crop.left);
     src_h = (int)(source_crop.bottom - source_crop.top);
 
-    dst_l = display_frame.left;
-    dst_t = display_frame.top;
-    dst_w = display_frame.right - display_frame.left;
-    dst_h = display_frame.bottom - display_frame.top;
+    // Commit mirror function
+    if(comp_plane.mirror()){
+      dst_l = display_frame_mirror.left;
+      dst_t = display_frame_mirror.top;
+      dst_w = display_frame_mirror.right - display_frame_mirror.left;
+      dst_h = display_frame_mirror.bottom - display_frame_mirror.top;
+    }else{
+      dst_l = display_frame.left;
+      dst_t = display_frame.top;
+      dst_w = display_frame.right - display_frame.left;
+      dst_h = display_frame.bottom - display_frame.top;
+    }
 
     if(yuv){
       src_l = ALIGN_DOWN(src_l, 2);

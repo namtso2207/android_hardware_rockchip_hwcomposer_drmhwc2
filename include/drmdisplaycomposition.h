@@ -70,15 +70,20 @@ class DrmCompositionPlane {
       : type_(type), plane_(plane), crtc_(crtc) {
   }
   DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc,
-                      size_t source_layer)
+                      size_t source_layer, bool mirror = false)
       : type_(type),
         plane_(plane),
         crtc_(crtc),
-        source_layers_(1, source_layer) {
+        source_layers_(1, source_layer),
+        mirror_(mirror){
   }
 
   Type type() const {
     return type_;
+  }
+
+  bool mirror(){
+    return mirror_;
   }
 
   DrmPlane *plane() const {
@@ -108,6 +113,7 @@ class DrmCompositionPlane {
   DrmPlane *plane_ = NULL;
   DrmCrtc *crtc_ = NULL;
   std::vector<size_t> source_layers_;
+  bool mirror_;
 };
 
 class DrmDisplayComposition {

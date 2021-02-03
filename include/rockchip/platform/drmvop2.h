@@ -97,6 +97,10 @@ typedef struct SupportContext{
 } SupCtx;
 
 typedef struct StateContext{
+  // Commit mirror function
+  bool bCommitMirrorMode=false;
+  DrmCrtc *pCrtcMirror=NULL;
+
   // Cluster 0/1 two win mode
   bool bClu0TwoWinMode=false;
   bool bClu1TwoWinMode=false;
@@ -161,6 +165,7 @@ typedef struct DrmVop2Context{
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
   void TryMix();
+  void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
   void InitStateContext();
   void InitRequestContext(std::vector<DrmHwcLayer*> &layers);
   void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
@@ -191,6 +196,10 @@ typedef struct DrmVop2Context{
   void ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups);
   void ResetLayer(std::vector<DrmHwcLayer*>& layers);
   int  MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
+                     std::vector<PlaneGroup *> &plane_groups,
+                     DrmCompositionPlane::Type type, DrmCrtc *crtc,
+                     std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best);
+  int  MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_planes,
                      std::vector<PlaneGroup *> &plane_groups,
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best);

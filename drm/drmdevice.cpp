@@ -222,6 +222,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       ALOGE("Failed to initialize crtc %d", res->crtcs[i]);
       break;
     }
+    soc_id_ = crtc->get_soc_id();
     crtcs_.emplace_back(std::move(crtc));
   }
 

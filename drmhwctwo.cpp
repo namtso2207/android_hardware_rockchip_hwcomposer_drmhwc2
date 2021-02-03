@@ -1959,6 +1959,9 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->acquire_fence = acquire_fence_.Release();
   drmHwcLayer->release_fence = std::move(release_fence);
 
+  drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
+  drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
+
   float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
 
@@ -1972,6 +1975,9 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->SetDisplayFrame(display_frame);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
+
+  // Commit mirror function
+  drmHwcLayer->SetDisplayFrameMirror(display_frame_);
 
   if(buffer_){
     drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
@@ -2017,7 +2023,13 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->sf_handle     = buffer_;
     drmHwcLayer->acquire_fence = acquire_fence_.Release();
     drmHwcLayer->release_fence = std::move(release_fence);
+  }else{
+    // Commit mirror function
+    drmHwcLayer->SetDisplayFrameMirror(display_frame_);
   }
+
+  drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
+  drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
 
   float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
@@ -2032,6 +2044,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetDisplayFrame(display_frame);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
+
+
 
   if(buffer_){
     drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
@@ -2130,6 +2144,15 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   auto cb = callbacks_.find(HWC2::Callback::Hotplug);
   if (cb == callbacks_.end())
     return;
+
+  switch (resource_manager_.getSocId()){
+    case 0x3566:
+    case 0x3566a:
+      ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
+      return;
+    default:
+      break;
+  }
 
   auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(cb->second.func);
   hotplug(cb->second.data, displayid,

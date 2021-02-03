@@ -220,6 +220,10 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
   display_frame = frame;
 }
 
+void DrmHwcLayer::SetDisplayFrameMirror(hwc_rect_t const &frame) {
+  display_frame_mirror = frame;
+}
+
 void DrmHwcLayer::SetTransform(HWC2::Transform sf_transform) {
   switch (sf_transform) {
       case HWC2::Transform::None:
@@ -289,6 +293,7 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
   }
   return (fHScaleMul_ != 1.0 ) || ( fVScaleMul_ != 1.0);
 }
+
 bool DrmHwcLayer::IsHdr(int usage){
   return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
 }

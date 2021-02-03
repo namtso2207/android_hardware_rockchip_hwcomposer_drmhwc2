@@ -52,6 +52,7 @@ class ResourceManager {
   uint32_t getActiveDisplayCnt() { return active_display_.size();}
   int assignPlaneGroup(int display);
   int getFb0Fd() { return fb0_fd;};
+  int getSocId() { return soc_id_;}
  private:
   int AddDrmDevice(std::string path);
 
@@ -61,6 +62,7 @@ class ResourceManager {
   std::vector<std::shared_ptr<Importer>> importers_;
   DrmGralloc *drmGralloc_;
   int fb0_fd;
+  int soc_id_;
 };
 }  // namespace android
 

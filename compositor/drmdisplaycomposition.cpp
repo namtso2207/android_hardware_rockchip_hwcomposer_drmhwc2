@@ -128,6 +128,8 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
 
   std::vector<PlaneGroup*> plane_groups = drm_->GetPlaneGroups();
 
+  int soc_id = crtc()->get_soc_id();
+
   //loop plane groups.
   for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
@@ -140,6 +142,10 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
     }else if((*iter)->acquire(crtc_mask)){
         disable_plane = true;
     }
+
+    if(soc_id==0x3566 || soc_id==0x3566a)
+      disable_plane = true;
+
     if(release_plane || disable_plane){
         for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
               !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
