@@ -421,20 +421,24 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           // Cluster
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
+                                ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
                                 ctx.state.iClu0UsedDstXOffset = 0;
                           }
 
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
                                 ctx.state.bClu1Used = false;
+                                ctx.state.iClu1UsedZ = -1;
                                 ctx.state.bClu1TwoWinMode = true;
                                 ctx.state.iClu1UsedDstXOffset = 0;
                           }
 
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) == 0)
+                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
                             ctx.state.bClu0TwoWinMode = false;
 
-                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) == 0)
+                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
                             ctx.state.bClu1TwoWinMode = false;
 
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
@@ -592,6 +596,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           // Cluster disable two win mode?
                           if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
                               ctx.state.bClu0Used = true;
+                              ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
                               if(input_w > 2048 || output_w > 2048 ||
                                  ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
@@ -601,6 +606,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               }
                           }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
                               ctx.state.bClu1Used = true;
+                              ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
                               if(input_w > 2048 || output_w > 2048 ||
                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){

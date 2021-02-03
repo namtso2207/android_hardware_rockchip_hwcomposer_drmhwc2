@@ -102,6 +102,8 @@ typedef struct StateContext{
   bool bClu1TwoWinMode=false;
   bool bClu0Used=false;
   bool bClu1Used=false;
+  int iClu0UsedZ=-1;
+  int iClu1UsedZ=-1;
   int iClu0UsedDstXOffset=0;
   int iClu1UsedDstXOffset=0;
 
