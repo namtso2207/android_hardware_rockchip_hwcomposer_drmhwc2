@@ -25,19 +25,38 @@ namespace android {
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc, bool gles_policy) {
   std::vector<DrmCompositionPlane> composition;
-
+  int ret = -1;
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
     if(i->SupportPlatform(crtc->get_soc_id())){
-      int ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
-      if (ret) {
-        ALOGE("Failed provision stage with ret %d", ret);
-        return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+      switch(crtc->get_soc_id()){
+        // Before E.C.O.
+        case 0x3566:
+        case 0x3568:
+          ret = i->TryHwcPolicy(&composition, layers, crtc, true);
+          if (ret) {
+            ALOGE("Failed provision stage with ret %d", ret);
+            return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+          }
+          break;
+        // After E.C.O.
+        case 0x3566a:
+        case 0x3568a:
+          ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
+          if (ret) {
+            ALOGE("Failed provision stage with ret %d", ret);
+            return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+          }
+          break;
+        default:
+            ALOGE("Failed provision stage with ret %d", ret);
+            return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+          break;
       }
     }
   }
 
-  return std::make_tuple(0, std::move(composition));
+  return std::make_tuple(ret, std::move(composition));
 }
 
 }  // namespace android

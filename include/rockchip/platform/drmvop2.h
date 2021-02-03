@@ -113,6 +113,8 @@ typedef struct StateContext{
   bool bMultiAreaMode=false;
   bool bSmartScaleEnable=false;
 
+  // Soc id
+  int iSocId=0;
   std::set<ComposeMode> setHwcPolicy;
 } StaCtx;
 
@@ -164,6 +166,7 @@ typedef struct DrmVop2Context{
   void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
   int InitContext(std::vector<DrmHwcLayer*> &layers,
                                std::vector<PlaneGroup *> &plane_groups,
+                               DrmCrtc *crtc,
                                bool gles_policy);
 
   bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);

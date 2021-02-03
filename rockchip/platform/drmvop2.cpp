@@ -1362,14 +1362,17 @@ void PlanStageVop2::TryMix(){
 int PlanStageVop2::InitContext(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc,
     bool gles_policy){
 
   ctx.state.setHwcPolicy.clear();
+  ctx.state.iSocId = crtc->get_soc_id();
 
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
   if(iMode!=1 || gles_policy){
     ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    ALOGD_IF(LogLevel(DBG_DEBUG),"Force use GLES compose, iMode=%d, gles_policy=%d, soc_id=%x",iMode,gles_policy,ctx.state.iSocId);
     return 0;
   }
 
@@ -1405,7 +1408,7 @@ int PlanStageVop2::TryHwcPolicy(
   }
 
   // Init context
-  InitContext(layers,plane_groups,gles_policy);
+  InitContext(layers,plane_groups,crtc,gles_policy);
 
   // Try to match overlay policy
   if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
