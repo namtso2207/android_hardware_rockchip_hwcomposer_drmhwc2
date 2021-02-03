@@ -383,7 +383,7 @@ bool PlanStageVop::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<
 int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int *zpos, bool match_best=false) {
+                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best=false) {
   uint32_t combine_layer_count = 0;
   uint32_t layer_size = layers.second.size();
   bool b_yuv=false,b_scale=false,b_alpha=false,b_hdr2sdr=false,b_afbc=false;
@@ -400,7 +400,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,possible_crtcs=0x%x",
-                  __LINE__, *zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse, (1<<crtc->pipe()), (*iter)->possible_crtcs);
+                  __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse, (1<<crtc->pipe()), (*iter)->possible_crtcs);
       //find the match zpos plane group
       if(!(*iter)->bUse && !(*iter)->bReserved)
       {
@@ -584,12 +584,12 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
                               continue;
 
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,,zops = %d",(*iter_layer)->uId_,
-                              (*iter_plane)->id(),*zpos);
+                              (*iter_plane)->id(),zpos);
                           //Find the match plane for layer,it will be commit.
                           composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_);
                           (*iter_layer)->bMatch_ = true;
                           (*iter_plane)->set_use(true);
-                          composition_planes->back().set_zpos(*zpos);
+                          composition_planes->back().set_zpos(zpos);
                           combine_layer_count++;
                           break;
 
@@ -599,19 +599,10 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
               if(combine_layer_count == layer_size)
               {
                   ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d all match",__LINE__);
-                  //update zpos for the next time.
-                   *zpos += 1;
                   (*iter)->bUse = true;
                   return 0;
               }
           }
-          /*else
-          {
-              //1. cut out combine_layer_count to (*iter)->planes.size().
-              //2. combine_layer_count layer assign planes.
-              //3. extern layers assign planes.
-              return false;
-          }*/
       }
 
   }
@@ -650,7 +641,7 @@ int PlanStageVop::MatchPlanes(
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
     ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                      crtc, std::make_pair(i->first, i->second),&zpos);
+                      crtc, std::make_pair(i->first, i->second),zpos);
     // We don't have any planes left
     if (ret == -ENOENT){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
@@ -659,6 +650,7 @@ int PlanStageVop::MatchPlanes(
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
       return ret;
     }
+    zpos++;
   }
 
   return 0;
