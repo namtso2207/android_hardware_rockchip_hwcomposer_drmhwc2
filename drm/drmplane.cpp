@@ -236,9 +236,6 @@ int DrmPlane::Init() {
     }
   }
 
-  if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
-    b_scale_ = false;
-  }
   ret = drm_->GetPlaneProperty(*this, "INPUT_WIDTH", &input_w_property_);
   if (ret)
     ALOGE("Could not get INPUT_WIDTH property");
@@ -301,6 +298,12 @@ int DrmPlane::Init() {
       scale_max_ = scale_rate;
     else
       ALOGE("Could not get SCALE_RATE range_max property");
+
+    if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
+      b_scale_ = false;
+      scale_min_ = 1.0;
+      scale_max_ = 1.0;
+    }
   }
   return 0;
 }
@@ -498,7 +501,7 @@ void DrmPlane::set_reserved(bool bReserved) {
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){
-  return (scale_rate > scale_min_) && (scale_rate < scale_max_);
+  return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
 }
 
 bool DrmPlane::is_support_input(int input_w, int input_h){

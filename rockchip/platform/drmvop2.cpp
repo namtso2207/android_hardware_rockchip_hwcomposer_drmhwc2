@@ -504,27 +504,14 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }
 
                           // Scale
-                          b_scale = (*iter_plane)->get_scale();
-                          if((*iter_layer)->bScale_)
-                          {
-                              if(!b_scale)
-                              {
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale",(*iter_plane)->id());
-                                  continue;
-                              }
-                              else
-                              {
+                          if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
+                              (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
+                            bNeed = true;
+                          else{
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
+                                    (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                            continue;
 
-                                  if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
-                                      (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
-                                    bNeed = true;
-                                  else{
-                                    ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                            (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
-                                    continue;
-
-                                  }
-                              }
                           }
 
                           // Alpha
@@ -780,27 +767,14 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                           }
 
                           // Scale
-                          b_scale = (*iter_plane)->get_scale();
-                          if((*iter_layer)->bScale_)
-                          {
-                              if(!b_scale)
-                              {
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale",(*iter_plane)->id());
-                                  continue;
-                              }
-                              else
-                              {
+                          if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMulMirror_) &&
+                              (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
+                            bNeed = true;
+                          else{
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
+                                    (*iter_plane)->id(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
+                            continue;
 
-                                  if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
-                                      (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
-                                    bNeed = true;
-                                  else{
-                                    ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                            (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
-                                    continue;
-
-                                  }
-                              }
                           }
 
                           // Alpha
@@ -1710,7 +1684,6 @@ void PlanStageVop2::InitCrtcMirror(
 
       layer->fHScaleMulMirror_ = (float) (src_w)/(dst_w);
       layer->fVScaleMulMirror_ = (float) (src_h)/(dst_h);
-
     }
 
     int ret = GetPlaneGroups(crtc,plane_groups);
