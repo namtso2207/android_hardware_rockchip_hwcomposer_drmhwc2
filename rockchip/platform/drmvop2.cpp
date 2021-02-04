@@ -1688,8 +1688,9 @@ void PlanStageVop2::InitCrtcMirror(
       if(!layer->bFbTarget_ && (layer->bSkipLayer_ || layer->bGlesCompose_)){
         continue;
       }
-      hwc_rect_t display_frame;
 
+      // Mirror display frame info
+      hwc_rect_t display_frame;
       float w_scale = mode_width / (float)layer->iFbWidth_;
       float h_scale = mode_height / (float)layer->iFbHeight_;
       display_frame.left   = (int)(layer->display_frame_mirror.left   * w_scale);
@@ -1698,6 +1699,17 @@ void PlanStageVop2::InitCrtcMirror(
       display_frame.bottom = (int)(layer->display_frame_mirror.bottom * h_scale);
 
       layer->SetDisplayFrameMirror(display_frame);
+
+      // Mirror scale factor
+      int src_w, src_h, dst_w, dst_h;
+      src_w = (int)(layer->source_crop.right - layer->source_crop.left);
+      src_h = (int)(layer->source_crop.bottom - layer->source_crop.top);
+      dst_w = (int)(display_frame.right - display_frame.left);
+      dst_h = (int)(display_frame.bottom - display_frame.top);
+
+      layer->fHScaleMulMirror_ = (float) (src_w)/(dst_w);
+      layer->fVScaleMulMirror_ = (float) (src_h)/(dst_h);
+
     }
 
     int ret = GetPlaneGroups(crtc,plane_groups);
