@@ -40,6 +40,7 @@
 #include "drmdevice.h"
 
 #include <log/log.h>
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -1717,7 +1718,61 @@ void PlanStageVop2::InitCrtcMirror(
       ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
       return;
     }
+    // Resolution switch
+    static char resolution_last[PROPERTY_VALUE_MAX];
+    char resolution[PROPERTY_VALUE_MAX];
+    uint32_t width, height, flags;
+    uint32_t hsync_start, hsync_end, htotal;
+    uint32_t vsync_start, vsync_end, vtotal;
+    bool interlaced;
+    float vrefresh;
+    char val;
+    uint32_t MaxResolution = 0,temp;
+    property_get("persist.vendor.resolution.aux", resolution, "Auto");
+    if(strcmp(resolution,resolution_last)){
+      if(!strcmp(resolution,"Auto")){
+        for (const DrmMode &conn_mode : conn->modes()) {
+          if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+            conn->set_best_mode(conn_mode);
+            break;
+          }
+        }
+      }else if(strcmp(resolution,"Auto") != 0){
+        int len = sscanf(resolution, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x",
+                         &width, &height, &vrefresh, &hsync_start,
+                         &hsync_end, &htotal, &vsync_start,&vsync_end,
+                         &vtotal, &flags);
+        if (len == 10 && width != 0 && height != 0) {
+          for (const DrmMode &conn_mode : conn->modes()) {
+            if (conn_mode.equal(width, height, vrefresh, hsync_start, hsync_end,
+                                htotal, vsync_start, vsync_end, vtotal, flags)) {
+              conn->set_best_mode(conn_mode);
+              break;
+            }
+          }
+        }else{
+          uint32_t ivrefresh;
+          len = sscanf(resolution, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
+          if (val == 'i')
+            interlaced = true;
+          else
+            interlaced = false;
+          if (len == 4 && width != 0 && height != 0) {
+            for (const DrmMode &conn_mode : conn->modes()) {
+              if (conn_mode.equal(width, height, ivrefresh, interlaced)) {
+                conn->set_best_mode(conn_mode);
+                break;
+              }
+            }
+          }
+        }
+      }
 
+      DrmMode best_mode = conn->best_mode();
+      conn->set_current_mode(best_mode);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Commit mirror switch resolution %s, resolution_last %s",resolution,resolution_last);
+      strncpy(resolution_last,resolution,sizeof(resolution));
+    }
   }
   return;
 }
