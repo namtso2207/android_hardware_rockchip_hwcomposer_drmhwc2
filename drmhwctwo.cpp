@@ -1256,12 +1256,30 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   fb_blanked = fb_blank;
 
+  bool is_disable_extend = false;
+  switch (resource_manager_->getSocId()){
+    case 0x3566:
+    case 0x3566a:
+      is_disable_extend = true;
+      ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
+      break;
+    default:
+      break;
+  }
+  if(is_disable_extend){
+    DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    if(extend != NULL){
+      extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
+    }
+  }
+
   if(connector_){
     connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
-    drm_->DisplayChanged();
-    drm_->UpdateDisplayRoute();
-    drm_->UpdateDisplayMode();
   }
+
+  drm_->DisplayChanged();
+  drm_->UpdateDisplayRoute();
+  drm_->UpdateDisplayMode();
 
   return HWC2::Error::None;
 }
