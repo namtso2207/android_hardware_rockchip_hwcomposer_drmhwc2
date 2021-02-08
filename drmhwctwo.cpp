@@ -1001,7 +1001,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_);
+           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_ || force_gles_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;
@@ -1192,6 +1192,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetColorTransform(const float *matrix,
                                                      int32_t hint) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", hint=%x",handle_,hint);
   // TODO: Force client composition if we get this
+  // hint definition from android_color_transform_t in system/core/libsystem/include/system/graphics-base-v1.0.h
+  force_gles_ = (hint > 0);
   unsupported(__func__, matrix, hint);
   return HWC2::Error::None;
 }
