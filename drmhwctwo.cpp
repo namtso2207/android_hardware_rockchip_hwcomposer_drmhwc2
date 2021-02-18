@@ -370,6 +370,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   ctx_.aclk = crtc_->get_aclk();
 
   init_success_ = true;
+  ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
 
   return HWC2::Error::None;
 }
@@ -435,7 +436,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   ctx_.aclk = crtc_->get_aclk();
 
   init_success_ = true;
-
+  ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
 
   return HWC2::Error::None;
 }
@@ -542,8 +543,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
     if (mode.id() == 0)
       return HWC2::Error::BadConfig;
 
-    ctx_.framebuffer_width = mode.h_display();
-    ctx_.framebuffer_height = mode.v_display();
+    DrmMode const &best_mode = connector_->best_mode();
+
+    ctx_.framebuffer_width = best_mode.h_display();
+    ctx_.framebuffer_height = best_mode.v_display();
 
     *config = mode.id();
   }else{
@@ -1196,20 +1199,40 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
   //    return HWC2::Error::BadConfig;
   //  }
 
-    connector_->set_active_mode(*mode);
-  }
+    connector_->set_best_mode(*mode);
 
-  // Setup the client layer's dimensions
-  hwc_rect_t display_frame = {.left = 0,
-                              .top = 0,
-                              .right = static_cast<int>(ctx_.framebuffer_width),
-                              .bottom = static_cast<int>(ctx_.framebuffer_height)};
-  client_layer_.SetLayerDisplayFrame(display_frame);
-  hwc_frect_t source_crop = {.left = 0.0f,
-                             .top = 0.0f,
-                             .right = ctx_.framebuffer_width + 0.0f,
-                             .bottom = ctx_.framebuffer_height + 0.0f};
-  client_layer_.SetLayerSourceCrop(source_crop);
+    connector_->set_current_mode(*mode);
+    ctx_.rel_xres = (*mode).h_display();
+    ctx_.rel_yres = (*mode).v_display();
+
+    // Setup the client layer's dimensions
+    hwc_rect_t display_frame = {.left = 0,
+                                .top = 0,
+                                .right = static_cast<int>(mode->h_display()),
+                                .bottom = static_cast<int>(mode->v_display())};
+    client_layer_.SetLayerDisplayFrame(display_frame);
+    hwc_frect_t source_crop = {.left = 0.0f,
+                               .top = 0.0f,
+                               .right = mode->h_display() + 0.0f,
+                               .bottom = mode->v_display() + 0.0f};
+    client_layer_.SetLayerSourceCrop(source_crop);
+
+    drm_->UpdateDisplayMode(handle_);
+  }else{
+
+    // Setup the client layer's dimensions
+    hwc_rect_t display_frame = {.left = 0,
+                                .top = 0,
+                                .right = static_cast<int>(ctx_.framebuffer_width),
+                                .bottom = static_cast<int>(ctx_.framebuffer_height)};
+    client_layer_.SetLayerDisplayFrame(display_frame);
+    hwc_frect_t source_crop = {.left = 0.0f,
+                               .top = 0.0f,
+                               .right = ctx_.framebuffer_width + 0.0f,
+                               .bottom = ctx_.framebuffer_height + 0.0f};
+    client_layer_.SetLayerSourceCrop(source_crop);
+
+  }
 
   return HWC2::Error::None;
 }
@@ -1367,8 +1390,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateLogLevel();
   UpdateBCSH();
   UpdateHdmiOutputFormat();
-  UpdateDisplayMode();
-  drm_->UpdateDisplayMode(handle_);
+  if(!ctx_.bStandardSwitchResolution){
+    UpdateDisplayMode();
+    drm_->UpdateDisplayMode(handle_);
+  }
 
   *num_types = 0;
   *num_requests = 0;
@@ -1439,11 +1464,12 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
     return -1;
   }
 
-  output.appendFormat("  NumHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d\n",
+  output.appendFormat("  NumHwLayers=%zu, activeModeId=%u, %s%c%.2f, colorMode = %d, bStandardSwitchResolution=%d\n",
                         get_layers().size(),
                         active_mode.id(), active_mode.name().c_str(),'p' ,active_mode.v_refresh(),
-                        color_mode_);
+                        color_mode_,ctx_.bStandardSwitchResolution);
   uint32_t idx = 0;
+
   if(sf_modes_.size() > 0){
     for (const DrmMode &mode : sf_modes_) {
       if(active_mode.id() == mode.id())
@@ -1642,14 +1668,16 @@ int DrmHwcTwo::HwcDisplay::HoplugEventTmeline(){
 }
 
 int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
-  int timeline;
 
-  timeline = property_get_int32("vendor.display.timeline", -1);
-  if(timeline && timeline == ctx_.display_timeline && ctx_.hotplug_timeline == drm_->timeline())
-    return 0;
-  ctx_.display_timeline = timeline;
-  ctx_.hotplug_timeline = drm_->timeline();
+  if(!ctx_.bStandardSwitchResolution){
+    int timeline;
 
+    timeline = property_get_int32("vendor.display.timeline", -1);
+    if(timeline && timeline == ctx_.display_timeline && ctx_.hotplug_timeline == drm_->timeline())
+      return 0;
+    ctx_.display_timeline = timeline;
+    ctx_.hotplug_timeline = drm_->timeline();
+  }
   int ret = GetBestDisplayMode();
   if(!ret){
     const DrmMode best_mode = connector_->best_mode();
@@ -2140,7 +2168,7 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
 }
 
 void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                                                 hwc_drm_display_t* ctx, uint32_t frame_no) {
+                                                 hwc2_drm_display_t* ctx, uint32_t frame_no) {
   drmHwcLayer->uId_        = layer_id;
   drmHwcLayer->iZpos_      = z_order_;
   drmHwcLayer->uFrameNo_   = frame_no;
@@ -2178,8 +2206,12 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
 
-  float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
-  float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+  float w_scale = 1;
+  float h_scale = 1;
+  if(!ctx->bStandardSwitchResolution){
+    w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
+    h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+  }
 
   hwc_rect_t display_frame;
 
@@ -2224,7 +2256,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
 }
 
 void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                                         hwc_drm_display_t* ctx, uint32_t frame_no, bool validate) {
+                                         hwc2_drm_display_t* ctx, uint32_t frame_no, bool validate) {
   drmHwcLayer->uId_        = layer_id;
   drmHwcLayer->uFrameNo_   = frame_no;
   drmHwcLayer->bFbTarget_  = true;
@@ -2250,8 +2282,12 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
 
-  float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
-  float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+  float w_scale = 1;
+  float h_scale = 1;
+  if(!ctx->bStandardSwitchResolution){
+    w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
+    h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
+  }
 
   hwc_rect_t display_frame;
 

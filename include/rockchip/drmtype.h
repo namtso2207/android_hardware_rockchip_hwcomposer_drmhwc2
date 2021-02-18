@@ -296,7 +296,7 @@ enum flagBaseParameter
     BP_OVERSCAN,
 };
 
-typedef struct hwc_drm_display {
+typedef struct hwc2_drm_display {
   bool bStandardSwitchResolution = false;
   int framebuffer_width;
   int framebuffer_height;
@@ -313,7 +313,7 @@ typedef struct hwc_drm_display {
   bool hdr_mode;
   drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
   dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
-} hwc_drm_display_t;
+} hwc2_drm_display_t;
 
 uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
 

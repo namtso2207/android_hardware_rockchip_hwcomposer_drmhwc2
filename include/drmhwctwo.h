@@ -107,10 +107,10 @@ class DrmHwcTwo : public hwc2_device_t {
 
     uint32_t id(){ return id_; }
 
-    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc_drm_display_t* ctx,
+    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc2_drm_display_t* ctx,
                                  uint32_t frame_no);
     void PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                        hwc_drm_display_t* ctx, uint32_t frame_no, bool validate);
+                        hwc2_drm_display_t* ctx, uint32_t frame_no, bool validate);
     void DumpLayerInfo(String8 &output);
 
     int DumpData();
@@ -288,7 +288,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool init_success_;
     bool validate_success_;
     bool present_finish_;
-    hwc_drm_display_t ctx_;
+    hwc2_drm_display_t ctx_;
     bool static_screen_timer_enable_;
     bool static_screen_opt_;
     bool force_gles_;
