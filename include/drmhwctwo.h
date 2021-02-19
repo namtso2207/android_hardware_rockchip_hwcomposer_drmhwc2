@@ -114,6 +114,10 @@ class DrmHwcTwo : public hwc2_device_t {
     void DumpLayerInfo(String8 &output);
 
     int DumpData();
+
+    void EnableAfbc() { is_afbc_ = true;};
+    void DisableAfbc() { is_afbc_ = false;};
+    bool isAfbc() { return is_afbc_;};
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -151,6 +155,7 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t z_order_ = 0;
     android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
     std::string layer_name_;
+    bool is_afbc_;
 
     uint32_t id_;
     DrmGralloc *drmGralloc_;

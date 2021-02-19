@@ -843,8 +843,30 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   // TODO: I think virtual display should request
   //      HWC2_DISPLAY_REQUEST_WRITE_CLIENT_TARGET_TO_OUTPUT here
-  unsupported(__func__, display_requests, num_elements, layers, layer_requests);
-  *num_elements = 0;
+  uint32_t num_request = 0;
+  if(!client_layer_.isAfbc()){
+    num_request++;
+    if(display_requests){
+      // RK: Reuse HWC2_DISPLAY_REQUEST_FLIP_CLIENT_TARGET definition to
+      //     implement ClientTarget feature.
+      *display_requests = HWC2_DISPLAY_REQUEST_FLIP_CLIENT_TARGET;
+    }
+  }else{
+      *display_requests = 0;
+  }
+
+  if (!layers || !layer_requests)
+    *num_elements = num_request;
+  else{
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
+      if (l.second.validated_type() == HWC2::Composition::Client) {
+          layers[0] = l.first;
+          layer_requests[0] = 0;
+          break;
+      }
+    }
+  }
+
   return HWC2::Error::None;
 }
 
@@ -1012,8 +1034,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
-    if(drm_hwc_layer.bFbTarget_)
+    if(drm_hwc_layer.bFbTarget_){
+      if(drm_hwc_layer.bAfbcd_)
+        client_layer_.EnableAfbc();
+      else
+        client_layer_.DisableAfbc();
       continue;
+    }
     if(drm_hwc_layer.bMatch_){
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
@@ -1335,6 +1362,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
       ++*num_types;
     }
   }
+
+  if(!client_layer_.isAfbc()){
+    ++(*num_requests);
+  }
+
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 
