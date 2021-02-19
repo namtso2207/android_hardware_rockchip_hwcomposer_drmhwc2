@@ -88,6 +88,16 @@ int hwc_get_string_property(const char* pcProperty,const char* default_value,cha
     return 0;
 }
 
+
+bool isRK3566(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3566:
+    case 0x3566a:
+      return true;
+    default:
+      return false;
+  }
+}
 const hwc_drm_bo *DrmHwcBuffer::operator->() const {
   if (importer_ == NULL) {
     ALOGE("Access of non-existent BO");

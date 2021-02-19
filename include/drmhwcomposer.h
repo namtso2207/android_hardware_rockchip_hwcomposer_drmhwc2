@@ -47,6 +47,7 @@ namespace android {
 int hwc_get_int_property(const char* pcProperty,const char* default_value);
 bool hwc_get_bool_property(const char* pcProperty,const char* default_value);
 int hwc_get_string_property(const char* pcProperty,const char* default_value,char* retult);
+bool isRK3566(uint32_t soc_id);
 
 
 class Importer;
