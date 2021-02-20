@@ -1258,17 +1258,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   fb_blanked = fb_blank;
 
-  bool is_disable_extend = false;
-  switch (resource_manager_->getSocId()){
-    case 0x3566:
-    case 0x3566a:
-      is_disable_extend = true;
-      ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
-      break;
-    default:
-      break;
-  }
-  if(is_disable_extend){
+  if(isRK3566(resource_manager_->getSocId())){
+    ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
     DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
     if(extend != NULL){
       extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
@@ -2165,13 +2156,9 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   if (cb == callbacks_.end())
     return;
 
-  switch (resource_manager_.getSocId()){
-    case 0x3566:
-    case 0x3566a:
+  if(isRK3566(resource_manager_.getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
       return;
-    default:
-      break;
   }
 
   auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(cb->second.func);

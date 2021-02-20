@@ -41,7 +41,7 @@
 
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.1.93"
+#define GHWC_VERSION                    "HWC2-1.1.94"
 
 //Print call statck when you call ALOGD_CALLSTACK.
 #define ALOGD_CALLSTACK(...)                             \

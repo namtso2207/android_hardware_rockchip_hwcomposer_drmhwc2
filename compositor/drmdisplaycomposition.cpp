@@ -143,7 +143,7 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
         disable_plane = true;
     }
 
-    if(soc_id==0x3566 || soc_id==0x3566a)
+    if(isRK3566(soc_id))
       disable_plane = true;
 
     if(release_plane || disable_plane){
