@@ -1250,6 +1250,26 @@ int DrmDevice::UpdateDisplayRoute(void)
       }
     }
     if (!in_use) {
+      for(auto &plane_group : plane_groups_){
+        uint32_t crtc_mask = 1 << crtc->pipe();
+        if(!plane_group->acquire(crtc_mask))
+            continue;
+        for(auto &plane : plane_group->planes){
+          if(!plane)
+            continue;
+          ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                         plane->crtc_property().id(), 0) < 0 ||
+                drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
+                                         0) < 0;
+          if (ret) {
+            ALOGE("Failed to add plane %d disable to pset", plane->id());
+            drmModeAtomicFree(pset);
+            return ret;
+          }
+          ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, disable CRTC(%d), disable plane-id = %d",__FUNCTION__,__LINE__,
+          crtc->id(),plane->id());
+        }
+      }
       DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), 0);
       DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 0);
     }
