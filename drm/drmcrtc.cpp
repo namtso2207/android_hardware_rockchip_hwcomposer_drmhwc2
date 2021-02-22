@@ -108,6 +108,17 @@ int DrmCrtc::Init() {
   if(ret)
     ALOGE("Failed to get PORT_ID value");
 
+  ret = drm_->GetCrtcProperty(*this, "ACLK", &aclk_property_);
+  if (ret) {
+    ALOGE("Failed to get PORT_ID property");
+  }
+  std::tie(ret, aclk_) = aclk_property_.value();
+  if(ret)
+    ALOGE("Failed to get ACLK value");
+
+  ALOGD("rk-debug aclk_ = %d ",aclk_);
+
+
 
   return 0;
 }

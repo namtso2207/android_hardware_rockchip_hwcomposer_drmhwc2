@@ -318,6 +318,11 @@ bool DrmHwcLayer::IsSkipLayer(){
   return (!sf_handle ? true:false);
 }
 
+/*
+ * CLUSTER_AFBC_DECODE_MAX_RATE = 3.2
+ * (src(W*H)/dst(W*H))/(aclk/dclk) > CLUSTER_AFBC_DECODE_MAX_RATE to use GLES compose.
+ */
+#define CLUSTER_AFBC_DECODE_MAX_RATE 3.2
 bool DrmHwcLayer::IsGlesCompose(){
   // RK356x can't overlay RGBA1010102
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
@@ -328,6 +333,15 @@ bool DrmHwcLayer::IsGlesCompose(){
     int act_w = static_cast<int>(source_crop.right - source_crop.left);
     if(act_w % 4 != 0)
       return true;
+
+    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 3.2, Use GLES compose
+    if((fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_) > CLUSTER_AFBC_DECODE_MAX_RATE){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f. "
+                "fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_),CLUSTER_AFBC_DECODE_MAX_RATE,
+                fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
+      return true;
+    }
   }
 
   // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.

@@ -303,6 +303,8 @@ typedef struct hwc_drm_display {
   int vrefresh;
   int rel_xres;
   int rel_yres;
+  uint32_t dclk;
+  uint32_t aclk;
   float w_scale;
   float h_scale;
   int bcsh_timeline;

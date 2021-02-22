@@ -163,6 +163,10 @@ struct DrmHwcLayer {
   UniqueFd acquire_fence;
   OutputFd release_fence;
 
+  // Display info
+  uint32_t uAclk_;
+  uint32_t uDclk_;
+
   // Frame info
   uint32_t uId_;
   uint32_t uFrameNo_;

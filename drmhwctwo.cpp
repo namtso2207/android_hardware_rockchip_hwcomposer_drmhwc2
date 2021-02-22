@@ -351,6 +351,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return error;
   }
 
+  ctx_.aclk = crtc_->get_aclk();
+
   init_success_ = true;
 
   return HWC2::Error::None;
@@ -411,6 +413,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
     return error;
   }
+
+  ctx_.aclk = crtc_->get_aclk();
 
   init_success_ = true;
 
@@ -1572,6 +1576,7 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
     connector_->set_current_mode(best_mode);
     ctx_.rel_xres = best_mode.h_display();
     ctx_.rel_yres = best_mode.v_display();
+    ctx_.dclk = best_mode.clock();
   }
   return 0;
 }
@@ -1973,6 +1978,9 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
   drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
 
+  drmHwcLayer->uAclk_ = ctx->aclk;
+  drmHwcLayer->uDclk_ = ctx->dclk;
+
   float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
 
@@ -2041,6 +2049,9 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
   drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
+
+  drmHwcLayer->uAclk_ = ctx->aclk;
+  drmHwcLayer->uDclk_ = ctx->dclk;
 
   float w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
   float h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;

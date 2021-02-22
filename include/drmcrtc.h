@@ -47,6 +47,7 @@ class DrmCrtc {
   bool get_alpha_scale() const;
   uint32_t get_soc_id() const { return soc_id_; }
   uint32_t get_port_id() const { return port_id_; }
+  uint32_t get_aclk() const { return aclk_; }
   const DrmProperty &active_property() const;
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
@@ -83,10 +84,12 @@ class DrmCrtc {
   DrmProperty alpha_scale_property_;
   DrmProperty soc_type_property_;
   DrmProperty port_id_property_;
+  DrmProperty aclk_property_;
 
   // Vop2
   uint32_t soc_id_;
   uint32_t port_id_;
+  uint32_t aclk_;
 };
 }  // namespace android
 
