@@ -67,16 +67,18 @@ class DrmCompositionPlane {
   DrmCompositionPlane(DrmCompositionPlane &&rhs) = default;
   DrmCompositionPlane &operator=(DrmCompositionPlane &&other) = default;
   DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc)
-      : type_(type), plane_(plane), crtc_(crtc) {
-  }
+      : type_(type),
+        plane_(plane),
+        crtc_(crtc),
+        mirror_(false){}
+
   DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc,
                       size_t source_layer, bool mirror = false)
       : type_(type),
         plane_(plane),
         crtc_(crtc),
         source_layers_(1, source_layer),
-        mirror_(mirror){
-  }
+        mirror_(mirror){}
 
   Type type() const {
     return type_;

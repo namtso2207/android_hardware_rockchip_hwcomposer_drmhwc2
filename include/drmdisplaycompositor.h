@@ -103,7 +103,7 @@ class DrmDisplayCompositor {
   // kAcquireWaitTries times, logging a warning in between.
   static const int kAcquireWaitTries = 5;
   static const int kAcquireWaitTimeoutMs = 100;
-
+  int CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc, int display);
   int CommitFrame(DrmDisplayComposition *display_comp, bool test_only,
                   DrmConnector *writeback_conn = NULL,
                   DrmHwcBuffer *writeback_buffer = NULL);

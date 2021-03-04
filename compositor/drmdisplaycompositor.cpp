@@ -398,6 +398,44 @@ int DrmDisplayCompositor::SetupWritebackCommit(drmModeAtomicReqPtr pset,
   return 0;
 }
 
+int DrmDisplayCompositor::CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc, int display){
+  int ret = 0;
+  char overscan[PROPERTY_VALUE_MAX]={0};
+  int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
+
+  if(display == HWC_DISPLAY_PRIMARY){
+    property_get("persist.vendor.overscan.main", overscan, "overscan 100,100,100,100");
+  }else{
+    property_get("persist.vendor.overscan.aux", overscan, "overscan 100,100,100,100");
+  }
+  sscanf(overscan, "overscan %d,%d,%d,%d", &left_margin, &top_margin,
+           &right_margin, &bottom_margin);
+  ALOGD_IF(LogLevel(DBG_DEBUG),"display=%d , overscan(%d,%d,%d,%d)",display,
+            left_margin,top_margin,right_margin,bottom_margin);
+
+  if (left_margin   < OVERSCAN_MIN_VALUE) left_margin   = OVERSCAN_MIN_VALUE;
+  if (top_margin    < OVERSCAN_MIN_VALUE) top_margin    = OVERSCAN_MIN_VALUE;
+  if (right_margin  < OVERSCAN_MIN_VALUE) right_margin  = OVERSCAN_MIN_VALUE;
+  if (bottom_margin < OVERSCAN_MIN_VALUE) bottom_margin = OVERSCAN_MIN_VALUE;
+
+  if (left_margin   > OVERSCAN_MAX_VALUE) left_margin   = OVERSCAN_MAX_VALUE;
+  if (top_margin    > OVERSCAN_MAX_VALUE) top_margin    = OVERSCAN_MAX_VALUE;
+  if (right_margin  > OVERSCAN_MAX_VALUE) right_margin  = OVERSCAN_MAX_VALUE;
+  if (bottom_margin > OVERSCAN_MAX_VALUE) bottom_margin = OVERSCAN_MAX_VALUE;
+
+  ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), left_margin) < 0 ||
+        drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), right_margin) < 0 ||
+        drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), top_margin) < 0 ||
+        drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), bottom_margin) < 0;
+  if (ret) {
+    ALOGE("Failed to add overscan to pset");
+    return ret;
+  }
+
+  return ret;
+}
+
+
 int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                       bool test_only,
                                       DrmConnector *writeback_conn,
@@ -443,47 +481,33 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   }
 
   if (crtc->can_overscan()) {
-    char overscan[PROPERTY_VALUE_MAX];
-    int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
-
-    DrmMode mode = connector->current_mode();
-    if(mode.interlaced() > 0){
-        left_margin = 100;
-        top_margin = 100;
-        right_margin = 100;
-        bottom_margin = 100;
-    }else{
-      if(display_ == HWC_DISPLAY_PRIMARY){
-        property_get("persist.vendor.overscan.main", overscan, "overscan 100,100,100,100");
-      }else{
-        property_get("persist.vendor.overscan.aux", overscan, "overscan 100,100,100,100");
-      }
-      sscanf(overscan, "overscan %d,%d,%d,%d", &left_margin, &top_margin,
-               &right_margin, &bottom_margin);
-      ALOGD_IF(LogLevel(DBG_DEBUG),"vop post scale overscan(%d,%d,%d,%d)",
-                left_margin,top_margin,right_margin,bottom_margin);
-    }
-
-    if (left_margin   < OVERSCAN_MIN_VALUE) left_margin   = OVERSCAN_MIN_VALUE;
-    if (top_margin    < OVERSCAN_MIN_VALUE) top_margin    = OVERSCAN_MIN_VALUE;
-    if (right_margin  < OVERSCAN_MIN_VALUE) right_margin  = OVERSCAN_MIN_VALUE;
-    if (bottom_margin < OVERSCAN_MIN_VALUE) bottom_margin = OVERSCAN_MIN_VALUE;
-
-    if (left_margin   > OVERSCAN_MAX_VALUE) left_margin   = OVERSCAN_MAX_VALUE;
-    if (top_margin    > OVERSCAN_MAX_VALUE) top_margin    = OVERSCAN_MAX_VALUE;
-    if (right_margin  > OVERSCAN_MAX_VALUE) right_margin  = OVERSCAN_MAX_VALUE;
-    if (bottom_margin > OVERSCAN_MAX_VALUE) bottom_margin = OVERSCAN_MAX_VALUE;
-
-    ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), left_margin) < 0 ||
-          drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), right_margin) < 0 ||
-          drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), top_margin) < 0 ||
-          drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), bottom_margin) < 0;
-    if (ret) {
-      ALOGE("Failed to add overscan to pset");
+    int ret = CheckOverscan(pset,crtc,display_);
+    if(ret < 0){
       drmModeAtomicFree(pset);
       return ret;
     }
   }
+
+  // RK3566 mirror commit
+  bool mirror_commit = false;
+  DrmCrtc *mirror_commit_crtc = NULL;
+  for (DrmCompositionPlane &comp_plane : comp_planes) {
+    if(comp_plane.mirror()){
+      mirror_commit = true;
+      mirror_commit_crtc = comp_plane.crtc();
+      break;
+    }
+  }
+  if(mirror_commit){
+    if (mirror_commit_crtc->can_overscan()) {
+      int ret = CheckOverscan(pset,mirror_commit_crtc,HWC_DISPLAY_EXTERNAL);
+      if(ret < 0){
+        drmModeAtomicFree(pset);
+        return ret;
+      }
+    }
+  }
+
 
   uint64_t zpos = 0;
 
