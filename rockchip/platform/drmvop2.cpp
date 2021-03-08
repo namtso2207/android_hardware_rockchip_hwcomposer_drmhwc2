@@ -1513,8 +1513,15 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
   // Collect layer info
   ctx.request.iAfbcdCnt=0;
+  ctx.request.iAfbcdScaleCnt=0;
+  ctx.request.iAfbcdYuvCnt=0;
+  ctx.request.iAfcbdLargeYuvCnt=0;
+  ctx.request.iAfbcdRotateCnt=0;
+  ctx.request.iAfbcdHdrCnt=0;
+
   ctx.request.iScaleCnt=0;
   ctx.request.iYuvCnt=0;
+  ctx.request.iLargeYuvCnt=0;
   ctx.request.iSkipCnt=0;
   ctx.request.iRotateCnt=0;
   ctx.request.iHdrCnt=0;
@@ -1534,8 +1541,12 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
       if(layer->bScale_)
         ctx.request.iAfbcdScaleCnt++;
 
-      if(layer->bYuv_)
+      if(layer->bYuv_){
         ctx.request.iAfbcdYuvCnt++;
+        if(layer->iWidth_ > 2048){
+          ctx.request.iAfcbdLargeYuvCnt++;
+        }
+      }
 
       if(layer->transform != DRM_MODE_ROTATE_0)
         ctx.request.iAfbcdRotateCnt++;
@@ -1550,8 +1561,12 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
       if(layer->bScale_)
         ctx.request.iScaleCnt++;
 
-      if(layer->bYuv_)
+      if(layer->bYuv_){
         ctx.request.iYuvCnt++;
+        if(layer->iWidth_ > 2048){
+          ctx.request.iLargeYuvCnt++;
+        }
+      }
 
       if(layer->transform != DRM_MODE_ROTATE_0)
         ctx.request.iRotateCnt++;
@@ -1565,6 +1580,12 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
   // Collect Plane resource info
   ctx.support.iAfbcdCnt=0;
+  ctx.support.iAfbcdScaleCnt=0;
+  ctx.support.iAfbcdYuvCnt=0;
+  ctx.support.iAfbcdRotateCnt=0;
+  ctx.support.iAfbcdHdrCnt=0;
+
+  ctx.support.iCnt=0;
   ctx.support.iScaleCnt=0;
   ctx.support.iYuvCnt=0;
   ctx.support.iRotateCnt=0;
@@ -1610,7 +1631,7 @@ void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
   return;
 }
 
-void PlanStageVop2::InitStateContext(){
+void PlanStageVop2::InitStateContext(std::vector<DrmHwcLayer*> &layers){
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
@@ -1618,6 +1639,20 @@ void PlanStageVop2::InitStateContext(){
   ctx.state.bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
   ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
             __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
+
+  if(ctx.request.iAfcbdLargeYuvCnt > 0 && ctx.support.iAfbcdYuvCnt <= 2){
+    ctx.state.bDisableFBAfbcd = true;
+    for(auto &layer : layers){
+      if(layer->bFbTarget_){
+        layer->bAfbcd_ = 0;
+        break;
+      }
+    }
+    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",
+            __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+  }else{
+    ctx.state.bDisableFBAfbcd = false;
+  }
   return;
 }
 
@@ -1782,7 +1817,7 @@ int PlanStageVop2::InitContext(
 
   InitRequestContext(layers);
   InitSupportContext(plane_groups);
-  InitStateContext();
+  InitStateContext(layers);
 
   // Commit mirror function
   InitCrtcMirror(layers,plane_groups,crtc);

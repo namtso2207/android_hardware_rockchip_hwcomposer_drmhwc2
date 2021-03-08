@@ -69,6 +69,7 @@ typedef struct RequestContext{
   int iAfbcdCnt=0;
   int iAfbcdScaleCnt=0;
   int iAfbcdYuvCnt=0;
+  int iAfcbdLargeYuvCnt=0;
   int iAfbcdRotateCnt=0;
   int iAfbcdHdrCnt=0;
 
@@ -76,6 +77,7 @@ typedef struct RequestContext{
   int iCnt=0;
   int iScaleCnt=0;
   int iYuvCnt=0;
+  int iLargeYuvCnt=0;
   int iRotateCnt=0;
   int iHdrCnt=0;
 } ReqCtx;
@@ -116,6 +118,10 @@ typedef struct StateContext{
   bool bMultiAreaScaleEnable=false;
   bool bMultiAreaMode=false;
   bool bSmartScaleEnable=false;
+
+  // Video state
+  bool bLargeVideo=false;
+  bool bDisableFBAfbcd=false;
 
   // Soc id
   int iSocId=0;
@@ -166,7 +172,7 @@ typedef struct DrmVop2Context{
   bool TryOverlay();
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
-  void InitStateContext();
+  void InitStateContext(std::vector<DrmHwcLayer*> &layers);
   void InitRequestContext(std::vector<DrmHwcLayer*> &layers);
   void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
   int InitContext(std::vector<DrmHwcLayer*> &layers,
