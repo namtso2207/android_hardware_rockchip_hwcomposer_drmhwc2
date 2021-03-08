@@ -206,6 +206,7 @@ int DrmConnector::UpdateModes() {
     return -ENODEV;
   }
 
+  drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
   //When Plug-in/Plug-out TV panel,some Property of the connector will need be updated.
   bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
   bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
@@ -278,6 +279,9 @@ int DrmConnector::UpdateModes() {
   }
 
   bModeReady_ = true;
+
+  drmModeFreeConnector(c);
+
   return 0;
 }
 
