@@ -89,7 +89,7 @@ class DrmCrtc {
   // Vop2
   uint32_t soc_id_;
   uint32_t port_id_;
-  uint32_t aclk_;
+  uint32_t aclk_=0;
 };
 }  // namespace android
 

@@ -335,12 +335,14 @@ bool DrmHwcLayer::IsGlesCompose(){
       return true;
 
     //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 3.2, Use GLES compose
-    if((fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_) > CLUSTER_AFBC_DECODE_MAX_RATE){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f. "
-                "fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_),CLUSTER_AFBC_DECODE_MAX_RATE,
-                fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
-      return true;
+    if(uAclk_ > 0 && uDclk_ > 0){
+      if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f. "
+                  "fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_),CLUSTER_AFBC_DECODE_MAX_RATE,
+                  fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
+        return true;
+      }
     }
   }
 
