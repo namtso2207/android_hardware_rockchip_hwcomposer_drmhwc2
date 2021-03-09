@@ -511,7 +511,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
                                     (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
                             continue;
-
                           }
 
                           // Alpha
@@ -571,6 +570,35 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                       (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
                           }
+
+                          // RK3566 must match external display
+                          if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+
+                            // Output info
+                            int output_w = (*iter_layer)->display_frame_mirror.right - (*iter_layer)->display_frame_mirror.left;
+                            int output_h = (*iter_layer)->display_frame_mirror.bottom - (*iter_layer)->display_frame_mirror.top;
+
+                            if((*iter_plane)->is_support_output(output_w,output_h)){
+                              bNeed = true;
+                            }else{
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                      (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                              continue;
+
+                            }
+
+                            // Scale
+                            if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMulMirror_) &&
+                                (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
+                              bNeed = true;
+                            else{
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror Plane(%d) cann't support scale factor(%f,%f)",
+                                      (*iter_plane)->id(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
+                              continue;
+                            }
+
+                          }
+
 
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
                               (*iter_plane)->id(),zpos);
@@ -833,6 +861,32 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                               ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
                                       (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
+                          }
+
+                          // RK3566 must match external display
+                          {
+                              // Output info
+                              int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                              int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
+
+                              if((*iter_plane)->is_support_output(output_w,output_h)){
+                                bNeed = true;
+                              }else{
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                        (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                                continue;
+
+                              }
+
+                              // Scale
+                              if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
+                                  (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
+                                bNeed = true;
+                              else{
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
+                                        (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                                continue;
+                              }
                           }
 
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
@@ -1488,16 +1542,27 @@ int PlanStageVop2::TryGLESPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
 
+
   if(fb_target.size()==1){
     DrmHwcLayer* fb_layer = fb_target[0];
-    if(fb_layer->bAfbcd_){
-      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
-    }else if(fb_layer->bScale_){
-      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+    // RK3566 must match external display
+    if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+      if(fb_layer->bAfbcd_){
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
+      }else if(fb_layer->bScale_ || fb_layer->fHScaleMulMirror_ != 1.0 || fb_layer->fVScaleMulMirror_ != 1.0){
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+      }else{
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+      }
     }else{
-      fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+      if(fb_layer->bAfbcd_){
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
+      }else if(fb_layer->bScale_){
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+      }else{
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+      }
     }
-
   }
   int ret = MatchBestPlanes(composition,fb_target,crtc,plane_groups);
   if(!ret)
@@ -1631,7 +1696,10 @@ void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
   return;
 }
 
-void PlanStageVop2::InitStateContext(std::vector<DrmHwcLayer*> &layers){
+void PlanStageVop2::InitStateContext(
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc){
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
@@ -1640,18 +1708,32 @@ void PlanStageVop2::InitStateContext(std::vector<DrmHwcLayer*> &layers){
   ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
             __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
 
-  if(ctx.request.iAfcbdLargeYuvCnt > 0 && ctx.support.iAfbcdYuvCnt <= 2){
-    ctx.state.bDisableFBAfbcd = true;
-    for(auto &layer : layers){
-      if(layer->bFbTarget_){
-        layer->bAfbcd_ = 0;
-        break;
-      }
-    }
-    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",
+  // Commit mirror function
+  InitCrtcMirror(layers,plane_groups,crtc);
+
+  // FB-target need disable AFBCD?
+  ctx.state.bDisableFBAfbcd = false;
+  for(auto &layer : layers){
+    if(layer->bFbTarget_){
+      if(ctx.request.iAfcbdLargeYuvCnt > 0 && ctx.support.iAfbcdYuvCnt <= 2){
+        ctx.state.bDisableFBAfbcd = true;
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",
             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-  }else{
-    ctx.state.bDisableFBAfbcd = false;
+      }
+      if( (layer->fHScaleMulMirror_ > 4.0 || layer->fHScaleMulMirror_ < 0.25) ||
+          (layer->fVScaleMulMirror_ > 4.0 || layer->fVScaleMulMirror_ < 0.25) ||
+          (layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
+          (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
+        ctx.state.bDisableFBAfbcd = true;
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
+             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+
+      }
+      if(ctx.state.bDisableFBAfbcd){
+        layer->bAfbcd_ = 0;
+      }
+      break;
+    }
   }
   return;
 }
@@ -1719,6 +1801,7 @@ void PlanStageVop2::InitCrtcMirror(
 
       layer->fHScaleMulMirror_ = (float) (src_w)/(dst_w);
       layer->fVScaleMulMirror_ = (float) (src_h)/(dst_h);
+
     }
 
     int ret = GetPlaneGroups(crtc,plane_groups);
@@ -1817,10 +1900,7 @@ int PlanStageVop2::InitContext(
 
   InitRequestContext(layers);
   InitSupportContext(plane_groups);
-  InitStateContext(layers);
-
-  // Commit mirror function
-  InitCrtcMirror(layers,plane_groups,crtc);
+  InitStateContext(layers,plane_groups,crtc);
 
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");

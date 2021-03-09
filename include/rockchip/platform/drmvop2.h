@@ -172,7 +172,10 @@ typedef struct DrmVop2Context{
   bool TryOverlay();
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
-  void InitStateContext(std::vector<DrmHwcLayer*> &layers);
+  void InitStateContext(
+      std::vector<DrmHwcLayer*> &layers,
+      std::vector<PlaneGroup *> &plane_groups,
+      DrmCrtc *crtc);
   void InitRequestContext(std::vector<DrmHwcLayer*> &layers);
   void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
   int InitContext(std::vector<DrmHwcLayer*> &layers,
