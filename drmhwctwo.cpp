@@ -1770,8 +1770,7 @@ int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
     need_change_depth = 0;
     static int mirror_color_format = 0;
     static int mirror_color_depth = 0;
-    DrmDevice *drm = crtc_->getDrmDevice();
-    DrmConnector *conn_mirror = drm->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    DrmConnector *conn_mirror = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
     if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
       mirror_mode = false;
@@ -1886,8 +1885,7 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
   if(isRK3566(resource_manager_->getSocId())){
     bool mirror_mode = true;
-    DrmDevice *drm = crtc_->getDrmDevice();
-    DrmConnector *conn_mirror = drm->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    DrmConnector *conn_mirror = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
     if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
       mirror_mode = false;
