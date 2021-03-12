@@ -1149,7 +1149,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   ++frame_no_;
 
-  StaticScreenOptSet(static_screen_opt_);
+
+  UpdateTimerState(!static_screen_opt_);
 
   return HWC2::Error::None;
 }
@@ -1353,6 +1354,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   }
 
   SwitchHdrMode();
+  // Static screen opt
+  UpdateTimerEnable();
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     DrmHwcTwo::HwcLayer &layer = l.second;
@@ -1934,18 +1937,32 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
       }
   }
 
-  if(!exist_hdr_layer && ctx_.hdr_mode)
+  if(!exist_hdr_layer && ctx_.hdr_mode){
     if(!connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
       ctx_.hdr_mode = false;
     }
+  }
+
   return 0;
 }
 
-
-int DrmHwcTwo::HwcDisplay::StaticScreenOptSet(bool isGLESComp){
+int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
+  bool enable_timer = true;
+  for(auto &drmHwcLayer : drm_hwc_layers_){
+    if(drmHwcLayer.bYuv_){
+      enable_timer = false;
+      break;
+    }
+  }
+  static_screen_timer_enable_ = enable_timer;
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
+  return 0;
+}
+int DrmHwcTwo::HwcDisplay::UpdateTimerState(bool gles_comp){
     struct itimerval tv = {{0,0},{0,0}};
-    if (!isGLESComp) {
+
+    if (static_screen_timer_enable_ && gles_comp) {
         int interval_value = hwc_get_int_property( "vendor.hwc.static_screen_opt_time", "2500");
         interval_value = interval_value > 5000? 5000:interval_value;
         interval_value = interval_value < 250? 250:interval_value;

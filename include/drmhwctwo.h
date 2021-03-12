@@ -248,7 +248,9 @@ class DrmHwcTwo : public hwc2_device_t {
    int SwitchHdrMode();
    int GetBestDisplayMode();
 
-   int StaticScreenOptSet(bool isGLESComp);
+   // Static Screen opt function
+   int UpdateTimerEnable();
+   int UpdateTimerState(bool gles_comp);
    int EntreStaticScreen(uint64_t refresh, int refresh_cnt);
    int InvalidateControl(uint64_t refresh, int refresh_cnt);
 
@@ -285,6 +287,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool init_success_;
     bool present_finish_;
     hwc_drm_display_t ctx_;
+    bool static_screen_timer_enable_;
     bool static_screen_opt_;
     bool force_gles_;
     int fb_blanked;
