@@ -1720,15 +1720,28 @@ void PlanStageVop2::InitStateContext(
         ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",
             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
       }
-      if( (layer->fHScaleMulMirror_ > 4.0 || layer->fHScaleMulMirror_ < 0.25) ||
-          (layer->fVScaleMulMirror_ > 4.0 || layer->fVScaleMulMirror_ < 0.25) ||
-          (layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
-          (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
-        ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
-             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
 
+      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
+      // CommirMirror must match two display scale limitation.
+      if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+        if((layer->fHScaleMulMirror_ > 4.0 || layer->fHScaleMulMirror_ < 0.25) ||
+           (layer->fVScaleMulMirror_ > 4.0 || layer->fVScaleMulMirror_ < 0.25) ||
+           (layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
+           (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
+          ctx.state.bDisableFBAfbcd = true;
+          ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
+               __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+        }
       }
+
+      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
+      if((layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
+         (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
+        ctx.state.bDisableFBAfbcd = true;
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor, FB-target must disable AFBC(%d).",
+             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+      }
+
       if(ctx.state.bDisableFBAfbcd){
         layer->bAfbcd_ = 0;
       }
