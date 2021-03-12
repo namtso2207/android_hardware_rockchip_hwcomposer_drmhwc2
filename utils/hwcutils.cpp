@@ -328,12 +328,23 @@ bool DrmHwcLayer::IsGlesCompose(){
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
     return true;
 
+
+  int act_w = static_cast<int>(source_crop.right - source_crop.left);
+  int act_h = static_cast<int>(source_crop.bottom - source_crop.top);
+  int dst_w = static_cast<int>(display_frame.right - display_frame.left);
+  int dst_h = static_cast<int>(display_frame.bottom - display_frame.top);
+
+  // RK platform VOP can't display src/dst w/h < 4 layer.
+  if(act_w < 4 || act_h < 4 || dst_w < 4 || dst_h < 4){
+    ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：[%dx%d] => [%dx%d] too small to use GLES composer.",
+              sLayerName_.c_str(),act_w,act_h,dst_w,dst_h);
+    return true;
+  }
+
   // RK356x Cluster can't overlay act_w % 4 != 0 afbcd layer.
   if(bAfbcd_){
-    int act_w = static_cast<int>(source_crop.right - source_crop.left);
     if(act_w % 4 != 0)
       return true;
-
     //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 3.2, Use GLES compose
     if(uAclk_ > 0 && uDclk_ > 0){
       if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
@@ -348,7 +359,6 @@ bool DrmHwcLayer::IsGlesCompose(){
 
   // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
   if(!bAfbcd_){
-    int act_w = static_cast<int>(source_crop.right - source_crop.left);
     if(act_w % 16 == 1 && fHScaleMul_ < 1.0)
       return true;
   }
