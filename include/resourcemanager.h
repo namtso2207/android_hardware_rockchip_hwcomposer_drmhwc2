@@ -51,8 +51,9 @@ class ResourceManager {
   }
   uint32_t getActiveDisplayCnt() { return active_display_.size();}
   int assignPlaneGroup(int display);
-  int getFb0Fd() { return fb0_fd;};
+  int getFb0Fd() { return fb0_fd;}
   int getSocId() { return soc_id_;}
+  DrmGralloc *getGralloc() { return drmGralloc_;}
  private:
   int AddDrmDevice(std::string path);
 
