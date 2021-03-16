@@ -1804,7 +1804,6 @@ void PlanStageVop2::InitCrtcMirror(
       display_frame.bottom = (int)(layer->display_frame_mirror.bottom * h_scale);
 
       layer->SetDisplayFrameMirror(display_frame);
-
       // Mirror scale factor
       int src_w, src_h, dst_w, dst_h;
       src_w = (int)(layer->source_crop.right - layer->source_crop.left);
@@ -1814,6 +1813,14 @@ void PlanStageVop2::InitCrtcMirror(
 
       layer->fHScaleMulMirror_ = (float) (src_w)/(dst_w);
       layer->fVScaleMulMirror_ = (float) (src_h)/(dst_h);
+
+      // RK platform VOP can't display src/dst w/h < 4 layer.
+      if((dst_w < 4 || dst_h < 4) && !layer->bGlesCompose_){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror [%s]：[%dx%d] => [%dx%d] too small to use GLES composer.",
+              layer->sLayerName_.c_str(),src_w,src_h,dst_w,dst_h);
+        layer->bGlesCompose_ = true;
+        ctx.request.iSkipCnt++;
+      }
 
     }
 
