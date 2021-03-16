@@ -1000,6 +1000,197 @@ int DrmDevice::UpdateDisplayMode(void){
   return 0;
 }
 
+// Bind DrmConnector and DrmCrtc resource.
+int DrmDevice::BindDpyRes(int display_id){
+  pthread_mutex_lock(&diplay_route_mutex);
+
+  DrmConnector *conn = GetConnectorForDisplay(display_id);
+  if (!conn) {
+    ALOGE("%s:line=%d Failed to find display-id=%d connector\n",
+          __FUNCTION__, __LINE__,display_id);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -EINVAL;
+  }
+
+  if(conn->state() != DRM_MODE_CONNECTED){
+    ALOGE("%s:line=%d display-id=%d connector state is disconnected\n",
+          __FUNCTION__, __LINE__,display_id);
+    return -EINVAL;
+  }
+
+  // Bind DrmEncoder and DrmCrtc.
+  conn->set_encoder(NULL);
+  for (DrmEncoder *enc : conn->possible_encoders()) {
+    for (DrmCrtc *crtc : enc->possible_crtcs()) {
+      crtc->set_display(conn->display());
+      enc->set_crtc(crtc);
+      conn->set_encoder(enc);
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set display-id=%d with conn[%d] crtc=%d\n",
+              __FUNCTION__, __LINE__,display_id, conn->id(), crtc->id());
+    }
+  }
+
+  // Print display state by property.
+  if (conn && conn->encoder() && conn->encoder()->crtc()){
+    char conn_name[50];
+    char property_conn_name[50];
+    DrmCrtc *crtc = conn->encoder()->crtc();
+    snprintf(conn_name,50,"%s-%d:%d:connected",connector_type_str(conn->type()),conn->type_id(),crtc->id());
+    snprintf(property_conn_name,50,"vendor.hwc.device.display-%d",display_id);
+    property_set(property_conn_name, conn_name);
+  }else{
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d, display-id=%d conn-id=%d can't find crtc resource.",
+              __FUNCTION__,__LINE__,display_id,conn->id());
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -EINVAL;
+  }
+
+  // Check display mode.
+  if(!conn->current_mode().id()){
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d, display-id=%d conn-id=%d current-id=%d",
+              __FUNCTION__,__LINE__,display_id,conn->id(),conn->current_mode().id());
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -EINVAL;
+  }
+
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  if (!pset) {
+    ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -ENOMEM;
+  }
+
+  // Config display mode
+  int ret;
+  uint32_t blob_id[1] = {0};
+  struct drm_mode_modeinfo drm_mode;
+  memset(&drm_mode, 0, sizeof(drm_mode));
+  conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
+            conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
+  CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[0]);
+
+  DrmCrtc *crtc = conn->encoder()->crtc();
+
+  // Enable DrmConnector DPMS on.
+  conn->SetDpmsMode(DRM_MODE_DPMS_ON);
+
+  // Bind DrmCrtc and DrmConnector
+  DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), crtc->id());
+  DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[0]);
+  DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
+
+
+  uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+  ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+  if (ret < 0) {
+    ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+    drmModeAtomicFree(pset);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return ret;
+  }
+
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, display-id=%d PowerOn success!.",__FUNCTION__,__LINE__,display_id);
+
+  DestroyPropertyBlob(blob_id[0]);
+
+  conn->set_active_mode(conn->current_mode());
+
+  drmModeAtomicFree(pset);
+
+  pthread_mutex_unlock(&diplay_route_mutex);
+
+  return 0;
+}
+
+// Release DrmConnector and DrmCrtc resource.
+int DrmDevice::ReleaseDpyRes(int display_id){
+  pthread_mutex_lock(&diplay_route_mutex);
+
+  int ret;
+
+  DrmConnector *conn = GetConnectorForDisplay(display_id);
+  if (!conn) {
+    ALOGE("%s:line=%d Failed to find display-id=%d connector\n",
+          __FUNCTION__, __LINE__,display_id);
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return -EINVAL;
+  }
+
+  if(conn->state() != DRM_MODE_DISCONNECTED){
+    ALOGE("%s:line=%d display-id=%d connector state is disconnected, to release resource.\n",
+          __FUNCTION__, __LINE__,display_id);
+    return -EINVAL;
+  }
+
+  if(conn && conn->encoder() && conn->encoder()->crtc()){
+    char conn_name[50];
+    char property_conn_name[50];
+    DrmCrtc *crtc = conn->encoder()->crtc();
+    snprintf(conn_name,50,"%s-%d:%d:disconnected",connector_type_str(conn->type()),conn->type_id(),crtc->id());
+    snprintf(property_conn_name,50,"vendor.hwc.device.display-%d",display_id);
+    property_set(property_conn_name, conn_name);
+
+
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return -ENOMEM;
+    }
+
+    // Disable DrmConnector resource.
+    conn->SetDpmsMode(DRM_MODE_DPMS_OFF);
+    DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), 0);
+
+    // Disable DrmPlane resource.
+    for(auto &plane_group : plane_groups_){
+      uint32_t crtc_mask = 1 << crtc->pipe();
+      if(!plane_group->acquire(crtc_mask))
+          continue;
+      for(auto &plane : plane_group->planes){
+        if(!plane)
+          continue;
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                       plane->crtc_property().id(), 0) < 0 ||
+              drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
+                                       0) < 0;
+        if (ret) {
+          ALOGE("Failed to add plane %d disable to pset", plane->id());
+          drmModeAtomicFree(pset);
+          return ret;
+        }
+        ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, disable CRTC(%d), disable plane-id = %d",__FUNCTION__,__LINE__,
+        crtc->id(),plane->id());
+      }
+    }
+
+    // Disable DrmCrtc resource.
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), 0);
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 0);
+
+    // AtomicCommit
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+    if (ret < 0) {
+      ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+      drmModeAtomicFree(pset);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, display-id=%d PowerDown success!.",__FUNCTION__,__LINE__,display_id);
+
+    drmModeAtomicFree(pset);
+    crtc->set_display(-1);
+    conn->set_encoder(NULL);
+  }
+
+  pthread_mutex_unlock(&diplay_route_mutex);
+
+  return 0;
+}
+
 int DrmDevice::UpdateDisplayRoute(void)
 {
   int i;
@@ -1044,7 +1235,7 @@ int DrmDevice::UpdateDisplayRoute(void)
               crtc->set_display(primary->display());
               enc->set_crtc(crtc);
               primary->set_encoder(enc);
-              ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set primary with conn[%d] crtc=%d\n",
+              ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set primary with conn[%d] crtc=%d\n",
                         __FUNCTION__, __LINE__, primary->id(), crtc->id());
           }
         }
@@ -1057,7 +1248,7 @@ int DrmDevice::UpdateDisplayRoute(void)
             if (crtc == primary->encoder()->crtc())
               continue;
           }
-          ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set extend[%d] with crtc=%d\n",
+          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set extend[%d] with crtc=%d\n",
                     __FUNCTION__, __LINE__, extend->id(), crtc->id());
           crtc->set_display(extend->display());
           enc->set_crtc(crtc);
@@ -1070,7 +1261,7 @@ int DrmDevice::UpdateDisplayRoute(void)
             crtc->set_display(extend->display());
             enc->set_crtc(crtc);
             extend->set_encoder(enc);
-            ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set extend[%d] with crtc=%d\n",
+            ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set extend[%d] with crtc=%d\n",
                     __FUNCTION__, __LINE__, extend->id(), crtc->id());
             if (primary && primary->encoder() && primary->encoder()->crtc()) {
               if (crtc == primary->encoder()->crtc()) {
@@ -1089,7 +1280,7 @@ int DrmDevice::UpdateDisplayRoute(void)
                     crtc->set_display(primary->display());
                     primary_enc->set_crtc(primary_crtc);
                     primary->set_encoder(primary_enc);
-                    ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d set primary with conn[%d] crtc=%d\n",
+                    ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set primary with conn[%d] crtc=%d\n",
                             __FUNCTION__, __LINE__, primary->id(), primary_crtc->id());
                   }
                 }
@@ -1106,7 +1297,7 @@ int DrmDevice::UpdateDisplayRoute(void)
     DrmCrtc *crtc = primary->encoder()->crtc();
     if(!crtc->get_afbc()){
       //property_set( PROPERTY_TYPE ".gralloc.disable_afbc", "1");
-      ALOGD_IF(LogLevel(DBG_VERBOSE), "%s:line=%d primary conn[%d] crtc=%d support AFBC(%d), to disable AFBC\n",
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d primary conn[%d] crtc=%d support AFBC(%d), to disable AFBC\n",
                __FUNCTION__, __LINE__, primary->id(), crtc->id(),crtc->get_afbc());
     }
   }
@@ -1174,7 +1365,7 @@ int DrmDevice::UpdateDisplayRoute(void)
     struct drm_mode_modeinfo drm_mode;
     memset(&drm_mode, 0, sizeof(drm_mode));
     conn->current_mode().ToDrmModeModeInfo(&drm_mode);
-    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
               conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
     ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
     if (ret)
@@ -1266,7 +1457,7 @@ int DrmDevice::UpdateDisplayRoute(void)
             drmModeAtomicFree(pset);
             return ret;
           }
-          ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, disable CRTC(%d), disable plane-id = %d",__FUNCTION__,__LINE__,
+          ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, disable CRTC(%d), disable plane-id = %d",__FUNCTION__,__LINE__,
           crtc->id(),plane->id());
         }
       }

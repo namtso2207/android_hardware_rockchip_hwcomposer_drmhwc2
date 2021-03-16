@@ -111,6 +111,8 @@ class DrmDevice {
   void SetPrimaryDisplay(DrmConnector *c);
   void SetExtendDisplay(DrmConnector *c);
   int UpdateDisplayMode(void);
+  int BindDpyRes(int display_id);
+  int ReleaseDpyRes(int display_id);
   int UpdateDisplayRoute(void);
   int UpdatePropertys(void);
   void ClearDisplay(void);

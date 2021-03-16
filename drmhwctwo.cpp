@@ -308,9 +308,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   UpdateDisplayMode();
-  drm_->DisplayChanged();
-  drm_->UpdateDisplayRoute();
-  drm_->UpdateDisplayMode();
+  drm_->BindDpyRes(handle_);
 
   int ret = vsync_worker_.Init(drm_, display);
   if (ret) {
@@ -378,9 +376,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   }
 
   UpdateDisplayMode();
-  drm_->DisplayChanged();
-  drm_->UpdateDisplayRoute();
-  drm_->UpdateDisplayMode();
+  drm_->BindDpyRes(handle_);
 
   crtc_ = drm_->GetCrtcForDisplay(display);
   if (!crtc_) {
@@ -1292,22 +1288,37 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   fb_blanked = fb_blank;
 
-  if(isRK3566(resource_manager_->getSocId())){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
-    DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
-    if(extend != NULL){
-      extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
-    }
-  }
 
   if(connector_){
     connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
   }
 
-  drm_->DisplayChanged();
-  drm_->UpdateDisplayRoute();
-  drm_->UpdateDisplayMode();
-
+  if(dpms_value == DRM_MODE_DPMS_OFF){
+    ClearDisplay();
+    drm_->ReleaseDpyRes(handle_);
+    if(isRK3566(resource_manager_->getSocId())){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
+      DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+      if(extend != NULL){
+        int extend_display_id = extend->display();
+        auto &display = g_ctx->displays_.at(extend_display_id);
+        display.ClearDisplay();
+        extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
+        drm_->ReleaseDpyRes(extend_display_id);
+      }
+    }
+  }else{
+    drm_->BindDpyRes(handle_);
+    if(isRK3566(resource_manager_->getSocId())){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
+      DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+      if(extend != NULL){
+        int extend_display_id = extend->display();
+        extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
+        drm_->BindDpyRes(extend_display_id);
+      }
+    }
+  }
   return HWC2::Error::None;
 }
 
@@ -1326,7 +1337,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateBCSH();
   UpdateHdmiOutputFormat();
   UpdateDisplayMode();
-  drm_->UpdateDisplayRoute();
   drm_->UpdateDisplayMode();
 
   *num_types = 0;
@@ -2384,8 +2394,6 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     }
   }
 
-  drm_->DisplayChanged();
-
   DrmConnector *old_primary = drm_->GetConnectorFromType(HWC_DISPLAY_PRIMARY);
   primary = primary ? primary : old_primary;
   if (!primary || primary->raw_state() != DRM_MODE_CONNECTED) {
@@ -2417,21 +2425,18 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     return;
   }
 
-  if(primary){
+  if(primary != old_primary){
     int display_id = primary->display();
     drm_->SetPrimaryDisplay(primary);
     if (primary->raw_state() == DRM_MODE_CONNECTED) {
       auto &display = hwc2_->displays_.at(display_id);
       display.HoplugEventTmeline();
       display.UpdateDisplayMode();
-    }
 
-    if (primary != old_primary) {
-      int display_id = old_primary->display();
-      auto &display = hwc2_->displays_.at(display_id);
-      display.ClearDisplay();
+      int old_display_id = old_primary->display();
+      auto &old_display = hwc2_->displays_.at(old_display_id);
+      old_display.ClearDisplay();
     }
-
   }
 
   DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
@@ -2475,16 +2480,14 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     }
   }
 
-  drm_->UpdateDisplayRoute();
-  drm_->UpdateDisplayMode();
-
   for(auto &display_map : hwc2_->displays_){
     auto display_id = display_map.first;
     auto &display = display_map.second;
     DrmConnector* conn = drm_->GetConnectorForDisplay(display_id);
-    if(conn->raw_state() != DRM_MODE_CONNECTED)
+    if(conn->raw_state() != DRM_MODE_CONNECTED){
       display.ClearDisplay();
-    else{
+      drm_->ReleaseDpyRes(display_id);
+    }else{
       display.CheckStateAndReinit();
       display.InvalidateControl(5,20);
     }
