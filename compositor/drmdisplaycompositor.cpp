@@ -275,13 +275,13 @@ int DrmDisplayCompositor::QueueComposition(
   }
 
   composite_queue_.push(std::move(composition));
+  clear_ = false;
 
   ret = pthread_mutex_unlock(&lock_);
   if (ret) {
     ALOGE("Failed to release compositor lock %d", ret);
     return ret;
   }
-
   worker_.Signal();
   return 0;
 }
@@ -819,6 +819,7 @@ void DrmDisplayCompositor::ClearDisplay() {
     return;
 
   active_composition_.reset(NULL);
+  clear_ = true;
   //vsync_worker_.VSyncControl(false);
 }
 
@@ -852,7 +853,12 @@ void DrmDisplayCompositor::ApplyFrame(
       active_composition_->SignalCompositionDone();
   }
 
-  active_composition_.swap(composition);
+  // Enter ClearDisplay state must to SignalCompositionDone
+  if(clear_){
+    composition->SignalCompositionDone();
+  }else{
+    active_composition_.swap(composition);
+  }
 
   //flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
   //vsync_worker_.VSyncControl(!writeback);

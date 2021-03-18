@@ -140,6 +140,8 @@ class DrmDisplayCompositor {
   bool initialized_;
   bool active_;
   bool use_hw_overlays_;
+  // Enter ClearDisplay state must SignalCompositionDone to signal releaseFence
+  bool clear_;
 
   ModeState mode_;
 
