@@ -1022,11 +1022,13 @@ int DrmDevice::BindDpyRes(int display_id){
   conn->set_encoder(NULL);
   for (DrmEncoder *enc : conn->possible_encoders()) {
     for (DrmCrtc *crtc : enc->possible_crtcs()) {
-      crtc->set_display(conn->display());
-      enc->set_crtc(crtc);
-      conn->set_encoder(enc);
-      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set display-id=%d with conn[%d] crtc=%d\n",
-              __FUNCTION__, __LINE__,display_id, conn->id(), crtc->id());
+      if(crtc->can_bind(conn->display())){
+        crtc->set_display(conn->display());
+        enc->set_crtc(crtc);
+        conn->set_encoder(enc);
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d set display-id=%d with conn[%d] crtc=%d\n",
+                __FUNCTION__, __LINE__,display_id, conn->id(), crtc->id());
+      }
     }
   }
 
@@ -1041,6 +1043,10 @@ int DrmDevice::BindDpyRes(int display_id){
   }else{
     ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d, display-id=%d conn-id=%d can't find crtc resource.",
               __FUNCTION__,__LINE__,display_id,conn->id());
+    char conn_name[50];
+    char property_conn_name[50];
+    snprintf(conn_name,50,"%s-%d:no_crtc",connector_type_str(conn->type()),conn->type_id());
+    snprintf(property_conn_name,50,"vendor.hwc.device.display-%d",display_id);
     pthread_mutex_unlock(&diplay_route_mutex);
     return -EINVAL;
   }

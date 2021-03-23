@@ -48,6 +48,16 @@ namespace android {
 #define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
     ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
 
+#define HWC2_ALOGD_IF_DEBUG(x, ...)  \
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
+#define HWC2_ALOGE(x, ...)  \
+    ALOGE("%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
+#define HWC2_ALOGI(x, ...)  \
+    ALOGI("%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
+
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
       String8 output; \
@@ -308,9 +318,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   UpdateDisplayMode();
-  drm_->BindDpyRes(handle_);
+  int ret = drm_->BindDpyRes(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to BindDpyRes for display=%d %d\n", display, ret);
+    return HWC2::Error::NoResources;
+  }
 
-  int ret = vsync_worker_.Init(drm_, display);
+  ret = vsync_worker_.Init(drm_, display);
   if (ret) {
     ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
     return HWC2::Error::BadDisplay;
@@ -376,7 +390,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   }
 
   UpdateDisplayMode();
-  drm_->BindDpyRes(handle_);
+  int ret = drm_->BindDpyRes(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to BindDpyRes for display=%d %d\n", display, ret);
+    return HWC2::Error::NoResources;
+  }
 
   crtc_ = drm_->GetCrtcForDisplay(display);
   if (!crtc_) {
@@ -397,7 +415,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
-  int ret = compositor_.Init(resource_manager_, display);
+  ret = compositor_.Init(resource_manager_, display);
   if (ret) {
     ALOGE("Failed display compositor init for display %d (%d)", display, ret);
     return HWC2::Error::NoResources;
@@ -1295,27 +1313,38 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   if(dpms_value == DRM_MODE_DPMS_OFF){
     ClearDisplay();
-    drm_->ReleaseDpyRes(handle_);
+    int ret = drm_->ReleaseDpyRes(handle_);
+    if (ret) {
+      HWC2_ALOGE("Failed to ReleaseDpyRes for display=%" PRIu64 " %d\n", handle_, ret);
+    }
     if(isRK3566(resource_manager_->getSocId())){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
       DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
       if(extend != NULL){
         int extend_display_id = extend->display();
         auto &display = g_ctx->displays_.at(extend_display_id);
         display.ClearDisplay();
         extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
-        drm_->ReleaseDpyRes(extend_display_id);
+        ret = drm_->ReleaseDpyRes(extend_display_id);
+        if (ret) {
+          HWC2_ALOGE("Failed to ReleaseDpyRes for display=%d %d\n", extend_display_id, ret);
+        }
       }
     }
   }else{
-    drm_->BindDpyRes(handle_);
+    int ret = drm_->BindDpyRes(handle_);
+    if (ret) {
+      HWC2_ALOGE("Failed to BindDpyRes for display=%" PRIu64 " ret=%d\n", handle_, ret);
+    }
     if(isRK3566(resource_manager_->getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
       DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
       if(extend != NULL){
         int extend_display_id = extend->display();
         extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
-        drm_->BindDpyRes(extend_display_id);
+        ret = drm_->BindDpyRes(extend_display_id);
+        if (ret) {
+          HWC2_ALOGE("Failed to BindDpyRes for display=%d ret=%d\n", extend_display_id, ret);
+        }
       }
     }
   }
