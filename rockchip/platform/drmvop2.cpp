@@ -1555,13 +1555,9 @@ int PlanStageVop2::TryGLESPolicy(
         fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
       }
     }else{
-      if(fb_layer->bAfbcd_){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
-      }else if(fb_layer->bScale_){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
-      }else{
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
-      }
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK | DRM_PLANE_TYPE_ESMART0_MASK |
+                                   DRM_PLANE_TYPE_ESMART1_MASK | DRM_PLANE_TYPE_SMART0_MASK |
+                                   DRM_PLANE_TYPE_SMART1_MASK;
     }
   }
   int ret = MatchBestPlanes(composition,fb_target,crtc,plane_groups);
@@ -1715,6 +1711,12 @@ void PlanStageVop2::InitStateContext(
   ctx.state.bDisableFBAfbcd = false;
   for(auto &layer : layers){
     if(layer->bFbTarget_){
+      if(ctx.support.iAfbcdCnt == 0){
+        ctx.state.bDisableFBAfbcd = true;
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d No Cluster must to overlay Video, FB-target must disable AFBC(%d).",
+            __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+      }
+
       if(ctx.request.iAfcbdLargeYuvCnt > 0 && ctx.support.iAfbcdYuvCnt <= 2){
         ctx.state.bDisableFBAfbcd = true;
         ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",

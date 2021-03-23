@@ -296,7 +296,11 @@ void DrmHwcTwo::HwcDisplay::ClearDisplay() {
       }
     }
   }
+}
+
+void DrmHwcTwo::HwcDisplay::ReleaseResource(){
   resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
+  resource_manager_->assignPlaneGroup();
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
@@ -355,7 +359,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   resource_manager_->creatActiveDisplayCnt(display);
-  resource_manager_->assignPlaneGroup(display);
+  resource_manager_->assignPlaneGroup();
 
   HWC2::Error error = ChosePreferredConfig();
   if(error != HWC2::Error::None){
@@ -403,7 +407,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   }
 
   resource_manager_->creatActiveDisplayCnt(display);
-  resource_manager_->assignPlaneGroup(display);
+  resource_manager_->assignPlaneGroup();
 
   if(init_success_){
     return HWC2::Error::None;
@@ -1364,7 +1368,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateBCSH();
   UpdateHdmiOutputFormat();
   UpdateDisplayMode();
-  drm_->UpdateDisplayMode();
+  drm_->UpdateDisplayMode(handle_);
 
   *num_types = 0;
   *num_requests = 0;
@@ -2365,6 +2369,9 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
       return;
   }
 
+  if(displayid == HWC_DISPLAY_PRIMARY)
+    return;
+
   auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(cb->second.func);
   hotplug(cb->second.data, displayid,
           (state == DRM_MODE_CONNECTED ? HWC2_CONNECTION_CONNECTED
@@ -2390,10 +2397,6 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
 
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
-
-  DrmConnector *extend = NULL;
-  DrmConnector *primary = NULL;
-
   for (auto &conn : drm_->connectors()) {
     drmModeConnection old_state = conn->raw_state();
     conn->ResetModesReady();
@@ -2409,118 +2412,24 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug", timestamp_us,
           conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
 
+    int display_id = conn->display();
+    auto &display = hwc2_->displays_.at(display_id);
     if (cur_state == DRM_MODE_CONNECTED) {
-      if (conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT){
-        ALOGD("hwc_hotplug: find the first connect external type=%s(%d)",
-          drm_->connector_type_str(conn->type()), conn->type_id());
-        extend = conn.get();
-      }
-      else if (conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT){
-        ALOGD("hwc_hotplug: find the first connect primary type=%s(%d)",
-          drm_->connector_type_str(conn->type()), conn->type_id());
-        primary = conn.get();
-      }
-    }
-  }
-
-  DrmConnector *old_primary = drm_->GetConnectorFromType(HWC_DISPLAY_PRIMARY);
-  primary = primary ? primary : old_primary;
-  if (!primary || primary->raw_state() != DRM_MODE_CONNECTED) {
-    primary = NULL;
-    for (auto &conn : drm_->connectors()) {
-      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
-        continue;
-      if (conn->raw_state() == DRM_MODE_CONNECTED) {
-        primary = conn.get();
-        ALOGD("hwc_hotplug: find the second connect primary type=%s(%d)",
-          drm_->connector_type_str(conn->type()), conn->type_id());
-        break;
-      }
-    }
-  }
-
-  if (!primary) {
-    for (auto &conn : drm_->connectors()) {
-      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
-        continue;
-      ALOGD("hwc_hotplug: find the third primary type=%s(%d)",
-          drm_->connector_type_str(conn->type()), conn->type_id());
-      primary = conn.get();
-    }
-  }
-
-  if (!primary) {
-    ALOGE("hwc_hotplug: %s %d Failed to find primary display\n", __FUNCTION__, __LINE__);
-    return;
-  }
-
-  if(primary != old_primary){
-    int display_id = primary->display();
-    drm_->SetPrimaryDisplay(primary);
-    if (primary->raw_state() == DRM_MODE_CONNECTED) {
-      auto &display = hwc2_->displays_.at(display_id);
       display.HoplugEventTmeline();
       display.UpdateDisplayMode();
-
-      int old_display_id = old_primary->display();
-      auto &old_display = hwc2_->displays_.at(old_display_id);
-      old_display.ClearDisplay();
-    }
-  }
-
-  DrmConnector *old_extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
-  extend = extend ? extend : old_extend;
-  if (!extend || extend->raw_state() != DRM_MODE_CONNECTED) {
-    extend = NULL;
-    for (auto &conn : drm_->connectors()) {
-      if (!(conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT))
-        continue;
-      if (conn->id() == primary->id())
-        continue;
-      if (conn->raw_state() == DRM_MODE_CONNECTED) {
-        extend = conn.get();
-        ALOGD("hwc_hotplug: find the second connect external type=%s(%d)",
-          drm_->connector_type_str(conn->type()), conn->type_id());
-        break;
-      }
-    }
-  }
-  drm_->SetExtendDisplay(extend);
-  if(extend != old_extend){
-    if (!extend) {
-      if(old_extend){
-        int display_id = old_extend->display();
-        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-      }
+      display.ChosePreferredConfig();
+      display.CheckStateAndReinit();
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
     }else{
-      if(!old_extend){
-        int display_id = extend->display();
-        auto &display = hwc2_->displays_.at(display_id);
-        display.ChosePreferredConfig();
-        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
-      }else{
-        int display_id = old_extend->display();
-        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-        display_id = extend->display();
-        auto &display = hwc2_->displays_.at(display_id);
-        display.ChosePreferredConfig();
-        hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
-      }
-    }
-  }
-
-  for(auto &display_map : hwc2_->displays_){
-    auto display_id = display_map.first;
-    auto &display = display_map.second;
-    DrmConnector* conn = drm_->GetConnectorForDisplay(display_id);
-    if(conn->raw_state() != DRM_MODE_CONNECTED){
       display.ClearDisplay();
       drm_->ReleaseDpyRes(display_id);
-    }else{
-      display.CheckStateAndReinit();
-      display.InvalidateControl(5,20);
+      display.ReleaseResource();
+      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
     }
   }
+
+  auto &display = hwc2_->displays_.at(0);
+  display.InvalidateControl(5,20);
 
   return;
 }

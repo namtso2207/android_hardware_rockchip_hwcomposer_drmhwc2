@@ -27,6 +27,9 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+#define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
 
 namespace android {
 
@@ -124,24 +127,48 @@ struct assign_plane_group{
 	int possible_displays;
   uint64_t drm_type;
 };
+
 struct assign_plane_group assign_mask_default_one[] = {
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_ESMART0_WIN0 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_ESMART1_WIN0 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_SMART0_WIN0 },
-  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT , DRM_PLANE_TYPE_SMART1_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_CLUSTER0_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_CLUSTER0_WIN1 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_CLUSTER1_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_CLUSTER1_WIN1 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_ESMART0_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_SMART0_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT | HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT, DRM_PLANE_TYPE_SMART1_WIN0 },
 };
 
-struct assign_plane_group assign_mask_default_two[] = {
+struct assign_plane_group assign_mask_default_two_px[] = {
+  { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
+  { HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT  , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
+  { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_ESMART0_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT  , DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_SMART0_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT | HWC_DISPLAY_VIRTUAL_BIT  , DRM_PLANE_TYPE_SMART1_WIN0 },
+};
+
+struct assign_plane_group assign_mask_default_two_np[] = {
+  { HWC_DISPLAY_VIRTUAL_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
+  { HWC_DISPLAY_VIRTUAL_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
+  { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
+  { HWC_DISPLAY_VIRTUAL_BIT   , DRM_PLANE_TYPE_ESMART0_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { HWC_DISPLAY_VIRTUAL_BIT   , DRM_PLANE_TYPE_SMART0_WIN0 },
+  { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_SMART1_WIN0 },
+};
+
+
+struct assign_plane_group assign_mask_default_three[] = {
   { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN0 },
   { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_CLUSTER0_WIN1 },
   { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_CLUSTER1_WIN0 },
   { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_CLUSTER1_WIN1 },
   { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_ESMART0_WIN0 },
-  { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_ESMART1_WIN0 },
+  { HWC_DISPLAY_VIRTUAL_BIT   , DRM_PLANE_TYPE_ESMART1_WIN0 },
   { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_SMART0_WIN0 },
   { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_SMART1_WIN0 },
 };
@@ -158,74 +185,106 @@ struct assign_plane_group assign_mask_rk3566[] = {
 };
 
 
-int ResourceManager::assignPlaneGroup(int display){
+int ResourceManager::assignPlaneGroup(){
 
-  DrmDevice * drm = GetDrmDevice(display);
-  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
   uint32_t active_display_num = getActiveDisplayCnt();
-
   if(active_display_num==0){
-    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
+    ALOGI_IF(1,"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
                                  __FUNCTION__,__LINE__,active_display_num);
     return -1;
   }
 
-  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u, display=%d",
-                               __FUNCTION__,__LINE__,active_display_num,display);
+  for(auto &display_id : active_display_){
+    DrmDevice * drm = GetDrmDevice(display_id);
+    std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
 
-  DrmCrtc *crtc = drm->GetCrtcForDisplay(display);
-  if(!crtc){
-      ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-      return -1;
-  }
-  DrmConnector *connector = drm->GetConnectorForDisplay(display);
-  const int display_type = drm->GetTypeForConnector(connector);
-  int possible_display = 0;
-  switch(display_type){
-    case HWC_DISPLAY_PRIMARY:
-      possible_display = HWC_DISPLAY_PRIMARY_BIT;
-      break;
-    case HWC_DISPLAY_EXTERNAL:
-      possible_display = HWC_DISPLAY_EXTERNAL_BIT;
-      break;
-    default:
-      ALOGE("%s,line=%d can't find a suitable possible_display bit.",__FUNCTION__,__LINE__);
-      return -1;
-      break;
-  }
 
-  uint32_t crtc_mask = 1 << crtc->pipe();
 
-  if(isRK3566(soc_id_)){
-    for(auto &plane_group : all_plane_group){
-      for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_rk3566); i++){
-        int possible_displays = assign_mask_rk3566[i].possible_displays;
-        uint64_t assign_win_type =  assign_mask_rk3566[i].drm_type;
-        uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
-        if(possible_display & possible_displays && plane_group_win_type == assign_win_type){
-          plane_group->set_current_possible_crtcs(crtc_mask);
-        }
-      }
+    ALOGI_IF(1,"%s,line=%d, active_display_num = %u, display=%d",
+                                 __FUNCTION__,__LINE__,active_display_num,display_id);
+
+    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
+    if(!crtc){
+        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
+        return -1;
     }
-  }else{
-    if(active_display_num == 1){
+
+    int possible_display = 0;
+    switch(display_id){
+      case 0:
+        possible_display = HWC_DISPLAY_PRIMARY_BIT;
+        break;
+      case 1:
+        possible_display = HWC_DISPLAY_EXTERNAL_BIT;
+        break;
+      case 2:
+        possible_display = HWC_DISPLAY_VIRTUAL_BIT;
+        break;
+      default:
+        ALOGE("%s,line=%d can't find a suitable possible_display bit.",__FUNCTION__,__LINE__);
+        return -1;
+        break;
+    }
+
+    uint32_t crtc_mask = 1 << crtc->pipe();
+
+    if(isRK3566(soc_id_)){
       for(auto &plane_group : all_plane_group){
-          plane_group->set_current_possible_crtcs(crtc_mask);
-      }
-    }else if(active_display_num == 2){
-      for(auto &plane_group : all_plane_group){
-        for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_default_two); i++){
-          int possible_displays = assign_mask_default_two[i].possible_displays;
-          uint64_t assign_win_type =  assign_mask_default_two[i].drm_type;
+        for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_rk3566); i++){
+          int possible_displays = assign_mask_rk3566[i].possible_displays;
+          uint64_t assign_win_type =  assign_mask_rk3566[i].drm_type;
           uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
           if(possible_display & possible_displays && plane_group_win_type == assign_win_type){
             plane_group->set_current_possible_crtcs(crtc_mask);
+            HWC2_ALOGD_IF_VERBOSE("display=%d assign plane = 0x%" PRIx64,display_id,plane_group_win_type);
           }
         }
       }
     }else{
-      for(auto &plane_group : all_plane_group){
-          plane_group->set_current_possible_crtcs(crtc_mask);
+      if(active_display_num == 1){
+        HWC2_ALOGD_IF_VERBOSE("display=%d assign all plane",display_id);
+        for(auto &plane_group : all_plane_group){
+            plane_group->set_current_possible_crtcs(crtc_mask);
+        }
+      }else if(active_display_num == 2){
+
+        if(active_display_.count(0)){
+          for(auto &plane_group : all_plane_group){
+            for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_default_two_px); i++){
+              int possible_displays = assign_mask_default_two_px[i].possible_displays;
+              uint64_t assign_win_type =  assign_mask_default_two_px[i].drm_type;
+              uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+              if(possible_display & possible_displays && plane_group_win_type == assign_win_type){
+                plane_group->set_current_possible_crtcs(crtc_mask);
+                HWC2_ALOGD_IF_VERBOSE("display=%d assign plane = 0x%" PRIx64,display_id,plane_group_win_type);
+              }
+            }
+          }
+        }else{
+          for(auto &plane_group : all_plane_group){
+            for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_default_two_np); i++){
+              int possible_displays = assign_mask_default_two_np[i].possible_displays;
+              uint64_t assign_win_type =  assign_mask_default_two_np[i].drm_type;
+              uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+              if(possible_display & possible_displays && plane_group_win_type == assign_win_type){
+                plane_group->set_current_possible_crtcs(crtc_mask);
+                HWC2_ALOGD_IF_VERBOSE("display=%d assign plane = 0x%" PRIx64,display_id,plane_group_win_type);
+              }
+            }
+          }
+        }
+      }else{
+        for(auto &plane_group : all_plane_group){
+          for(uint32_t i = 0; i < ARRAY_SIZE(assign_mask_default_three); i++){
+            int possible_displays = assign_mask_default_three[i].possible_displays;
+            uint64_t assign_win_type =  assign_mask_default_three[i].drm_type;
+            uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+            if(possible_display & possible_displays && plane_group_win_type == assign_win_type){
+              plane_group->set_current_possible_crtcs(crtc_mask);
+              HWC2_ALOGD_IF_VERBOSE("display=%d assign plane = 0x%" PRIx64,display_id,plane_group_win_type);
+            }
+          }
+        }
       }
     }
   }

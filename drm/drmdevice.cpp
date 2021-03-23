@@ -298,7 +298,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
 
   ConfigurePossibleDisplays();
 
-  SetPrimaryDisplay(NULL);
+  DrmConnector *primary = NULL;
   for (auto &conn : connectors_) {
     if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
       continue;
@@ -307,12 +307,13 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     if (conn->state() != DRM_MODE_CONNECTED)
       continue;
     found_primary = true;
-    if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
-      SetPrimaryDisplay(conn.get());
+    if(NULL == primary){
+      primary = conn.get();
     }else{
-      if(conn.get()->priority() <
-        GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
-        SetPrimaryDisplay(conn.get());
+      // High priority devices can become the primary
+      if(conn.get()->priority() < primary->priority()){
+        primary = conn.get();
+      }
     }
   }
 
@@ -323,12 +324,13 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       if (conn->state() != DRM_MODE_CONNECTED)
         continue;
       found_primary = true;
-      if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
-        SetPrimaryDisplay(conn.get());
+      if(NULL == primary){
+        primary = conn.get();
       }else{
-        if(conn.get()->priority() <
-           GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
-          SetPrimaryDisplay(conn.get());
+        // High priority devices can become the primary
+        if(conn.get()->priority() < primary->priority()){
+          primary = conn.get();
+        }
       }
     }
   }
@@ -338,12 +340,13 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
         continue;
       found_primary = true;
-      if(NULL == GetConnectorFromType(HWC_DISPLAY_PRIMARY)){
-        SetPrimaryDisplay(conn.get());
+      if(NULL == primary){
+        primary = conn.get();
       }else{
-        if(conn.get()->priority() <
-           GetConnectorFromType(HWC_DISPLAY_PRIMARY)->priority())
-          SetPrimaryDisplay(conn.get());
+        // High priority devices can become the primary
+        if(conn.get()->priority() < primary->priority()){
+          primary = conn.get();
+        }
       }
     }
   }
@@ -352,7 +355,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     for (auto &conn : connectors_) {
       found_primary = true;
       conn->set_possible_displays(conn->possible_displays() | HWC_DISPLAY_PRIMARY_BIT);
-      SetPrimaryDisplay(conn.get());
+      primary = conn.get();
       break;
     }
   }
@@ -361,7 +364,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     ALOGE("failed to find primary display\n");
     return std::make_tuple(-ENODEV, 0);
   }else{
-    DrmConnector *primary = GetConnectorFromType(HWC_DISPLAY_PRIMARY);
     if(primary != NULL){
       primary->set_display(num_displays);
       displays_[num_displays] = num_displays;
@@ -369,25 +371,22 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     }
   }
 
-
-  SetExtendDisplay(NULL);
+  DrmConnector *extend = NULL;
   for (auto &conn : connectors_) {
-      if (GetConnectorFromType(HWC_DISPLAY_PRIMARY) == conn.get())
+      if (primary == conn.get())
         continue;
       if (!(conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT))
         continue;
       if (conn->state() != DRM_MODE_CONNECTED)
         continue;
-      if(NULL == GetConnectorFromType(HWC_DISPLAY_EXTERNAL)){
-        SetExtendDisplay(conn.get());
+      if(NULL == extend){
+        extend = conn.get();
       }else{
-        if(conn.get()->priority() <
-           GetConnectorFromType(HWC_DISPLAY_EXTERNAL)->priority())
-          SetExtendDisplay(conn.get());
+        if(conn.get()->priority() < extend->priority())
+          extend = conn.get();
       }
   }
 
-  DrmConnector *extend = GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
   if(extend != NULL){
     extend->set_display(num_displays);
     displays_[num_displays] = num_displays;
@@ -395,15 +394,14 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 
   for (auto &conn : connectors_) {
-    if (GetConnectorFromType(HWC_DISPLAY_PRIMARY) == conn.get())
+    if (primary == conn.get())
       continue;
-    if (GetConnectorFromType(HWC_DISPLAY_EXTERNAL) == conn.get())
+    if (extend == conn.get())
       continue;
     conn->set_display(num_displays);
     displays_[num_displays] = num_displays;
     ++num_displays;
   }
-
 
   if (res)
     drmModeFreeResources(res);
@@ -907,23 +905,14 @@ int DrmDevice::UpdatePropertys(void)
 
 
 static pthread_mutex_t diplay_route_mutex = PTHREAD_MUTEX_INITIALIZER;
-int DrmDevice::UpdateDisplayMode(void){
-  int i;
+int DrmDevice::UpdateDisplayMode(int display_id){
   pthread_mutex_lock(&diplay_route_mutex);
-  bool mode_changed = false;
-  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
-    DrmConnector *conn = GetConnectorFromType(i);
+  DrmConnector *conn = GetConnectorForDisplay(display_id);
 
-    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id() ||
-        !conn->encoder() || !conn->encoder()->crtc())
-      continue;
-    if (conn->current_mode() == conn->active_mode())
-      continue;
-    mode_changed = true;
-  }
-
-  if (!mode_changed)
-  {
+  if (!conn || conn->state() != DRM_MODE_CONNECTED   ||
+      !conn->current_mode().id() || !conn->encoder() ||
+      !conn->encoder()->crtc() ||
+       conn->current_mode() == conn->active_mode()){
     pthread_mutex_unlock(&diplay_route_mutex);
     return 0;
   }
@@ -936,37 +925,22 @@ int DrmDevice::UpdateDisplayMode(void){
   }
 
   int ret;
-  uint32_t blob_id[HWC_NUM_PHYSICAL_DISPLAY_TYPES] = {0};
+  uint32_t blob_id[1] = {0};
 
-  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
-    DrmConnector *conn = GetConnectorFromType(i);
+  struct drm_mode_modeinfo drm_mode;
+  memset(&drm_mode, 0, sizeof(drm_mode));
+  conn->current_mode().ToDrmModeModeInfo(&drm_mode);
+  ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
+            conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
+  ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[0]);
 
-    if (!conn)
-      continue;
-    if (conn->state() != DRM_MODE_CONNECTED ||
-        !conn->current_mode().id() || !conn->encoder() ||
-        !conn->encoder()->crtc()) {
-        DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), 0);
-      continue;
-    }
+  DrmCrtc *crtc = conn->encoder()->crtc();
 
-    struct drm_mode_modeinfo drm_mode;
-    memset(&drm_mode, 0, sizeof(drm_mode));
-    conn->current_mode().ToDrmModeModeInfo(&drm_mode);
-    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
-              conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
-    ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[i]);
-    if (ret)
-      continue;
-
-    DrmCrtc *crtc = conn->encoder()->crtc();
-
-//    connector->SetDpmsMode(DRM_MODE_DPMS_ON);
-//    DRM_ATOMIC_ADD_PROP(conn->id(), conn->dpms_property().id(), DRM_MODE_DPMS_ON);
+//  connector->SetDpmsMode(DRM_MODE_DPMS_ON);
+//  DRM_ATOMIC_ADD_PROP(conn->id(), conn->dpms_property().id(), DRM_MODE_DPMS_ON);
     DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), crtc->id());
-    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[i]);
+    DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), blob_id[0]);
     DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
-  }
 
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
@@ -977,20 +951,10 @@ int DrmDevice::UpdateDisplayMode(void){
     return ret;
   }
 
-  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
-    if (blob_id[i])
-      DestroyPropertyBlob(blob_id[i]);
-  }
-  for (i = 0; i < HWC_NUM_PHYSICAL_DISPLAY_TYPES; i++) {
-    DrmConnector *conn = GetConnectorFromType(i);
+  if (blob_id[0])
+    DestroyPropertyBlob(blob_id[0]);
 
-    if (!conn || conn->state() != DRM_MODE_CONNECTED || !conn->current_mode().id())
-      continue;
-
-    if (!conn->encoder() || !conn->encoder()->crtc())
-      continue;
-    conn->set_active_mode(conn->current_mode());
-  }
+  conn->set_active_mode(conn->current_mode());
 
   drmModeAtomicFree(pset);
 
