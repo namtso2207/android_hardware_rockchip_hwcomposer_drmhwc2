@@ -61,6 +61,7 @@ class DrmDisplayCompositor {
   int Composite();
   void Dump(std::ostringstream *out) const;
   void Vsync(int display, int64_t timestamp);
+  void SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition);
   void ClearDisplay();
 
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();

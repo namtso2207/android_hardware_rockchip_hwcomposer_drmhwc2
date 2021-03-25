@@ -531,17 +531,24 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     int src_l,src_t,src_w,src_h;
     bool afbcd = false, yuv = false;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
+
+      if(source_layers.empty()){
+        ALOGE("Can't handle empty source layer CompositionPlane.");
+        continue;
+      }
+
       if (source_layers.size() > 1) {
         ALOGE("Can't handle more than one source layer sz=%zu type=%d",
               source_layers.size(), comp_plane.type());
         continue;
       }
 
-      if (source_layers.empty() || source_layers.front() >= layers.size()) {
+      if (source_layers.front() >= layers.size()) {
         ALOGE("Source layer index %zu out of bounds %zu type=%d",
               source_layers.front(), layers.size(), comp_plane.type());
         break;
       }
+
       DrmHwcLayer &layer = layers[source_layers.front()];
 
       if (!test_only && layer.acquire_fence.get() >= 0) {
@@ -804,6 +811,54 @@ std::tuple<int, uint32_t> DrmDisplayCompositor::CreateModeBlob(
   return std::make_tuple(ret, id);
 }
 
+
+void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition) {
+  int ret;
+
+  if(!composition)
+    return;
+
+  if (DisablePlanes(composition.get()))
+    return;
+
+  //wait and close acquire fence.
+  std::vector<DrmHwcLayer> &layers = composition->layers();
+  std::vector<DrmCompositionPlane> &comp_planes = composition->composition_planes();
+
+  for (DrmCompositionPlane &comp_plane : comp_planes) {
+      std::vector<size_t> &source_layers = comp_plane.source_layers();
+      if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
+          if (source_layers.size() > 1) {
+              ALOGE("Can't handle more than one source layer sz=%zu type=%d",
+              source_layers.size(), comp_plane.type());
+              continue;
+          }
+
+          if (source_layers.empty() || source_layers.front() >= layers.size()) {
+              ALOGE("Source layer index %zu out of bounds %zu type=%d",
+              source_layers.front(), layers.size(), comp_plane.type());
+              break;
+          }
+          DrmHwcLayer &layer = layers[source_layers.front()];
+          if (layer.acquire_fence.get() >= 0) {
+              int acquire_fence = layer.acquire_fence.get();
+              int total_fence_timeout = 0;
+                  ret = sync_wait(acquire_fence, 1500);
+                  if (ret) {
+                    ALOGE("Failed to wait for acquire %d/%d 1500ms", acquire_fence, ret);
+                    break;
+                  }
+              layer.acquire_fence.Close();
+          }
+
+      }
+  }
+
+  composition->SignalCompositionDone();
+
+  composition.reset(NULL);
+}
+
 void DrmDisplayCompositor::ClearDisplay() {
   if(!initialized_)
     return;
@@ -812,13 +867,22 @@ void DrmDisplayCompositor::ClearDisplay() {
   if (lock.Lock())
     return;
 
-  if (!active_composition_)
-    return;
+  SingalCompsition(std::move(active_composition_));
 
-  if (DisablePlanes(active_composition_.get()))
-    return;
+  //Singal the remainder fences in composite queue.
+  while(!composite_queue_.empty())
+  {
+    std::unique_ptr<DrmDisplayComposition> remain_composition(
+      std::move(composite_queue_.front()));
 
-  active_composition_.reset(NULL);
+    if(remain_composition)
+      ALOGD_IF(LogLevel(DBG_DEBUG),"ClearDisplay: composite_queue_ size=%zu frame_no=%" PRIu64 "",composite_queue_.size(), remain_composition->frame_no());
+
+    SingalCompsition(std::move(remain_composition));
+    composite_queue_.pop();
+    pthread_cond_signal(&composite_queue_cond_);
+  }
+
   clear_ = true;
   //vsync_worker_.VSyncControl(false);
 }

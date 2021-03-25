@@ -1141,9 +1141,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   HWC2::Error ret;
   ret = CheckDisplayState();
-  if(ret != HWC2::Error::None){
-    ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
-          __FUNCTION__, __LINE__);
+  if(ret != HWC2::Error::None || !validate_success_){
+    ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail %s, %s,line=%d", handle_,
+          validate_success_? "" : "or validate fail.",__FUNCTION__, __LINE__);
     ClearDisplay();
     *retire_fence = -1;
     return HWC2::Error::None;
@@ -1165,9 +1165,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   ++frame_no_;
 
-
   UpdateTimerState(!static_screen_opt_);
-
   return HWC2::Error::None;
 }
 
@@ -1385,6 +1383,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail, %s,line=%d", handle_,
           __FUNCTION__, __LINE__);
     ClearDisplay();
+    composition_planes_.clear();
+    validate_success_ = false;
     return HWC2::Error::None;
   }
 
@@ -1410,7 +1410,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if(!client_layer_.isAfbc()){
     ++(*num_requests);
   }
-
+  validate_success_ = true;
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 

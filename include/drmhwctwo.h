@@ -285,6 +285,7 @@ class DrmHwcTwo : public hwc2_device_t {
     UniqueFd next_retire_fence_;
     int32_t color_mode_;
     bool init_success_;
+    bool validate_success_;
     bool present_finish_;
     hwc_drm_display_t ctx_;
     bool static_screen_timer_enable_;
