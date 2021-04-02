@@ -88,6 +88,17 @@ int hwc_get_string_property(const char* pcProperty,const char* default_value,cha
     return 0;
 }
 
+bool isRK356x(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3566:
+    case 0x3566a:
+    case 0x3568:
+    case 0x3568a:
+      return true;
+    default:
+      return false;
+  }
+}
 
 bool isRK3566(uint32_t soc_id){
   switch(soc_id){

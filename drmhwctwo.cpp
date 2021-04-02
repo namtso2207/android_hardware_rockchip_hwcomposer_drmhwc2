@@ -798,15 +798,17 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     ctx_.rel_xres = best_mode.h_display();
     ctx_.rel_yres = best_mode.v_display();
 
-    // AFBDC limit
+    // AFBC limit
     bool disable_afbdc = false;
     if(handle_ == HWC_DISPLAY_PRIMARY){
-      if(ctx_.framebuffer_width > 2560 || ctx_.framebuffer_width % 16 != 0 || ctx_.framebuffer_height % 8 != 0)
-         disable_afbdc = true;
-      if(disable_afbdc){
-        //property_set( "vendor.gralloc.disable_afbc", "1");
-        ALOGI("%s:line=%d primary framebuffer size %dx%d not support AFBDC, to disable AFBDC\n",
-                 __FUNCTION__, __LINE__, ctx_.framebuffer_width,ctx_.framebuffer_height);
+      if(isRK356x(resource_manager_->getSocId())){
+        if(ctx_.framebuffer_width % 4 != 0)
+           disable_afbdc = true;
+        if(disable_afbdc){
+          property_set( "vendor.gralloc.no_afbc_for_fb_target_layer", "1");
+          ALOGI("%s:line=%d RK356x primary framebuffer size %dx%d not support AFBC, to disable AFBC\n",
+                   __FUNCTION__, __LINE__, ctx_.framebuffer_width,ctx_.framebuffer_height);
+        }
       }
     }
     if (!configs) {
