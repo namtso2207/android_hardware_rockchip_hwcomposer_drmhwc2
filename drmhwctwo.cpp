@@ -1935,6 +1935,7 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
         if(!ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(drmHwcLayer.eDataSpace_)){
           ALOGD_IF(LogLevel(DBG_DEBUG),"Enable HDR mode success");
           ctx_.hdr_mode = true;
+          property_set("vendor.hwc.hdr_state","HDR");
         }
       }
   }
@@ -1943,6 +1944,7 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
     if(!connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
       ctx_.hdr_mode = false;
+      property_set("vendor.hwc.hdr_state","NORMAL");
     }
   }
 
@@ -2719,6 +2721,8 @@ int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
   g_ctx = ctx.get();
 
   signal(SIGALRM, StaticScreenOptHandler);
+
+  property_set("vendor.hwc.hdr_state","NORMAL");
 
   ctx->common.module = const_cast<hw_module_t *>(module);
   *dev = &ctx->common;
