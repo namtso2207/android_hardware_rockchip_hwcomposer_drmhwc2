@@ -51,6 +51,7 @@ class ResourceManager {
   }
   uint32_t getActiveDisplayCnt() { return active_display_.size();}
   int assignPlaneGroup();
+  int assignPlaneGroupForInit(int display);
   int getFb0Fd() { return fb0_fd;}
   int getSocId() { return soc_id_;}
   DrmGralloc *getGralloc() { return drmGralloc_;}

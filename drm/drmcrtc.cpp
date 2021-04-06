@@ -26,6 +26,24 @@
 
 namespace android {
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+struct plane_mask_name {
+  DrmPlaneType mask;
+  const char *name;
+};
+
+struct plane_mask_name plane_mask_names[] = {
+  { DRM_PLANE_TYPE_CLUSTER0_MASK, "Cluster0" },
+  { DRM_PLANE_TYPE_CLUSTER1_MASK, "Cluster1" },
+  { DRM_PLANE_TYPE_ESMART0_MASK, "Esmart0" },
+  { DRM_PLANE_TYPE_ESMART1_MASK, "Esmart1" },
+  { DRM_PLANE_TYPE_SMART0_MASK, "Smart0" },
+  { DRM_PLANE_TYPE_SMART1_MASK, "Smart1" },
+  { DRM_PLANE_TYPE_Unknown, "unknown" },
+};
+
+
 DrmCrtc::DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe)
     : drm_(drm), id_(c->crtc_id), pipe_(pipe), display_(-1), mode_(&c->mode) {
 }
@@ -119,6 +137,18 @@ int DrmCrtc::Init() {
     }
   }
 
+  ret = drm_->GetCrtcProperty(*this, "PLANE_MASK", &plane_mask_property_);
+  if (ret) {
+    ALOGE("Failed to get plane_mask property");
+  }else{
+    for(int i = 0; i < ARRAY_SIZE(plane_mask_names); i++){
+      bool have_mask = false;
+      std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names[i].name);
+      if(have_mask){
+        plane_mask_ |= plane_mask_names[i].mask;
+      }
+    }
+  }
   return 0;
 }
 bool DrmCrtc::get_afbc() const {

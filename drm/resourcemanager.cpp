@@ -123,6 +123,7 @@ std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
   }
   return NULL;
 }
+
 struct assign_plane_group{
 	int possible_displays;
   uint64_t drm_type;
@@ -183,6 +184,62 @@ struct assign_plane_group assign_mask_rk3566[] = {
   { HWC_DISPLAY_PRIMARY_BIT   , DRM_PLANE_TYPE_SMART0_WIN0 },
   { HWC_DISPLAY_EXTERNAL_BIT  , DRM_PLANE_TYPE_SMART1_WIN0 },
 };
+
+
+int ResourceManager::assignPlaneGroupForInit(int display){
+
+  DrmDevice* drm = GetDrmDevice(display);
+  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
+  uint32_t active_display_num = getActiveDisplayCnt();
+
+  if(active_display_num==0){
+    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
+                                 __FUNCTION__,__LINE__,active_display_num);
+    return -1;
+  }
+
+  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d, active_display_num = %u, display=%d",
+                               __FUNCTION__,__LINE__,active_display_num,display);
+
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(display);
+  if(!crtc){
+      ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
+      return -1;
+  }
+
+  uint32_t crtc_mask = 1 << crtc->pipe();
+  uint64_t plane_mask = crtc->get_plane_mask();
+
+  if(isRK3566(soc_id_)){
+    for(auto &plane_group : all_plane_group){
+      uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+      if((plane_mask & plane_group_win_type) == plane_group_win_type){
+        plane_group->set_current_possible_crtcs(crtc_mask);
+      }
+    }
+  }else{
+    if(active_display_num == 1){
+      for(auto &plane_group : all_plane_group){
+          plane_group->set_current_possible_crtcs(crtc_mask);
+      }
+    }else if(active_display_num == 2){
+      for(auto &plane_group : all_plane_group){
+        uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+        if((plane_mask & plane_group_win_type) == plane_group_win_type){
+          plane_group->set_current_possible_crtcs(crtc_mask);
+        }
+      }
+    }else{
+      for(auto &plane_group : all_plane_group){
+        uint64_t plane_group_win_type = plane_group->planes[0]->win_type();
+        if((plane_mask & plane_group_win_type) == plane_group_win_type){
+          plane_group->set_current_possible_crtcs(crtc_mask);
+        }
+      }
+    }
+  }
+  return 0;
+}
 
 
 int ResourceManager::assignPlaneGroup(){

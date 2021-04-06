@@ -130,7 +130,7 @@ std::tuple<int, bool> DrmProperty::bitmask(const char* name) const {
   if(strlen(name) > 0){
       for (auto &drm_enum : enums_){
           if(!strncmp(drm_enum.name_.c_str(),(const char*)name,strlen(name))){
-              return std::make_tuple(1 << drm_enum.value_, true);
+              return std::make_tuple(1LL << drm_enum.value_, true);
           }
       }
   }else{
@@ -139,6 +139,28 @@ std::tuple<int, bool> DrmProperty::bitmask(const char* name) const {
   return std::make_tuple(0, false);
 }
 
+// drm_enum.value_ is the offset of 1LL
+std::tuple<int, bool> DrmProperty::value_bitmask(const char* name) const {
+  if (type_ != DRM_PROPERTY_TYPE_BITMASK)
+    return std::make_tuple(0, false);
+
+  if (values_.size() == 0)
+    return std::make_tuple(-ENOENT, false);
+
+  if(!name)
+    return std::make_tuple(-ENOENT, false);
+
+  if(strlen(name) > 0){
+      for (auto &drm_enum : enums_){
+          if(!strncmp(drm_enum.name_.c_str(),(const char*)name,strlen(name))){
+              return std::make_tuple(1LL << drm_enum.value_, (value_ & (1LL << drm_enum.value_)) > 0);
+          }
+      }
+  }else{
+      return std::make_tuple(0, false);
+  }
+  return std::make_tuple(0, false);
+}
 
 bool DrmProperty::is_immutable() const {
   return id_ && (flags_ & DRM_MODE_PROP_IMMUTABLE);
