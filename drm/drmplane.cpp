@@ -231,6 +231,7 @@ int DrmPlane::Init() {
       std::tie(ret,find_name) = name_property_.bitmask(plane_type_names[i].name);
       if(find_name){
         win_type_ = plane_type_names[i].type;
+        name_ = plane_type_names[i].name;
         break;
       }
     }
@@ -318,6 +319,10 @@ bool DrmPlane::GetCrtcSupported(const DrmCrtc &crtc) const {
 
 uint32_t DrmPlane::type() const {
   return type_;
+}
+
+const char* DrmPlane::name() const{
+  return name_;
 }
 
 DrmPlaneType DrmPlane::win_type() const{

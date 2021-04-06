@@ -54,6 +54,8 @@ enum DrmPlaneType{
       DRM_PLANE_TYPE_SMART1_WIN2 = 1 << 18,
       DRM_PLANE_TYPE_SMART1_WIN3 = 1 << 19,
 
+      DRM_PLANE_TYPE_CLUSTER0_MASK= 0x3,
+      DRM_PLANE_TYPE_CLUSTER1_MASK= 0xc,
       DRM_PLANE_TYPE_CLUSTER_MASK = 0xf,
       DRM_PLANE_TYPE_ESMART0_MASK = 0xf0,
       DRM_PLANE_TYPE_ESMART1_MASK = 0xf00,
@@ -115,6 +117,7 @@ class DrmPlane {
   uint32_t type() const;
 
   DrmPlaneType win_type() const;
+  const char* name() const;
 
   const DrmProperty &crtc_property() const;
   const DrmProperty &fb_property() const;
@@ -222,6 +225,7 @@ class DrmPlane {
   int output_h_max_;
   float scale_min_=0.0;
   float scale_max_=0.0;
+  const char *name_;
 
   std::set<uint32_t> support_format_list;
   drmModePlanePtr plane_;

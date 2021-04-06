@@ -411,8 +411,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                   for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
                       !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane)
                   {
-                      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,plane(%d) is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
-                              (*iter_plane)->id(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
+                      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,%s is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
+                              (*iter_plane)->name(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
 
 
                       if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
@@ -444,13 +444,13 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
                             int dst_x_offset = (*iter_layer)->display_frame.left;
                             if((ctx.state.iClu0UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu0TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
                               continue;
                             }
 
@@ -458,14 +458,14 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
 
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
                             int dst_x_offset = (*iter_layer)->display_frame.left;
 
                             if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu1TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
                           }
@@ -474,7 +474,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->id(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
                             continue;
                           }
 
@@ -484,8 +484,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if((*iter_plane)->is_support_input(input_w,input_h)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support intput (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->id(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->name(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
                             continue;
 
                           }
@@ -497,8 +497,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           if((*iter_plane)->is_support_output(output_w,output_h)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
                             continue;
 
                           }
@@ -508,8 +508,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
                             bNeed = true;
                           else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                    (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
+                                    (*iter_plane)->name(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
                             continue;
                           }
 
@@ -521,9 +521,9 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           {
                               if(!b_alpha)
                               {
-                                  ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support alpha,layer alpha=0x%x,alpha id=%d",
-                                          (*iter_plane)->id(),(*iter_layer)->alpha,(*iter_plane)->alpha_property().id());
+                                  ALOGV("layer id=%d, %s",(*iter_layer)->uId_,(*iter_plane)->name());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support alpha,layer alpha=0x%x,alpha id=%d",
+                                          (*iter_plane)->name(),(*iter_layer)->alpha,(*iter_plane)->alpha_property().id());
                                   continue;
                               }
                               else
@@ -537,9 +537,9 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           {
                               if(!b_hdr2sdr)
                               {
-                                  ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support etof,layer eotf=%d,hdr2sdr=%d",
-                                          (*iter_plane)->id(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
+                                  ALOGV("layer id=%d, %s",(*iter_layer)->uId_,(*iter_plane)->name());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support etof,layer eotf=%d,hdr2sdr=%d",
+                                          (*iter_plane)->name(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
                                   continue;
                               }
                               else
@@ -551,8 +551,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             if(((*iter_layer)->transform & (DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                               // Cluster rotate must 64 align
                               if(((*iter_layer)->iStride_ % 64 != 0)){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
-                                        (*iter_plane)->id(), (*iter_layer)->transform,(*iter_layer)->iStride_);
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
+                                        (*iter_plane)->name(), (*iter_layer)->transform,(*iter_layer)->iStride_);
                                 continue;
                               }
                             }
@@ -560,14 +560,14 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                               //Cluster rotate input_h must <= 2048
                               if(input_h > 2048){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and input_h = %d",
-                                        (*iter_plane)->id(), (*iter_layer)->transform,input_h);
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(90 or 270) 0x%x and input_h = %d",
+                                        (*iter_plane)->name(), (*iter_layer)->transform,input_h);
                                 continue;
                               }
                             }
                           }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
-                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform 0x%x, support 0x%x",
+                                      (*iter_plane)->name(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
                           }
 
@@ -581,8 +581,8 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                             if((*iter_plane)->is_support_output(output_w,output_h)){
                               bNeed = true;
                             }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                      (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror %s cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                      (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
                               continue;
 
                             }
@@ -592,16 +592,16 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                                 (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
                               bNeed = true;
                             else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror Plane(%d) cann't support scale factor(%f,%f)",
-                                      (*iter_plane)->id(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror %s cann't support scale factor(%f,%f)",
+                                      (*iter_plane)->name(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
                               continue;
                             }
 
                           }
 
 
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
-                              (*iter_plane)->id(),zpos);
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, %s, zops = %d",(*iter_layer)->uId_,
+                              (*iter_plane)->name(),zpos);
                           //Find the match plane for layer,it will be commit.
                           composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_);
                           (*iter_layer)->bMatch_ = true;
@@ -735,13 +735,13 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
 
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
                             int dst_x_offset = (*iter_layer)->display_frame.left;
                             if((ctx.state.iClu0UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu0TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
                               continue;
                             }
 
@@ -749,14 +749,14 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
 
                           if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) disable Cluster two win mode",(*iter_plane)->id());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
                             int dst_x_offset = (*iter_layer)->display_frame.left;
 
                             if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu1TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) Cluster can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->id(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
                           }
@@ -765,7 +765,7 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->id(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
                             continue;
                           }
 
@@ -775,8 +775,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                           if((*iter_plane)->is_support_input(input_w,input_h)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support intput (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->id(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->name(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
                             continue;
 
                           }
@@ -788,8 +788,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                           if((*iter_plane)->is_support_output(output_w,output_h)){
                             bNeed = true;
                           }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                    (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
                             continue;
 
                           }
@@ -799,8 +799,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                               (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
                             bNeed = true;
                           else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                    (*iter_plane)->id(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
+                                    (*iter_plane)->name(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
                             continue;
 
                           }
@@ -814,8 +814,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                               if(!b_alpha)
                               {
                                   ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support alpha,layer alpha=0x%x,alpha id=%d",
-                                          (*iter_plane)->id(),(*iter_layer)->alpha,(*iter_plane)->alpha_property().id());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support alpha,layer alpha=0x%x,alpha id=%d",
+                                          (*iter_plane)->name(),(*iter_layer)->alpha,(*iter_plane)->alpha_property().id());
                                   continue;
                               }
                               else
@@ -830,8 +830,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                               if(!b_hdr2sdr)
                               {
                                   ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support etof,layer eotf=%d,hdr2sdr=%d",
-                                          (*iter_plane)->id(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support etof,layer eotf=%d,hdr2sdr=%d",
+                                          (*iter_plane)->name(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
                                   continue;
                               }
                               else
@@ -843,8 +843,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                             if(((*iter_layer)->transform & (DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                               // Cluster rotate must 64 align
                               if(((*iter_layer)->iStride_ % 64 != 0)){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
-                                        (*iter_plane)->id(), (*iter_layer)->transform,(*iter_layer)->iStride_);
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
+                                        (*iter_plane)->name(), (*iter_layer)->transform,(*iter_layer)->iStride_);
                                 continue;
                               }
                             }
@@ -852,14 +852,14 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                             if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                               //Cluster rotate input_h must <= 2048
                               if(input_h > 2048){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform(90 or 270) 0x%x and input_h = %d",
-                                        (*iter_plane)->id(), (*iter_layer)->transform,input_h);
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(90 or 270) 0x%x and input_h = %d",
+                                        (*iter_plane)->name(), (*iter_layer)->transform,input_h);
                                 continue;
                               }
                             }
                           }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support layer transform 0x%x, support 0x%x",
-                                      (*iter_plane)->id(), (*iter_layer)->transform,(*iter_plane)->get_transform());
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform 0x%x, support 0x%x",
+                                      (*iter_plane)->name(), (*iter_layer)->transform,(*iter_plane)->get_transform());
                               continue;
                           }
 
@@ -872,8 +872,8 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                               if((*iter_plane)->is_support_output(output_w,output_h)){
                                 bNeed = true;
                               }else{
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                        (*iter_plane)->id(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                        (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
                                 continue;
 
                               }
@@ -883,14 +883,14 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                                   (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
                                 bNeed = true;
                               else{
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"Plane(%d) cann't support scale factor(%f,%f)",
-                                        (*iter_plane)->id(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
+                                        (*iter_plane)->name(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
                                 continue;
                               }
                           }
 
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, plane=%d,zops = %d",(*iter_layer)->uId_,
-                              (*iter_plane)->id(),zpos);
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, %s ,zops = %d",(*iter_layer)->uId_,
+                              (*iter_plane)->name(),zpos);
                           //Find the match plane for layer,it will be commit.
                           composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_,true);
                           (*iter_layer)->bMatch_ = true;

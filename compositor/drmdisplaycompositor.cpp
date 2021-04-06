@@ -673,7 +673,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     out_log << "DrmDisplayCompositor[" << index << "]"
             << " frame_no=" << display_comp->frame_no()
             << " display=" << display_
-            << " plane=" << (plane ? plane->id() : -1)
+            << " plane=" << (plane ? plane->name() : "Unknow")
             << " crct id=" << crtc->id()
             << " fb id=" << fb_id
             << " display_frame[" << dst_l << ","

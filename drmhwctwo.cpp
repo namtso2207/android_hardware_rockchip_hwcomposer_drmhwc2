@@ -278,8 +278,8 @@ void DrmHwcTwo::HwcDisplay::ClearDisplay() {
           for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
                 !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
                 if ((*iter_plane)->GetCrtcSupported(*crtc_)) {
-                    ALOGD_IF(LogLevel(DBG_DEBUG),"ClearDisplay plane_groups plane id=%d %s",
-                              (*iter_plane)->id(),"release plane");
+                    ALOGD_IF(LogLevel(DBG_DEBUG),"ClearDisplay %s %s",
+                              (*iter_plane)->name(),"release plane");
                    break;
                 }
           }
