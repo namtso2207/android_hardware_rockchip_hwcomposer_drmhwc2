@@ -332,8 +332,9 @@ bool DrmHwcLayer::IsSkipLayer(){
 /*
  * CLUSTER_AFBC_DECODE_MAX_RATE = 3.2
  * (src(W*H)/dst(W*H))/(aclk/dclk) > CLUSTER_AFBC_DECODE_MAX_RATE to use GLES compose.
+ * Notes: (4096,1714)=>(1080,603) appear, CLUSTER_AFBC_DECODE_MAX_RATE=2.839350
  */
-#define CLUSTER_AFBC_DECODE_MAX_RATE 3.2
+#define CLUSTER_AFBC_DECODE_MAX_RATE 2.8
 bool DrmHwcLayer::IsGlesCompose(){
   // RK356x can't overlay RGBA1010102
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
@@ -356,12 +357,12 @@ bool DrmHwcLayer::IsGlesCompose(){
   if(bAfbcd_){
     if(act_w % 4 != 0)
       return true;
-    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 3.2, Use GLES compose
+    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 2.8, Use GLES compose
     if(uAclk_ > 0 && uDclk_ > 0){
       if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
         ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f. "
                   "fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/uDclk_),CLUSTER_AFBC_DECODE_MAX_RATE,
+                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)),CLUSTER_AFBC_DECODE_MAX_RATE,
                   fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
         return true;
       }
