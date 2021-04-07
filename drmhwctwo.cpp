@@ -359,7 +359,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   resource_manager_->creatActiveDisplayCnt(display);
-  resource_manager_->assignPlaneGroupForInit(display);
+  resource_manager_->assignPlaneGroup();
 
   HWC2::Error error = ChosePreferredConfig();
   if(error != HWC2::Error::None){

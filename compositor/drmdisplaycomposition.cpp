@@ -146,7 +146,7 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
     if(isRK3566(soc_id))
       disable_plane = true;
 
-    if(release_plane || disable_plane){
+    if(disable_plane){
         for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
               !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
               if (!(*iter_plane)->is_use()) {
@@ -155,6 +155,16 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
                   AddPlaneDisable(*iter_plane);
                  // break;
               }
+        }
+    }
+
+    if(release_plane){
+        for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
+              !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
+              ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes %s %s",
+                        (*iter_plane)->name(),release_plane ? "release_necessary_cnt plane" : "");
+              AddPlaneDisable(*iter_plane);
+             // break;
         }
     }
   }
