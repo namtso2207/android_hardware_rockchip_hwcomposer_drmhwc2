@@ -1925,13 +1925,6 @@ int PlanStageVop2::InitContext(
   //force go into GPU
   int iMode = hwc_get_int_property("vendor.hwc.compose_policy","0");
 
-  // Workaround for GSI / CTS / GTS
-  bool gsi_force_hwc = hwc_get_int_property("ro.vendor.rk_sdk","0") == 0;
-  if(gsi_force_hwc){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"Force use HWC compose, gsi_force_hwc=%d, gles_policy=%d, soc_id=%x",gsi_force_hwc,gles_policy,ctx.state.iSocId);
-    iMode=2;
-  }
-
   if((iMode!=1 || gles_policy) && iMode != 2){
     ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
     ALOGD_IF(LogLevel(DBG_DEBUG),"Force use GLES compose, iMode=%d, gles_policy=%d, soc_id=%x",iMode,gles_policy,ctx.state.iSocId);
