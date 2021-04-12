@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 
+#define DYNAMIC_ASSIGN_PLANE 0
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -185,6 +186,7 @@ int ResourceManager::assignPlaneGroup(){
     }
   }
 
+#if DYNAMIC_ASSIGN_PLANE
   // Second, assign still unused DrmPlane
   if(active_display_num == 1){
     if(all_unused_plane_mask!=0){
@@ -236,7 +238,7 @@ int ResourceManager::assignPlaneGroup(){
       }
     }
   }
-
+#endif
 
   for(auto &plane_group : all_plane_group){
     ALOGD("rk-debug assignPlaneGroup name=%s current=%x",plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
