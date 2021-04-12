@@ -1954,7 +1954,16 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
 int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
   bool enable_timer = true;
   for(auto &drmHwcLayer : drm_hwc_layers_){
+    // Video
     if(drmHwcLayer.bYuv_){
+      enable_timer = false;
+      break;
+    }
+
+    // Surface w/h is larger than FB
+    int crop_w = static_cast<int>(drmHwcLayer.source_crop.right - drmHwcLayer.source_crop.left);
+    int crop_h = static_cast<int>(drmHwcLayer.source_crop.bottom - drmHwcLayer.source_crop.top);
+    if(crop_w * crop_h > ctx_.framebuffer_width * ctx_.framebuffer_height){
       enable_timer = false;
       break;
     }
