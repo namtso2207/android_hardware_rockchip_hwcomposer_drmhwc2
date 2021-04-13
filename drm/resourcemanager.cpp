@@ -24,7 +24,7 @@
 #include <sstream>
 #include <string>
 
-#define DYNAMIC_ASSIGN_PLANE 0
+#define STATIC_ASSIGN_PLANE 1
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -143,7 +143,7 @@ int ResourceManager::assignPlaneGroup(){
 
   uint32_t active_display_num = getActiveDisplayCnt();
   if(active_display_num==0){
-    ALOGI_IF(1,"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
+    ALOGI_IF(DBG_INFO,"%s,line=%d, active_display_num = %u not to assignPlaneGroup",
                                  __FUNCTION__,__LINE__,active_display_num);
     return -1;
   }
@@ -155,7 +155,7 @@ int ResourceManager::assignPlaneGroup(){
   for(auto &display_id : active_display_){
     drm = GetDrmDevice(display_id);
 
-    ALOGI_IF(1,"%s,line=%d, active_display_num = %u, display=%d",
+    ALOGI_IF(DBG_INFO,"%s,line=%d, active_display_num = %u, display=%d",
                                  __FUNCTION__,__LINE__,active_display_num,display_id);
     all_plane_group = drm->GetPlaneGroups();
     for(auto &plane_group : all_plane_group){
@@ -176,7 +176,8 @@ int ResourceManager::assignPlaneGroup(){
 
     uint32_t crtc_mask = 1 << crtc->pipe();
     uint64_t plane_mask = crtc->get_plane_mask();
-    ALOGD("rk-debug crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,crtc->id(),crtc_mask,plane_mask);
+    ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
+             crtc->id(),crtc_mask,plane_mask);
     for(auto &plane_group : all_plane_group){
       uint64_t plane_group_win_type = plane_group->win_type;
       if((plane_mask & plane_group_win_type) == plane_group_win_type){
@@ -186,7 +187,6 @@ int ResourceManager::assignPlaneGroup(){
     }
   }
 
-#if DYNAMIC_ASSIGN_PLANE
   // Second, assign still unused DrmPlane
   if(active_display_num == 1){
     if(all_unused_plane_mask!=0){
@@ -196,6 +196,11 @@ int ResourceManager::assignPlaneGroup(){
             ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
             return -1;
         }
+
+#if STATIC_ASSIGN_PLANE
+        if(crtc->get_plane_mask() > 0)
+          continue;
+#endif
         uint32_t crtc_mask = 1 << crtc->pipe();
         for(auto &plane_group : all_plane_group){
           uint64_t plane_group_win_type = plane_group->win_type;
@@ -213,6 +218,11 @@ int ResourceManager::assignPlaneGroup(){
           ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
           return -1;
       }
+
+#if STATIC_ASSIGN_PLANE
+      if(crtc->get_plane_mask() > 0)
+        continue;
+#endif
 
       uint32_t crtc_mask = 1 << crtc->pipe();
       uint64_t plane_mask = crtc->get_plane_mask();
@@ -238,10 +248,10 @@ int ResourceManager::assignPlaneGroup(){
       }
     }
   }
-#endif
 
   for(auto &plane_group : all_plane_group){
-    ALOGD("rk-debug assignPlaneGroup name=%s current=%x",plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
+    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
+             plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
   }
   return 0;
 }

@@ -137,6 +137,8 @@ int DrmCrtc::Init() {
     }
   }
 
+  // Plane mask
+  plane_mask_=0;
   ret = drm_->GetCrtcProperty(*this, "PLANE_MASK", &plane_mask_property_);
   if (ret) {
     ALOGE("Failed to get plane_mask property");

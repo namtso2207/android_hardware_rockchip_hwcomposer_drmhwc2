@@ -88,10 +88,12 @@ class DrmCrtc {
   DrmProperty aclk_property_;
   DrmProperty plane_mask_property_;
 
-  // Vop2
+  /* Vop2 */
   uint32_t soc_id_;
   uint32_t port_id_;
   uint32_t aclk_=0;
+  // Plane_mask must limit crtc and plane binding relationship
+  // If the Plane mask is specified, only the mask plane is allowed to be bound for crtc
   uint64_t plane_mask_=0;
 };
 }  // namespace android
