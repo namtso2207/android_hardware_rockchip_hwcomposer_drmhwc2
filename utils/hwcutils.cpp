@@ -332,9 +332,10 @@ bool DrmHwcLayer::IsSkipLayer(){
 /*
  * CLUSTER_AFBC_DECODE_MAX_RATE = 3.2
  * (src(W*H)/dst(W*H))/(aclk/dclk) > CLUSTER_AFBC_DECODE_MAX_RATE to use GLES compose.
- * Notes: (4096,1714)=>(1080,603) appear, CLUSTER_AFBC_DECODE_MAX_RATE=2.839350
+ * Notes: (4096,1714)=>(1080,603) appear( DDR 1560M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.839350
+ * Notes: (4096,1714)=>(1200,900) appear( DDR 1056M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.075307
  */
-#define CLUSTER_AFBC_DECODE_MAX_RATE 2.8
+#define CLUSTER_AFBC_DECODE_MAX_RATE 2.0
 bool DrmHwcLayer::IsGlesCompose(){
   // RK356x can't overlay RGBA1010102
   if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
@@ -357,13 +358,30 @@ bool DrmHwcLayer::IsGlesCompose(){
   if(bAfbcd_){
     if(act_w % 4 != 0)
       return true;
-    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = 2.8, Use GLES compose
+    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = CLUSTER_AFBC_DECODE_MAX_RATE, Use GLES compose
     if(uAclk_ > 0 && uDclk_ > 0){
-      if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f. "
-                  "fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)),CLUSTER_AFBC_DECODE_MAX_RATE,
+        char value[PROPERTY_VALUE_MAX];
+        property_get("vendor.hwc.cluster_afbc_decode_max_rate", value, "0");
+        double cluster_afbc_decode_max_rate = atof(value);
+
+        ALOGD_IF(LogLevel(DBG_VERBOSE),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)),
+                  cluster_afbc_decode_max_rate ,CLUSTER_AFBC_DECODE_MAX_RATE,
                   fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
+      if(cluster_afbc_decode_max_rate > 0){
+        if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > cluster_afbc_decode_max_rate){
+          ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+                    "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                    sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)), CLUSTER_AFBC_DECODE_MAX_RATE,
+                    cluster_afbc_decode_max_rate, fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
+          return true;
+        }
+      }else if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)), CLUSTER_AFBC_DECODE_MAX_RATE,
+                  cluster_afbc_decode_max_rate, fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
         return true;
       }
     }
