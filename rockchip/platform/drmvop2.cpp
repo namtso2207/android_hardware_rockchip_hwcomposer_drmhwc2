@@ -1771,7 +1771,8 @@ void PlanStageVop2::InitCrtcMirror(
     ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bCommitMirrorMode=%d, soc_id=%x",__FUNCTION__,__LINE__,
              ctx.state.bCommitMirrorMode,ctx.state.iSocId);
     DrmDevice *drm = crtc->getDrmDevice();
-    DrmConnector *conn = drm->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    int display_id = drm->GetCommitMirrorDisplayId();
+    DrmConnector *conn = drm->GetConnectorForDisplay(display_id);
     if(!conn || conn->state() != DRM_MODE_CONNECTED){
       ctx.state.bCommitMirrorMode = false;
       ctx.state.pCrtcMirror = NULL;

@@ -78,7 +78,6 @@ class DrmDevice {
 
   DrmConnector *GetConnectorForDisplay(int display) const;
   int GetTypeForConnector(DrmConnector *conn) const;
-  DrmConnector *GetConnectorFromType(int display_type) const ;
   DrmConnector *GetWritebackConnectorForDisplay(int display) const;
   DrmConnector *AvailableWritebackConnector(int display) const;
   DrmCrtc *GetCrtcForDisplay(int display) const;
@@ -106,15 +105,12 @@ class DrmDevice {
   type_name_define(encoder_type);
   type_name_define(connector_status);
   type_name_define(connector_type);
+  void SetCommitMirrorDisplayId(int display);
+  int  GetCommitMirrorDisplayId() const;
 
-  void DisplayChanged(void);
-  void SetPrimaryDisplay(DrmConnector *c);
-  void SetExtendDisplay(DrmConnector *c);
   int UpdateDisplayMode(int display_id);
   int BindDpyRes(int display_id);
   int ReleaseDpyRes(int display_id);
-  int UpdateDisplayRoute(void);
-  int UpdatePropertys(void);
   void ClearDisplay(void);
   void ClearDisplay(int display);
   void ClearAllDisplay(void);
@@ -153,10 +149,9 @@ class DrmDevice {
   int soc_id_;
   uint32_t mode_id_ = 0;
   bool enable_changed_;
-  DrmConnector *primary_;
-  DrmConnector *extend_;
   int hotplug_timeline;
   int prop_timeline_;
+  int commit_mirror_display_id_;
 
   std::vector<std::unique_ptr<DrmConnector>> connectors_;
   std::vector<std::unique_ptr<DrmConnector>> writeback_connectors_;

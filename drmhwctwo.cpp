@@ -1343,7 +1343,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       HWC2_ALOGE("Failed to ReleaseDpyRes for display=%" PRIu64 " %d\n", handle_, ret);
     }
     if(isRK3566(resource_manager_->getSocId())){
-      DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+      int display_id = drm_->GetCommitMirrorDisplayId();
+      DrmConnector *extend = drm_->GetConnectorForDisplay(display_id);
       if(extend != NULL){
         int extend_display_id = extend->display();
         auto &display = g_ctx->displays_.at(extend_display_id);
@@ -1362,7 +1363,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     }
     if(isRK3566(resource_manager_->getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
-      DrmConnector *extend = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+      int display_id = drm_->GetCommitMirrorDisplayId();
+      DrmConnector *extend = drm_->GetConnectorForDisplay(display_id);
       if(extend != NULL){
         int extend_display_id = extend->display();
         extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
@@ -1393,6 +1395,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   if(!ctx_.bStandardSwitchResolution){
     UpdateDisplayMode();
     drm_->UpdateDisplayMode(handle_);
+    if(isRK3566(resource_manager_->getSocId())){
+      int display_id = drm_->GetCommitMirrorDisplayId();
+      drm_->UpdateDisplayMode(display_id);
+    }
   }
 
   *num_types = 0;
@@ -1846,7 +1852,8 @@ int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
     need_change_depth = 0;
     static int mirror_color_format = 0;
     static int mirror_color_depth = 0;
-    DrmConnector *conn_mirror = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    int display_id = drm_->GetCommitMirrorDisplayId();
+    DrmConnector *conn_mirror = drm_->GetConnectorForDisplay(display_id);
     if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
       mirror_mode = false;
@@ -1961,7 +1968,8 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
   if(isRK3566(resource_manager_->getSocId())){
     bool mirror_mode = true;
-    DrmConnector *conn_mirror = drm_->GetConnectorFromType(HWC_DISPLAY_EXTERNAL);
+    int display_id = drm_->GetCommitMirrorDisplayId();
+    DrmConnector *conn_mirror = drm_->GetConnectorForDisplay(display_id);
     if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
       mirror_mode = false;
@@ -2402,6 +2410,12 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
 
   if(isRK3566(resource_manager_.getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
+      if(displayid != HWC_DISPLAY_PRIMARY){
+        auto &drmDevices = resource_manager_.getDrmDevices();
+        for (auto &device : drmDevices) {
+          device->SetCommitMirrorDisplayId(displayid);
+        }
+      }
       return;
   }
 
