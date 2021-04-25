@@ -23,6 +23,7 @@
 #include "drmeventlistener.h"
 #include "drmplane.h"
 #include "platform.h"
+#include "rockchip/drmbaseparameter.h"
 
 #include <stdint.h>
 #include <tuple>
@@ -107,7 +108,8 @@ class DrmDevice {
   type_name_define(connector_type);
   void SetCommitMirrorDisplayId(int display);
   int  GetCommitMirrorDisplayId() const;
-
+  int UpdateDisplay3DLut(int display_id);
+  int UpdateDisplayGamma(int display_id);
   int UpdateDisplayMode(int display_id);
   int BindDpyRes(int display_id);
   int ReleaseDpyRes(int display_id);
@@ -134,7 +136,8 @@ class DrmDevice {
   bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
   bool mode_verify(const DrmMode &mode);
   int getSocId(){ return soc_id_; };
-
+  int UpdateConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
+  int DumpConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
  private:
   void init_white_modes(void);
   void ConfigurePossibleDisplays();
@@ -161,6 +164,7 @@ class DrmDevice {
   std::vector<DrmPlane*> sort_planes_;
   std::vector<PlaneGroup*> plane_groups_;
   DrmEventListener event_listener_;
+  DrmBaseparameter baseparameter_;
 
   std::pair<uint32_t, uint32_t> min_resolution_;
   std::pair<uint32_t, uint32_t> max_resolution_;

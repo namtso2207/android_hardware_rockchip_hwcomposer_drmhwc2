@@ -57,6 +57,10 @@ class DrmCrtc {
   const DrmProperty &top_margin_property() const;
   const DrmProperty &bottom_margin_property() const;
   const DrmProperty &alpha_scale_property() const;
+  const DrmProperty &gamma_lut_property() const;
+  const DrmProperty &gamma_lut_size_property() const;
+  const DrmProperty &cubic_lut_property() const;
+  const DrmProperty &cubic_lut_size_property() const;
 
  DrmDevice *getDrmDevice(){ return drm_; }
 
@@ -87,6 +91,10 @@ class DrmCrtc {
   DrmProperty port_id_property_;
   DrmProperty aclk_property_;
   DrmProperty plane_mask_property_;
+  DrmProperty gamma_lut_property_;
+  DrmProperty gamma_lut_size_property_;
+  DrmProperty cubic_lut_property_;
+  DrmProperty cubic_lut_size_property_;
 
   /* Vop2 */
   uint32_t soc_id_;

@@ -116,6 +116,15 @@ int DrmConnector::Init() {
    ALOGW("Could not get hdmi_output_depth property\n");
   }
 
+  connector_id_=0;
+  ret = drm_->GetConnectorProperty(*this, "CONNECTOR_ID", &connector_id_property_);
+  if (ret) {
+    ALOGW("Could not get CONNECTOR_ID property\n");
+  }else{
+    std::tie(ret,connector_id_) = connector_id_property_.value();
+  }
+
+
   drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
   bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
   bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
@@ -133,7 +142,16 @@ int DrmConnector::Init() {
                         hdr_metadata_.min_mastering_display_luminance));
   }
 
-  ALOGD("rk-debug connector %u init bSupportSt2084_ = %d, bSupportHLG_ = %d",id_,bSupportSt2084_,bSupportHLG_);
+  // Update Baseparameter Info
+  ret = drm_->UpdateConnectorBaseInfo(type_,connector_id_,&baseparameter_);
+  if(ret){
+    ALOGI("UpdateConnectorBaseInfo fail, the device may not have a baseparameter.");
+    baseparameter_ready_=false;
+  }else{
+    drm_->DumpConnectorBaseInfo(type_,connector_id_,&baseparameter_);
+    baseparameter_ready_=true;
+  }
+
   return 0;
 }
 

@@ -328,6 +328,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::NoResources;
   }
 
+  ret = drm_->UpdateDisplayGamma(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to UpdateDisplayGamma for display=%d %d\n", display, ret);
+  }
+
+  ret = drm_->UpdateDisplay3DLut(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to UpdateDisplay3DLut for display=%d %d\n", display, ret);
+  }
+
   ret = vsync_worker_.Init(drm_, display);
   if (ret) {
     ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
@@ -368,9 +378,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   ctx_.aclk = crtc_->get_aclk();
+  // Baseparameter Info
+  ctx_.baseparameter_info = connector_->baseparameter_info();
+  // Standard Switch Resolution Mode
+  ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
 
   init_success_ = true;
-  ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
 
   return HWC2::Error::None;
 }
@@ -407,6 +420,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::BadDisplay;
   }
 
+  ret = drm_->UpdateDisplayGamma(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to UpdateDisplayGamma for display=%d %d\n", display, ret);
+    return HWC2::Error::NoResources;
+  }
+
+  ret = drm_->UpdateDisplay3DLut(handle_);
+  if (ret) {
+    HWC2_ALOGE("Failed to UpdateDisplay3DLut for display=%d %d\n", display, ret);
+    return HWC2::Error::NoResources;
+  }
+
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
 
@@ -435,8 +460,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
   ctx_.aclk = crtc_->get_aclk();
 
-  init_success_ = true;
+  // Baseparameter info
+  ctx_.baseparameter_info = connector_->baseparameter_info();
+
+  // Standard Switch Resolution Mode
   ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
+
+  init_success_ = true;
 
   return HWC2::Error::None;
 }
@@ -1695,7 +1725,9 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
   return 0;
 }
 
-bool DrmHwcTwo::HwcDisplay::ParseHdmiOutputFormat(char* strprop, drm_hdmi_output_type *format, dw_hdmi_rockchip_color_depth *depth) {
+bool DrmHwcTwo::HwcDisplay::ParseHdmiOutputFormat(char* strprop,
+                                                           hwc2_drm_hdmi_output_type *format,
+                                                           hwc2_dw_hdmi_rockchip_color_depth *depth) {
     if (!strcmp(strprop, "Auto")) {
         *format = DRM_HDMI_OUTPUT_YCBCR_HQ;
         *depth = ROCKCHIP_DEPTH_DEFAULT;
@@ -1756,8 +1788,8 @@ bool DrmHwcTwo::HwcDisplay::ParseHdmiOutputFormat(char* strprop, drm_hdmi_output
 int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
   bool update = false;
   int timeline = 0;
-  drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
-  dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
+  hwc2_drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+  hwc2_dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
   int ret = 0;
   int need_change_format = 0;
   int need_change_depth = 0;

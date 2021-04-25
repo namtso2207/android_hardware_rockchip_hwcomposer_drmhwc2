@@ -59,7 +59,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libui \
 	libutils \
 	libsync_vendor \
-        libtinyxml2
+        libtinyxml2 \
+        libbaseparameter
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -69,7 +70,8 @@ LOCAL_C_INCLUDES := \
   external/libdrm/include/drm \
   system/core \
   system/core/libsync/include \
-  external/tinyxml2
+  external/tinyxml2 \
+  hardware/rockchip/libbaseparameter
 
 
 LOCAL_SRC_FILES := \
@@ -96,7 +98,8 @@ LOCAL_SRC_FILES := \
   rockchip/drmgralloc.cpp \
   rockchip/platform/drmvop.cpp \
   rockchip/platform/drmvop2.cpp \
-  rockchip/invalidateworker.cpp
+  rockchip/invalidateworker.cpp \
+  rockchip/drmbaseparameter.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \

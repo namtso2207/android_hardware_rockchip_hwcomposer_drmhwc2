@@ -20,6 +20,7 @@
 #include "drmdevice.h"
 #include "platform.h"
 #include "rockchip/drmgralloc.h"
+#include "rockchip/drmbaseparameter.h"
 
 #include <string.h>
 #include <set>

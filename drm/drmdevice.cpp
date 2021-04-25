@@ -148,6 +148,9 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
 
   init_white_modes();
 
+  // Baseparameter init.
+  baseparameter_.Init();
+
   /* TODO: Use drmOpenControl here instead */
   fd_.Set(open(path, O_RDWR));
   if (fd() < 0) {
@@ -824,6 +827,103 @@ void DrmDevice::ConfigurePossibleDisplays(){
 }
 
 static pthread_mutex_t diplay_route_mutex = PTHREAD_MUTEX_INITIALIZER;
+int DrmDevice::UpdateDisplayGamma(int display_id){
+  pthread_mutex_lock(&diplay_route_mutex);
+  DrmConnector *conn = GetConnectorForDisplay(display_id);
+
+  if (!conn || conn->state() != DRM_MODE_CONNECTED ||
+      !conn->encoder() || !conn->encoder()->crtc()){
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+
+  int ret=0;
+  DrmCrtc *crtc = conn->encoder()->crtc();
+  if(crtc->gamma_lut_property().id() == 0){
+    ALOGI("%s,line=%d %s crtc-id=%d not support gamma.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+
+  const struct disp_info* info = conn->baseparameter_info();
+  if(info != NULL){
+    unsigned blob_id = 0;
+    int size = info->gamma_lut_data.size;
+    struct drm_color_lut gamma_lut[size];
+    for (int i = 0; i < size; i++) {
+      gamma_lut[i].red = info->gamma_lut_data.lred[i];
+      gamma_lut[i].green = info->gamma_lut_data.lgreen[i];
+      gamma_lut[i].blue = info->gamma_lut_data.lblue[i];
+    }
+    ret = drmModeCreatePropertyBlob(fd_.get(), gamma_lut, sizeof(gamma_lut), &blob_id);
+    if(ret){
+      ALOGE("%s,line=%d %s crtc-id=%d CreatePropertyBlob  fail.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+    ret = drmModeObjectSetProperty(fd_.get(), crtc->id(), DRM_MODE_OBJECT_CRTC, crtc->gamma_lut_property().id(), blob_id);
+    if(ret){
+      ALOGE("%s,line=%d %s crtc-id=%d gamma fail.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, display=%d crtc-id=%d set Gamma success!",__FUNCTION__,__LINE__,
+                                    crtc->id(),display_id);
+  }
+  pthread_mutex_unlock(&diplay_route_mutex);
+  return ret;
+
+}
+
+int DrmDevice::UpdateDisplay3DLut(int display_id){
+  pthread_mutex_lock(&diplay_route_mutex);
+  DrmConnector *conn = GetConnectorForDisplay(display_id);
+
+  if (!conn || conn->state() != DRM_MODE_CONNECTED ||
+      !conn->encoder() || !conn->encoder()->crtc()){
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+
+  DrmCrtc *crtc = conn->encoder()->crtc();
+  if(crtc->cubic_lut_property().id() == 0){
+    ALOGI("%s,line=%d %s crtc-id=%d not support cubic lut.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+    pthread_mutex_unlock(&diplay_route_mutex);
+    return 0;
+  }
+  const struct disp_info* info = conn->baseparameter_info();
+
+  int ret=0;
+  if(info != NULL){
+    unsigned blob_id = 0;
+    int size = info->cubic_lut_data.size;
+    struct drm_color_lut cubit_lut[size];
+    for (int i = 0; i < size; i++) {
+      cubit_lut[i].red = info->cubic_lut_data.lred[i];
+      cubit_lut[i].green = info->cubic_lut_data.lgreen[i];
+      cubit_lut[i].blue = info->cubic_lut_data.lblue[i];
+    }
+    ret = drmModeCreatePropertyBlob(fd_.get(), cubit_lut, sizeof(cubit_lut), &blob_id);
+    if(ret){
+      ALOGE("%s,line=%d %s crtc-id=%d CreatePropertyBlob  fail.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+    ret = drmModeObjectSetProperty(fd_.get(), crtc->id(), DRM_MODE_OBJECT_CRTC, crtc->cubic_lut_property().id(), blob_id);
+    if(ret){
+      ALOGE("%s,line=%d %s crtc-id=%d 3D Lut fail.",__FUNCTION__,__LINE__,connector_type_str(conn->type()),crtc->id());
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, display=%d crtc-id=%d set 3DLut success!",__FUNCTION__,__LINE__,
+                                    crtc->id(),display_id);
+
+  }
+  pthread_mutex_unlock(&diplay_route_mutex);
+  return ret;
+
+}
+
 int DrmDevice::UpdateDisplayMode(int display_id){
   pthread_mutex_lock(&diplay_route_mutex);
   DrmConnector *conn = GetConnectorForDisplay(display_id);
@@ -1420,6 +1520,16 @@ bool DrmDevice::is_plane_support_hdr2sdr(DrmCrtc *crtc) const
     }
 
     return bHdr2sdr;
+}
+
+int DrmDevice::UpdateConnectorBaseInfo(unsigned int connector_type,
+               unsigned int connector_id, struct disp_info *info){
+  return baseparameter_.UpdateConnectorBaseInfo(connector_type,connector_id,info);
+}
+
+int DrmDevice::DumpConnectorBaseInfo(unsigned int connector_type,
+               unsigned int connector_id, struct disp_info *info){
+  return baseparameter_.DumpConnectorBaseInfo(connector_type,connector_id,info);
 }
 
 }  // namespace android

@@ -151,6 +151,29 @@ int DrmCrtc::Init() {
       }
     }
   }
+
+  // GAMMA LUT
+  ret = drm_->GetCrtcProperty(*this, "GAMMA_LUT", &gamma_lut_property_);
+  if (ret) {
+    ALOGE("Failed to get GAMMA_LUT property");
+  }
+
+  ret = drm_->GetCrtcProperty(*this, "GAMMA_LUT_SIZE", &gamma_lut_size_property_);
+  if (ret) {
+    ALOGE("Failed to get GAMMA_LUT_SIZE property");
+  }
+
+  // CUBIC LUT
+  ret = drm_->GetCrtcProperty(*this, "CUBIC_LUT", &cubic_lut_property_);
+  if (ret) {
+    ALOGE("Failed to get CUBIC_LUT property");
+  }
+
+  ret = drm_->GetCrtcProperty(*this, "CUBIC_LUT_SIZE", &cubic_lut_size_property_);
+  if (ret) {
+    ALOGE("Failed to get CUBIC_LUT_SIZE property");
+  }
+
   return 0;
 }
 bool DrmCrtc::get_afbc() const {
@@ -215,5 +238,23 @@ const DrmProperty &DrmCrtc::bottom_margin_property() const {
 const DrmProperty &DrmCrtc::alpha_scale_property() const {
   return alpha_scale_property_;
 }
+
+const DrmProperty &DrmCrtc::gamma_lut_property() const{
+  return gamma_lut_property_;
+}
+
+const DrmProperty &DrmCrtc::gamma_lut_size_property() const{
+  return gamma_lut_size_property_;
+}
+
+const DrmProperty &DrmCrtc::cubic_lut_property() const{
+  return cubic_lut_property_;
+}
+
+const DrmProperty &DrmCrtc::cubic_lut_size_property() const{
+  return cubic_lut_size_property_;
+}
+
+
 
 }  // namespace android
