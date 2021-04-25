@@ -151,7 +151,7 @@ class DrmDevice {
   bool enable_changed_;
   int hotplug_timeline;
   int prop_timeline_;
-  int commit_mirror_display_id_;
+  int commit_mirror_display_id_=-1;
 
   std::vector<std::unique_ptr<DrmConnector>> connectors_;
   std::vector<std::unique_ptr<DrmConnector>> writeback_connectors_;

@@ -2413,7 +2413,10 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
       if(displayid != HWC_DISPLAY_PRIMARY){
         auto &drmDevices = resource_manager_.getDrmDevices();
         for (auto &device : drmDevices) {
-          device->SetCommitMirrorDisplayId(displayid);
+          if(state==DRM_MODE_CONNECTED)
+            device->SetCommitMirrorDisplayId(displayid);
+          else
+            device->SetCommitMirrorDisplayId(-1);
         }
       }
       return;
