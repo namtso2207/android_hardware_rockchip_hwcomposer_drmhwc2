@@ -371,17 +371,17 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
 
-  HWC2::Error error = ChosePreferredConfig();
-  if(error != HWC2::Error::None){
-    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
-    return error;
-  }
-
   ctx_.aclk = crtc_->get_aclk();
   // Baseparameter Info
   ctx_.baseparameter_info = connector_->baseparameter_info();
   // Standard Switch Resolution Mode
   ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
+
+  HWC2::Error error = ChosePreferredConfig();
+  if(error != HWC2::Error::None){
+    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
+    return error;
+  }
 
   init_success_ = true;
 
@@ -451,13 +451,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
-
-  HWC2::Error error = ChosePreferredConfig();
-  if(error != HWC2::Error::None){
-    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
-    return error;
-  }
-
   ctx_.aclk = crtc_->get_aclk();
 
   // Baseparameter info
@@ -465,6 +458,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
   // Standard Switch Resolution Mode
   ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
+
+  HWC2::Error error = ChosePreferredConfig();
+  if(error != HWC2::Error::None){
+    ALOGE("Failed to chose prefererd config for display %d (%d)", display, error);
+    return error;
+  }
 
   init_success_ = true;
 
@@ -1207,7 +1206,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 " config=%d",handle_,config);
   if(ctx_.bStandardSwitchResolution){
     auto mode = std::find_if(connector_->modes().begin(),
                              connector_->modes().end(),
@@ -1228,7 +1227,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
   //    ALOGE("Failed to queue dpms composition on %d", ret);
   //    return HWC2::Error::BadConfig;
   //  }
-
     connector_->set_best_mode(*mode);
 
     connector_->set_current_mode(*mode);
@@ -1509,9 +1507,9 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
   if(sf_modes_.size() > 0){
     for (const DrmMode &mode : sf_modes_) {
       if(active_mode.id() == mode.id())
-        output.appendFormat("    Config[%2u] = %s%c%.2f (active)\n",idx, mode.name().c_str(), 'p' , mode.v_refresh());
+        output.appendFormat("    Config[%2u] = %s%c%.2f mode-id=%d (active)\n",idx, mode.name().c_str(), 'p' , mode.v_refresh(),mode.id());
       else
-        output.appendFormat("    Config[%2u] = %s%c%.2f\n",idx, mode.name().c_str(), 'p' , mode.v_refresh());
+        output.appendFormat("    Config[%2u] = %s%c%.2f mode-id=%d \n",idx, mode.name().c_str(), 'p' , mode.v_refresh(),mode.id());
       idx++;
     }
   }
@@ -1713,14 +1711,14 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       return 0;
     ctx_.display_timeline = timeline;
     ctx_.hotplug_timeline = drm_->timeline();
-  }
-  int ret = GetBestDisplayMode();
-  if(!ret){
-    const DrmMode best_mode = connector_->best_mode();
-    connector_->set_current_mode(best_mode);
-    ctx_.rel_xres = best_mode.h_display();
-    ctx_.rel_yres = best_mode.v_display();
-    ctx_.dclk = best_mode.clock();
+    int ret = GetBestDisplayMode();
+    if(!ret){
+      const DrmMode best_mode = connector_->best_mode();
+      connector_->set_current_mode(best_mode);
+      ctx_.rel_xres = best_mode.h_display();
+      ctx_.rel_yres = best_mode.v_display();
+      ctx_.dclk = best_mode.clock();
+    }
   }
   return 0;
 }
@@ -2340,8 +2338,6 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
 
-
-
   if(buffer_){
     drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
     drmHwcLayer->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
@@ -2762,6 +2758,7 @@ int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
   ctx->common.module = const_cast<hw_module_t *>(module);
   *dev = &ctx->common;
   ctx.release();
+
   return 0;
 }
 }  // namespace android
