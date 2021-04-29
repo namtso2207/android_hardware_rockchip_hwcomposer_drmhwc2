@@ -1545,6 +1545,36 @@ int PlanStageVop2::TryGLESPolicy(
 
   if(fb_target.size()==1){
     DrmHwcLayer* fb_layer = fb_target[0];
+    // If there is a Cluster layer, FB enables AFBC
+    if(ctx.support.iAfbcdCnt > 0){
+      ctx.state.bDisableFBAfbcd = false;
+      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
+      // CommirMirror must match two display scale limitation.
+      if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+        if((fb_layer->fHScaleMulMirror_ > 4.0 || fb_layer->fHScaleMulMirror_ < 0.25) ||
+           (fb_layer->fVScaleMulMirror_ > 4.0 || fb_layer->fVScaleMulMirror_ < 0.25) ||
+           (fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
+           (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
+          ctx.state.bDisableFBAfbcd = true;
+          ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
+               __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+        }
+      }
+
+      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
+      if((fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
+         (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
+        ctx.state.bDisableFBAfbcd = true;
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor, FB-target must disable AFBC(%d).",
+             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+      }
+      if(ctx.state.bDisableFBAfbcd){
+        fb_layer->bAfbcd_ = false;
+      }else{
+        fb_layer->bAfbcd_ = true;
+        ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
+      }
+    }
     // RK3566 must match external display
     if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
       if(fb_layer->bAfbcd_){
