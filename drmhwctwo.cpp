@@ -315,6 +315,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::BadDisplay;
   }
 
+  int ret = vsync_worker_.Init(drm_, display);
+  if (ret) {
+    ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
+    return HWC2::Error::BadDisplay;
+  }
+
+  ret = invalidate_worker_.Init(display);
+  if (ret) {
+    ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
+    return HWC2::Error::BadDisplay;
+  }
+
   if(connector_->raw_state() != DRM_MODE_CONNECTED){
     ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
           connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
@@ -322,7 +334,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
 
   UpdateDisplayMode();
-  int ret = drm_->BindDpyRes(handle_);
+  ret = drm_->BindDpyRes(handle_);
   if (ret) {
     HWC2_ALOGE("Failed to BindDpyRes for display=%d %d\n", display, ret);
     return HWC2::Error::NoResources;
@@ -336,18 +348,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   ret = drm_->UpdateDisplay3DLut(handle_);
   if (ret) {
     HWC2_ALOGE("Failed to UpdateDisplay3DLut for display=%d %d\n", display, ret);
-  }
-
-  ret = vsync_worker_.Init(drm_, display);
-  if (ret) {
-    ALOGE("Failed to create event worker for d=%d %d\n", display, ret);
-    return HWC2::Error::BadDisplay;
-  }
-
-  ret = invalidate_worker_.Init(display);
-  if (ret) {
-    ALOGE("Failed to create invalidate worker for d=%d %d\n", display, ret);
-    return HWC2::Error::BadDisplay;
   }
 
   crtc_ = drm_->GetCrtcForDisplay(display);
