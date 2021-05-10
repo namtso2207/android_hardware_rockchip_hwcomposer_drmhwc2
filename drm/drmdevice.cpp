@@ -998,6 +998,7 @@ int DrmDevice::BindDpyRes(int display_id){
   if(conn->state() != DRM_MODE_CONNECTED){
     ALOGE("%s:line=%d display-id=%d connector state is disconnected\n",
           __FUNCTION__, __LINE__,display_id);
+    pthread_mutex_unlock(&diplay_route_mutex);
     return -EINVAL;
   }
 
@@ -1088,7 +1089,6 @@ int DrmDevice::BindDpyRes(int display_id){
   drmModeAtomicFree(pset);
 
   pthread_mutex_unlock(&diplay_route_mutex);
-
   return 0;
 }
 
@@ -1109,6 +1109,7 @@ int DrmDevice::ReleaseDpyRes(int display_id){
   if(conn->state() != DRM_MODE_DISCONNECTED){
     ALOGE("%s:line=%d display-id=%d connector state is disconnected, to release resource.\n",
           __FUNCTION__, __LINE__,display_id);
+    pthread_mutex_unlock(&diplay_route_mutex);
     return -EINVAL;
   }
 
@@ -1147,6 +1148,7 @@ int DrmDevice::ReleaseDpyRes(int display_id){
         if (ret) {
           ALOGE("Failed to add plane %d disable to pset", plane->id());
           drmModeAtomicFree(pset);
+          pthread_mutex_unlock(&diplay_route_mutex);
           return ret;
         }
         ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, disable CRTC(%d), disable plane-id = %d",__FUNCTION__,__LINE__,
@@ -1176,7 +1178,6 @@ int DrmDevice::ReleaseDpyRes(int display_id){
   }
 
   pthread_mutex_unlock(&diplay_route_mutex);
-
   return 0;
 }
 
