@@ -423,13 +423,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   ret = drm_->UpdateDisplayGamma(handle_);
   if (ret) {
     HWC2_ALOGE("Failed to UpdateDisplayGamma for display=%d %d\n", display, ret);
-    return HWC2::Error::NoResources;
   }
 
   ret = drm_->UpdateDisplay3DLut(handle_);
   if (ret) {
     HWC2_ALOGE("Failed to UpdateDisplay3DLut for display=%d %d\n", display, ret);
-    return HWC2::Error::NoResources;
   }
 
   resource_manager_->creatActiveDisplayCnt(display);
