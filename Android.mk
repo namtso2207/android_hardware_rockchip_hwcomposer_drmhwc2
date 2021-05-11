@@ -91,9 +91,9 @@ LOCAL_SRC_FILES := \
   drm/vsyncworker.cpp \
   platform/platform.cpp \
   utils/autolock.cpp \
-  utils/hwcutils.cpp \
   platform/platformdrmgeneric.cpp \
   rockchip/utils/drmdebug.cpp \
+  rockchip/hwcutils.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
   rockchip/platform/drmvop.cpp \
