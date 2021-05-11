@@ -44,6 +44,7 @@ class DrmConnector {
   uint32_t id() const;
   uint32_t type() { return type_; }
   uint32_t type_id() const { return type_id_; };
+  uint32_t unique_id() const { return unique_id_; };
 
   int display() const;
   void set_display(int display);
@@ -126,6 +127,7 @@ class DrmConnector {
 
   uint32_t type_;
   uint32_t type_id_;
+  uint32_t unique_id_;
   uint32_t priority_;
   drmModeConnection state_;
   bool force_disconnect_;
@@ -163,13 +165,15 @@ class DrmConnector {
   uint32_t preferred_mode_id_;
   uint32_t possible_displays_;
 
+  // Update mode list
   bool bModeReady_;
+  // HDR Support
   bool bSupportSt2084_;
   bool bSupportHLG_;
   struct hdr_static_metadata hdr_metadata_;
   int colorimetry_;
   struct hdr_output_metadata last_hdr_metadata_;
-  uint32_t connector_id_;
+  // Baseparameter Support
   bool baseparameter_ready_;
   struct disp_info baseparameter_;
 };

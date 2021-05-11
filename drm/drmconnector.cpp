@@ -36,6 +36,7 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       display_(-1),
       type_(c->connector_type),
       type_id_(c->connector_type_id),
+      unique_id_(0),
       priority_(-1),
       state_(c->connection),
       force_disconnect_(false),
@@ -43,7 +44,11 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       mm_height_(c->mmHeight),
       possible_encoders_(possible_encoders),
       connector_(c),
-      possible_displays_(0) {
+      possible_displays_(0),
+      bModeReady_(false),
+      bSupportSt2084_(false),
+      bSupportHLG_(false),
+      baseparameter_ready_(false){
 }
 
 int DrmConnector::Init() {
@@ -116,12 +121,12 @@ int DrmConnector::Init() {
    ALOGW("Could not get hdmi_output_depth property\n");
   }
 
-  connector_id_=0;
+  unique_id_=0;
   ret = drm_->GetConnectorProperty(*this, "CONNECTOR_ID", &connector_id_property_);
   if (ret) {
     ALOGW("Could not get CONNECTOR_ID property\n");
   }else{
-    std::tie(ret,connector_id_) = connector_id_property_.value();
+    std::tie(ret,unique_id_) = connector_id_property_.value();
   }
 
 
@@ -143,12 +148,12 @@ int DrmConnector::Init() {
   }
 
   // Update Baseparameter Info
-  ret = drm_->UpdateConnectorBaseInfo(type_,connector_id_,&baseparameter_);
+  ret = drm_->UpdateConnectorBaseInfo(type_,unique_id_,&baseparameter_);
   if(ret){
     ALOGI("UpdateConnectorBaseInfo fail, the device may not have a baseparameter.");
     baseparameter_ready_=false;
   }else{
-    drm_->DumpConnectorBaseInfo(type_,connector_id_,&baseparameter_);
+    drm_->DumpConnectorBaseInfo(type_,unique_id_,&baseparameter_);
     baseparameter_ready_=true;
   }
 
