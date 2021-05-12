@@ -139,6 +139,32 @@ bool DrmMode::equal(uint32_t width, uint32_t height, float vrefresh,
   return false;
 }
 
+bool DrmMode::equal(uint32_t width, uint32_t height,
+                    uint32_t hsync_start, uint32_t hsync_end, uint32_t htotal,
+                    uint32_t vsync_start, uint32_t vsync_end, uint32_t vtotal,
+                    uint32_t flags, uint32_t clock) const
+{
+  if (h_display_ == width && v_display_ == height &&
+      hsync_start == h_sync_start_ && hsync_end == h_sync_end_ &&
+      vsync_start == v_sync_start_ && vsync_end == v_sync_end_ &&
+      htotal == h_total_ && vtotal == v_total_ && flags == flags_ &&
+      clock == clock_)
+    return true;
+
+  if (h_display_ == width && v_display_ == height &&
+      hsync_start == h_sync_start_ && hsync_end == h_sync_end_ &&
+      vsync_start == v_sync_start_ && vsync_end == v_sync_end_ &&
+      htotal == h_total_ && vtotal == v_total_ &&
+      clock == clock_) {
+        int flags_temp = DRM_MODE_FLAG_PHSYNC|DRM_MODE_FLAG_NHSYNC|DRM_MODE_FLAG_PVSYNC|
+                         DRM_MODE_FLAG_NVSYNC|DRM_MODE_FLAG_INTERLACE|
+                         DRM_MODE_FLAG_420_MASK;
+        if((flags & flags_temp) == (flags_ & flags_temp))
+          return true;
+      }
+  return false;
+}
+
 
 bool DrmMode::equal(uint32_t width, uint32_t height, uint32_t vrefresh,
                      uint32_t flag, uint32_t clk, bool interlaced) const

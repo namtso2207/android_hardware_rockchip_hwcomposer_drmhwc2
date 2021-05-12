@@ -140,6 +140,7 @@ int DrmConnector::Init() {
                         (hdr_metadata_.max_mastering_display_luminance + hdr_metadata_.min_mastering_display_luminance) / 2,
                         hdr_metadata_.min_mastering_display_luminance));
   }
+
   if(bSupportHLG_){
       drmHdr_.push_back(DrmHdr(DRM_HWC_HLG,
                         hdr_metadata_.max_mastering_display_luminance,
@@ -157,6 +158,7 @@ int DrmConnector::Init() {
     baseparameter_ready_=true;
   }
 
+  snprintf(cUniqueName_,30,"%s-%d",drm_->connector_type_str(type_),unique_id_);
   return 0;
 }
 
@@ -305,6 +307,178 @@ int DrmConnector::UpdateModes() {
 
   drmModeFreeConnector(c);
 
+  return 0;
+}
+
+#define ALOGI_BEST_MODE_INFO(mode)  \
+        ALOGI("%s,line=%d, Find best mode-id=%d : %dx%d%c%f",\
+                __FUNCTION__,__LINE__,mode.id(),        \
+                mode.h_display(),mode.v_display(), \
+                (flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p', mode.v_refresh());
+
+int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
+  char resolution_value[PROPERTY_VALUE_MAX]={0};
+  char resolution_property[PROPERTY_VALUE_MAX]={0};
+  uint32_t width, height, flags, clock;
+  uint32_t hsync_start, hsync_end, htotal;
+  uint32_t vsync_start, vsync_end, vtotal;
+  bool interlaced;
+  float vrefresh;
+  char val;
+  uint32_t MaxResolution = 0,temp;
+
+  snprintf(resolution_property,PROPERTY_VALUE_MAX,"persist.vendor.resolution.%s",cUniqueName_);
+  property_get(resolution_property, resolution_value, "Unkonw");
+
+  ALOGI("%s,line=%d, display=%d %s=%s",__FUNCTION__,__LINE__,display_id,resolution_property,resolution_value);
+
+  if(!strcmp(resolution_value,"Unkonw")){
+    if(display_id == HWC_DISPLAY_PRIMARY){
+      property_get("persist.vendor.resolution.main", resolution_value, "Unkonw");
+    }else{
+      property_get("persist.vendor.resolution.aux", resolution_value, "Unkonw");
+    }
+    ALOGI("%s,line=%d, display=%d persist.vendor.resolution.%s=%s",__FUNCTION__,__LINE__,display_id,
+          display_id == HWC_DISPLAY_PRIMARY ? "main" : "aux",resolution_value);
+  }
+
+
+  if(strcmp(resolution_value,"Unkonw") != 0){
+    ALOGI("%s,line=%d, resolution_value=%s",__FUNCTION__,__LINE__,resolution_value);
+    int len = sscanf(resolution_value, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x-%d",
+                     &width, &height, &vrefresh, &hsync_start,
+                     &hsync_end, &htotal, &vsync_start,&vsync_end,
+                     &vtotal, &flags, &clock);
+    // Support clock
+    if (len == 11 && width != 0 && height != 0) {
+      for (const DrmMode &conn_mode : modes()) {
+        if (conn_mode.equal(width, height, hsync_start, hsync_end,
+                            htotal, vsync_start, vsync_end, vtotal, flags, clock)) {
+          set_best_mode(conn_mode);
+          return 0;
+        }
+      }
+    }
+
+    // Old resolution format
+    if (len == 10 && width != 0 && height != 0) {
+      for (const DrmMode &conn_mode : modes()) {
+        if (conn_mode.equal(width, height, vrefresh, hsync_start, hsync_end,
+                            htotal, vsync_start, vsync_end, vtotal, flags)) {
+          set_best_mode(conn_mode);
+          ALOGI_BEST_MODE_INFO(conn_mode);
+          return 0;
+        }
+      }
+    }
+
+    uint32_t ivrefresh;
+    len = sscanf(resolution_value, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
+
+    if (val == 'i')
+      interlaced = true;
+    else
+      interlaced = false;
+    if (len == 4 && width != 0 && height != 0) {
+      for (const DrmMode &conn_mode : modes()) {
+        if (conn_mode.equal(width, height, ivrefresh, interlaced)) {
+          set_best_mode(conn_mode);
+          ALOGI_BEST_MODE_INFO(conn_mode);
+          return 0;
+        }
+      }
+    }
+  }else{ // resolution_value is Unkonw
+    if(baseparameter_ready_ && !strcmp(resolution_value,"Unkonw")){
+      ALOGI("%s,line=%d, can't find suitable Resolution Property, try to use Baseparameter.",__FUNCTION__,__LINE__);
+      if(update_base_timeline != iTimeline_){
+        iTimeline_ = update_base_timeline;
+        int ret = drm_->UpdateConnectorBaseInfo(type_,unique_id_,&baseparameter_);
+        if(ret){
+          ALOGW("%s,line=%d,UpdateConnectorBaseInfo fail, the device may not have a baseparameter.",__FUNCTION__,__LINE__);
+        }
+      }
+      width       = baseparameter_.screen_info[0].resolution.hdisplay;
+      height      = baseparameter_.screen_info[0].resolution.vdisplay;
+      hsync_start = baseparameter_.screen_info[0].resolution.hsync_start;
+      hsync_end   = baseparameter_.screen_info[0].resolution.hsync_end;
+      htotal      = baseparameter_.screen_info[0].resolution.htotal;
+      vsync_start = baseparameter_.screen_info[0].resolution.vsync_start;
+      vsync_end   = baseparameter_.screen_info[0].resolution.vsync_end;
+      vtotal      = baseparameter_.screen_info[0].resolution.vtotal;
+      flags       = baseparameter_.screen_info[0].resolution.flags;
+      clock       = baseparameter_.screen_info[0].resolution.clock;
+      // Support clock
+      if (width != 0 && height != 0) {
+        for (const DrmMode &conn_mode : modes()) {
+          if (conn_mode.equal(width, height, hsync_start, hsync_end,
+                              htotal, vsync_start, vsync_end, vtotal, flags, clock)) {
+            set_best_mode(conn_mode);
+            ALOGI_BEST_MODE_INFO(conn_mode);
+            return 0;
+          }
+        }
+      }
+    }
+  }
+
+  for (const DrmMode &conn_mode : modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      set_best_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+    else {
+      temp = conn_mode.h_display()*conn_mode.v_display();
+      if(MaxResolution <= temp)
+        MaxResolution = temp;
+    }
+  }
+  for (const DrmMode &conn_mode : modes()) {
+    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
+      set_best_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+  }
+
+  //use raw modes to get mode.
+  for (const DrmMode &conn_mode : raw_modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      set_best_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+    else {
+      temp = conn_mode.h_display()*conn_mode.v_display();
+      if(MaxResolution <= temp)
+        MaxResolution = temp;
+    }
+  }
+  for (const DrmMode &conn_mode : raw_modes()) {
+    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
+      set_best_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+  }
+
+  ALOGE("Error: Should not get here display=%d %s %d\n", display_id, __FUNCTION__, __LINE__);
+  DrmMode mode;
+  set_best_mode(mode);
+
+  return 0;
+}
+
+int DrmConnector::UpdateBCSH(){
+  return 0;
+}
+
+int DrmConnector::UpdateColorMode(){
+  return 0;
+}
+
+int DrmConnector::UpdateOverscan(){
   return 0;
 }
 

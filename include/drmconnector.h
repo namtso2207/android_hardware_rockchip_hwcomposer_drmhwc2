@@ -59,6 +59,10 @@ class DrmConnector {
   bool valid_type() const;
 
   int UpdateModes();
+  int UpdateDisplayMode(int display_id, int update_base_timeline);
+  int UpdateBCSH();
+  int UpdateColorMode();
+  int UpdateOverscan();
   void ResetModesReady(){ bModeReady_ = false;};
   bool ModesReady(){ return bModeReady_;};
 
@@ -175,7 +179,9 @@ class DrmConnector {
   struct hdr_output_metadata last_hdr_metadata_;
   // Baseparameter Support
   bool baseparameter_ready_;
+  int iTimeline_=0;
   struct disp_info baseparameter_;
+  char cUniqueName_[30]= {0};
 };
 }  // namespace android
 

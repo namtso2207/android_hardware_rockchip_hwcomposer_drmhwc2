@@ -247,7 +247,6 @@ class DrmHwcTwo : public hwc2_device_t {
    int UpdateHdmiOutputFormat();
    int UpdateBCSH();
    int SwitchHdrMode();
-   int GetBestDisplayMode();
 
    // Static Screen opt function
    int UpdateTimerEnable();

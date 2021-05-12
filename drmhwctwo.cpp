@@ -1601,98 +1601,6 @@ int DrmHwcTwo::HwcDisplay::DumpAllLayerData(){
   }
   return 0;
 }
-int DrmHwcTwo::HwcDisplay::GetBestDisplayMode(){
-  char resolution[PROPERTY_VALUE_MAX];
-  uint32_t width, height, flags;
-  uint32_t hsync_start, hsync_end, htotal;
-  uint32_t vsync_start, vsync_end, vtotal;
-  bool interlaced;
-  float vrefresh;
-  char val;
-  uint32_t MaxResolution = 0,temp;
-
-  int display = static_cast<int>(handle_);
-
-  if(display == HWC_DISPLAY_PRIMARY)
-    property_get("persist.vendor.resolution.main", resolution, "Auto");
-  else
-    property_get("persist.vendor.resolution.aux", resolution, "Auto");
-
-  if(strcmp(resolution,"Auto") != 0){
-    int len = sscanf(resolution, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x",
-                     &width, &height, &vrefresh, &hsync_start,
-                     &hsync_end, &htotal, &vsync_start,&vsync_end,
-                     &vtotal, &flags);
-    if (len == 10 && width != 0 && height != 0) {
-      for (const DrmMode &conn_mode : connector_->modes()) {
-        if (conn_mode.equal(width, height, vrefresh, hsync_start, hsync_end,
-                            htotal, vsync_start, vsync_end, vtotal, flags)) {
-          connector_->set_best_mode(conn_mode);
-          return 0;
-        }
-      }
-    }
-
-    uint32_t ivrefresh;
-    len = sscanf(resolution, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
-
-    if (val == 'i')
-      interlaced = true;
-    else
-      interlaced = false;
-    if (len == 4 && width != 0 && height != 0) {
-      for (const DrmMode &conn_mode : connector_->modes()) {
-        if (conn_mode.equal(width, height, ivrefresh, interlaced)) {
-          connector_->set_best_mode(conn_mode);
-          return 0;
-        }
-      }
-    }
-  }
-
-  for (const DrmMode &conn_mode : connector_->modes()) {
-    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
-      connector_->set_best_mode(conn_mode);
-      return 0;
-    }
-    else {
-      temp = conn_mode.h_display()*conn_mode.v_display();
-      if(MaxResolution <= temp)
-        MaxResolution = temp;
-    }
-  }
-  for (const DrmMode &conn_mode : connector_->modes()) {
-    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
-      connector_->set_best_mode(conn_mode);
-      return 0;
-    }
-  }
-
-  //use raw modes to get mode.
-  for (const DrmMode &conn_mode : connector_->raw_modes()) {
-    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
-      connector_->set_best_mode(conn_mode);
-      return 0;
-    }
-    else {
-      temp = conn_mode.h_display()*conn_mode.v_display();
-      if(MaxResolution <= temp)
-        MaxResolution = temp;
-    }
-  }
-  for (const DrmMode &conn_mode : connector_->raw_modes()) {
-    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
-      connector_->set_best_mode(conn_mode);
-      return 0;
-    }
-  }
-
-  ALOGE("Error: Should not get here display=%d %s %d\n", display, __FUNCTION__, __LINE__);
-  DrmMode mode;
-  connector_->set_best_mode(mode);
-
-  return -ENOENT;
-}
 
 int DrmHwcTwo::HwcDisplay::HoplugEventTmeline(){
   ctx_.hotplug_timeline++;
@@ -1703,13 +1611,13 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
 
   if(!ctx_.bStandardSwitchResolution){
     int timeline;
-
+    int display_id = static_cast<int>(handle_);
     timeline = property_get_int32("vendor.display.timeline", -1);
     if(timeline && timeline == ctx_.display_timeline && ctx_.hotplug_timeline == drm_->timeline())
       return 0;
     ctx_.display_timeline = timeline;
     ctx_.hotplug_timeline = drm_->timeline();
-    int ret = GetBestDisplayMode();
+    int ret = connector_->UpdateDisplayMode(display_id, timeline);
     if(!ret){
       const DrmMode best_mode = connector_->best_mode();
       connector_->set_current_mode(best_mode);
@@ -1718,6 +1626,7 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       ctx_.dclk = best_mode.clock();
     }
   }
+
   return 0;
 }
 

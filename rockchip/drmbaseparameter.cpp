@@ -113,6 +113,29 @@ int DrmBaseparameter::UpdateConnectorBaseInfo(unsigned int connector_type,
   }
 
   ALOGI("%s,line=%d, Update success! type=0x%x, id=%d",__FUNCTION__,__LINE__,connector_type,connector_id);
+
+  String8 output;
+  // Dump Screen Info
+  output.appendFormat("DrmBaseparameter: Connector-Type=%s, Connector-Id=%d\n",base_connector_type_str(connector_type),connector_id);
+  output.appendFormat(" ScreenInfo:\n");
+  output.appendFormat("     Type=0x%x Id=%d resolution=%dx%d%c%d-%d-%d-%d-%d-%d-%d-%x-%d(clk)\n",
+                      info->screen_info[0].type,info->screen_info[0].id,
+                      info->screen_info[0].resolution.hdisplay,info->screen_info[0].resolution.vdisplay,
+                      (info->screen_info[0].resolution.flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p',
+                      info->screen_info[0].resolution.vrefresh,info->screen_info[0].resolution.hsync_start,
+                      info->screen_info[0].resolution.hsync_end,info->screen_info[0].resolution.htotal,
+                      info->screen_info[0].resolution.vsync_start,info->screen_info[0].resolution.vsync_end,
+                      info->screen_info[0].resolution.vtotal,info->screen_info[0].resolution.flags,
+                      info->screen_info[0].resolution.clock);
+  output.appendFormat("     Output-format=%d output-depth=%d feature=%d\n",
+                      info->screen_info[0].format,info->screen_info[0].depthc,info->screen_info[0].feature);
+  output.appendFormat("     BCSH: Brightness=%d Contrast=%d Saturation=%d Hue=%d\n",
+                      info->bcsh_info.brightness,info->bcsh_info.contrast,
+                      info->bcsh_info.saturation,info->bcsh_info.hue);
+  output.appendFormat("     GAMMA: Size=%d\n",info->gamma_lut_data.size);
+  output.appendFormat("     3DLUT: Size=%d\n",info->cubic_lut_data.size);
+
+  ALOGI("%s",output.string());
   return 0;
 }
 
