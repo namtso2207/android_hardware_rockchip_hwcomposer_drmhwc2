@@ -154,7 +154,6 @@ int DrmConnector::Init() {
     ALOGI("UpdateConnectorBaseInfo fail, the device may not have a baseparameter.");
     baseparameter_ready_=false;
   }else{
-    drm_->DumpConnectorBaseInfo(type_,unique_id_,&baseparameter_);
     baseparameter_ready_=true;
   }
 
@@ -314,7 +313,7 @@ int DrmConnector::UpdateModes() {
         ALOGI("%s,line=%d, Find best mode-id=%d : %dx%d%c%f",\
                 __FUNCTION__,__LINE__,mode.id(),        \
                 mode.h_display(),mode.v_display(), \
-                (flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p', mode.v_refresh());
+                (flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p', mode.v_refresh())
 
 int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
   char resolution_value[PROPERTY_VALUE_MAX]={0};
@@ -470,7 +469,81 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
   return 0;
 }
 
-int DrmConnector::UpdateBCSH(){
+#define GET_BCSH_PROPERTY_VALUE(display_id, func_str, type_str, output_value) \
+  snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,type_str);\
+  ret = property_get(bcsh_property,bcsh_value,""); \
+  if(!ret){ \
+    if(display_id == HWC_DISPLAY_PRIMARY){ \
+      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"main"); \
+    }else{ \
+      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"aux"); \
+    } \
+    ret = property_get(bcsh_property,bcsh_value,""); \
+    if(ret){ \
+      output_value = atoi(bcsh_value); \
+      exist_suitable_property = true;  \
+    } \
+  }else{ \
+    output_value = atoi(bcsh_value); \
+    exist_suitable_property = true;  \
+  }
+
+int DrmConnector::UpdateBCSH(int display_id, int update_base_timeline){
+  uint32_t brightness=50, contrast=50, saturation=50, hue=50;
+  int ret = 0;
+  bool exist_suitable_property=false;
+  char bcsh_property[PROPERTY_VALUE_MAX]={0};
+  char bcsh_value[PROPERTY_VALUE_MAX]={0};
+
+  GET_BCSH_PROPERTY_VALUE(display_id, "persist.vendor.brightness.%s", cUniqueName_, brightness);
+  GET_BCSH_PROPERTY_VALUE(display_id, "persist.vendor.contrast.%s",   cUniqueName_, contrast);
+  GET_BCSH_PROPERTY_VALUE(display_id, "persist.vendor.saturation.%s", cUniqueName_, saturation);
+  GET_BCSH_PROPERTY_VALUE(display_id, "persist.vendor.hue.%s",        cUniqueName_, hue);
+
+  if(!exist_suitable_property && baseparameter_ready_){
+    ALOGI("%s,line=%d, %s can't find suitable BCSH Property, try to use Baseparameter.",
+          __FUNCTION__,__LINE__,cUniqueName_);
+    if(update_base_timeline != iTimeline_){
+      iTimeline_ = update_base_timeline;
+      int ret = drm_->UpdateConnectorBaseInfo(type_,unique_id_,&baseparameter_);
+      if(ret){
+        ALOGW("%s,line=%d,%s UpdateConnectorBaseInfo fail, the device may not have a baseparameter.",
+        __FUNCTION__,__LINE__,cUniqueName_);
+      }
+    }
+    brightness = baseparameter_.bcsh_info.brightness;
+    contrast   = baseparameter_.bcsh_info.contrast;
+    saturation = baseparameter_.bcsh_info.saturation;
+    hue        = baseparameter_.bcsh_info.hue;
+  }
+
+  ALOGI("%s,line=%d, %s BCSH=[%d,%d,%d,%d]",__FUNCTION__,__LINE__,cUniqueName_,brightness, contrast, saturation, hue);
+
+  if(uBrightness_ != brightness || uContrast_ != contrast ||
+     uSaturation_ != saturation || uHue_ != hue){
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      ALOGE("Failed to allocate property set");
+      return -ENOMEM;
+    }
+    DRM_ATOMIC_ADD_PROP(id(), brightness_id_property().id(),brightness > 100 ? 100 : brightness)
+    DRM_ATOMIC_ADD_PROP(id(), contrast_id_property().id(),contrast > 100 ? 100 : contrast)
+    DRM_ATOMIC_ADD_PROP(id(), saturation_id_property().id(),saturation > 100 ? 100 : saturation)
+    DRM_ATOMIC_ADD_PROP(id(), hue_id_property().id(),hue > 100 ? 100 : hue)
+
+    uint32_t flags = 0;
+    ret = drmModeAtomicCommit(drm_->fd(), pset, flags, this);
+    if (ret < 0) {
+      ALOGE("Failed to commit pset ret=%d\n", ret);
+      drmModeAtomicFree(pset);
+      return ret;
+    }
+    drmModeAtomicFree(pset);
+    uBrightness_ = brightness;
+    uContrast_ = contrast;
+    uSaturation_ = saturation;
+    uHue_ = hue;
+  }
   return 0;
 }
 

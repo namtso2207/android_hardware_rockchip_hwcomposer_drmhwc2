@@ -60,7 +60,7 @@ class DrmConnector {
 
   int UpdateModes();
   int UpdateDisplayMode(int display_id, int update_base_timeline);
-  int UpdateBCSH();
+  int UpdateBCSH(int display_id, int update_base_timeline);
   int UpdateColorMode();
   int UpdateOverscan();
   void ResetModesReady(){ bModeReady_ = false;};
@@ -182,6 +182,11 @@ class DrmConnector {
   int iTimeline_=0;
   struct disp_info baseparameter_;
   char cUniqueName_[30]= {0};
+  // BCSH
+  uint32_t uBrightness_=50;
+  uint32_t uContrast_=50;
+  uint32_t uSaturation_=50;
+  uint32_t uHue_=50;
 };
 }  // namespace android
 

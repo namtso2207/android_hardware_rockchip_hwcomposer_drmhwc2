@@ -1876,32 +1876,7 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
    */
   if (timeline && timeline == ctx_.bcsh_timeline)
     return 0;
-
-  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
-  if (!pset) {
-    ALOGE("Failed to allocate property set");
-    return -ENOMEM;
-  }
-  uint32_t brightness=0, contrast=0, saturation=0, hue=0;
-  if(handle_ == HWC_DISPLAY_PRIMARY){
-    brightness = property_get_int32("persist.vendor.brightness.main",50);
-    contrast   = property_get_int32("persist.vendor.contrast.main",50);
-    saturation = property_get_int32("persist.vendor.saturation.main",50);
-    hue        = property_get_int32("persist.vendor.hue.main",50);
-  }else{
-    brightness = property_get_int32("persist.vendor.brightness.aux",50);
-    contrast   = property_get_int32("persist.vendor.contrast.aux",50);
-    saturation = property_get_int32("persist.vendor.saturation.aux",50);
-    hue        = property_get_int32("persist.vendor.hue.aux",50);
-  }
-  DRM_ATOMIC_ADD_PROP(connector_->id(), connector_->brightness_id_property().id(),
-                      brightness > 100 ? 100 : brightness)
-  DRM_ATOMIC_ADD_PROP(connector_->id(), connector_->contrast_id_property().id(),
-                      contrast > 100 ? 100 : contrast)
-  DRM_ATOMIC_ADD_PROP(connector_->id(), connector_->saturation_id_property().id(),
-                      saturation > 100 ? 100 : saturation)
-  DRM_ATOMIC_ADD_PROP(connector_->id(), connector_->hue_id_property().id(),
-                      hue > 100 ? 100 : hue)
+  connector_->UpdateBCSH(handle_,timeline);
 
   if(isRK3566(resource_manager_->getSocId())){
     bool mirror_mode = true;
@@ -1911,32 +1886,11 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
       mirror_mode = false;
     }
-
     if(mirror_mode){
-
-      brightness = property_get_int32("persist.vendor.brightness.aux",50);
-      contrast   = property_get_int32("persist.vendor.contrast.aux",50);
-      saturation = property_get_int32("persist.vendor.saturation.aux",50);
-      hue        = property_get_int32("persist.vendor.hue.aux",50);
-      DRM_ATOMIC_ADD_PROP(conn_mirror->id(), conn_mirror->brightness_id_property().id(),
-                      brightness > 100 ? 100 : brightness)
-      DRM_ATOMIC_ADD_PROP(conn_mirror->id(), conn_mirror->contrast_id_property().id(),
-                          contrast > 100 ? 100 : contrast)
-      DRM_ATOMIC_ADD_PROP(conn_mirror->id(), conn_mirror->saturation_id_property().id(),
-                          saturation > 100 ? 100 : saturation)
-      DRM_ATOMIC_ADD_PROP(conn_mirror->id(), conn_mirror->hue_id_property().id(),
-                          hue > 100 ? 100 : hue)
+      conn_mirror->UpdateBCSH(display_id,timeline);
     }
   }
 
-  uint32_t flags = 0;
-  ret = drmModeAtomicCommit(drm_->fd(), pset, flags, this);
-  if (ret < 0) {
-    ALOGE("Failed to commit pset ret=%d\n", ret);
-    drmModeAtomicFree(pset);
-    return ret;
-  }
-  drmModeAtomicFree(pset);
   ctx_.bcsh_timeline = timeline;
 
   return 0;
