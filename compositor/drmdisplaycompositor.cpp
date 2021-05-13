@@ -398,17 +398,23 @@ int DrmDisplayCompositor::SetupWritebackCommit(drmModeAtomicReqPtr pset,
   return 0;
 }
 
-int DrmDisplayCompositor::CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc, int display){
+int DrmDisplayCompositor::CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc, int display, const char *unique_name){
   int ret = 0;
-  char overscan[PROPERTY_VALUE_MAX]={0};
+  char overscan_value[PROPERTY_VALUE_MAX]={0};
+  char overscan_pro[PROPERTY_VALUE_MAX]={0};
   int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
 
-  if(display == HWC_DISPLAY_PRIMARY){
-    property_get("persist.vendor.overscan.main", overscan, "overscan 100,100,100,100");
-  }else{
-    property_get("persist.vendor.overscan.aux", overscan, "overscan 100,100,100,100");
+  snprintf(overscan_pro,PROPERTY_VALUE_MAX,"persist.vendor.overscan.%s",unique_name);
+  ret = property_get(overscan_pro,overscan_value,"");
+  if(!ret){
+    if(display == HWC_DISPLAY_PRIMARY){
+      property_get("persist.vendor.overscan.main", overscan_value, "overscan 100,100,100,100");
+    }else{
+      property_get("persist.vendor.overscan.aux", overscan_value, "overscan 100,100,100,100");
+    }
   }
-  sscanf(overscan, "overscan %d,%d,%d,%d", &left_margin, &top_margin,
+
+  sscanf(overscan_value, "overscan %d,%d,%d,%d", &left_margin, &top_margin,
            &right_margin, &bottom_margin);
   ALOGD_IF(LogLevel(DBG_DEBUG),"display=%d , overscan(%d,%d,%d,%d)",display,
             left_margin,top_margin,right_margin,bottom_margin);
@@ -481,7 +487,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   }
 
   if (crtc->can_overscan()) {
-    int ret = CheckOverscan(pset,crtc,display_);
+    int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
     if(ret < 0){
       drmModeAtomicFree(pset);
       return ret;
@@ -500,14 +506,18 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   }
   if(mirror_commit){
     if (mirror_commit_crtc->can_overscan()) {
-      int ret = CheckOverscan(pset,mirror_commit_crtc,HWC_DISPLAY_EXTERNAL);
+      int mirror_display_id = mirror_commit_crtc->display();
+      DrmConnector *mirror_connector = drm->GetConnectorForDisplay(display_);
+      if (!mirror_connector) {
+        ALOGE("Could not locate connector for display %d", display_);
+      }
+      int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,connector->unique_name());
       if(ret < 0){
         drmModeAtomicFree(pset);
         return ret;
       }
     }
   }
-
 
   uint64_t zpos = 0;
 
@@ -750,7 +760,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       }
       out_log << " colorspace=" << std::hex <<  colorspace;
     }
-
 
     ALOGD_IF(LogLevel(DBG_INFO) && test_only,"%s",out_log.str().c_str());
     out_log.clear();

@@ -45,7 +45,7 @@ class DrmConnector {
   uint32_t type() { return type_; }
   uint32_t type_id() const { return type_id_; };
   uint32_t unique_id() const { return unique_id_; };
-
+  const char* unique_name() const { return cUniqueName_;}
   int display() const;
   void set_display(int display);
   int priority() const;

@@ -627,7 +627,7 @@ int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
     }else{
       snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s","aux");
     }
-    ret = property_get(output_format_pro,output_format_value,""); \
+    ret = property_get(output_format_pro,output_format_value,"");
     if(ret){
       exist_suitable_property = true;
     }
