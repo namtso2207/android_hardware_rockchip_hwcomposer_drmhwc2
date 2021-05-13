@@ -138,24 +138,6 @@ enum v4l2_colorspace {
         V4L2_COLORSPACE_DCI_P3        = 12,
 };
 
-
-/* HDMI output pixel format */
-enum hwc2_drm_hdmi_output_type {
-	DRM_HDMI_OUTPUT_DEFAULT_RGB, /* default RGB */
-	DRM_HDMI_OUTPUT_YCBCR444, /* YCBCR 444 */
-	DRM_HDMI_OUTPUT_YCBCR422, /* YCBCR 422 */
-	DRM_HDMI_OUTPUT_YCBCR420, /* YCBCR 420 */
-	DRM_HDMI_OUTPUT_YCBCR_HQ, /* Highest subsampled YUV */
-	DRM_HDMI_OUTPUT_YCBCR_LQ, /* Lowest subsampled YUV */
-	DRM_HDMI_OUTPUT_INVALID, /* Guess what ? */
-};
-
-enum hwc2_dw_hdmi_rockchip_color_depth {
-	ROCKCHIP_DEPTH_DEFAULT = 0,
-	ROCKCHIP_HDMI_DEPTH_8 = 8,
-	ROCKCHIP_HDMI_DEPTH_10 = 10,
-};
-
 typedef enum attribute_flag {
     ATT_WIDTH = 0,
     ATT_HEIGHT,
@@ -181,8 +163,6 @@ typedef struct hwc2_drm_display {
   int display_timeline;
   int hotplug_timeline;
   bool hdr_mode;
-  hwc2_drm_hdmi_output_type    color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
-  hwc2_dw_hdmi_rockchip_color_depth color_depth = ROCKCHIP_HDMI_DEPTH_8;
   const struct disp_info* baseparameter_info;
 } hwc2_drm_display_t;
 

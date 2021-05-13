@@ -61,8 +61,9 @@ class DrmConnector {
   int UpdateModes();
   int UpdateDisplayMode(int display_id, int update_base_timeline);
   int UpdateBCSH(int display_id, int update_base_timeline);
-  int UpdateColorMode();
+  int UpdateOutputFormat(int display_id, int update_base_timeline);
   int UpdateOverscan();
+  bool ParseHdmiOutputFormat(char* strprop, output_format *format, output_depth *depth);
   void ResetModesReady(){ bModeReady_ = false;};
   bool ModesReady(){ return bModeReady_;};
 
@@ -187,6 +188,9 @@ class DrmConnector {
   uint32_t uContrast_=50;
   uint32_t uSaturation_=50;
   uint32_t uHue_=50;
+  // output format
+  output_format    uColorFormat_ = output_rgb;
+  output_depth uColorDepth_ = depth_24bit;
 };
 }  // namespace android
 

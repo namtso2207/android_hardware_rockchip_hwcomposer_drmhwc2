@@ -547,7 +547,163 @@ int DrmConnector::UpdateBCSH(int display_id, int update_base_timeline){
   return 0;
 }
 
-int DrmConnector::UpdateColorMode(){
+bool DrmConnector::ParseHdmiOutputFormat(char* strprop, output_format *format, output_depth *depth) {
+    if (!strcmp(strprop, "Auto")) {
+        *format = output_ycbcr_high_subsampling;
+        *depth = Automatic;
+        return true;
+    }
+
+    if (!strcmp(strprop, "RGB-8bit")) {
+        *format = output_rgb;
+        *depth = depth_24bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "RGB-10bit")) {
+        *format = output_rgb;
+        *depth = depth_30bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR444-8bit")) {
+        *format = output_ycbcr444;
+        *depth = depth_24bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR444-10bit")) {
+        *format = output_ycbcr444;
+        *depth = depth_30bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR422-8bit")) {
+        *format = output_ycbcr422;
+        *depth = depth_24bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR422-10bit")) {
+        *format = output_ycbcr422;
+        *depth = depth_30bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR420-8bit")) {
+        *format = output_ycbcr420;
+        *depth = depth_24bit;
+        return true;
+    }
+
+    if (!strcmp(strprop, "YCBCR420-10bit")) {
+        *format = output_ycbcr420;
+        *depth = depth_30bit;
+        return true;
+    }
+    ALOGE("hdmi output format is invalid. [%s]", strprop);
+    return false;
+}
+
+int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
+  if(!(hdmi_output_format_property().id() > 0 || hdmi_output_depth_property().id() > 0)){
+    return 0;
+  }
+
+  int ret = 0;
+  bool update = false;
+  output_format    color_format = output_rgb;
+  output_depth color_depth = depth_24bit;
+  bool need_change_format = false,need_change_depth = false;
+  bool exist_suitable_property = false;
+  char output_format_pro[PROPERTY_VALUE_MAX]={0};
+  char output_format_value[PROPERTY_VALUE_MAX]={0};
+
+  snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s",cUniqueName_);
+  ret = property_get(output_format_pro,output_format_value,"");
+  if(!ret){
+    if(display_id == HWC_DISPLAY_PRIMARY){
+      snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s","main");
+    }else{
+      snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s","aux");
+    }
+    ret = property_get(output_format_pro,output_format_value,""); \
+    if(ret){
+      exist_suitable_property = true;
+    }
+  }else{
+    exist_suitable_property = true;
+  }
+
+  if(exist_suitable_property){
+    ret = ParseHdmiOutputFormat(output_format_value, &color_format, &color_depth);
+    if (ret == false) {
+      ALOGE("Get color fail! to use default ");
+      color_format = output_rgb;
+      color_depth = depth_24bit;
+    }
+  }else if(baseparameter_ready_){
+    ALOGI("%s,line=%d, %s can't find suitable output format Property, try to use Baseparameter.",
+          __FUNCTION__,__LINE__,cUniqueName_);
+    if(update_base_timeline != iTimeline_){
+      iTimeline_ = update_base_timeline;
+      int ret = drm_->UpdateConnectorBaseInfo(type_,unique_id_,&baseparameter_);
+      if(ret){
+        ALOGW("%s,line=%d,%s UpdateConnectorBaseInfo fail, the device may not have a baseparameter.",
+        __FUNCTION__,__LINE__,cUniqueName_);
+      }
+    }
+    color_format = baseparameter_.screen_info[0].format;
+    color_depth   = baseparameter_.screen_info[0].depthc;
+  }
+
+
+  if(uColorFormat_ != color_format) {
+    update = true;
+    need_change_format = true;
+  }
+
+  if(uColorDepth_ != color_depth) {
+    update = true;
+    need_change_depth = true;
+  }
+
+  if(!update)
+    return 0;
+
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  if (!pset) {
+      ALOGE("%s:line=%d Failed to allocate property set", __FUNCTION__, __LINE__);
+      return false;
+  }
+
+  if(need_change_format > 0) {
+    ALOGI("%s,line=%d %s change hdmi output format: %d", __FUNCTION__,__LINE__, cUniqueName_, color_format);
+    ret = drmModeAtomicAddProperty(pset, id(), hdmi_output_format_property().id(), color_format);
+    if (ret < 0) {
+      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, hdmi_output_format_property().id(), id());
+    }
+  }
+
+  if(need_change_depth > 0) {
+    ALOGI("%s,line=%d %s change hdmi output depth: %d", __FUNCTION__,__LINE__, cUniqueName_, color_depth);
+    ret = drmModeAtomicAddProperty(pset, id(), hdmi_output_depth_property().id(), color_depth);
+    if (ret < 0) {
+      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, hdmi_output_depth_property().id(), id());
+    }
+  }
+
+  ret = drmModeAtomicCommit(drm_->fd(), pset, DRM_MODE_ATOMIC_ALLOW_MODESET, drm_);
+  if (ret < 0) {
+    ALOGE("%s:line=%d %s Failed to commit! ret=%d", __FUNCTION__, __LINE__, cUniqueName_, ret);
+  }else{
+    uColorFormat_ = color_format;
+    uColorDepth_ = color_depth;
+  }
+
+  drmModeAtomicFree(pset);
+  pset = NULL;
+
   return 0;
 }
 
