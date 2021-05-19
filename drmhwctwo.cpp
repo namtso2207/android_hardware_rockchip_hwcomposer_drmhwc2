@@ -814,13 +814,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     const DrmMode best_mode = connector_->best_mode();
 
     char framebuffer_size[PROPERTY_VALUE_MAX];
-    uint32_t width = 0, height = 0 , vrefresh = 0 ;
-    if (handle_ == HWC_DISPLAY_PRIMARY)
-      property_get("persist.vendor.framebuffer.main", framebuffer_size, "use_baseparameter");
-    else
-      property_get("persist.vendor.framebuffer.aux", framebuffer_size, "use_baseparameter");
+    uint32_t width = 0, height = 0 , vrefresh = 0;
 
-    sscanf(framebuffer_size, "%dx%d@%d", &width, &height, &vrefresh);
+    connector_->GetFramebufferInfo(handle_, &width, &height, &vrefresh);
+
     if (width && height) {
       ctx_.framebuffer_width = width;
       ctx_.framebuffer_height = height;

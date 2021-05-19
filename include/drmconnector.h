@@ -58,6 +58,7 @@ class DrmConnector {
   bool writeback() const;
   bool valid_type() const;
 
+  int GetFramebufferInfo(int display_id, uint32_t *w, uint32_t *h, uint32_t *fps);
   int UpdateModes();
   int UpdateDisplayMode(int display_id, int update_base_timeline);
   int UpdateBCSH(int display_id, int update_base_timeline);

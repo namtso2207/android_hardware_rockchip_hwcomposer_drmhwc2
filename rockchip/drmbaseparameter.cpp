@@ -127,6 +127,8 @@ int DrmBaseparameter::UpdateConnectorBaseInfo(unsigned int connector_type,
                       info->screen_info[0].resolution.vsync_start,info->screen_info[0].resolution.vsync_end,
                       info->screen_info[0].resolution.vtotal,info->screen_info[0].resolution.flags,
                       info->screen_info[0].resolution.clock);
+  output.appendFormat("     Framebuffer Size=%dx%d@%d\n",
+                      info->framebuffer_info.framebuffer_width,info->framebuffer_info.framebuffer_height,info->framebuffer_info.fps);
   output.appendFormat("     Output-format=%d output-depth=%d feature=%d\n",
                       info->screen_info[0].format,info->screen_info[0].depthc,info->screen_info[0].feature);
   output.appendFormat("     BCSH: Brightness=%d Contrast=%d Saturation=%d Hue=%d\n",
@@ -169,6 +171,8 @@ int DrmBaseparameter::DumpConnectorBaseInfo(unsigned int connector_type,
                       info->screen_info[0].resolution.vsync_start,info->screen_info[0].resolution.vsync_end,
                       info->screen_info[0].resolution.vtotal,info->screen_info[0].resolution.flags,
                       info->screen_info[0].resolution.clock);
+  output.appendFormat("     Framebuffer Size=%dx%d@%d\n",
+                      info->framebuffer_info.framebuffer_width,info->framebuffer_info.framebuffer_height,info->framebuffer_info.fps);
   output.appendFormat("     Output-format=%d output-depth=%d feature=%d\n",
                       info->screen_info[0].format,info->screen_info[0].depthc,info->screen_info[0].feature);
   output.appendFormat("     BCSH: Brightness=%d Contrast=%d Saturation=%d Hue=%d\n",

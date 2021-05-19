@@ -711,6 +711,44 @@ int DrmConnector::UpdateOverscan(){
   return 0;
 }
 
+int DrmConnector::GetFramebufferInfo(int display_id, uint32_t *w, uint32_t *h, uint32_t *fps) {
+  char framebuffer_value[PROPERTY_VALUE_MAX]={0};
+  char framebuffer_property[PROPERTY_VALUE_MAX]={0};
+  uint32_t width=0, height=0, vrefresh=0;
+
+  snprintf(framebuffer_property,PROPERTY_VALUE_MAX,"persist.vendor.framebuffer.%s",cUniqueName_);
+  property_get(framebuffer_property, framebuffer_value, "Unkonw");
+
+  ALOGI("%s,line=%d, display=%d %s=%s",__FUNCTION__,__LINE__,display_id,framebuffer_property,framebuffer_value);
+
+  if(!strcmp(framebuffer_value,"Unkonw")){
+    if(display_id == HWC_DISPLAY_PRIMARY){
+      property_get("persist.vendor.framebuffer.main", framebuffer_value, "Unkonw");
+    }else{
+      property_get("persist.vendor.framebuffer.aux", framebuffer_value, "Unkonw");
+    }
+    ALOGI("%s,line=%d, display=%d persist.vendor.framebuffer.%s=%s",__FUNCTION__,__LINE__,display_id,
+          display_id == HWC_DISPLAY_PRIMARY ? "main" : "aux",framebuffer_value);
+  }
+
+  if(!strcmp(framebuffer_value,"Unkonw")){
+    if(baseparameter_ready_){
+      *w = baseparameter_.framebuffer_info.framebuffer_width;
+      *h   = baseparameter_.framebuffer_info.framebuffer_height;
+      *fps = baseparameter_.framebuffer_info.fps;
+    }else{
+      *w = 0;
+      *h = 0;
+      *fps = 0;
+    }
+  }else{
+    sscanf(framebuffer_value, "%dx%d@%d", &width, &height, &vrefresh);
+    *w = width;
+    *h   = height;
+    *fps = vrefresh;
+  }
+  return 0;
+}
 const DrmMode &DrmConnector::active_mode() const {
   return active_mode_;
 }
