@@ -49,6 +49,9 @@ class DrmCrtc {
   uint32_t get_port_id() const { return port_id_; }
   uint32_t get_aclk() const { return aclk_; }
   uint64_t get_plane_mask() const { return plane_mask_; }
+  void  set_hwc_plane_mask(uint64_t hwc_plane_mask) { hwc_plane_mask_ =  hwc_plane_mask; }
+  uint64_t get_hwc_plane_mask() const { return hwc_plane_mask_; }
+
   const DrmProperty &active_property() const;
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
@@ -103,6 +106,8 @@ class DrmCrtc {
   // Plane_mask must limit crtc and plane binding relationship
   // If the Plane mask is specified, only the mask plane is allowed to be bound for crtc
   uint64_t plane_mask_=0;
+  // hwc_plane_mask_ will be set by DrmHwc
+  uint64_t hwc_plane_mask_=0;
 };
 }  // namespace android
 

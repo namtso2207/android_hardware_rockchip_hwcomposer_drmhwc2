@@ -52,6 +52,8 @@ class ResourceManager {
   }
   uint32_t getActiveDisplayCnt() { return active_display_.size();}
   int assignPlaneGroup();
+  int assignPlaneByPlaneMask(DrmDevice* drm, int active_display_num);
+  int assignPlaneByHWC(DrmDevice* drm, int active_display_num);
   int getFb0Fd() { return fb0_fd;}
   int getSocId() { return soc_id_;}
   DrmGralloc *getGralloc() { return drmGralloc_;}
@@ -65,6 +67,7 @@ class ResourceManager {
   DrmGralloc *drmGralloc_;
   int fb0_fd;
   int soc_id_;
+  bool dynamic_assigin_enable_;
 };
 }  // namespace android
 
