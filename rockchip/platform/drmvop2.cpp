@@ -1548,6 +1548,10 @@ int PlanStageVop2::TryGLESPolicy(
     // If there is a Cluster layer, FB enables AFBC
     if(ctx.support.iAfbcdCnt > 0){
       ctx.state.bDisableFBAfbcd = false;
+
+      // Check FB target property
+      ctx.state.bDisableFBAfbcd = hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") > 0;
+
       // If FB-target unable to meet the scaling requirements, AFBC must be disable.
       // CommirMirror must match two display scale limitation.
       if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
