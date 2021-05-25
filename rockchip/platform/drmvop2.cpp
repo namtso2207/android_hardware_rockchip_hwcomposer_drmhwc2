@@ -1364,7 +1364,6 @@ int PlanStageVop2::TryMixVideoPolicy(
         return ret;
       else{
         ResetLayerFromTmp(layers,tmp_layers);
-        return -1;
      }
    }
  }
