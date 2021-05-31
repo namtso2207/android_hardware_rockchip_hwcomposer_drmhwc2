@@ -216,9 +216,16 @@ int DrmHwcLayer::Init() {
   bGlesCompose_ = IsGlesCompose();
 
   // HDR
-  bHdr_ = IsHdr(iUsage);
-  uColorSpace = GetColorSpace(eDataSpace_);
-  uEOTF = GetEOTF(eDataSpace_);
+  if(bFbTarget_){
+    if(bHdr_){
+      uColorSpace = V4L2_COLORSPACE_BT2020;
+      uEOTF = SMPTE_ST2084;
+    }
+  }else{
+    bHdr_ = IsHdr(iUsage);
+    uColorSpace = GetColorSpace(eDataSpace_);
+    uEOTF = GetEOTF(eDataSpace_);
+  }
   return 0;
 }
 

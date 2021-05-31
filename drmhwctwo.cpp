@@ -1067,6 +1067,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
 
   InitDrmHwcLayer();
 
+  ctx_.fb_hdr_mode = false;
+
   std::vector<DrmHwcLayer *> layers;
   layers.reserve(drm_hwc_layers_.size());
   for(size_t i = 0; i < drm_hwc_layers_.size(); ++i){
@@ -1093,6 +1095,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
       ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
     }else{
+      if(drm_hwc_layer.bHdr_ && ctx_.hdr_mode){
+        ctx_.fb_hdr_mode = true;
+      }
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Client);
       ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Client : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
@@ -1967,6 +1972,9 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
   drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
+
+  drmHwcLayer->bHdr_ = ctx->fb_hdr_mode;
+
 
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
