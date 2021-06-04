@@ -614,7 +614,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||
+                              if(input_w > 2048 || output_w > 2048 ||  eotf != TRADITIONAL_GAMMA_SDR ||
                                  ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   ctx.state.bClu0TwoWinMode = false;
                               }else{
@@ -624,7 +624,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                               ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   ctx.state.bClu1TwoWinMode = false;
                               }else{
@@ -1637,7 +1637,8 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
       if(layer->bYuv_){
         ctx.request.iAfbcdYuvCnt++;
-        if(layer->iWidth_ > 2048){
+        int dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
+        if(layer->iWidth_ > 2048 || layer->bHdr_ || dst_w > 2048){
           ctx.request.iAfcbdLargeYuvCnt++;
         }
       }
