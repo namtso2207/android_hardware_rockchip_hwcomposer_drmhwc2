@@ -902,7 +902,7 @@ void DrmDisplayCompositor::ApplyFrame(
   ATRACE_CALL();
   int ret = status;
 
-  if (!ret) {
+  if (!ret && !clear_) {
     if (writeback && !CountdownExpired()) {
       ALOGE("Abort playing back scene");
       return;
@@ -928,7 +928,7 @@ void DrmDisplayCompositor::ApplyFrame(
 
   // Enter ClearDisplay state must to SignalCompositionDone
   if(clear_){
-    composition->SignalCompositionDone();
+    SingalCompsition(std::move(composition));
   }else{
     active_composition_.swap(composition);
   }
