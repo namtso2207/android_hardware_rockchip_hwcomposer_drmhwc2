@@ -374,32 +374,8 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     }
   }
 
-  DrmConnector *extend = NULL;
-  for (auto &conn : connectors_) {
-      if (primary == conn.get())
-        continue;
-      if (!(conn->possible_displays() & HWC_DISPLAY_EXTERNAL_BIT))
-        continue;
-      if (conn->state() != DRM_MODE_CONNECTED)
-        continue;
-      if(NULL == extend){
-        extend = conn.get();
-      }else{
-        if(conn.get()->priority() < extend->priority())
-          extend = conn.get();
-      }
-  }
-
-  if(extend != NULL){
-    extend->set_display(num_displays);
-    displays_[num_displays] = num_displays;
-    ++num_displays;
-  }
-
   for (auto &conn : connectors_) {
     if (primary == conn.get())
-      continue;
-    if (extend == conn.get())
       continue;
     conn->set_display(num_displays);
     displays_[num_displays] = num_displays;
