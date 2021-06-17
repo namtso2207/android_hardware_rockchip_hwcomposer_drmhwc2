@@ -398,6 +398,10 @@ bool DrmHwcLayer::IsGlesCompose(){
   if(!bAfbcd_){
     if(act_w % 16 == 1 && fHScaleMul_ < 1.0)
       return true;
+
+    int dst_w = static_cast<int>(display_frame.right - display_frame.left);
+    if(dst_w % 2 == 1 && fHScaleMul_ < 1.0)
+      return true;
   }
 
   if(transform == -1){
