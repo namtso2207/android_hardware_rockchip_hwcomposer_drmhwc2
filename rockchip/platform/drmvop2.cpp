@@ -40,7 +40,6 @@
 #include "drmdevice.h"
 
 #include <log/log.h>
-#include <cutils/properties.h>
 
 namespace android {
 
@@ -1603,6 +1602,70 @@ int PlanStageVop2::TryGLESPolicy(
   return 0;
 }
 
+void PlanStageVop2::UpdateResevedPlane(DrmCrtc *crtc){
+  // Reserved DrmPlane
+  char reserved_plane_name[PROPERTY_VALUE_MAX] = {0};
+  hwc_get_string_property("vendor.hwc.reserved_plane_name","NULL",reserved_plane_name);
+
+  if(strlen(ctx.support.arrayReservedPlaneName) == 0 ||
+     strcmp(reserved_plane_name,ctx.support.arrayReservedPlaneName)){
+    int reserved_plane_win_type = 0;
+    strncpy(ctx.support.arrayReservedPlaneName,reserved_plane_name,strlen(reserved_plane_name)+1);
+    DrmDevice *drm = crtc->getDrmDevice();
+    std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
+    for(auto &plane_group : all_plane_groups){
+      for(auto &p : plane_group->planes){
+        if(!strcmp(p->name(),ctx.support.arrayReservedPlaneName)){
+          plane_group->bReserved = true;
+          reserved_plane_win_type = plane_group->win_type;
+          ALOGI("%s,line=%d Reserved DrmPlane %s , win_type = 0x%x",
+            __FUNCTION__,__LINE__,ctx.support.arrayReservedPlaneName,reserved_plane_win_type);
+          break;
+        }else{
+          plane_group->bReserved = false;
+        }
+      }
+    }
+    // RK3566 must reserved a extra DrmPlane.
+    if(ctx.state.iSocId == 0x3566 || ctx.state.iSocId == 0x3566a){
+      switch(reserved_plane_win_type){
+        case DRM_PLANE_TYPE_CLUSTER0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_CLUSTER1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_CLUSTER0_WIN1:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_CLUSTER0_WIN0;
+          break;
+        case DRM_PLANE_TYPE_ESMART0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_ESMART1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_ESMART1_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_ESMART0_WIN0;
+          break;
+        case DRM_PLANE_TYPE_SMART0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_SMART1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_SMART1_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_SMART0_WIN0;
+          break;
+        default:
+          reserved_plane_win_type = 0;
+          break;
+      }
+      for(auto &plane_group : all_plane_groups){
+        if(reserved_plane_win_type & plane_group->win_type){
+          plane_group->bReserved = true;
+          ALOGI_IF(1 || LogLevel(DBG_DEBUG),"%s,line=%d CommirMirror Reserved win_type = 0x%x",
+            __FUNCTION__,__LINE__,reserved_plane_win_type);
+          break;
+        }else{
+          plane_group->bReserved = false;
+        }
+      }
+    }
+  }
+  return;
+}
+
 void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
   // Collect layer info
@@ -1672,7 +1735,10 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
   }
   return;
 }
-void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
+
+void PlanStageVop2::InitSupportContext(
+    std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc){
   // Collect Plane resource info
   ctx.support.iAfbcdCnt=0;
   ctx.support.iAfbcdScaleCnt=0;
@@ -1686,7 +1752,12 @@ void PlanStageVop2::InitSupportContext(std::vector<PlaneGroup *> &plane_groups){
   ctx.support.iRotateCnt=0;
   ctx.support.iHdrCnt=0;
 
+  // Update DrmPlane
+  UpdateResevedPlane(crtc);
+
   for(auto &plane_group : plane_groups){
+    if(plane_group->bReserved)
+      continue;
     for(auto &p : plane_group->planes){
       if(p->get_afbc()){
 
@@ -1956,7 +2027,7 @@ int PlanStageVop2::InitContext(
   ctx.state.iSocId = crtc->get_soc_id();
 
   InitRequestContext(layers);
-  InitSupportContext(plane_groups);
+  InitSupportContext(plane_groups,crtc);
   InitStateContext(layers,plane_groups,crtc);
 
   //force go into GPU

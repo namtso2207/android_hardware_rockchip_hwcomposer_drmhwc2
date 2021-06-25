@@ -118,7 +118,6 @@ class DrmPlane {
 
   DrmPlaneType win_type() const;
   const char* name() const;
-
   const DrmProperty &crtc_property() const;
   const DrmProperty &fb_property() const;
   const DrmProperty &crtc_x_property() const;
@@ -218,6 +217,7 @@ class DrmPlane {
   bool b_afbdc_;
   bool b_afbc_prop_;
   DrmPlaneType win_type_;
+  const char *name_;
   uint32_t rotate_=0;
   int input_w_max_;
   int input_h_max_;
@@ -225,7 +225,6 @@ class DrmPlane {
   int output_h_max_;
   float scale_min_=0.0;
   float scale_max_=0.0;
-  const char *name_;
 
   std::set<uint32_t> support_format_list;
   drmModePlanePtr plane_;

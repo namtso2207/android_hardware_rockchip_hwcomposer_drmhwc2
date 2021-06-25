@@ -143,6 +143,67 @@ bool DrmDevice::mode_verify(const DrmMode &m) {
   return false;
 }
 
+void DrmDevice::InitResevedPlane(){
+
+  // Reserved DrmPlane
+  char reserved_plane_name[PROPERTY_VALUE_MAX] = {0};
+  hwc_get_string_property("vendor.hwc.reserved_plane_name","NULL",reserved_plane_name);
+
+  if(strcmp(reserved_plane_name,"NULL")){
+    int reserved_plane_win_type = 0;
+    for(auto &plane_group : plane_groups_){
+      for(auto &p : plane_group->planes){
+        if(!strcmp(p->name(),reserved_plane_name)){
+          plane_group->bReserved = true;
+          reserved_plane_win_type = plane_group->win_type;
+          ALOGI("%s,line=%d Reserved DrmPlane %s , win_type = 0x%x",
+            __FUNCTION__,__LINE__,reserved_plane_name,reserved_plane_win_type);
+          break;
+        }else{
+          plane_group->bReserved = false;
+        }
+      }
+    }
+    // RK3566 must reserved a extra DrmPlane.
+    if(soc_id_ == 0x3566 || soc_id_ == 0x3566a){
+      switch(reserved_plane_win_type){
+        case DRM_PLANE_TYPE_CLUSTER0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_CLUSTER1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_CLUSTER0_WIN1:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_CLUSTER0_WIN0;
+          break;
+        case DRM_PLANE_TYPE_ESMART0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_ESMART1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_ESMART1_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_ESMART0_WIN0;
+          break;
+        case DRM_PLANE_TYPE_SMART0_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_SMART1_WIN0;
+          break;
+        case DRM_PLANE_TYPE_SMART1_WIN0:
+          reserved_plane_win_type |= DRM_PLANE_TYPE_SMART0_WIN0;
+          break;
+        default:
+          reserved_plane_win_type = 0;
+          break;
+      }
+      for(auto &plane_group : plane_groups_){
+        if(reserved_plane_win_type & plane_group->win_type){
+          plane_group->bReserved = true;
+          ALOGI("%s,line=%d CommirMirror Reserved win_type = 0x%x",
+            __FUNCTION__,__LINE__,reserved_plane_win_type);
+          break;
+        }else{
+          plane_group->bReserved = false;
+        }
+      }
+    }
+  }
+  return;
+}
+
 std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
 
 
@@ -449,7 +510,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
 
   }
 
-
   std::sort(sort_planes_.begin(),sort_planes_.end(),PlaneSortByZpos);
 
   for (std::vector<DrmPlane*>::const_iterator iter= sort_planes_.begin();
@@ -490,6 +550,8 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       }
   }
 
+  // Reserved DrmPlane
+  InitResevedPlane();
 
   drmModeFreePlaneResources(plane_res);
   if (ret)

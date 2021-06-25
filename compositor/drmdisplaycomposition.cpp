@@ -133,6 +133,11 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
   //loop plane groups.
   for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
+
+    // Reserved DrmPlane feature.
+    if((*iter)->bReserved)
+      continue;
+
     bool release_plane = false;
     bool disable_plane = false;
     //loop plane
@@ -150,8 +155,9 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
         for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
               !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
               if (!(*iter_plane)->is_use()) {
-                  ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes %s %s",
-                            (*iter_plane)->name(),release_plane ? "release_necessary_cnt plane" : "");
+                  ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d (%s) %s",
+                            (*iter_plane)->id(),(*iter_plane)->name(),
+                            release_plane ? "release_necessary_cnt plane" : "");
                   AddPlaneDisable(*iter_plane);
                  // break;
               }
@@ -161,8 +167,9 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
     if(release_plane){
         for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
               !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane) {
-              ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes %s %s",
-                        (*iter_plane)->name(),release_plane ? "release_necessary_cnt plane" : "");
+              ALOGD_IF(LogLevel(DBG_DEBUG),"DisableUnusedPlanes plane_groups plane id=%d (%s) %s",
+                        (*iter_plane)->id(),(*iter_plane)->name(),
+                        release_plane ? "release_necessary_cnt plane" : "");
               AddPlaneDisable(*iter_plane);
              // break;
         }

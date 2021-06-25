@@ -39,6 +39,8 @@
 #include "platform.h"
 #include "drmdevice.h"
 
+#include <cutils/properties.h>
+
 namespace android {
 class DrmDevice;
 
@@ -96,6 +98,9 @@ typedef struct SupportContext{
   int iYuvCnt=0;
   int iRotateCnt=0;
   int iHdrCnt=0;
+
+  // Reserved DrmPlane
+  char arrayReservedPlaneName[PROPERTY_VALUE_MAX] = {0};
 } SupCtx;
 
 typedef struct StateContext{
@@ -172,16 +177,19 @@ typedef struct DrmVop2Context{
   bool TryOverlay();
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
+  void UpdateResevedPlane(DrmCrtc *crtc);
   void InitStateContext(
       std::vector<DrmHwcLayer*> &layers,
       std::vector<PlaneGroup *> &plane_groups,
       DrmCrtc *crtc);
   void InitRequestContext(std::vector<DrmHwcLayer*> &layers);
-  void InitSupportContext(std::vector<PlaneGroup *> &plane_groups);
+  void InitSupportContext(
+      std::vector<PlaneGroup *> &plane_groups,
+      DrmCrtc *crtc);
   int InitContext(std::vector<DrmHwcLayer*> &layers,
-                               std::vector<PlaneGroup *> &plane_groups,
-                               DrmCrtc *crtc,
-                               bool gles_policy);
+      std::vector<PlaneGroup *> &plane_groups,
+      DrmCrtc *crtc,
+      bool gles_policy);
 
   bool HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer);
   int  IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2);

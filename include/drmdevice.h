@@ -50,7 +50,7 @@ class DrmDevice {
   ~DrmDevice();
 
   std::tuple<int, int> Init(const char *path, int num_displays);
-
+  void InitResevedPlane();
   int fd() const {
     return fd_.get();
   }

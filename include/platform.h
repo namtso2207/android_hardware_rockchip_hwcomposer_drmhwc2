@@ -51,12 +51,16 @@ typedef struct tagPlaneGroup{
   uint32_t current_possible_crtcs=0;
 
   bool is_release(uint32_t   crtc_mask){
+    if(bReserved)
+      return false;
     if((crtc_mask & current_crtc) > 0 && !(crtc_mask & current_possible_crtcs)){
       return true;
     }
     return false;
   }
   bool release(uint32_t crtc_mask){
+    if(bReserved)
+      return false;
     if(!(possible_crtcs & crtc_mask))
       return false;
 
@@ -70,6 +74,8 @@ typedef struct tagPlaneGroup{
   }
 
   bool release_necessary_cnt(uint32_t crtc_mask){
+    if(bReserved)
+      return false;
     if(!(possible_crtcs & crtc_mask))
       return false;
 
@@ -88,6 +94,8 @@ typedef struct tagPlaneGroup{
   }
 
   bool acquire(uint32_t crtc_mask){
+    if(bReserved)
+      return false;
     if(possible_crtcs == crtc_mask){
       set_current_possible_crtcs(crtc_mask);
       enable_possible_crtc = crtc_mask;
