@@ -518,7 +518,34 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
   if (err != HWC2::Error::None || !num_configs)
     return err;
 
-  return SetActiveConfig(connector_->get_preferred_mode_id());
+  char resolution_value[PROPERTY_VALUE_MAX]={0};
+  property_get("persist.vendor.resolution.standard", resolution_value, "Unkonw");
+  if(ctx_.bStandardSwitchResolution && strcmp(resolution_value,"Unkonw")){
+    uint32_t width, height, flags, clock;
+    uint32_t hsync_start, hsync_end, htotal;
+    uint32_t vsync_start, vsync_end, vtotal;
+    float vrefresh;
+
+    ALOGI("%s,line=%d, resolution_value=%s",__FUNCTION__,__LINE__,resolution_value);
+    int len = sscanf(resolution_value, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x-%d",
+                     &width, &height, &vrefresh, &hsync_start,
+                     &hsync_end, &htotal, &vsync_start,&vsync_end,
+                     &vtotal, &flags, &clock);
+    uint32_t last_mode_id = 0;
+    for (const DrmMode &mode : connector_->modes()) {
+      if(mode.equal(width, height, hsync_start, hsync_end,
+                    htotal, vsync_start, vsync_end, vtotal,
+                    flags,clock)){
+        last_mode_id = mode.id();
+        break;
+      }
+    }
+    err = SetActiveConfig(last_mode_id);
+  }else{
+    err = SetActiveConfig(connector_->get_preferred_mode_id());
+  }
+
+  return err;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::RegisterVsyncCallback(
@@ -1246,6 +1273,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
     client_layer_.SetLayerSourceCrop(source_crop);
 
     drm_->UpdateDisplayMode(handle_);
+
+    char resolution_value[PROPERTY_VALUE_MAX]={0};
+    sprintf(resolution_value,"%dx%d@%f-%d-%d-%d-%d-%d-%d-%x-%d",
+            mode->h_display(), mode->v_display(), mode->v_refresh(), mode->h_sync_start(),
+                     mode->h_sync_end(), mode->h_total(), mode->v_sync_start(),mode->v_sync_end(),
+                     mode->v_total(), mode->flags(), mode->clock());
+    property_set("persist.vendor.resolution.standard",resolution_value);
   }else{
 
     // Setup the client layer's dimensions
