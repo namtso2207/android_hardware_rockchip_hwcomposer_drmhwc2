@@ -208,7 +208,7 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
   return 0;
 }
 int DrmHwcLayer::Init() {
-  bYuv_ = IsYuvFormat(iFormat_);
+  bYuv_ = IsYuvFormat(iFormat_,uFourccFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
   bAfbcd_ = IsAfbcModifier(uModifier_);
@@ -284,7 +284,30 @@ void DrmHwcLayer::SetTransform(HWC2::Transform sf_transform) {
         ALOGE_IF(LogLevel(DBG_DEBUG),"Unknow sf transform 0x%x",sf_transform);
   }
 }
-bool DrmHwcLayer::IsYuvFormat(int format){
+bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fource_format){
+
+  switch(fource_format){
+    case DRM_FORMAT_NV12:
+    case DRM_FORMAT_NV21:
+    case DRM_FORMAT_NV16:
+    case DRM_FORMAT_NV61:
+    case DRM_FORMAT_YUV420:
+    case DRM_FORMAT_YVU420:
+    case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YVU422:
+    case DRM_FORMAT_YUV444:
+    case DRM_FORMAT_YVU444:
+    case DRM_FORMAT_UYVY:
+    case DRM_FORMAT_VYUY:
+    case DRM_FORMAT_YUYV:
+    case DRM_FORMAT_YVYU:
+    case DRM_FORMAT_YUV420_8BIT:
+    case DRM_FORMAT_YUV420_10BIT:
+      return true;
+    default:
+      break;
+  }
+
   switch(format){
     case HAL_PIXEL_FORMAT_YCrCb_NV12:
     case HAL_PIXEL_FORMAT_YCrCb_NV12_10:

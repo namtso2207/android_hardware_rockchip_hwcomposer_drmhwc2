@@ -226,7 +226,7 @@ struct DrmHwcLayer {
     return (gralloc_buffer_usage & GRALLOC_USAGE_PROTECTED) ==
            GRALLOC_USAGE_PROTECTED;
   }
-  bool IsYuvFormat(int format);
+  bool IsYuvFormat(int format,uint32_t fourcc_format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();
