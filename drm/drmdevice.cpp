@@ -239,12 +239,13 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 #endif
 
-    //Open Multi-area support.
-    ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_SHARE_PLANES, 1);
-    if (ret) {
-      ALOGE("Failed to set share planes %d", ret);
-      return std::make_tuple(ret, 0);
-    }
+//    Android 11 and kernel 5.10 not need this call.
+//    //Open Multi-area support.
+//    ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_SHARE_PLANES, 1);
+//    if (ret) {
+//      ALOGE("Failed to set share planes %d", ret);
+//      return std::make_tuple(ret, 0);
+//    }
 
 #if USE_NO_ASPECT_RATIO
     //Disable Aspect Ratio
