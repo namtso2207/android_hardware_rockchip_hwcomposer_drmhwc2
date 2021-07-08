@@ -274,6 +274,8 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  // ClearDisplay need to reset force_disocnnect state.
+  connector_->force_disconnect(false);
   compositor_.ClearDisplay();
 
   DrmCrtc *crtc = crtc_;
