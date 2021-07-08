@@ -1667,6 +1667,25 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       ctx_.rel_yres = best_mode.v_display();
       ctx_.dclk = best_mode.clock();
     }
+
+    if(isRK3566(resource_manager_->getSocId())){
+      bool mirror_mode = true;
+      int display_id = drm_->GetCommitMirrorDisplayId();
+      DrmConnector *conn_mirror = drm_->GetConnectorForDisplay(display_id);
+      if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
+        mirror_mode = false;
+      }
+
+      if(mirror_mode){
+        int ret = conn_mirror->UpdateDisplayMode(display_id, timeline);
+        if(!ret){
+          const DrmMode best_mode = conn_mirror->best_mode();
+          conn_mirror->set_current_mode(best_mode);
+        }
+      }
+    }
+
   }
 
   return 0;
