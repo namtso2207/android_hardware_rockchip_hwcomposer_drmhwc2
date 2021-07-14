@@ -1572,4 +1572,9 @@ int DrmDevice::DumpConnectorBaseInfo(unsigned int connector_type,
   return baseparameter_.DumpConnectorBaseInfo(connector_type,connector_id,info);
 }
 
+int DrmDevice::SetScreenInfo(unsigned int connector_type,
+               unsigned int connector_id, int index, struct screen_info *info){
+  return baseparameter_.SetScreenInfo(connector_type,connector_id,index,info);
+}
+
 }  // namespace android

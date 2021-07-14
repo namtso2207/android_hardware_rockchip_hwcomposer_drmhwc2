@@ -64,6 +64,7 @@ class DrmConnector {
   int UpdateBCSH(int display_id, int update_base_timeline);
   int UpdateOutputFormat(int display_id, int update_base_timeline);
   int UpdateOverscan();
+  int SetDisplayModeInfo(int display_id);
   bool ParseHdmiOutputFormat(char* strprop, output_format *format, output_depth *depth);
   void ResetModesReady(){ bModeReady_ = false;};
   bool ModesReady(){ return bModeReady_;};
@@ -104,6 +105,7 @@ class DrmConnector {
   uint32_t get_preferred_mode_id() const {
     return preferred_mode_id_;
   }
+
   // RK Support
   bool isSupportSt2084() { return bSupportSt2084_; }
   bool isSupportHLG() { return bSupportHLG_; }

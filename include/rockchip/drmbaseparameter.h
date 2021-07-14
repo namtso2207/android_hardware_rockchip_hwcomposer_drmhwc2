@@ -27,6 +27,7 @@ public:
   int Init();
   int UpdateConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
   int DumpConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
+  int SetScreenInfo(unsigned int connector_type, unsigned int connector_id, int index, struct screen_info *info);
 
 private:
   mutable pthread_mutex_t lock_;

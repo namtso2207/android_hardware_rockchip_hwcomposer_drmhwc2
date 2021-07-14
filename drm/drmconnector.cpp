@@ -27,6 +27,31 @@
 
 namespace android {
 
+#define GET_BCSH_PROPERTY_VALUE(display_id, func_str, type_str, output_value) \
+  snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,type_str);\
+  ret = property_get(bcsh_property,bcsh_value,""); \
+  if(!ret){ \
+    if(display_id == HWC_DISPLAY_PRIMARY){ \
+      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"main"); \
+    }else{ \
+      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"aux"); \
+    } \
+    ret = property_get(bcsh_property,bcsh_value,""); \
+    if(ret){ \
+      output_value = atoi(bcsh_value); \
+      exist_suitable_property = true;  \
+    } \
+  }else{ \
+    output_value = atoi(bcsh_value); \
+    exist_suitable_property = true;  \
+  }
+
+#define ALOGI_BEST_MODE_INFO(mode)  \
+        ALOGI("%s,line=%d, Find best mode-id=%d : %dx%d%c%f",\
+                __FUNCTION__,__LINE__,mode.id(),        \
+                mode.h_display(),mode.v_display(), \
+                (flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p', mode.v_refresh())
+
 DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
                            DrmEncoder *current_encoder,
                            std::vector<DrmEncoder *> &possible_encoders)
@@ -308,13 +333,6 @@ int DrmConnector::UpdateModes() {
 
   return 0;
 }
-
-#define ALOGI_BEST_MODE_INFO(mode)  \
-        ALOGI("%s,line=%d, Find best mode-id=%d : %dx%d%c%f",\
-                __FUNCTION__,__LINE__,mode.id(),        \
-                mode.h_display(),mode.v_display(), \
-                (flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p', mode.v_refresh())
-
 int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
   char resolution_value[PROPERTY_VALUE_MAX]={0};
   char resolution_property[PROPERTY_VALUE_MAX]={0};
@@ -469,24 +487,30 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
   return 0;
 }
 
-#define GET_BCSH_PROPERTY_VALUE(display_id, func_str, type_str, output_value) \
-  snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,type_str);\
-  ret = property_get(bcsh_property,bcsh_value,""); \
-  if(!ret){ \
-    if(display_id == HWC_DISPLAY_PRIMARY){ \
-      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"main"); \
-    }else{ \
-      snprintf(bcsh_property,PROPERTY_VALUE_MAX,func_str,"aux"); \
-    } \
-    ret = property_get(bcsh_property,bcsh_value,""); \
-    if(ret){ \
-      output_value = atoi(bcsh_value); \
-      exist_suitable_property = true;  \
-    } \
-  }else{ \
-    output_value = atoi(bcsh_value); \
-    exist_suitable_property = true;  \
+int DrmConnector::SetDisplayModeInfo(int display_id) {
+  int ret = 0;
+  const DrmMode mode = current_mode();
+  if(baseparameter_ready_){
+    baseparameter_.screen_info[0].resolution.hdisplay = mode.h_display();
+    baseparameter_.screen_info[0].resolution.vdisplay = mode.v_display();
+    baseparameter_.screen_info[0].resolution.vrefresh = static_cast<int>(mode.v_refresh());
+    baseparameter_.screen_info[0].resolution.hsync_start = mode.h_sync_start();
+    baseparameter_.screen_info[0].resolution.hsync_end = mode.h_sync_end();
+    baseparameter_.screen_info[0].resolution.htotal = mode.h_total();
+    baseparameter_.screen_info[0].resolution.vsync_start = mode.v_sync_start();
+    baseparameter_.screen_info[0].resolution.vsync_end = mode.v_sync_end();
+    baseparameter_.screen_info[0].resolution.vtotal = mode.v_total();
+    baseparameter_.screen_info[0].resolution.flags = mode.flags();
+    baseparameter_.screen_info[0].resolution.clock = mode.clock();
+    ret = drm_->SetScreenInfo(type_,unique_id_,0,baseparameter_.screen_info);
+    if(ret){
+      ALOGW("%s,line=%d,display-id=%d %s SetScreenInfo fail!",__FUNCTION__,__LINE__,display_id,cUniqueName_);
+      return ret;
+    }
   }
+
+  return ret;
+}
 
 int DrmConnector::UpdateBCSH(int display_id, int update_base_timeline){
   uint32_t brightness=50, contrast=50, saturation=50, hue=50;
@@ -749,6 +773,7 @@ int DrmConnector::GetFramebufferInfo(int display_id, uint32_t *w, uint32_t *h, u
   }
   return 0;
 }
+
 const DrmMode &DrmConnector::active_mode() const {
   return active_mode_;
 }

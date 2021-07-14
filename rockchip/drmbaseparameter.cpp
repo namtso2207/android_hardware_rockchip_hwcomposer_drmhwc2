@@ -185,6 +185,38 @@ int DrmBaseparameter::DumpConnectorBaseInfo(unsigned int connector_type,
   return 0;
 }
 
+int DrmBaseparameter::SetScreenInfo(unsigned int connector_type,
+                                        unsigned int connector_id,
+                                        int index,
+                                        struct screen_info *info){
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -1;
 
+  // DrmBaseparameter not init success.
+  if(!init_success_)
+    return -1;
+
+  int ret = api_.set_screen_info(connector_type,connector_id,0,info);
+  if(ret){
+      ALOGE("%s,line=%d, get_disp_info fail , ret=%d",__FUNCTION__,__LINE__,ret);
+      return ret;
+  }
+  String8 output;
+  // Dump Screen Info
+  output.appendFormat("DrmBaseparameter: Connector-Type=%s, Connector-Id=%d\n",base_connector_type_str(connector_type),connector_id);
+  output.appendFormat(" ScreenInfo:\n");
+  output.appendFormat("     Type=0x%x Id=%d resolution=%dx%d%c%d-%d-%d-%d-%d-%d-%d-%x-%d(clk)\n",
+                      info[index].type,info[index].id,
+                      info[index].resolution.hdisplay,info[index].resolution.vdisplay,
+                      (info[index].resolution.flags & DRM_MODE_FLAG_INTERLACE) > 0 ? 'c' : 'p',
+                      info[index].resolution.vrefresh,info[index].resolution.hsync_start,
+                      info[index].resolution.hsync_end,info[index].resolution.htotal,
+                      info[index].resolution.vsync_start,info[index].resolution.vsync_end,
+                      info[index].resolution.vtotal,info[index].resolution.flags,
+                      info[index].resolution.clock);
+  ALOGI("%s",output.string());
+  return ret;
+}
 }
 
