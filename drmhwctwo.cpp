@@ -1098,7 +1098,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
       ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
     }else{
-      if(drm_hwc_layer.bHdr_){
+      if(drm_hwc_layer.bHdr_ && ctx_.hdr_mode){
         ctx_.fb_hdr_mode = true;
       }
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
@@ -1466,10 +1466,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   // Static screen opt
   UpdateTimerEnable();
 
-  char value_num[100] = {0};
-  sprintf(value_num, "%d", ctx_.hdr_usage);
-  property_set("vendor.hwc.fb_output_dataspace",value_num);
-
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     DrmHwcTwo::HwcLayer &layer = l.second;
     // We can only handle layers of Device type, send everything else to SF
@@ -1721,14 +1717,8 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
   bool exist_hdr_layer = false;
-  ctx_.hdr_usage = 0;
-  for(auto &drmHwcLayer : drm_hwc_layers_){
-    if(drmHwcLayer.bFbTarget_)
-      continue;
+  for(auto &drmHwcLayer : drm_hwc_layers_)
     if(drmHwcLayer.bHdr_){
-      if(ctx_.fb_hdr_mode)
-          ctx_.hdr_usage = drmHwcLayer.eDataSpace_;
-
       if(connector_->is_hdmi_support_hdr()){
         exist_hdr_layer = true;
         if(!ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(drmHwcLayer.eDataSpace_)){
@@ -1737,7 +1727,6 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
           property_set("vendor.hwc.hdr_state","HDR");
         }
       }
-    }
   }
 
   if(!exist_hdr_layer && ctx_.hdr_mode){

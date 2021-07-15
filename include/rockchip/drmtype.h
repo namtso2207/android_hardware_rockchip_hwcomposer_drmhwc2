@@ -164,7 +164,6 @@ typedef struct hwc2_drm_display {
   int hotplug_timeline;
   bool hdr_mode;
   bool fb_hdr_mode;
-  int hdr_usage;
   const struct disp_info* baseparameter_info;
 } hwc2_drm_display_t;
 
