@@ -44,20 +44,6 @@ namespace android {
 
 #define DRM_FORMAT_ABGR8888	fourcc_code('A', 'B', '2', '4')
 
-
-#define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
-    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
-
-#define HWC2_ALOGD_IF_DEBUG(x, ...)  \
-    ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
-
-#define HWC2_ALOGE(x, ...)  \
-    ALOGE("%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
-
-#define HWC2_ALOGI(x, ...)  \
-    ALOGI("%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
-
-
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
       String8 output; \
@@ -1938,16 +1924,16 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->SetDisplayFrameMirror(display_frame_);
 
   if(buffer_){
-    drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
-    drmHwcLayer->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
-    drmHwcLayer->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
-    drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
-    drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
-    drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
-    drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
-    drmHwcLayer->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
-    if(!drmGralloc_->hwc_get_handle_name(buffer_,layer_name_))
-      drmHwcLayer->sLayerName_ = layer_name_;
+    drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+    drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
+    drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
+    drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+    drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
+    drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
+    drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
+    drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
+    drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
+    drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -2010,17 +1996,18 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
 
-  if(buffer_){
-    drmHwcLayer->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
-    drmHwcLayer->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
-    drmHwcLayer->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
-    drmHwcLayer->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
-    drmHwcLayer->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
-    drmHwcLayer->iUsage   = drmGralloc_->hwc_get_handle_usage(buffer_);
-    drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
-    drmHwcLayer->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
-    if(!drmGralloc_->hwc_get_handle_name(buffer_,layer_name_))
-      drmHwcLayer->sLayerName_ = layer_name_;
+  if(buffer_ && !validate){
+    drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+    drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
+    drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
+    drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+    drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
+    drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
+    drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
+    drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
+    drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
+    drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;

@@ -126,9 +126,7 @@ void DrmHwcBuffer::Clear() {
 }
 
 int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
-  hwc_drm_bo tmp_bo;
-
-  int ret = importer->ImportBuffer(handle, &tmp_bo);
+  int ret = importer->ImportBuffer(handle, &bo_);
   if (ret)
     return ret;
 
@@ -138,8 +136,19 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
 
   importer_ = importer;
 
-  bo_ = tmp_bo;
+  return 0;
+}
 
+int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width, uint32_t height, uint32_t format,
+        uint32_t hal_format, uint64_t modifier, uint32_t usage, uint32_t byte_stride){
+  bo_.fd = fd;
+  bo_.width = width;
+  bo_.height = height;
+  bo_.usage = usage;
+  bo_.hal_format = hal_format;
+  bo_.format = format;
+  bo_.modifier = modifier;
+  bo_.byte_stride = byte_stride;
   return 0;
 }
 
@@ -190,6 +199,9 @@ void DrmHwcNativeHandle::Clear() {
 }
 
 int DrmHwcLayer::ImportBuffer(Importer *importer) {
+
+  buffer.SetBoInfo(iFd_, iWidth_, iHeight_, uFourccFormat_, iFormat_, uModifier_, iUsage, iByteStride_);
+
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)
     return ret;

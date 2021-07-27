@@ -34,6 +34,8 @@ class DrmHwcTwo;
 
 DrmHwcTwo *g_ctx = NULL;
 
+#define MAX_NUM_BUFFER_SLOTS 64
+
 class DrmHwcTwo : public hwc2_device_t {
  public:
   static int HookDevOpen(const struct hw_module_t *module, const char *name,
@@ -49,6 +51,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HwcLayer(uint32_t layer_id){
       id_ = layer_id;
       drmGralloc_ = DrmGralloc::getInstance();
+      bufferInfoMap_.clear();
     }
 
     void clear(){
@@ -78,11 +81,68 @@ class DrmHwcTwo : public hwc2_device_t {
       return z_order_;
     }
 
+    typedef struct bufferInfo{
+      bufferInfo(){};
+      int iFd_=0;
+      int iFormat_=0;
+      int iWidth_=0;
+      int iHeight_=0;
+      int iStride_=0;
+      int iByteStride_=0;
+      int iUsage_=0;
+      uint32_t uFourccFormat_=0;
+      uint64_t uModifier_=0;
+      std::string sLayerName_;
+    }bufferInfo_t;
+
     buffer_handle_t buffer() {
       return buffer_;
     }
     void set_buffer(buffer_handle_t buffer) {
       buffer_ = buffer;
+
+      // Get Buffer info
+      const auto mapBuffer = bufferInfoMap_.find(buffer);
+      if(mapBuffer == bufferInfoMap_.end()){
+        //
+        if(bHasCache_){
+          HWC2_ALOGD_IF_VERBOSE("bHasCache=%d to reset bufferInfoMap_ BufferHandle=%p Name=%s",
+                               bHasCache_,buffer,pBufferInfo_->sLayerName_.c_str());
+          bufferInfoMap_.clear();
+          bHasCache_  = false;
+        }
+
+        if(bufferInfoMap_.size() > MAX_NUM_BUFFER_SLOTS){
+          HWC2_ALOGD_IF_VERBOSE("MapSize=%zu too large to reset bufferInfoMap_ BufferHandle=%p Name=%s",
+                               bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+          bufferInfoMap_.clear();
+        }
+
+        auto ret = bufferInfoMap_.emplace(std::make_pair(buffer, std::make_shared<bufferInfo_t>(bufferInfo())));
+        if(ret.second == false){
+          HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",buffer);
+        }else{
+          pBufferInfo_ = ret.first->second;
+          pBufferInfo_->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
+          pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+          pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+          pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+          pBufferInfo_->iByteStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
+          pBufferInfo_->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+          pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(buffer_);
+          pBufferInfo_->uFourccFormat_ = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+          pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
+          drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
+          layer_name_ = pBufferInfo_->sLayerName_;
+          HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferHandle=%p Name=%s",
+                               bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+        }
+      }else{
+        bHasCache_ = true;
+        pBufferInfo_ = mapBuffer->second;
+        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu has cache! BufferHandle=%p Name=%s",
+                             bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+      }
     }
 
     int take_acquire_fence() {
@@ -168,6 +228,13 @@ class DrmHwcTwo : public hwc2_device_t {
 
     uint32_t id_;
     DrmGralloc *drmGralloc_;
+
+    // Buffer info map
+    bool bHasCache_ = false;
+    std::map<buffer_handle_t, std::shared_ptr<bufferInfo_t>> bufferInfoMap_;
+
+    // Buffer info point
+    std::shared_ptr<bufferInfo_t> pBufferInfo_;
   };
 
   struct HwcCallback {

@@ -27,10 +27,6 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#define HWC2_ALOGD_IF_VERBOSE(x, ...)  \
-    ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
-
-
 namespace android {
 
 ResourceManager::ResourceManager() :

@@ -185,35 +185,14 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
-  int fd,width,height,byte_stride,usage,hal_format;
-  uint32_t fourcc_format;
-  uint64_t format_modifier;
-  fd     = drmGralloc_->hwc_get_handle_primefd(handle);
-  width  = drmGralloc_->hwc_get_handle_attibute(handle,ATT_WIDTH);
-  height = drmGralloc_->hwc_get_handle_attibute(handle,ATT_HEIGHT);
-  usage  = drmGralloc_->hwc_get_handle_usage(handle);
-  hal_format = drmGralloc_->hwc_get_handle_format(handle);
-  byte_stride     = drmGralloc_->hwc_get_handle_attibute(handle,ATT_BYTE_STRIDE_WORKROUND);
-  fourcc_format   = drmGralloc_->hwc_get_handle_fourcc_format(handle);
-  format_modifier = drmGralloc_->hwc_get_handle_format_modifier(handle);
-
   uint32_t gem_handle;
-  int ret = drmPrimeFDToHandle(drm_->fd(), fd, &gem_handle);
+  int ret = drmPrimeFDToHandle(drm_->fd(), bo->fd, &gem_handle);
   if (ret) {
-    ALOGE("failed to import prime fd %d ret=%d", fd, ret);
+    ALOGE("failed to import prime fd %d ret=%d", bo->fd, ret);
     return ret;
   }
 
-  memset(bo, 0, sizeof(hwc_drm_bo_t));
-
-  bo->width = width;
-  bo->height = height;
-  bo->format = fourcc_format;
-  bo->usage = usage;
-  bo->hal_format = hal_format;
-//  bo->pixel_stride = (byte_stride) /
-//                     DrmFormatToBitsPerPixel(bo->format);
-  bo->pitches[0] = byte_stride;
+  bo->pitches[0] = bo->byte_stride;
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
@@ -224,12 +203,11 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 
   uint64_t modifier[4];
-  uint64_t internal_format;
   memset(modifier, 0, sizeof(modifier));
 
-  modifier[0] = format_modifier;
+  modifier[0] = bo->modifier;
   if(DrmFormatToPlaneNum(bo->format) == 2)
-    modifier[1] = format_modifier;
+    modifier[1] = bo->modifier;
 
   ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
@@ -237,13 +215,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
   ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
       drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-      gem_handle, bo->pitches[0], bo->fb_id,format_modifier);
+      gem_handle, bo->pitches[0], bo->fb_id,bo->modifier);
 
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
     ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier=%" PRIx64 ,
     drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-    gem_handle, bo->pitches[0], bo->fb_id,format_modifier);
+    gem_handle, bo->pitches[0], bo->fb_id,bo->modifier);
     return ret;
   }
 
