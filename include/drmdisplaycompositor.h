@@ -68,6 +68,8 @@ class DrmDisplayCompositor {
 
   bool HaveQueuedComposites() const;
 
+  int GetTimeline() { return timeline_fd_;};
+
  private:
 
   struct FrameState {
@@ -143,6 +145,9 @@ class DrmDisplayCompositor {
   bool use_hw_overlays_;
   // Enter ClearDisplay state must SignalCompositionDone to signal releaseFence
   bool clear_;
+
+  // ReleaseFence timeline
+  int timeline_fd_ = -1;
 
   ModeState mode_;
 

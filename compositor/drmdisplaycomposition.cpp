@@ -36,9 +36,8 @@
 namespace android {
 
 DrmDisplayComposition::~DrmDisplayComposition() {
-  if (timeline_fd_ >= 0) {
+  if (timeline_fd_ >= 0 && timeline_current_ > 0) {
     SignalCompositionDone();
-    close(timeline_fd_);
   }
 
 }
@@ -51,20 +50,17 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
   importer_ = importer;
   planner_ = planner;
   frame_no_ = frame_no;
-
-
-  int ret = sw_sync_timeline_create();
-  if (ret < 0) {
-    ALOGE("Failed to create sw sync timeline %d", ret);
-    return ret;
-  }
-  timeline_fd_ = ret;
-
+  timeline_current_ = frame_no;
   return 0;
 }
 
 bool DrmDisplayComposition::validate_composition_type(DrmCompositionType des) {
   return type_ == DRM_COMPOSITION_TYPE_EMPTY || type_ == des;
+}
+
+int DrmDisplayComposition::SetTimelineFd(int timeline_fd){
+  timeline_fd_ = timeline_fd;
+  return 0;
 }
 
 int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
@@ -178,22 +174,19 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
   return 0;
 }
 int DrmDisplayComposition::CreateNextTimelineFence(const char* fence_name) {
-  ++timeline_;
-  ALOGV("rk-debug CreateNextTimelineFence timeline_fd_ =%d ,timeline_ = %d",timeline_fd_,timeline_);
-  return sw_sync_fence_create(timeline_fd_, fence_name,
-                                timeline_);
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d,CreateNextTimelineFence timeline_fd_ =%d ,timeline_ = %d",
+                                __FUNCTION__,__LINE__,timeline_fd_,timeline_current_);
+  return sw_sync_fence_create(timeline_fd_, fence_name,timeline_current_);
 }
 int DrmDisplayComposition::IncreaseTimelineToPoint(int point) {
-  int timeline_increase = point - timeline_current_;
-  if (timeline_increase <= 0)
-    return 0;
-  ALOGV("rk-debug IncreaseTimelineToPoint timeline_fd_ =%d ,point = %d ,timeline_current_ = %d ,timeline_increase = %d",timeline_fd_,point,timeline_current_,timeline_increase);
+  ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d timeline_fd_ =%d ,point = %d ,timeline_current_ = %d ,timeline_increase = %d",
+           __FUNCTION__,__LINE__,timeline_fd_,point,timeline_current_,1);
 
-  int ret = sw_sync_timeline_inc(timeline_fd_, timeline_increase);
+  int ret = sw_sync_timeline_inc(timeline_fd_, point);
   if (ret)
     ALOGE("Failed to increment sync timeline %d", ret);
   else
-    timeline_current_ = point;
+    timeline_current_ = 0;
 
   return ret;
 }
@@ -215,19 +208,34 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
   if(comp_layers.empty())
     return 0;
 
+
   char acBuf[50];
+  sprintf(acBuf,"frame-%" PRIu64 ,frame_no_);
+  int release_fence = CreateNextTimelineFence(acBuf);
+  if(release_fence < 0){
+    ALOGE("creat release fence failed ret=%d,%s",release_fence,strerror(errno));
+    return release_fence;
+  }
+  bool has_used = false;
+  int ret = 0;
+
   for (DrmHwcLayer *layer : comp_layers) {
     if (!layer || !layer->release_fence){
       continue;
     }
-    sprintf(acBuf,"frame-%" PRIu64 ,frame_no_);
-    int ret = layer->release_fence.Set(CreateNextTimelineFence(acBuf));
+    if(has_used){
+      ret = layer->release_fence.Set(dup(release_fence));
+    }else{
+      ret = layer->release_fence.Set(release_fence);
+    }
     if (ret < 0){
         ALOGE("creat release fence failed ret=%d,%s",ret,strerror(errno));
       return ret;
     }
+    has_used = true;
     //ALOGD("%s,line=%d layerId = %" PRIu32 " frame no = %" PRIu64 " releaseFd = %d" ,__FUNCTION__,__LINE__,
     //      layer->uId_,frame_no_,layer->release_fence.get());
+
   }
   return 0;
 }

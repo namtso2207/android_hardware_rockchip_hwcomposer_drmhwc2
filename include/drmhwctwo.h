@@ -368,7 +368,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool force_gles_;
     int fb_blanked;
 
-    uint32_t frame_no_ = 0;
+    uint32_t frame_no_ = 1;
   };
 
   class DrmHotplugHandler : public DrmEventHandler {
