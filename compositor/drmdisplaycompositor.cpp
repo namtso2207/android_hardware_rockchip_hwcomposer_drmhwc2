@@ -979,6 +979,7 @@ int DrmDisplayCompositor::Composite() {
 
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
+#if 0 // Internal process optimization for CPU utilisation
       if (composition->geometry_changed()) {
         // Send the composition to the kernel to ensure we can commit it. This
         // is just a test, it won't actually commit the frame.
@@ -989,6 +990,7 @@ int DrmDisplayCompositor::Composite() {
           return ret;
         }
       }
+#endif
       frame_worker_.QueueFrame(std::move(composition), ret);
       break;
     case DRM_COMPOSITION_TYPE_DPMS:
