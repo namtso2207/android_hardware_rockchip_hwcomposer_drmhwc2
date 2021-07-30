@@ -86,12 +86,6 @@ void DrmDisplayCompositor::FrameWorker::QueueFrame(
     std::unique_ptr<DrmDisplayComposition> composition, int status) {
   Lock();
 
-  while(frame_queue_.size() >= DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH){
-    Unlock();
-    sched_yield();
-    Lock();
-  }
-
   FrameState frame;
   frame.composition = std::move(composition);
   frame.status = status;
@@ -125,7 +119,7 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
     frame = std::move(frame_queue_.front());
     frame_queue_.pop();
   }else{ // frame_queue_ is empty
-    ALOGW("%s,line=%d frame_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
+    ALOGW_IF(LogLevel(DBG_DEBUG),"%s,line=%d frame_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
     Unlock();
     return;
   }
