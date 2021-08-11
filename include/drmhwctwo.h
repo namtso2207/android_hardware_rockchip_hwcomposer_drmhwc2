@@ -50,6 +50,14 @@ class DrmHwcTwo : public hwc2_device_t {
       id_ = layer_id;
       drmGralloc_ = DrmGralloc::getInstance();
     }
+
+    void clear(){
+      buffer_ = NULL;
+      acquire_fence_.Close();
+      release_fence_.Close();
+      next_release_fence_.Close();
+    }
+
     HWC2::Composition sf_type() const {
       return sf_type_;
     }
@@ -118,6 +126,7 @@ class DrmHwcTwo : public hwc2_device_t {
     void EnableAfbc() { is_afbc_ = true;};
     void DisableAfbc() { is_afbc_ = false;};
     bool isAfbc() { return is_afbc_;};
+
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);

@@ -435,6 +435,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
 
+  // Clear Layers
+  layers_.clear();
+  // Clear Client Target Layer
+  client_layer_.clear();
+
   if(init_success_){
     return HWC2::Error::None;
   }
@@ -557,6 +562,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,layer);
+
   if(layers_.count(layer)){
     layers_.erase(layer);
     return HWC2::Error::None;
