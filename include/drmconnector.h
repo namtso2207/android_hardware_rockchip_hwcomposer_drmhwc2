@@ -94,10 +94,7 @@ class DrmConnector {
   }
   DrmEncoder *encoder() const;
   void set_encoder(DrmEncoder *encoder);
-
-  drmModeConnection state() const;
-  drmModeConnection raw_state() const;
-  void force_disconnect(bool force);
+  drmModeConnection state();
 
   uint32_t mm_width() const;
   uint32_t mm_height() const;
@@ -138,7 +135,6 @@ class DrmConnector {
   uint32_t unique_id_;
   uint32_t priority_;
   drmModeConnection state_;
-  bool force_disconnect_;
 
   uint32_t mm_width_;
   uint32_t mm_height_;

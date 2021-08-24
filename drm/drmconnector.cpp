@@ -64,7 +64,6 @@ DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
       unique_id_(0),
       priority_(-1),
       state_(c->connection),
-      force_disconnect_(false),
       mm_width_(c->mmWidth),
       mm_height_(c->mmHeight),
       possible_encoders_(possible_encoders),
@@ -834,13 +833,7 @@ void DrmConnector::set_encoder(DrmEncoder *encoder) {
   encoder_ = encoder;
 }
 
-drmModeConnection DrmConnector::state() const {
-  if (force_disconnect_)
-    return DRM_MODE_DISCONNECTED;
-  return state_;
-}
-
-drmModeConnection DrmConnector::raw_state() const {
+drmModeConnection DrmConnector::state() {
   return state_;
 }
 
@@ -972,9 +965,6 @@ const DrmProperty &DrmConnector::hdmi_output_format_property() const {
 
 const DrmProperty &DrmConnector::hdmi_output_depth_property() const {
   return hdmi_output_depth_;
-}
-void DrmConnector::force_disconnect(bool force) {
-    force_disconnect_ = force;
 }
 
 }  // namespace android

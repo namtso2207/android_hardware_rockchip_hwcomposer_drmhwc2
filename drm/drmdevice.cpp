@@ -1145,13 +1145,6 @@ int DrmDevice::ReleaseDpyRes(int display_id){
     return -EINVAL;
   }
 
-  if(conn->state() != DRM_MODE_DISCONNECTED){
-    ALOGE("%s:line=%d display-id=%d connector state is disconnected, to release resource.\n",
-          __FUNCTION__, __LINE__,display_id);
-    pthread_mutex_unlock(&diplay_route_mutex);
-    return -EINVAL;
-  }
-
   if(conn && conn->encoder() && conn->encoder()->crtc()){
     char conn_name[50];
     char property_conn_name[50];

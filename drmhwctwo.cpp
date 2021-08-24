@@ -274,8 +274,6 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
-  // ClearDisplay need to reset force_disocnnect state.
-  connector_->force_disconnect(false);
   compositor_.ClearDisplay();
 
   DrmCrtc *crtc = crtc_;
@@ -329,7 +327,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::BadDisplay;
   }
 
-  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+  if(connector_->state() != DRM_MODE_CONNECTED){
     ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
           connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
     return HWC2::Error::NoResources;
@@ -403,7 +401,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::BadDisplay;
   }
 
-  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+  if(connector_->state() != DRM_MODE_CONNECTED){
     ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
           connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
     return HWC2::Error::NoResources;
@@ -493,7 +491,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckDisplayState(){
     return HWC2::Error::BadDisplay;
   }
 
-  if(connector_->raw_state() != DRM_MODE_CONNECTED){
+  if(connector_->state() != DRM_MODE_CONNECTED){
     ALOGE_IF(LogLevel(DBG_ERROR),"Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init, %s,line=%d\n",
           connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
           __FUNCTION__, __LINE__);
@@ -1365,11 +1363,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   fb_blanked = fb_blank;
 
-
-  if(connector_){
-    connector_->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
-  }
-
   if(dpms_value == DRM_MODE_DPMS_OFF){
     ClearDisplay();
     int ret = drm_->ReleaseDpyRes(handle_);
@@ -1383,7 +1376,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
         int extend_display_id = extend->display();
         auto &display = g_ctx->displays_.at(extend_display_id);
         display.ClearDisplay();
-        extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
         ret = drm_->ReleaseDpyRes(extend_display_id);
         if (ret) {
           HWC2_ALOGE("Failed to ReleaseDpyRes for display=%d %d\n", extend_display_id, ret);
@@ -1401,7 +1393,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       DrmConnector *extend = drm_->GetConnectorForDisplay(display_id);
       if(extend != NULL){
         int extend_display_id = extend->display();
-        extend->force_disconnect(dpms_value == DRM_MODE_DPMS_OFF);
         ret = drm_->BindDpyRes(extend_display_id);
         if (ret) {
           HWC2_ALOGE("Failed to BindDpyRes for display=%d ret=%d\n", extend_display_id, ret);
@@ -1494,9 +1485,9 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
 
   output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, Type = %s-%u, Connector state = %s\n",handle_,
                         connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
-                        connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED");
+                        connector_->state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED");
 
-  if(connector_->raw_state() != DRM_MODE_CONNECTED)
+  if(connector_->state() != DRM_MODE_CONNECTED)
     return -1;
 
   DrmMode const &active_mode = connector_->active_mode();
@@ -1547,7 +1538,7 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(String8 &output){
 
   output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, Type = %s-%u, Connector state = %s , frame_no = %d\n",handle_,
                         connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
-                        connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED",
+                        connector_->state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED",
                         frame_no_);
 
   output.append(
@@ -1571,7 +1562,7 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
   String8 output;
   output.appendFormat(" DisplayId=%" PRIu64 ", Connector %u, Type = %s-%u, Connector state = %s , frame_no = %d\n",handle_,
                         connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id(),
-                        connector_->raw_state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED",
+                        connector_->state() == DRM_MODE_CONNECTED ? "DRM_MODE_CONNECTED" : "DRM_MODE_DISCONNECTED",
                         frame_no_);
 
   output.append(
@@ -2160,11 +2151,11 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   for (auto &conn : drm_->connectors()) {
-    drmModeConnection old_state = conn->raw_state();
+    drmModeConnection old_state = conn->state();
     conn->ResetModesReady();
     drmModeConnection cur_state = conn->UpdateModes()
                                       ? DRM_MODE_UNKNOWNCONNECTION
-                                      : conn->raw_state();
+                                      : conn->state();
 
     if(!conn->ModesReady())
       continue;
