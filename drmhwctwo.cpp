@@ -1131,7 +1131,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
                                                          .CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
-  composition->SetTimelineFd(compositor_.GetTimeline());
 
   // TODO: Don't always assume geometry changed
   ret = composition->SetLayers(map.layers.data(), map.layers.size(), true);
@@ -1151,7 +1150,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   ret = composition->CreateAndAssignReleaseFences();
   AddFenceToRetireFence(composition->take_out_fence());
   ret = compositor_.QueueComposition(std::move(composition));
-  ++frame_no_;
+
   return HWC2::Error::None;
 }
 
@@ -1187,6 +1186,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   // promote the next retire fence
   *retire_fence = retire_fence_.Release();
   retire_fence_ = std::move(next_retire_fence_);
+
+  ++frame_no_;
 
   UpdateTimerState(!static_screen_opt_);
   return HWC2::Error::None;

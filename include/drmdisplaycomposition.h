@@ -128,7 +128,6 @@ class DrmDisplayComposition {
            uint64_t frame_no);
 
   int SetLayers(DrmHwcLayer *layers, size_t num_layers, bool geometry_changed);
-  int SetTimelineFd(int timeline_fd);
   int AddPlaneComposition(DrmCompositionPlane plane);
   int AddPlaneDisable(DrmPlane *plane);
   int SetDpmsMode(uint32_t dpms_mode);
@@ -137,8 +136,8 @@ class DrmDisplayComposition {
   int DisableUnusedPlanes();
   int CreateAndAssignReleaseFences();
   int SignalCompositionDone() {
-    ALOGD_IF(LogLevel(DBG_DEBUG),"%s: signal frame = %d", __FUNCTION__,timeline_current_);
-    return IncreaseTimelineToPoint(1);
+    ALOGD_IF(LogLevel(DBG_DEBUG),"%s: signal frame = %" PRIu64, __FUNCTION__,frame_no_);
+    return IncreaseTimelineToPoint(timeline_);
   }
 
   std::vector<DrmHwcLayer> &layers() {
@@ -206,6 +205,7 @@ class DrmDisplayComposition {
   DrmMode display_mode_;
 
   int timeline_fd_ = -1;
+  int timeline_ = 0;
   int timeline_current_ = 0;
 
   UniqueFd out_fence_ = -1;

@@ -29,7 +29,6 @@
 #include "drm/drm_mode.h"
 #include <log/log.h>
 #include <sync/sync.h>
-#include <libsync/sw_sync.h>
 #include <utils/Trace.h>
 
 // System property
@@ -179,11 +178,6 @@ DrmDisplayCompositor::~DrmDisplayCompositor() {
 
   active_composition_.reset();
 
-  if(timeline_fd_>0){
-    close(timeline_fd_);
-    timeline_fd_ = -1;
-  }
-
   ret = pthread_mutex_unlock(&lock_);
   if (ret)
     ALOGE("Failed to acquire compositor lock %d", ret);
@@ -221,14 +215,6 @@ int DrmDisplayCompositor::Init(ResourceManager *resource_manager, int display) {
   }
 
   pthread_cond_init(&composite_queue_cond_, NULL);
-
-  // Creat releaseFence timeline
-  ret = sw_sync_timeline_create();
-  if (ret < 0) {
-    ALOGE("Failed to create sw sync timeline %d", ret);
-    return ret;
-  }
-  timeline_fd_ = ret;
 
 //  vsync_worker_.Init(drm, display_);
 //  auto callback = std::make_shared<CompositorVsyncCallback>(this);
