@@ -66,6 +66,7 @@ public:
   int hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t flag);
   int hwc_get_handle_primefd(buffer_handle_t hnd);
   int hwc_get_handle_name(buffer_handle_t hnd, std::string &name);
+  int hwc_get_handle_buffer_id(buffer_handle_t hnd, uint64_t *buffer_id);
   void* hwc_get_handle_lock(buffer_handle_t hnd, int width, int height);
   int hwc_get_handle_unlock(buffer_handle_t hnd);
   uint32_t hwc_get_handle_phy_addr(buffer_handle_t hnd);

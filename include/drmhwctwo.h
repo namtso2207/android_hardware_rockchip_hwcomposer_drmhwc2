@@ -34,7 +34,7 @@ class DrmHwcTwo;
 
 DrmHwcTwo *g_ctx = NULL;
 
-#define MAX_NUM_BUFFER_SLOTS 64
+#define MAX_NUM_BUFFER_SLOTS 32
 
 class DrmHwcTwo : public hwc2_device_t {
  public:
@@ -92,6 +92,7 @@ class DrmHwcTwo : public hwc2_device_t {
       int iUsage_=0;
       uint32_t uFourccFormat_=0;
       uint64_t uModifier_=0;
+      uint64_t uBufferId_;
       std::string sLayerName_;
     }bufferInfo_t;
 
@@ -101,24 +102,29 @@ class DrmHwcTwo : public hwc2_device_t {
     void set_buffer(buffer_handle_t buffer) {
       buffer_ = buffer;
 
+      // Bufferinfo Cache
+      uint64_t buffer_id;
+      drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
+
       // Get Buffer info
-      const auto mapBuffer = bufferInfoMap_.find(buffer);
+      const auto mapBuffer = bufferInfoMap_.find(buffer_id);
       if(mapBuffer == bufferInfoMap_.end()){
-        //
+        // If bHasCache_ is true, the new buffer_id need to reset mapBuffer
         if(bHasCache_){
-          HWC2_ALOGD_IF_VERBOSE("bHasCache=%d to reset bufferInfoMap_ BufferHandle=%p Name=%s",
-                               bHasCache_,buffer,pBufferInfo_->sLayerName_.c_str());
+          HWC2_ALOGD_IF_VERBOSE("bHasCache=%d to reset bufferInfoMap_ BufferId=%" PRIx64 " Name=%s",
+                               bHasCache_,buffer_id,pBufferInfo_->sLayerName_.c_str());
           bufferInfoMap_.clear();
           bHasCache_  = false;
         }
 
+        // If size is too big, the new buffer_id need to reset mapBuffer
         if(bufferInfoMap_.size() > MAX_NUM_BUFFER_SLOTS){
-          HWC2_ALOGD_IF_VERBOSE("MapSize=%zu too large to reset bufferInfoMap_ BufferHandle=%p Name=%s",
-                               bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+          HWC2_ALOGD_IF_VERBOSE("MapSize=%zu too large to reset bufferInfoMap_ BufferId=%" PRIx64 " Name=%s",
+                               bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
           bufferInfoMap_.clear();
         }
 
-        auto ret = bufferInfoMap_.emplace(std::make_pair(buffer, std::make_shared<bufferInfo_t>(bufferInfo())));
+        auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<bufferInfo_t>(bufferInfo())));
         if(ret.second == false){
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",buffer);
         }else{
@@ -134,14 +140,14 @@ class DrmHwcTwo : public hwc2_device_t {
           pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
           drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
           layer_name_ = pBufferInfo_->sLayerName_;
-          HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferHandle=%p Name=%s",
-                               bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+          HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64 " Name=%s",
+                               bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
         }
       }else{
         bHasCache_ = true;
         pBufferInfo_ = mapBuffer->second;
-        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu has cache! BufferHandle=%p Name=%s",
-                             bufferInfoMap_.size(),buffer,pBufferInfo_->sLayerName_.c_str());
+        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu has cache! BufferId=%" PRIx64 " Name=%s",
+                             bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
       }
     }
 
@@ -231,7 +237,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Buffer info map
     bool bHasCache_ = false;
-    std::map<buffer_handle_t, std::shared_ptr<bufferInfo_t>> bufferInfoMap_;
+    std::map<uint64_t, std::shared_ptr<bufferInfo_t>> bufferInfoMap_;
 
     // Buffer info point
     std::shared_ptr<bufferInfo_t> pBufferInfo_;

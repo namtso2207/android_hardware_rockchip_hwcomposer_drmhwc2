@@ -100,6 +100,8 @@ using android::gralloc4::MetadataType_Height;
 using android::gralloc4::decodeHeight;
 using android::gralloc4::MetadataType_Name;
 using android::gralloc4::decodeName;
+using android::gralloc4::MetadataType_BufferId;
+using android::gralloc4::decodeBufferId;
 
 using aidl::android::hardware::graphics::common::Dataspace;
 using aidl::android::hardware::graphics::common::PlaneLayout;
@@ -635,6 +637,18 @@ int get_name(buffer_handle_t handle, std::string &name)
     return err;
 }
 
+int get_buffer_id(buffer_handle_t handle, uint64_t* buffer_id)
+{
+    auto &mapper = get_service();
+
+    int err = get_metadata(mapper, handle, MetadataType_BufferId, decodeBufferId, buffer_id);
+    if (err != android::OK)
+    {
+        ALOGE("err : %d", err);
+    }
+
+    return err;
+}
 
 status_t importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle)
 {

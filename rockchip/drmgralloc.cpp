@@ -475,6 +475,22 @@ int DrmGralloc::hwc_get_handle_name(buffer_handle_t hnd, std::string &name){
 
 }
 
+int DrmGralloc::hwc_get_handle_buffer_id(buffer_handle_t hnd, uint64_t *buffer_id){
+#if USE_GRALLOC_4
+
+    int err = gralloc4::get_buffer_id(hnd, buffer_id);
+    if (err != android::OK)
+    {
+        ALOGE("Failed to get buffer share_fd, err : %d", err);
+        return -1;
+    }
+
+    return (int)err;
+#else   // USE_GRALLOC_4
+    return -1;
+#endif
+
+}
 
 uint32_t DrmGralloc::hwc_get_handle_phy_addr(buffer_handle_t hnd)
 {

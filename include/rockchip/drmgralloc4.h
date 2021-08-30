@@ -104,6 +104,7 @@ int get_share_fd(buffer_handle_t handle, int* share_fd);
 
 int get_name(buffer_handle_t handle, std::string &name);
 
+int get_buffer_id(buffer_handle_t handle, uint64_t* buffer_id);
 
 using android::status_t;
 
