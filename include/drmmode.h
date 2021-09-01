@@ -23,6 +23,20 @@
 
 #define DRM_MODE_FLAG_420_MASK			(0x03<<23)
 
+/*
+ * Legacy definitions for old code that doesn't use
+ * the above mask definitions. Don't use in future code.
+ */
+/* rotation property bits */
+#ifndef DRM_ROTATE_0
+#define DRM_ROTATE_0   0
+#define DRM_ROTATE_90  1
+#define DRM_ROTATE_180 2
+#define DRM_ROTATE_270 3
+#define DRM_REFLECT_X  4
+#define DRM_REFLECT_Y  5
+#endif
+
 namespace android {
 
 class DrmMode {

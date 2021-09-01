@@ -421,7 +421,7 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
       found_primary = true;
       conn->set_possible_displays(conn->possible_displays() | HWC_DISPLAY_PRIMARY_BIT);
       primary = conn.get();
-      break;
+      if (primary) break;
     }
   }
 

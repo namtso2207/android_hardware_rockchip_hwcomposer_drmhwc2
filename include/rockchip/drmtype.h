@@ -39,6 +39,12 @@
 #include "rockchip/drmbaseparameter.h"
 
 #include <libsystem/include/system/graphics-base-v1.0.h>
+
+#ifdef ANDROID_S
+#include <hardware/hardware_rockchip.h>
+#include <hardware/gralloc_rockchip.h>
+#endif
+
 #include <hardware/gralloc.h>
 #define PROPERTY_TYPE "vendor"
 

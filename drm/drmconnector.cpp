@@ -856,17 +856,23 @@ int DrmConnector::switch_hdmi_hdr_mode(android_dataspace_t colorspace){
   struct hdr_output_metadata hdr_metadata;
   memset(&hdr_metadata, 0, sizeof(struct hdr_output_metadata));
 
+#ifdef ANDROID_S
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type1;
+#else
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type;
+#endif
+
   if((colorspace & HAL_DATASPACE_TRANSFER_MASK) == HAL_DATASPACE_TRANSFER_ST2084
       && isSupportSt2084()){
       ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d has st2084",__FUNCTION__,__LINE__);
-      hdr_metadata.hdmi_metadata_type.eotf = SMPTE_ST2084;
+      hdmi_metadata_type.eotf = SMPTE_ST2084;
   }else if((colorspace & HAL_DATASPACE_TRANSFER_MASK) == HAL_DATASPACE_TRANSFER_HLG
       && isSupportHLG()){
       ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d has HLG",__FUNCTION__,__LINE__);
-      hdr_metadata.hdmi_metadata_type.eotf = HLG;
+      hdmi_metadata_type.eotf = HLG;
   }else{
       //ALOGE("Unknow etof %d",eotf);
-      hdr_metadata.hdmi_metadata_type.eotf = TRADITIONAL_GAMMA_SDR;
+      hdmi_metadata_type.eotf = TRADITIONAL_GAMMA_SDR;
   }
 
   uint32_t blob_id = 0;
@@ -885,7 +891,7 @@ int DrmConnector::switch_hdmi_hdr_mode(android_dataspace_t colorspace){
           ALOGD_IF(LogLevel(DBG_DEBUG),"%s: no need to update metadata", __FUNCTION__);
       }else{
         hdr_state_update = true;
-        ALOGD_IF(LogLevel(DBG_DEBUG),"%s: hdr_metadata eotf=0x%x", __FUNCTION__,hdr_metadata.hdmi_metadata_type.eotf);
+        ALOGD_IF(LogLevel(DBG_DEBUG),"%s: hdr_metadata eotf=0x%x", __FUNCTION__,hdmi_metadata_type.eotf);
         drm_->CreatePropertyBlob(&hdr_metadata, sizeof(struct hdr_output_metadata), &blob_id);
         ret = drmModeAtomicAddProperty(pset, id(), hdr_metadata_property().id(), blob_id);
         if (ret < 0) {

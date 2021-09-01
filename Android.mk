@@ -73,7 +73,6 @@ LOCAL_C_INCLUDES := \
   external/tinyxml2 \
   hardware/rockchip/libbaseparameter
 
-
 LOCAL_SRC_FILES := \
   drmhwctwo.cpp \
   compositor/drmdisplaycomposition.cpp \
@@ -108,7 +107,14 @@ LOCAL_CPPFLAGS += \
   -DUSE_HWC2 \
   -DMALI_AFBC_GRALLOC \
   -DUSE_DRM_GENERIC_IMPORTER \
+  -Wno-unreachable-code-loop-increment \
   -DUSE_NO_ASPECT_RATIO
+
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
+LOCAL_CFLAGS += -DANDROID_S
+LOCAL_HEADER_LIBRARIES += \
+  libhardware_rockchip_headers
+endif
 
 # API 30 -> Android 11.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
