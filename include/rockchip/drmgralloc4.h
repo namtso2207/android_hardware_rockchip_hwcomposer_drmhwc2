@@ -62,6 +62,25 @@
 
 
 namespace gralloc4 {
+/*
+ * 闫孝军反馈“4.19内核里面没这个format，要从linux 主线 5.2 以后里面反向porting 回来。4.19和5.2差别很大。
+ * 反向porting有很多冲突要解决”，所以从上层HWC模块去规避这个问题，HWC实现如下：
+ * 1.格式转换：
+ *   DRM_FORMAT_YUV420_10BIT => DRM_FORMAT_NV12_10
+ *   DRM_FORMAT_YUV420_8BIT  => DRM_FORMAT_NV12
+ *   DRM_FORMAT_YUYV         => DRM_FORMAT_NV16
+ *
+ * 2.Byte Stride 转换：
+ *   DRM_FORMAT_NV12_10 / DRM_FORMAT_NV12:
+ *       Byte stride = Byte stride / 1.5
+ *
+ *   DRM_FORMAT_NV16:
+ *       Byte stride = Byte stride / 2
+ *
+ * 按上述实现，可以在当前版本保证视频送显正常，提供开关 WORKROUND_FOR_VOP2_DRIVER
+ */
+void set_drm_version(int version);
+
 /* ---------------------------------------------------------------------------------------------------------
  *  Types and Structures Definition
  * ---------------------------------------------------------------------------------------------------------

@@ -119,6 +119,18 @@ const static IMapper::MetadataType ArmMetadataType_PLANE_FDS
     1   // 就是上面的 'PLANE_FDS'
 };
 
+/* ---------------------------------------------------------------------------------------------------------
+ * External Function Prototypes (referenced in this file)
+ * ---------------------------------------------------------------------------------------------------------
+ */
+
+/* ---------------------------------------------------------------------------------------------------------
+ * Local Macros
+ * ---------------------------------------------------------------------------------------------------------
+ */
+
+namespace gralloc4 {
+
 /*
  * 闫孝军反馈“4.19内核里面没这个format，要从linux 主线 5.2 以后里面反向porting 回来。4.19和5.2差别很大。
  * 反向porting有很多冲突要解决”，所以从上层HWC模块去规避这个问题，HWC实现如下：
@@ -136,19 +148,11 @@ const static IMapper::MetadataType ArmMetadataType_PLANE_FDS
  *
  * 按上述实现，可以在当前版本保证视频送显正常，提供开关 WORKROUND_FOR_VOP2_DRIVER
  */
-#define WORKROUND_FOR_VOP2_DRIVER 1
+static int DrmVersion=0;
+void set_drm_version(int version){
+  DrmVersion = version;
+}
 
-/* ---------------------------------------------------------------------------------------------------------
- * External Function Prototypes (referenced in this file)
- * ---------------------------------------------------------------------------------------------------------
- */
-
-/* ---------------------------------------------------------------------------------------------------------
- * Local Macros
- * ---------------------------------------------------------------------------------------------------------
- */
-
-namespace gralloc4 {
 /* ---------------------------------------------------------------------------------------------------------
  * Local Typedefs
  * ---------------------------------------------------------------------------------------------------------
@@ -340,11 +344,15 @@ uint32_t get_fourcc_format(buffer_handle_t handle)
     int err = get_metadata(mapper, handle, MetadataType_PixelFormatFourCC, decodePixelFormatFourCC, &fourcc);
     assert(err == android::NO_ERROR);
 
-#if WORKROUND_FOR_VOP2_DRIVER==1
-    return convertToNV12(fourcc);
-#else
-    return fourcc;
-#endif
+    // DrmVersion:
+    // 3.0.0 = Kernel 5.10
+    // 2.0.0 = Kernel 4.19
+    if(DrmVersion == 3)
+      return fourcc;
+    else
+      return convertToNV12(fourcc);
+
+
 }
 
 uint64_t get_internal_format(buffer_handle_t handle)
@@ -522,24 +530,26 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
             // W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
         }
 
-#if WORKROUND_FOR_VOP2_DRIVER==1
-        if(format_requested == HAL_PIXEL_FORMAT_YUV420_8BIT_I
-           || format_requested == HAL_PIXEL_FORMAT_YUV420_10BIT_I
-           || format_requested == HAL_PIXEL_FORMAT_Y210){
-            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
-                      __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) * 2 / 3);
-            *byte_stride = (layouts[0].strideInBytes) * 2 / 3;
-        }else if(format_requested == HAL_PIXEL_FORMAT_YCBCR_422_I){
-            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
-                      __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) / 2);
-            *byte_stride = (layouts[0].strideInBytes) / 2;
-        }else{
+        // DrmVersion:
+        // 3.0.0 = Kernel 5.10
+        // 2.0.0 = Kernel 4.19
+        if(DrmVersion == 3){
             *byte_stride = (layouts[0].strideInBytes);
+        }else{
+            if(format_requested == HAL_PIXEL_FORMAT_YUV420_8BIT_I
+               || format_requested == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+               || format_requested == HAL_PIXEL_FORMAT_Y210){
+                ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
+                          __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) * 2 / 3);
+                *byte_stride = (layouts[0].strideInBytes) * 2 / 3;
+            }else if(format_requested == HAL_PIXEL_FORMAT_YCBCR_422_I){
+                ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
+                          __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) / 2);
+                *byte_stride = (layouts[0].strideInBytes) / 2;
+            }else{
+                *byte_stride = (layouts[0].strideInBytes);
+            }
         }
-#else
-        *byte_stride = (layouts[0].strideInBytes);
-#endif
-
     }
     /* 否则, 即 'format_requested' "是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
     else

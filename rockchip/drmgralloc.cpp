@@ -60,6 +60,14 @@ DrmGralloc::DrmGralloc(){
 
 DrmGralloc::~DrmGralloc(){}
 
+void DrmGralloc::set_drm_version(int version){
+
+#if USE_GRALLOC_4
+    gralloc4::set_drm_version(version);
+    drmVersion_ = version;
+#endif
+    return;
+}
 int DrmGralloc::hwc_get_handle_width(buffer_handle_t hnd)
 {
 

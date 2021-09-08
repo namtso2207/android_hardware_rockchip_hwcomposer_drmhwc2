@@ -219,6 +219,19 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     return std::make_tuple(-ENODEV, 0);
   }
 
+  drmVersionPtr version = drmGetVersion(fd());
+  if(version != NULL){
+#ifdef version_major
+#undef version_major
+#endif
+#ifdef version_minor
+#undef version_minor
+#endif
+    drm_version_ = version->version_major;
+    ALOGI("DrmVersion=%d.%d.%d",version->version_major,version->version_minor,version->version_patchlevel);
+    drmFreeVersion(version);
+  }
+
   int ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
   if (ret) {
     ALOGE("Failed to set universal plane cap %d", ret);

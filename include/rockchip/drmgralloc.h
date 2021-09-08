@@ -54,6 +54,7 @@ public:
 		return &drmGralloc_;
 	}
 
+  void set_drm_version(int version);
   int hwc_get_handle_width(buffer_handle_t hnd);
   int hwc_get_handle_height(buffer_handle_t hnd);
   int hwc_get_handle_format(buffer_handle_t hnd);
@@ -80,6 +81,7 @@ private:
 	DrmGralloc(const DrmGralloc&);
 	DrmGralloc& operator=(const DrmGralloc&);
 
+  int drmVersion_;
 #if USE_GRALLOC_4
 #else
   const gralloc_module_t *gralloc_;

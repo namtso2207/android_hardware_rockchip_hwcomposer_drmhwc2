@@ -72,6 +72,9 @@ int ResourceManager::AddDrmDevice(std::string path) {
 
   //Get soc id
   soc_id_ = drm->getSocId();
+  //DrmVersion
+  drmVersion_ = drm->getDrmVersion();
+  drmGralloc_->set_drm_version(drmVersion_);
 
   std::shared_ptr<Importer> importer;
   importer.reset(Importer::CreateInstance(drm.get()));

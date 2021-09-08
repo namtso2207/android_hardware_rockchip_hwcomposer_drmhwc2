@@ -68,6 +68,7 @@ class ResourceManager {
   DrmGralloc *drmGralloc_;
   int fb0_fd;
   int soc_id_;
+  int drmVersion_;
   bool dynamic_assigin_enable_;
 };
 }  // namespace android

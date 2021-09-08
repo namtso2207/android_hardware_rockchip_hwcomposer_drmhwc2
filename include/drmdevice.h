@@ -136,6 +136,7 @@ class DrmDevice {
   bool is_plane_support_hdr2sdr(DrmCrtc *conn) const;
   bool mode_verify(const DrmMode &mode);
   int getSocId(){ return soc_id_; };
+  int getDrmVersion(){ return drm_version_;}
   int UpdateConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
   int DumpConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
   int SetScreenInfo(unsigned int connector_type,unsigned int connector_id, int index, struct screen_info *info);
@@ -151,6 +152,9 @@ class DrmDevice {
 
   UniqueFd fd_;
   int soc_id_;
+  // Kernel 4.19 = 2.0.0
+  // Kernel 5.10 = 3.0.0
+  int drm_version_;
   uint32_t mode_id_ = 0;
   bool enable_changed_;
   int hotplug_timeline;
