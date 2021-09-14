@@ -287,6 +287,13 @@ void DrmHwcTwo::HwcDisplay::ClearDisplay() {
 void DrmHwcTwo::HwcDisplay::ReleaseResource(){
   resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
   resource_manager_->assignPlaneGroup();
+
+  if(handle_ != HWC_DISPLAY_PRIMARY){
+    // Clear Layers
+    layers_.clear();
+    // Clear Client Target Layer
+    client_layer_.clear();
+  }
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
@@ -418,11 +425,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
-
-  // Clear Layers
-  layers_.clear();
-  // Clear Client Target Layer
-  client_layer_.clear();
 
   if(init_success_){
     return HWC2::Error::None;
