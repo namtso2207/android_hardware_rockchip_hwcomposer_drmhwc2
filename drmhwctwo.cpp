@@ -357,14 +357,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
 
-  // Reset HwcLayer resource
-  if(handle_ != HWC_DISPLAY_PRIMARY){
-    // Clear Layers
-    layers_.clear();
-    // Clear Client Target Layer
-    client_layer_.clear();
-  }
-
   ctx_.aclk = crtc_->get_aclk();
   // Baseparameter Info
   ctx_.baseparameter_info = connector_->baseparameter_info();
@@ -426,6 +418,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
 
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
+
+  // Reset HwcLayer resource
+  if(handle_ != HWC_DISPLAY_PRIMARY){
+    // Clear Layers
+    layers_.clear();
+    // Clear Client Target Layer
+    client_layer_.clear();
+  }
 
   if(init_success_){
     return HWC2::Error::None;
