@@ -379,8 +379,11 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
   DrmDevice *drm = crtc->getDrmDevice();
+  bool bHdrSupport = false;
   DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
-  bool bHdrSupport = connector->is_hdmi_support_hdr() && ctx.support.iHdrCnt > 0;
+  if(connector){
+    bHdrSupport = connector->is_hdmi_support_hdr() && ctx.support.iHdrCnt > 0;
+  }
 
   //loop plane groups.
   for (iter = plane_groups.begin();
