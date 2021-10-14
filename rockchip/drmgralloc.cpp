@@ -547,31 +547,6 @@ uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
 }
 
 
-uint64_t DrmGralloc::hwc_get_handle_internal_format(buffer_handle_t hnd)
-{
-#if USE_GRALLOC_4
-    uint64_t internal_format = 0;
-    internal_format = gralloc4::get_internal_format(hnd);
-    return internal_format;
-#else // #if USE_GRALLOC_4
-    int ret = 0;
-    int op = GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT;
-    uint64_t internal_format = 0;
-
-    if(gralloc_ && gralloc_->perform)
-        ret = gralloc_->perform(gralloc_, op, hnd, &internal_format);
-    else
-        ret = -EINVAL;
-
-    if(ret != 0)
-    {
-        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
-    }
-
-    return internal_format;
-#endif
-}
-
 void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height){
   void* cpu_addr = NULL;
 #if USE_GRALLOC_4

@@ -73,7 +73,6 @@ public:
   uint32_t hwc_get_handle_phy_addr(buffer_handle_t hnd);
   uint64_t hwc_get_handle_format_modifier(buffer_handle_t hnd);
   uint32_t hwc_get_handle_fourcc_format(buffer_handle_t hnd);
-  uint64_t hwc_get_handle_internal_format(buffer_handle_t hnd);
 
 private:
 	DrmGralloc();
