@@ -917,6 +917,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
                                                       hwc2_layer_t *layers,
                                                       int32_t *layer_requests) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+
   // TODO: I think virtual display should request
   //      HWC2_DISPLAY_REQUEST_WRITE_CLIENT_TARGET_TO_OUTPUT here
   uint32_t num_request = 0;

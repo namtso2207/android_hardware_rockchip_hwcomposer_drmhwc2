@@ -37,6 +37,17 @@ LOCAL_PATH := $(call my-dir)
 
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
+# API 31 -> Android 12.0
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
+ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
+        BOARD_USES_DRM_HWCOMPOSER2=false
+else  # BUILD_WITH_RK_EBOOK
+        BOARD_USES_DRM_HWCOMPOSER2=true
+endif # BUILD_WITH_RK_EBOOK
+endif
+
+# API 30 -> Android 11.0
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk356x)
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
@@ -44,7 +55,8 @@ else  # BUILD_WITH_RK_EBOOK
         BOARD_USES_DRM_HWCOMPOSER2=true
 endif # BUILD_WITH_RK_EBOOK
 else
-        BOARD_USES_DRM_HWCOMPOSER=true
+        BOARD_USES_DRM_HWCOMPOSER2=true
+endif
 endif
 
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)

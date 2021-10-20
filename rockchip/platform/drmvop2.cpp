@@ -34,7 +34,7 @@
  * limitations under the License.
  */
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
-#define LOG_TAG "drm-vop"
+#define LOG_TAG "drm-vop2"
 
 #include "rockchip/platform/drmvop2.h"
 #include "drmdevice.h"

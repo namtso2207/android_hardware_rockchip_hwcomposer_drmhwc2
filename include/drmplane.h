@@ -27,7 +27,8 @@
 
 namespace android {
 
-enum DrmPlaneType{
+// Rk356x
+enum DrmPlaneTypeVop2{
       DRM_PLANE_TYPE_CLUSTER0_WIN0 = 1 << 0,
       DRM_PLANE_TYPE_CLUSTER0_WIN1 = 1 << 1,
 
@@ -61,12 +62,34 @@ enum DrmPlaneType{
       DRM_PLANE_TYPE_ESMART1_MASK = 0xf00,
       DRM_PLANE_TYPE_SMART0_MASK  = 0xf000,
       DRM_PLANE_TYPE_SMART1_MASK  = 0xf0000,
-      DRM_PLANE_TYPE_Unknown      = 0xffffffff,
+      DRM_PLANE_TYPE_VOP2_Unknown      = 0xffffffff,
 };
 
-struct plane_type_name {
-  DrmPlaneType type;
-  const char *name;
+// RK3399/Rk3288/RK3328/RK3128
+enum DrmPlaneTypeVop1{
+      DRM_PLANE_TYPE_VOP0_WIN0   = 1 << 0,
+      DRM_PLANE_TYPE_VOP0_WIN1   = 1 << 1,
+
+      DRM_PLANE_TYPE_VOP0_WIN2_0 = 1 << 2,
+      DRM_PLANE_TYPE_VOP0_WIN2_1 = 1 << 3,
+      DRM_PLANE_TYPE_VOP0_WIN2_2 = 1 << 4,
+      DRM_PLANE_TYPE_VOP0_WIN2_3 = 1 << 5,
+
+      DRM_PLANE_TYPE_VOP0_WIN3_0 = 1 << 6,
+      DRM_PLANE_TYPE_VOP0_WIN3_1 = 1 << 7,
+      DRM_PLANE_TYPE_VOP0_WIN3_2 = 1 << 8,
+      DRM_PLANE_TYPE_VOP0_WIN3_3 = 1 << 9,
+
+      DRM_PLANE_TYPE_VOP1_WIN0   = 1 << 10,
+
+      DRM_PLANE_TYPE_VOP1_WIN2_0 = 1 << 11,
+      DRM_PLANE_TYPE_VOP1_WIN2_1 = 1 << 12,
+      DRM_PLANE_TYPE_VOP1_WIN2_2 = 1 << 13,
+      DRM_PLANE_TYPE_VOP1_WIN2_3 = 1 << 14,
+
+      DRM_PLANE_TYPE_VOP0_MASK   = 0x3ff,
+      DRM_PLANE_TYPE_VOP1_MASK   = 0x7c,
+      DRM_PLANE_TYPE_VOP1_Unknown      = 0xffffffff,
 };
 
 enum DrmPlaneRotationType{
@@ -104,7 +127,7 @@ class DrmDevice;
 
 class DrmPlane {
  public:
-  DrmPlane(DrmDevice *drm, drmModePlanePtr p);
+  DrmPlane(DrmDevice *drm, drmModePlanePtr p, int soc_id);
   DrmPlane(const DrmPlane &) = delete;
   DrmPlane &operator=(const DrmPlane &) = delete;
 
@@ -116,8 +139,9 @@ class DrmPlane {
 
   uint32_t type() const;
 
-  DrmPlaneType win_type() const;
+  uint64_t win_type() const;
   const char* name() const;
+  void mark_type_by_name();
   const DrmProperty &crtc_property() const;
   const DrmProperty &fb_property() const;
   const DrmProperty &crtc_x_property() const;
@@ -216,7 +240,7 @@ class DrmPlane {
   bool b_sdr2hdr_;
   bool b_afbdc_;
   bool b_afbc_prop_;
-  DrmPlaneType win_type_;
+  uint64_t win_type_;
   const char *name_;
   uint32_t rotate_=0;
   int input_w_max_;
@@ -228,6 +252,7 @@ class DrmPlane {
 
   std::set<uint32_t> support_format_list;
   drmModePlanePtr plane_;
+  int soc_id_;
 };
 }  // namespace android
 

@@ -29,19 +29,30 @@ namespace android {
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 struct plane_mask_name {
-  DrmPlaneType mask;
+  uint64_t mask;
   const char *name;
 };
 
-struct plane_mask_name plane_mask_names[] = {
+struct plane_mask_name vop2_plane_mask_names[] = {
   { DRM_PLANE_TYPE_CLUSTER0_MASK, "Cluster0" },
   { DRM_PLANE_TYPE_CLUSTER1_MASK, "Cluster1" },
   { DRM_PLANE_TYPE_ESMART0_MASK, "Esmart0" },
   { DRM_PLANE_TYPE_ESMART1_MASK, "Esmart1" },
   { DRM_PLANE_TYPE_SMART0_MASK, "Smart0" },
   { DRM_PLANE_TYPE_SMART1_MASK, "Smart1" },
-  { DRM_PLANE_TYPE_Unknown, "unknown" },
+  { DRM_PLANE_TYPE_VOP2_Unknown, "unknown" },
 };
+
+struct plane_mask_name vop1_plane_mask_names[] = {
+  { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win0" },
+  { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win1" },
+  { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win2" },
+  { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win3" },
+  { DRM_PLANE_TYPE_VOP1_MASK, "VOP1-win0" },
+  { DRM_PLANE_TYPE_VOP1_MASK, "VOP1-win1" },
+  { DRM_PLANE_TYPE_VOP1_Unknown, "unknown" },
+};
+
 
 
 DrmCrtc::DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe)
@@ -143,11 +154,25 @@ int DrmCrtc::Init() {
   if (ret) {
     ALOGE("Failed to get plane_mask property");
   }else{
-    for(int i = 0; i < ARRAY_SIZE(plane_mask_names); i++){
-      bool have_mask = false;
-      std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names[i].name);
-      if(have_mask){
-        plane_mask_ |= plane_mask_names[i].mask;
+
+    if(soc_id_ == 0x3566   ||
+       soc_id_ == 0x3566a ||
+       soc_id_ == 0x3568   ||
+       soc_id_ == 0x3568a ){
+      for(int i = 0; i < ARRAY_SIZE(vop2_plane_mask_names); i++){
+        bool have_mask = false;
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(vop2_plane_mask_names[i].name);
+        if(have_mask){
+          plane_mask_ |= vop2_plane_mask_names[i].mask;
+        }
+      }
+    }else{
+      for(int i = 0; i < ARRAY_SIZE(vop1_plane_mask_names); i++){
+        bool have_mask = false;
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(vop1_plane_mask_names[i].name);
+        if(have_mask){
+          plane_mask_ |= vop1_plane_mask_names[i].mask;
+        }
       }
     }
   }

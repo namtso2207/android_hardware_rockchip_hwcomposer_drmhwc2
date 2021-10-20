@@ -660,7 +660,7 @@ int  PlanStageVop::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_p
   out_plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
   for(auto &plane_group : all_plane_groups){
-    if(plane_group->acquire(crtc->pipe()))
+    if(plane_group->acquire(1 << crtc->pipe()))
       out_plane_groups.push_back(plane_group);
   }
   return out_plane_groups.size() > 0 ? 0 : -1;
@@ -1119,6 +1119,9 @@ int PlanStageVop::TryMatchPolicyFirst(
   iReqRotateCnt=0;
   iReqHdrCnt=0;
   for(auto &layer : layers){
+    if(layer->bFbTarget_)
+      continue;
+
     if(layer->bSkipLayer_){
       iReqSkipCnt++;
       continue;
@@ -1231,5 +1234,16 @@ int PlanStageVop::TryHwcPolicy(
   ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
   return -1;
 }
+
+bool PlanStageVop::SupportPlatform(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3399:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 }
 

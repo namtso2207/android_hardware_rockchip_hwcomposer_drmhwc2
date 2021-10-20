@@ -29,36 +29,6 @@
 namespace android {
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-struct plane_type_name plane_type_names[] = {
-  { DRM_PLANE_TYPE_CLUSTER0_WIN0, "Cluster0-win0" },
-  { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
-  { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
-  { DRM_PLANE_TYPE_CLUSTER1_WIN1, "Cluster1-win1" },
-
-  { DRM_PLANE_TYPE_ESMART0_WIN0, "Esmart0-win0" },
-  { DRM_PLANE_TYPE_ESMART0_WIN1, "Esmart0-win1" },
-  { DRM_PLANE_TYPE_ESMART0_WIN2, "Esmart0-win2" },
-  { DRM_PLANE_TYPE_ESMART0_WIN3, "Esmart0-win3" },
-
-  { DRM_PLANE_TYPE_ESMART1_WIN0, "Esmart1-win0" },
-  { DRM_PLANE_TYPE_ESMART1_WIN1, "Esmart1-win1" },
-  { DRM_PLANE_TYPE_ESMART1_WIN2, "Esmart1-win2" },
-  { DRM_PLANE_TYPE_ESMART1_WIN3, "Esmart1-win3" },
-
-  { DRM_PLANE_TYPE_SMART0_WIN0, "Smart0-win0" },
-  { DRM_PLANE_TYPE_SMART0_WIN1, "Smart0-win1" },
-  { DRM_PLANE_TYPE_SMART0_WIN2, "Smart0-win2" },
-  { DRM_PLANE_TYPE_SMART0_WIN3, "Smart0-win3" },
-
-  { DRM_PLANE_TYPE_SMART1_WIN0, "Smart1-win0" },
-  { DRM_PLANE_TYPE_SMART1_WIN1, "Smart1-win1" },
-  { DRM_PLANE_TYPE_SMART1_WIN2, "Smart1-win2" },
-  { DRM_PLANE_TYPE_SMART1_WIN3, "Smart1-win3" },
-
-  { DRM_PLANE_TYPE_Unknown, "unknown" },
-};
-
 struct plane_rotation_type_name plane_rotation_type_names[] = {
   { DRM_PLANE_ROTATION_0, "rotate-0" },
   { DRM_PLANE_ROTATION_90, "rotate-90" },
@@ -68,8 +38,11 @@ struct plane_rotation_type_name plane_rotation_type_names[] = {
   { DRM_PLANE_ROTATION_Unknown, "unknown" },
 };
 
-DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p)
-    : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs), plane_(p) {
+DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p,int soc_id)
+    : drm_(drm), id_(p->plane_id),
+      possible_crtc_mask_(p->possible_crtcs),
+      plane_(p),
+      soc_id_(soc_id) {
 }
 
 int DrmPlane::Init() {
@@ -226,15 +199,7 @@ int DrmPlane::Init() {
   if (ret)
     ALOGE("Could not get NAME property");
   else{
-    for(int i = 0; i < ARRAY_SIZE(plane_type_names); i++){
-      find_name = false;
-      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names[i].name);
-      if(find_name){
-        win_type_ = plane_type_names[i].type;
-        name_ = plane_type_names[i].name;
-        break;
-      }
-    }
+    mark_type_by_name();
   }
 
   ret = drm_->GetPlaneProperty(*this, "INPUT_WIDTH", &input_w_property_);
@@ -325,7 +290,97 @@ const char* DrmPlane::name() const{
   return name_;
 }
 
-DrmPlaneType DrmPlane::win_type() const{
+void DrmPlane::mark_type_by_name(){
+
+  if(soc_id_ == 0x3566   ||
+     soc_id_ == 0x3566a ||
+     soc_id_ == 0x3568   ||
+     soc_id_ == 0x3568a){
+    struct plane_type_name_vop2 {
+      DrmPlaneTypeVop2 type;
+      const char *name;
+    };
+
+    struct plane_type_name_vop2 vop2_plane_type_names[] = {
+      { DRM_PLANE_TYPE_CLUSTER0_WIN0, "Cluster0-win0" },
+      { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
+      { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
+      { DRM_PLANE_TYPE_CLUSTER1_WIN1, "Cluster1-win1" },
+
+      { DRM_PLANE_TYPE_ESMART0_WIN0, "Esmart0-win0" },
+      { DRM_PLANE_TYPE_ESMART0_WIN1, "Esmart0-win1" },
+      { DRM_PLANE_TYPE_ESMART0_WIN2, "Esmart0-win2" },
+      { DRM_PLANE_TYPE_ESMART0_WIN3, "Esmart0-win3" },
+
+      { DRM_PLANE_TYPE_ESMART1_WIN0, "Esmart1-win0" },
+      { DRM_PLANE_TYPE_ESMART1_WIN1, "Esmart1-win1" },
+      { DRM_PLANE_TYPE_ESMART1_WIN2, "Esmart1-win2" },
+      { DRM_PLANE_TYPE_ESMART1_WIN3, "Esmart1-win3" },
+
+      { DRM_PLANE_TYPE_SMART0_WIN0, "Smart0-win0" },
+      { DRM_PLANE_TYPE_SMART0_WIN1, "Smart0-win1" },
+      { DRM_PLANE_TYPE_SMART0_WIN2, "Smart0-win2" },
+      { DRM_PLANE_TYPE_SMART0_WIN3, "Smart0-win3" },
+
+      { DRM_PLANE_TYPE_SMART1_WIN0, "Smart1-win0" },
+      { DRM_PLANE_TYPE_SMART1_WIN1, "Smart1-win1" },
+      { DRM_PLANE_TYPE_SMART1_WIN2, "Smart1-win2" },
+      { DRM_PLANE_TYPE_SMART1_WIN3, "Smart1-win3" },
+
+      { DRM_PLANE_TYPE_VOP2_Unknown, "unknown" },
+    };
+
+    for(int i = 0; i < ARRAY_SIZE(vop2_plane_type_names); i++){
+      int ret;
+      bool find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(vop2_plane_type_names[i].name);
+      if(find_name){
+        win_type_ = vop2_plane_type_names[i].type;
+        name_ = vop2_plane_type_names[i].name;
+        break;
+      }
+    }
+
+  }else{
+    struct plane_type_name_vop1 {
+      DrmPlaneTypeVop1 type;
+      const char *name;
+    };
+    struct plane_type_name_vop1 vop1_plane_type_names[] = {
+      { DRM_PLANE_TYPE_VOP0_WIN0  , "VOP0-win0-0" },
+      { DRM_PLANE_TYPE_VOP0_WIN1  , "VOP0-win1-0" },
+      { DRM_PLANE_TYPE_VOP0_WIN2_0, "VOP0-win2-0" },
+      { DRM_PLANE_TYPE_VOP0_WIN2_1, "VOP0-win2-1" },
+      { DRM_PLANE_TYPE_VOP0_WIN2_2, "VOP0-win2-2" },
+      { DRM_PLANE_TYPE_VOP0_WIN2_3, "VOP0-win2-3" },
+      { DRM_PLANE_TYPE_VOP0_WIN3_0, "VOP0-win3-0" },
+      { DRM_PLANE_TYPE_VOP0_WIN3_0, "VOP0-win3-1" },
+      { DRM_PLANE_TYPE_VOP0_WIN3_0, "VOP0-win3-2" },
+      { DRM_PLANE_TYPE_VOP0_WIN3_0, "VOP0-win3-3" },
+
+      { DRM_PLANE_TYPE_VOP1_WIN0  , "VOP1-win0-0" },
+      { DRM_PLANE_TYPE_VOP1_WIN2_0, "VOP1-win2-0" },
+      { DRM_PLANE_TYPE_VOP1_WIN2_0, "VOP1-win2-1" },
+      { DRM_PLANE_TYPE_VOP1_WIN2_0, "VOP1-win2-2" },
+      { DRM_PLANE_TYPE_VOP1_WIN2_0, "VOP1-win2-3" },
+
+      { DRM_PLANE_TYPE_VOP1_Unknown, "unknown" },
+    };
+    for(int i = 0; i < ARRAY_SIZE(vop1_plane_type_names); i++){
+      int ret;
+      bool find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(vop1_plane_type_names[i].name);
+      if(find_name){
+        win_type_ = vop1_plane_type_names[i].type;
+        name_ = vop1_plane_type_names[i].name;
+        break;
+      }
+    }
+  }
+
+}
+
+uint64_t DrmPlane::win_type() const{
   return win_type_;
 }
 
