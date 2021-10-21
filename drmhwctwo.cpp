@@ -62,7 +62,9 @@ class DrmVsyncCallback : public VsyncCallback {
 
   void Callback(int display, int64_t timestamp) {
     auto hook = reinterpret_cast<HWC2_PFN_VSYNC>(hook_);
-    hook(data_, display, timestamp);
+    if(hook){
+      hook(data_, display, timestamp);
+    }
   }
 
  private:
@@ -78,7 +80,9 @@ class DrmInvalidateCallback : public InvalidateCallback {
 
   void Callback(int display) {
     auto hook = reinterpret_cast<HWC2_PFN_REFRESH>(hook_);
-    hook(data_, display);
+    if(hook){
+      hook(data_, display);
+    }
   }
 
  private:
@@ -212,6 +216,22 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
 
   if (!function) {
     callbacks_.erase(callback);
+    switch (callback) {
+      case HWC2::Callback::Vsync: {
+        for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
+             displays_)
+          d.second.UnregisterVsyncCallback();
+        break;
+      }
+      case HWC2::Callback::Refresh: {
+        for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
+             displays_)
+          d.second.UnregisterInvalidateCallback();
+          break;
+      }
+      default:
+        break;
+    }
     return HWC2::Error::None;
   }
 
@@ -531,6 +551,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::RegisterInvalidateCallback(
   invalidate_worker_.RegisterCallback(std::move(callback));
   return HWC2::Error::None;
 }
+
+HWC2::Error DrmHwcTwo::HwcDisplay::UnregisterVsyncCallback() {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);;
+  vsync_worker_.RegisterCallback(NULL);
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::UnregisterInvalidateCallback() {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  invalidate_worker_.RegisterCallback(NULL);
+  return HWC2::Error::None;
+}
+
 
 HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);

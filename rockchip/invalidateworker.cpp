@@ -128,7 +128,8 @@ void InvalidateWorker::Routine() {
   if (!enable)
     return;
 
-  if (callback)
+  if (callback){
     callback->Callback(display_);
+  }
 }
 }  // namespace android
