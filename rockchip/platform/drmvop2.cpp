@@ -1676,6 +1676,109 @@ void PlanStageVop2::UpdateResevedPlane(DrmCrtc *crtc){
   return;
 }
 
+/*
+ * CLUSTER_AFBC_DECODE_MAX_RATE = 3.2
+ * (src(W*H)/dst(W*H))/(aclk/dclk) > CLUSTER_AFBC_DECODE_MAX_RATE to use GLES compose.
+ * Notes: (4096,1714)=>(1080,603) appear( DDR 1560M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.839350
+ * Notes: (4096,1714)=>(1200,900) appear( DDR 1056M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.075307
+ */
+#define CLUSTER_AFBC_DECODE_MAX_RATE 2.0
+bool PlanStageVop2::CheckGLESLayer(DrmHwcLayer *layer){
+  // RK356x can't overlay RGBA1010102
+  if(layer->iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102){
+    HWC2_ALOGD_IF_DEBUG("[%s]：RGBA1010102 format, not support overlay.",
+              layer->sLayerName_.c_str());
+    return true;
+  }
+
+
+  int act_w = static_cast<int>(layer->source_crop.right - layer->source_crop.left);
+  int act_h = static_cast<int>(layer->source_crop.bottom - layer->source_crop.top);
+  int dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
+  int dst_h = static_cast<int>(layer->display_frame.bottom - layer->display_frame.top);
+
+  // RK platform VOP can't display src/dst w/h < 4 layer.
+  if(act_w < 4 || act_h < 4 || dst_w < 4 || dst_h < 4){
+    HWC2_ALOGD_IF_DEBUG("[%s]：[%dx%d] => [%dx%d] too small to use GLES composer.",
+              layer->sLayerName_.c_str(),act_w,act_h,dst_w,dst_h);
+    return true;
+  }
+
+  // RK356x Cluster can't overlay act_w % 4 != 0 afbcd layer.
+  if(layer->bAfbcd_){
+    if(act_w % 4 != 0)
+      return true;
+    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = CLUSTER_AFBC_DECODE_MAX_RATE, Use GLES compose
+    if(layer->uAclk_ > 0 && layer->uDclk_ > 0){
+        char value[PROPERTY_VALUE_MAX];
+        property_get("vendor.hwc.cluster_afbc_decode_max_rate", value, "0");
+        double cluster_afbc_decode_max_rate = atof(value);
+
+        HWC2_ALOGD_IF_VERBOSE("[%s]：scale-rate=%f, allow_rate = %f, "
+                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                  layer->sLayerName_.c_str(),
+                  (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+                  cluster_afbc_decode_max_rate ,CLUSTER_AFBC_DECODE_MAX_RATE,
+                  layer->fHScaleMul_ ,layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+      if(cluster_afbc_decode_max_rate > 0){
+        if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > cluster_afbc_decode_max_rate){
+          HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+                    "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                    layer->sLayerName_.c_str(),
+                    (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+                    CLUSTER_AFBC_DECODE_MAX_RATE,
+                    cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
+                    layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+          return true;
+        }
+      }else if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
+        HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+                  layer->sLayerName_.c_str(),
+                  (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+                  CLUSTER_AFBC_DECODE_MAX_RATE,
+                  cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
+                  layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+        return true;
+      }
+    }
+  }
+
+  // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
+  if(!layer->bAfbcd_){
+    if(act_w % 16 == 1 && layer->fHScaleMul_ < 1.0){
+      HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay act_w %% 16 == 1 and fHScaleMul_ < 1.0 layer.",
+              layer->sLayerName_.c_str());
+      return true;
+    }
+
+    int dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
+    if(dst_w % 2 == 1 && layer->fHScaleMul_ < 1.0){
+      HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay dst_w %% 2 == 1 and fHScaleMul_ < 1.0 layer.",
+              layer->sLayerName_.c_str());
+      return true;
+    }
+  }
+
+  if(layer->transform == -1){
+    HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay dst_w %% 2 == 1 and fHScaleMul_ < 1.0 layer.",
+            layer->sLayerName_.c_str());
+    return true;
+  }
+
+  switch(layer->sf_composition){
+    case HWC2::Composition::Client:
+    case HWC2::Composition::Sideband:
+    case HWC2::Composition::SolidColor:
+      HWC2_ALOGD_IF_DEBUG("[%s]：sf_composition =0x%x not support overlay.",
+              layer->sLayerName_.c_str(),layer->sf_composition);
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
   // Collect layer info
@@ -1694,6 +1797,12 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
   ctx.request.iHdrCnt=0;
 
   for(auto &layer : layers){
+    if(CheckGLESLayer(layer)){
+      layer->bGlesCompose_ = true;
+    }else{
+      layer->bGlesCompose_ = false;
+    }
+
     if(layer->bFbTarget_)
       continue;
 

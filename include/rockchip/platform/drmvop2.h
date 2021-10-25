@@ -178,6 +178,7 @@ typedef struct DrmVop2Context{
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
   void UpdateResevedPlane(DrmCrtc *crtc);
+  bool CheckGLESLayer(DrmHwcLayer* layers);
   void InitStateContext(
       std::vector<DrmHwcLayer*> &layers,
       std::vector<PlaneGroup *> &plane_groups,
