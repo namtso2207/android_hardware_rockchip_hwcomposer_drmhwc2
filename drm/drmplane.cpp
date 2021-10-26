@@ -158,6 +158,24 @@ int DrmPlane::Init() {
   ret = drm_->GetPlaneProperty(*this, "FEATURE", &feature_property_);
   if (ret)
     ALOGE("Could not get FEATURE property");
+  std::tie(ret,b_scale_)   = feature_property_.value_bitmask("scale");
+  std::tie(ret,b_alpha_)   = feature_property_.value_bitmask("alpha");
+  std::tie(ret,b_hdr2sdr_)   = feature_property_.value_bitmask("hdr2sdr");
+  std::tie(ret,b_sdr2hdr_)   = feature_property_.value_bitmask("sdr2hdr");
+  //std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
+
+
+  if(soc_id_ == 0x3566   ||
+     soc_id_ == 0x3566a ||
+     soc_id_ == 0x3568   ||
+     soc_id_ == 0x3568a){
+    b_alpha_   = true;
+    b_hdr2sdr_   = true;
+    b_sdr2hdr_   = true;
+  }
+
+  //ALOGD("rk-debug scale=%d alpha=%d hdr2sdr=%d sdr2hdr=%d afbdc=%d", b_scale_,b_alpha_,b_hdr2sdr_,b_sdr2hdr_,b_afbdc_);
+
 
   support_format_list.clear();
   for (uint32_t j = 0; j < plane_->count_formats; j++) {
@@ -173,14 +191,9 @@ int DrmPlane::Init() {
     ALOGI("Could not get pixel blend mode property");
 
 
-  std::tie(ret,b_scale_)   = feature_property_.bitmask("scale");
-  b_alpha_ = true;
-  b_hdr2sdr_ = true;
-  b_sdr2hdr_ = true;
-  std::tie(ret,b_afbdc_)   = feature_property_.bitmask("afbdc");
-  b_afbc_prop_ = true;
 
   bool find_name = false;
+  rotate_ = DRM_PLANE_ROTATION_0;
   ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
   if (ret)
     ALOGE("Could not get FEATURE property");
@@ -265,10 +278,15 @@ int DrmPlane::Init() {
     else
       ALOGE("Could not get SCALE_RATE range_max property");
 
-    if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
-      b_scale_ = false;
-      scale_min_ = 1.0;
-      scale_max_ = 1.0;
+    if(soc_id_ == 0x3566   ||
+       soc_id_ == 0x3566a ||
+       soc_id_ == 0x3568   ||
+       soc_id_ == 0x3568a){
+      if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
+        b_scale_ = false;
+        scale_min_ = 1.0;
+        scale_max_ = 1.0;
+      }
     }
   }
   return 0;
@@ -504,10 +522,6 @@ bool DrmPlane::get_sdr2hdr(){
 
 bool DrmPlane::get_afbc(){
     return b_afbdc_;
-}
-
-bool DrmPlane::get_afbc_prop(){
-    return b_afbc_prop_;
 }
 
 bool DrmPlane::get_yuv(){

@@ -174,7 +174,6 @@ class DrmPlane {
   bool get_hdr2sdr();
   bool get_sdr2hdr();
   bool get_afbc();
-  bool get_afbc_prop();
   bool get_yuv();
   int get_scale_rate_max();
   int get_scale_rate_min();
