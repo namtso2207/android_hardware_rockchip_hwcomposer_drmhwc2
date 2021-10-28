@@ -28,7 +28,7 @@
 namespace android {
 
 // Rk356x
-enum DrmPlaneTypeVop2{
+enum DrmPlaneTypeRK356x{
       DRM_PLANE_TYPE_CLUSTER0_WIN0 = 1 << 0,
       DRM_PLANE_TYPE_CLUSTER0_WIN1 = 1 << 1,
 
@@ -66,7 +66,7 @@ enum DrmPlaneTypeVop2{
 };
 
 // RK3399/Rk3288/RK3328/RK3128
-enum DrmPlaneTypeVop1{
+enum DrmPlaneTypeRK3399{
       DRM_PLANE_TYPE_VOP0_WIN0   = 1 << 0,
       DRM_PLANE_TYPE_VOP0_WIN1   = 1 << 1,
 

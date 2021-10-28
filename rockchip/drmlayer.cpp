@@ -38,27 +38,6 @@
 
 namespace android {
 
-bool isRK356x(uint32_t soc_id){
-  switch(soc_id){
-    case 0x3566:
-    case 0x3566a:
-    case 0x3568:
-    case 0x3568a:
-      return true;
-    default:
-      return false;
-  }
-}
-
-bool isRK3566(uint32_t soc_id){
-  switch(soc_id){
-    case 0x3566:
-    case 0x3566a:
-      return true;
-    default:
-      return false;
-  }
-}
 const hwc_drm_bo *DrmHwcBuffer::operator->() const {
   if (importer_ == NULL) {
     ALOGE("Access of non-existent BO");

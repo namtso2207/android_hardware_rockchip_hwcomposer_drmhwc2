@@ -18,6 +18,7 @@
 
 #include "drmplane.h"
 #include "drmdevice.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -164,11 +165,7 @@ int DrmPlane::Init() {
   std::tie(ret,b_sdr2hdr_)   = feature_property_.value_bitmask("sdr2hdr");
   //std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
 
-
-  if(soc_id_ == 0x3566   ||
-     soc_id_ == 0x3566a ||
-     soc_id_ == 0x3568   ||
-     soc_id_ == 0x3568a){
+  if(isRK356x(soc_id_)){
     b_alpha_   = true;
     b_hdr2sdr_   = true;
     b_sdr2hdr_   = true;
@@ -189,8 +186,6 @@ int DrmPlane::Init() {
   ret = drm_->GetPlaneProperty(*this, "pixel blend mode", &blend_mode_property_);
   if (ret)
     ALOGI("Could not get pixel blend mode property");
-
-
 
   bool find_name = false;
   rotate_ = DRM_PLANE_ROTATION_0;
@@ -278,10 +273,7 @@ int DrmPlane::Init() {
     else
       ALOGE("Could not get SCALE_RATE range_max property");
 
-    if(soc_id_ == 0x3566   ||
-       soc_id_ == 0x3566a ||
-       soc_id_ == 0x3568   ||
-       soc_id_ == 0x3568a){
+    if(isRK356x(soc_id_)){
       if(win_type_ & (DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK)){
         b_scale_ = false;
         scale_min_ = 1.0;
@@ -310,16 +302,12 @@ const char* DrmPlane::name() const{
 
 void DrmPlane::mark_type_by_name(){
 
-  if(soc_id_ == 0x3566   ||
-     soc_id_ == 0x3566a ||
-     soc_id_ == 0x3568   ||
-     soc_id_ == 0x3568a){
-    struct plane_type_name_vop2 {
-      DrmPlaneTypeVop2 type;
+  if(isRK356x(soc_id_)){
+    struct plane_type_name_rk356x {
+      DrmPlaneTypeRK356x type;
       const char *name;
     };
-
-    struct plane_type_name_vop2 vop2_plane_type_names[] = {
+    struct plane_type_name_rk356x plane_type_names_rk356x[] = {
       { DRM_PLANE_TYPE_CLUSTER0_WIN0, "Cluster0-win0" },
       { DRM_PLANE_TYPE_CLUSTER0_WIN1, "Cluster0-win1" },
       { DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster1-win0" },
@@ -348,23 +336,23 @@ void DrmPlane::mark_type_by_name(){
       { DRM_PLANE_TYPE_VOP2_Unknown, "unknown" },
     };
 
-    for(int i = 0; i < ARRAY_SIZE(vop2_plane_type_names); i++){
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names_rk356x); i++){
       int ret;
       bool find_name = false;
-      std::tie(ret,find_name) = name_property_.bitmask(vop2_plane_type_names[i].name);
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names_rk356x[i].name);
       if(find_name){
-        win_type_ = vop2_plane_type_names[i].type;
-        name_ = vop2_plane_type_names[i].name;
+        win_type_ = plane_type_names_rk356x[i].type;
+        name_ = plane_type_names_rk356x[i].name;
         break;
       }
     }
 
-  }else{
-    struct plane_type_name_vop1 {
-      DrmPlaneTypeVop1 type;
+  }else if(isRK3399(soc_id_)){
+    struct plane_type_name_rk3399 {
+      DrmPlaneTypeRK3399 type;
       const char *name;
     };
-    struct plane_type_name_vop1 vop1_plane_type_names[] = {
+    struct plane_type_name_rk3399 plane_type_names_rk3399[] = {
       { DRM_PLANE_TYPE_VOP0_WIN0  , "VOP0-win0-0" },
       { DRM_PLANE_TYPE_VOP0_WIN1  , "VOP0-win1-0" },
       { DRM_PLANE_TYPE_VOP0_WIN2_0, "VOP0-win2-0" },
@@ -384,16 +372,18 @@ void DrmPlane::mark_type_by_name(){
 
       { DRM_PLANE_TYPE_VOP1_Unknown, "unknown" },
     };
-    for(int i = 0; i < ARRAY_SIZE(vop1_plane_type_names); i++){
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names_rk3399); i++){
       int ret;
       bool find_name = false;
-      std::tie(ret,find_name) = name_property_.bitmask(vop1_plane_type_names[i].name);
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names_rk3399[i].name);
       if(find_name){
-        win_type_ = vop1_plane_type_names[i].type;
-        name_ = vop1_plane_type_names[i].name;
+        win_type_ = plane_type_names_rk3399[i].type;
+        name_ = plane_type_names_rk3399[i].name;
         break;
       }
     }
+  }else{
+    HWC2_ALOGE("Can't find soc_id is %x",soc_id_);
   }
 
 }

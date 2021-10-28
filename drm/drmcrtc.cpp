@@ -18,6 +18,7 @@
 
 #include "drmcrtc.h"
 #include "drmdevice.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <stdint.h>
 #include <xf86drmMode.h>
@@ -33,7 +34,8 @@ struct plane_mask_name {
   const char *name;
 };
 
-struct plane_mask_name vop2_plane_mask_names[] = {
+// RK356x
+struct plane_mask_name plane_mask_names_rk356x[] = {
   { DRM_PLANE_TYPE_CLUSTER0_MASK, "Cluster0" },
   { DRM_PLANE_TYPE_CLUSTER1_MASK, "Cluster1" },
   { DRM_PLANE_TYPE_ESMART0_MASK, "Esmart0" },
@@ -43,7 +45,8 @@ struct plane_mask_name vop2_plane_mask_names[] = {
   { DRM_PLANE_TYPE_VOP2_Unknown, "unknown" },
 };
 
-struct plane_mask_name vop1_plane_mask_names[] = {
+// RK3399
+struct plane_mask_name plane_mask_names_rk3399[] = {
   { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win0" },
   { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win1" },
   { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win2" },
@@ -52,8 +55,6 @@ struct plane_mask_name vop1_plane_mask_names[] = {
   { DRM_PLANE_TYPE_VOP1_MASK, "VOP1-win1" },
   { DRM_PLANE_TYPE_VOP1_Unknown, "unknown" },
 };
-
-
 
 DrmCrtc::DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe)
     : drm_(drm), id_(c->crtc_id), pipe_(pipe), display_(-1), mode_(&c->mode) {
@@ -155,23 +156,20 @@ int DrmCrtc::Init() {
     ALOGE("Failed to get plane_mask property");
   }else{
 
-    if(soc_id_ == 0x3566   ||
-       soc_id_ == 0x3566a ||
-       soc_id_ == 0x3568   ||
-       soc_id_ == 0x3568a ){
-      for(int i = 0; i < ARRAY_SIZE(vop2_plane_mask_names); i++){
+    if(isRK356x(soc_id_)){
+      for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk356x); i++){
         bool have_mask = false;
-        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(vop2_plane_mask_names[i].name);
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk356x[i].name);
         if(have_mask){
-          plane_mask_ |= vop2_plane_mask_names[i].mask;
+          plane_mask_ |= plane_mask_names_rk356x[i].mask;
         }
       }
-    }else{
-      for(int i = 0; i < ARRAY_SIZE(vop1_plane_mask_names); i++){
+    }else if(isRK3399(soc_id_)){
+      for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk3399); i++){
         bool have_mask = false;
-        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(vop1_plane_mask_names[i].name);
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk3399[i].name);
         if(have_mask){
-          plane_mask_ |= vop1_plane_mask_names[i].mask;
+          plane_mask_ |= plane_mask_names_rk3399[i].mask;
         }
       }
     }
