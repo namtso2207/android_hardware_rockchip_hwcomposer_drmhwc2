@@ -36,7 +36,7 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "drm-vop2"
 
-#include "rockchip/platform/drmvop2.h"
+#include "rockchip/platform/drmvop356x.h"
 #include "drmdevice.h"
 
 #include <log/log.h>

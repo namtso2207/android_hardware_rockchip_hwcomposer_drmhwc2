@@ -107,8 +107,8 @@ LOCAL_SRC_FILES := \
   rockchip/drmlayer.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
-  rockchip/platform/drmvop.cpp \
-  rockchip/platform/drmvop2.cpp \
+  rockchip/platform/drmvop3399.cpp \
+  rockchip/platform/drmvop356x.cpp \
   drm/invalidateworker.cpp \
   rockchip/drmbaseparameter.cpp
 

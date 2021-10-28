@@ -36,7 +36,7 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "drm-vop"
 
-#include "rockchip/platform/drmvop.h"
+#include "rockchip/platform/drmvop3399.h"
 #include "drmdevice.h"
 
 #include <log/log.h>

@@ -24,8 +24,8 @@
 #include "gralloc_drm_handle.h"
 #endif
 #include "rockchip/drmgralloc.h"
-#include "rockchip/platform/drmvop.h"
-#include "rockchip/platform/drmvop2.h"
+#include "rockchip/platform/drmvop3399.h"
+#include "rockchip/platform/drmvop356x.h"
 
 #include <drm_fourcc.h>
 #include <xf86drm.h>
