@@ -104,12 +104,12 @@ LOCAL_SRC_FILES := \
   utils/autolock.cpp \
   platform/platformdrmgeneric.cpp \
   rockchip/utils/drmdebug.cpp \
-  rockchip/hwcutils.cpp \
+  rockchip/drmlayer.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
   rockchip/platform/drmvop.cpp \
   rockchip/platform/drmvop2.cpp \
-  rockchip/invalidateworker.cpp \
+  drm/invalidateworker.cpp \
   rockchip/drmbaseparameter.cpp
 
 LOCAL_CPPFLAGS += \

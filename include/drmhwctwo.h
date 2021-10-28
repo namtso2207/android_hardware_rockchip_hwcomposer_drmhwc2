@@ -15,7 +15,7 @@
  */
 
 #include "drmdisplaycompositor.h"
-#include "drmhwcomposer.h"
+#include "drmlayer.h"
 #include "resourcemanager.h"
 #include "vsyncworker.h"
 #include "platform.h"

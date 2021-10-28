@@ -41,16 +41,8 @@ bool hwc_import_bo_release(int fd, struct hwc_import_context *ctx,
                            struct hwc_drm_bo *bo);
 
 namespace android {
-
-#define UN_USED(arg)     (arg=arg)
-
-int hwc_get_int_property(const char* pcProperty,const char* default_value);
-bool hwc_get_bool_property(const char* pcProperty,const char* default_value);
-int hwc_get_string_property(const char* pcProperty,const char* default_value,char* retult);
 bool isRK356x(uint32_t soc_id);
 bool isRK3566(uint32_t soc_id);
-
-
 class Importer;
 
 class DrmHwcBuffer {

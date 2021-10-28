@@ -84,5 +84,56 @@ bool LogLevel(LOG_LEVEL log_level){
 void IncFrameCnt() { g_frame++; }
 int GetFrameCnt(){ return g_frame;}
 
+int hwc_get_int_property(const char* pcProperty,const char* default_value)
+{
+    char value[PROPERTY_VALUE_MAX];
+    int new_value = 0;
+
+    if(pcProperty == NULL || default_value == NULL)
+    {
+        ALOGE("hwc_get_int_property: invalid param");
+        return -1;
+    }
+
+    property_get(pcProperty, value, default_value);
+    new_value = atoi(value);
+
+    return new_value;
+}
+
+bool hwc_get_bool_property(const char* pcProperty,const char* default_value)
+{
+    char value[PROPERTY_VALUE_MAX];
+    bool result = false;
+
+    if(pcProperty == NULL || default_value == NULL)
+    {
+        ALOGE("hwc_get_int_property: invalid param");
+        return -1;
+    }
+
+    property_get(pcProperty, value, default_value);
+    if(!strcmp(value,"true"))
+        result = true;
+    else
+        result = false;
+
+    return result;
+}
+
+
+int hwc_get_string_property(const char* pcProperty,const char* default_value,char* retult)
+{
+    if(pcProperty == NULL || default_value == NULL || retult == NULL)
+    {
+        ALOGE("hwc_get_string_property: invalid param");
+        return -1;
+    }
+    property_get(pcProperty, retult, default_value);
+
+    return 0;
+}
+
+
 }
 

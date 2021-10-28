@@ -19,7 +19,7 @@
 
 #include "drmhwctwo.h"
 #include "drmdisplaycomposition.h"
-#include "drmhwcomposer.h"
+#include "drmlayer.h"
 #include "platform.h"
 #include "vsyncworker.h"
 #include "rockchip/utils/drmdebug.h"
