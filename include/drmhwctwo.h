@@ -466,7 +466,7 @@ class DrmHwcTwo : public hwc2_device_t {
     return;
 };
 
-  ResourceManager resource_manager_;
+  ResourceManager *resource_manager_;
   std::map<hwc2_display_t, HwcDisplay> displays_;
   std::map<HWC2::Callback, HwcCallback> callbacks_;
   std::string mDumpString;

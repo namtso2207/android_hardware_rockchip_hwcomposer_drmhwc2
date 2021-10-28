@@ -91,7 +91,8 @@ class DrmInvalidateCallback : public InvalidateCallback {
 };
 
 
-DrmHwcTwo::DrmHwcTwo() {
+DrmHwcTwo::DrmHwcTwo()
+  : resource_manager_(ResourceManager::getInstance()) {
   common.tag = HARDWARE_DEVICE_TAG;
   common.version = HWC_DEVICE_API_VERSION_2_0;
   common.close = HookDevClose;
@@ -103,14 +104,14 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
                                      HWC2::DisplayType type) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,displ);
 
-  DrmDevice *drm = resource_manager_.GetDrmDevice(displ);
-  std::shared_ptr<Importer> importer = resource_manager_.GetImporter(displ);
+  DrmDevice *drm = resource_manager_->GetDrmDevice(displ);
+  std::shared_ptr<Importer> importer = resource_manager_->GetImporter(displ);
   if (!drm || !importer) {
     ALOGE("Failed to get a valid drmresource and importer");
     return HWC2::Error::NoResources;
   }
   displays_.emplace(std::piecewise_construct, std::forward_as_tuple(displ),
-                    std::forward_as_tuple(&resource_manager_, drm, importer,
+                    std::forward_as_tuple(resource_manager_, drm, importer,
                                           displ, type));
   displays_.at(displ).Init();
   return HWC2::Error::None;
@@ -118,14 +119,14 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
 
 HWC2::Error DrmHwcTwo::Init() {
   HWC2_ALOGD_IF_VERBOSE();
-  int rv = resource_manager_.Init();
+  int rv = resource_manager_->Init();
   if (rv) {
     ALOGE("Can't initialize the resource manager %d", rv);
     return HWC2::Error::NoResources;
   }
 
   HWC2::Error ret = HWC2::Error::None;
-  for (int i = 0; i < resource_manager_.getDisplayCount(); i++) {
+  for (int i = 0; i < resource_manager_->getDisplayCount(); i++) {
     ret = CreateDisplay(i, HWC2::DisplayType::Physical);
     if (ret != HWC2::Error::None) {
       ALOGE("Failed to create display %d with error %d", i, ret);
@@ -133,7 +134,7 @@ HWC2::Error DrmHwcTwo::Init() {
     }
   }
 
-  auto &drmDevices = resource_manager_.getDrmDevices();
+  auto &drmDevices = resource_manager_->getDrmDevices();
   for (auto &device : drmDevices) {
     device->RegisterHotplugHandler(new DrmHotplugHandler(this, device.get()));
   }
@@ -242,7 +243,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
       auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
       hotplug(data, HWC_DISPLAY_PRIMARY,
               static_cast<int32_t>(HWC2::Connection::Connected));
-      auto &drmDevices = resource_manager_.getDrmDevices();
+      auto &drmDevices = resource_manager_->getDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
       break;
@@ -2132,10 +2133,10 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   if (cb == callbacks_.end())
     return;
 
-  if(isRK3566(resource_manager_.getSocId())){
+  if(isRK3566(resource_manager_->getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
       if(displayid != HWC_DISPLAY_PRIMARY){
-        auto &drmDevices = resource_manager_.getDrmDevices();
+        auto &drmDevices = resource_manager_->getDrmDevices();
         for (auto &device : drmDevices) {
           if(state==DRM_MODE_CONNECTED)
             device->SetCommitMirrorDisplayId(displayid);
