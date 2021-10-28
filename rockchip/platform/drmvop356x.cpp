@@ -378,12 +378,6 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   uint64_t alpha = 0xFF;
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
-  DrmDevice *drm = crtc->getDrmDevice();
-  bool bHdrSupport = false;
-  DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
-  if(connector){
-    bHdrSupport = connector->is_hdmi_support_hdr() && ctx.support.iHdrCnt > 0;
-  }
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -540,15 +534,13 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
                           }
 
                           // HDR
-                          eotf = (*iter_layer)->uEOTF;
-                          b_hdr2sdr = (*iter_plane)->get_hdr2sdr();
-                          if(bHdrSupport && eotf != TRADITIONAL_GAMMA_SDR)
-                          {
-                              if(!b_hdr2sdr)
-                              {
+                          bool hdr_layer = (*iter_layer)->bHdr_;
+                          b_hdr2sdr = crtc->get_hdr();
+                          if(hdr_layer){
+                              if(!b_hdr2sdr){
                                   ALOGV("layer id=%d, %s",(*iter_layer)->uId_,(*iter_plane)->name());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support etof,layer eotf=%d,hdr2sdr=%d",
-                                          (*iter_plane)->name(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support hdr layer,layer hdr=%d, crtc can_hdr=%d",
+                                          (*iter_plane)->name(),hdr_layer,b_hdr2sdr);
                                   continue;
                               }
                               else
@@ -672,9 +664,6 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
   uint64_t alpha = 0xFF;
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
-  DrmDevice *drm = crtc->getDrmDevice();
-  DrmConnector *connector = drm->GetConnectorForDisplay(crtc->display());
-  bool bHdrSupport = connector->is_hdmi_support_hdr() && ctx.support.iHdrCnt > 0;
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -832,15 +821,13 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
                           }
 
                           // HDR
-                          eotf = (*iter_layer)->uEOTF;
-                          b_hdr2sdr = (*iter_plane)->get_hdr2sdr();
-                          if(bHdrSupport && eotf != TRADITIONAL_GAMMA_SDR)
-                          {
-                              if(!b_hdr2sdr)
-                              {
-                                  ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support etof,layer eotf=%d,hdr2sdr=%d",
-                                          (*iter_plane)->name(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
+                          bool hdr_layer = (*iter_layer)->bHdr_;
+                          b_hdr2sdr = crtc->get_hdr();
+                          if(hdr_layer){
+                              if(!b_hdr2sdr){
+                                  ALOGV("layer id=%d, %s",(*iter_layer)->uId_,(*iter_plane)->name());
+                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support hdr layer,layer hdr=%d, crtc can_hdr=%d",
+                                          (*iter_plane)->name(),hdr_layer,b_hdr2sdr);
                                   continue;
                               }
                               else

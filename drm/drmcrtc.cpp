@@ -57,7 +57,12 @@ struct plane_mask_name plane_mask_names_rk3399[] = {
 };
 
 DrmCrtc::DrmCrtc(DrmDevice *drm, drmModeCrtcPtr c, unsigned pipe)
-    : drm_(drm), id_(c->crtc_id), pipe_(pipe), display_(-1), mode_(&c->mode) {
+    : drm_(drm),
+      drm_version_(drm->getDrmVersion()),
+      id_(c->crtc_id),
+      pipe_(pipe),
+      display_(-1),
+      mode_(&c->mode) {
 }
 
 int DrmCrtc::Init() {
@@ -73,49 +78,27 @@ int DrmCrtc::Init() {
     return ret;
   }
 
-  ret = drm_->GetCrtcProperty(*this, "FEATURE", &feature_property_);
-  if (ret)
-    ALOGE("Could not get FEATURE property");
-
-
-  uint64_t feature=0;
-  feature_property_.set_feature("afbdc");
-  std::tie(ret,feature) = feature_property_.value();
-  b_afbc_ = (feature ==1)?true:false;
-
-
-  can_overscan_ = true;
+  b_can_overscan_ = true;
   ret = drm_->GetCrtcProperty(*this, "left margin", &left_margin_property_);
   if (ret) {
     ALOGE("Failed to get left margin property");
-    can_overscan_ = false;
+    b_can_overscan_ = false;
   }
   ret = drm_->GetCrtcProperty(*this, "right margin", &right_margin_property_);
   if (ret) {
     ALOGE("Failed to get right margin property");
-    can_overscan_ = false;
+    b_can_overscan_ = false;
   }
   ret = drm_->GetCrtcProperty(*this, "top margin", &top_margin_property_);
   if (ret) {
     ALOGE("Failed to get top margin property");
-    can_overscan_ = false;
+    b_can_overscan_ = false;
   }
   ret = drm_->GetCrtcProperty(*this, "bottom margin", &bottom_margin_property_);
   if (ret) {
     ALOGE("Failed to get bottom margin property");
-    can_overscan_ = false;
+    b_can_overscan_ = false;
   }
-
-  uint64_t alpha_scale = 0;
-  can_alpha_scale_ = true;
-  ret = drm_->GetCrtcProperty(*this, "ALPHA_SCALE", &alpha_scale_property_);
-  if (ret) {
-    ALOGE("Failed to get alpha_scale_property property");
-  }
-  std::tie(alpha_scale, ret) = alpha_scale_property_.value();
-  if(alpha_scale == 0)
-    can_alpha_scale_ = false;
-
 
   ret = drm_->GetCrtcProperty(*this, "OUT_FENCE_PTR", &out_fence_ptr_property_);
   if (ret) {
@@ -197,14 +180,58 @@ int DrmCrtc::Init() {
     ALOGE("Failed to get CUBIC_LUT_SIZE property");
   }
 
-  return 0;
-}
-bool DrmCrtc::get_afbc() const {
-    return b_afbc_;
-}
+  if(isDrmVerison44(drm_version_)){
+    // Nothing.
+  }else if(isDrmVerison419(drm_version_)){
+    // ALPHA_SCALE
+    uint64_t alpha_scale = 0;
+    b_can_alpha_scale_ = true;
+    ret = drm_->GetCrtcProperty(*this, "ALPHA_SCALE", &alpha_scale_property_);
+    if (ret) {
+      ALOGE("Failed to get alpha_scale_property property");
+    }
+    std::tie(alpha_scale, ret) = alpha_scale_property_.value();
+    if(alpha_scale == 0)
+      b_can_alpha_scale_ = false;
 
-bool DrmCrtc::get_alpha_scale() const {
-    return can_alpha_scale_;
+    // FEATURE: afbc
+    ret = drm_->GetCrtcProperty(*this, "FEATURE", &feature_property_);
+    if (ret)
+      ALOGE("Could not get FEATURE property");
+
+    uint64_t feature=0;
+    b_can_afbc_ = false;
+    feature_property_.set_feature("afbdc");
+    std::tie(ret,feature) = feature_property_.value();
+    b_can_afbc_ = (feature ==1)?true:false;
+
+    // Workround: rk356x
+    if(isRK356x(soc_id_)){
+      b_can_alpha_scale_ = true;
+      b_can_hdr10_ = false;
+      b_can_next_hdr_ = false;
+      if(port_id_ == 0){
+        b_can_hdr10_ = true;
+      }
+    }
+  }else if(isDrmVerison510(drm_version_)){
+
+    // FEATURE: alpha_scale / HDR10 / Next_HDR
+    ret = drm_->GetCrtcProperty(*this, "FEATURE", &feature_property_);
+    if (ret)
+      ALOGE("Could not get FEATURE property");
+
+    b_can_alpha_scale_ = false;
+    b_can_hdr10_ = false;
+    b_can_next_hdr_ = false;
+    std::tie(ret,b_can_alpha_scale_) = feature_property_.value_bitmask("ALPHA_SCALE");
+    std::tie(ret,b_can_hdr10_) = feature_property_.value_bitmask("HDR10");
+    std::tie(ret,b_can_next_hdr_) = feature_property_.value_bitmask("NEXT_HDR");
+  }
+
+  HWC2_ALOGD_IF_DEBUG("crtc-id=%d b_can_alpha_scale_=%d b_can_hdr10_=%d b_can_next_hdr_=%d",
+    id_, b_can_alpha_scale_, b_can_hdr10_, b_can_next_hdr_);
+  return 0;
 }
 
 uint32_t DrmCrtc::id() const {
@@ -239,7 +266,7 @@ const DrmProperty &DrmCrtc::out_fence_ptr_property() const {
 }
 
 bool DrmCrtc::can_overscan() const {
-  return can_overscan_;
+  return b_can_overscan_;
 }
 
 const DrmProperty &DrmCrtc::left_margin_property() const {
@@ -277,7 +304,19 @@ const DrmProperty &DrmCrtc::cubic_lut_property() const{
 const DrmProperty &DrmCrtc::cubic_lut_size_property() const{
   return cubic_lut_size_property_;
 }
+bool DrmCrtc::get_afbc() const {
+    return b_can_afbc_;
+}
 
+bool DrmCrtc::get_alpha_scale() const {
+    return b_can_alpha_scale_;
+}
 
+bool DrmCrtc::get_hdr() const {
+    return b_can_hdr10_;
+}
 
+bool DrmCrtc::get_next_hdr() const {
+    return b_can_next_hdr_;
+}
 }  // namespace android

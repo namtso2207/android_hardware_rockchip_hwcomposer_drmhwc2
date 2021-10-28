@@ -165,5 +165,16 @@ bool isRK3399(uint32_t soc_id){
   }
 }
 
+bool isDrmVerison44(uint32_t drm_version){
+  return drm_version == 1;
+}
+bool isDrmVerison419(uint32_t drm_version){
+  return drm_version == 2;
+}
+bool isDrmVerison510(uint32_t drm_version){
+  return drm_version == 3;
+}
+
+
 }
 

@@ -488,7 +488,7 @@ int PlanStageVop::MatchPlane(std::vector<DrmCompositionPlane> *composition_plane
 
                           // HDR
                           eotf = (*iter_layer)->uEOTF;
-                          b_hdr2sdr = (*iter_plane)->get_hdr2sdr();
+                          b_hdr2sdr = crtc->get_hdr();
                           if(bHdrSupport && eotf != TRADITIONAL_GAMMA_SDR)
                           {
                               if(!b_hdr2sdr)
@@ -695,7 +695,7 @@ int PlanStageVop::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition
                               {
                                   ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
                                   ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support etof,layer eotf=%d,hdr2sdr=%d",
-                                          (*iter_plane)->name(),(*iter_layer)->uEOTF,(*iter_plane)->get_hdr2sdr());
+                                          (*iter_plane)->name(),eotf,b_hdr2sdr);
                                   continue;
                               }
                               else
