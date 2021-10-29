@@ -33,8 +33,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef ANDROID_DRM_VOP_356x_H_
-#define ANDROID_DRM_VOP_356x_H_
+#ifndef ANDROID_DRM_VOP_3588_H_
+#define ANDROID_DRM_VOP_3588_H_
 
 #include "platform.h"
 #include "drmdevice.h"
@@ -47,7 +47,7 @@ class DrmDevice;
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
 // needed).
-class Vop356x : public Planner::PlanStage {
+class Vop3588 : public Planner::PlanStage {
 
 typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
@@ -140,7 +140,7 @@ typedef struct DrmVop2Context{
 } Vop2Ctx;
 
  public:
-  Vop356x(){ Init(); }
+  Vop3588(){ Init(); }
   void Init();
   bool SupportPlatform(uint32_t soc_id);
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,

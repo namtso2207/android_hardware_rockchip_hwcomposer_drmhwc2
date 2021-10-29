@@ -34,7 +34,7 @@
  * limitations under the License.
  */
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
-#define LOG_TAG "drm-vop2"
+#define LOG_TAG "drm-vop-356x"
 
 #include "rockchip/platform/drmvop356x.h"
 #include "drmdevice.h"
@@ -43,7 +43,7 @@
 
 namespace android {
 
-void PlanStageVop2::Init(){
+void Vop356x::Init(){
 
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
 
@@ -53,7 +53,7 @@ void PlanStageVop2::Init(){
 
 }
 
-bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
+bool Vop356x::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
         for (std::vector<DrmHwcLayer*>::const_iterator iter = layer_vector.begin();
                iter != layer_vector.end(); ++iter) {
             if((*iter)->uId_==layer->uId_)
@@ -63,7 +63,7 @@ bool PlanStageVop2::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer
           return false;
 }
 
-int PlanStageVop2::IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2){
+int Vop356x::IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2){
     if(rec2->top == rec->top)
         return 1;
     else if(rec2->top < rec->top)
@@ -84,7 +84,7 @@ int PlanStageVop2::IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2){
 }
 
 
-bool PlanStageVop2::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
+bool Vop356x::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
     int iMaxLeft,iMaxTop,iMinRight,iMinBottom;
     ALOGD_IF(LogLevel(DBG_DEBUG),"is_not_intersect: rec1[%d,%d,%d,%d],rec2[%d,%d,%d,%d]",rec1->left,rec1->top,
         rec1->right,rec1->bottom,rec2->left,rec2->top,rec2->right,rec2->bottom);
@@ -102,7 +102,7 @@ bool PlanStageVop2::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
     return false;
 }
 
-bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
+bool Vop356x::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
     if(!ctx.state.bMultiAreaEnable)
       return false;
 
@@ -124,7 +124,7 @@ bool PlanStageVop2::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_t
     return true;
 }
 
-int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,uint32_t iPlaneSize){
+int Vop356x::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,uint32_t iPlaneSize){
 
     /*Group layer*/
     int zpos = 0;
@@ -271,7 +271,7 @@ int PlanStageVop2::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &l
 
 }
 
-bool PlanStageVop2::HasGetNoAfbcUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasGetNoAfbcUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
     std::vector<DrmPlane *> usable_planes;
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
@@ -287,7 +287,7 @@ bool PlanStageVop2::HasGetNoAfbcUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGro
   return usable_planes.size() > 0;;
 }
 
-bool PlanStageVop2::HasGetNoYuvUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasGetNoYuvUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
     std::vector<DrmPlane *> usable_planes;
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
@@ -303,7 +303,7 @@ bool PlanStageVop2::HasGetNoYuvUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGrou
   return usable_planes.size() > 0;;
 }
 
-bool PlanStageVop2::HasGetNoScaleUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasGetNoScaleUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
     std::vector<DrmPlane *> usable_planes;
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
@@ -319,7 +319,7 @@ bool PlanStageVop2::HasGetNoScaleUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGr
   return usable_planes.size() > 0;;
 }
 
-bool PlanStageVop2::HasGetNoAlphaUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasGetNoAlphaUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
     std::vector<DrmPlane *> usable_planes;
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
@@ -335,7 +335,7 @@ bool PlanStageVop2::HasGetNoAlphaUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGr
   return usable_planes.size() > 0;
 }
 
-bool PlanStageVop2::HasGetNoEotfUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasGetNoEotfUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGroup *> &plane_groups) {
     std::vector<DrmPlane *> usable_planes;
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
@@ -351,11 +351,11 @@ bool PlanStageVop2::HasGetNoEotfUsablePlanes(DrmCrtc *crtc, std::vector<PlaneGro
   return usable_planes.size() > 0;
 }
 
-bool PlanStageVop2::GetCrtcSupported(const DrmCrtc &crtc, uint32_t possible_crtc_mask) {
+bool Vop356x::GetCrtcSupported(const DrmCrtc &crtc, uint32_t possible_crtc_mask) {
   return !!((1 << crtc.pipe()) & possible_crtc_mask);
 }
 
-bool PlanStageVop2::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups) {
+bool Vop356x::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector<PlaneGroup *> &plane_groups) {
     //loop plane groups.
     for (std::vector<PlaneGroup *> ::const_iterator iter = plane_groups.begin();
        iter != plane_groups.end(); ++iter) {
@@ -366,7 +366,7 @@ bool PlanStageVop2::HasPlanesWithSize(DrmCrtc *crtc, int layer_size, std::vector
   return false;
 }
 
-int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
+int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
                    std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best=false) {
@@ -652,7 +652,7 @@ int PlanStageVop2::MatchPlane(std::vector<DrmCompositionPlane> *composition_plan
   return -1;
 }
 
-int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_planes,
+int Vop356x::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_planes,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCompositionPlane::Type type, DrmCrtc *crtc,
                    std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best=false) {
@@ -937,7 +937,7 @@ int PlanStageVop2::MatchPlaneMirror(std::vector<DrmCompositionPlane> *compositio
 }
 
 
-void PlanStageVop2::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
+void Vop356x::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
   for (auto &plane_group : plane_groups){
     for(auto &p : plane_group->planes)
       p->set_use(false);
@@ -946,14 +946,14 @@ void PlanStageVop2::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
   return;
 }
 
-void PlanStageVop2::ResetLayer(std::vector<DrmHwcLayer*>& layers){
+void Vop356x::ResetLayer(std::vector<DrmHwcLayer*>& layers){
     for (auto &drmHwcLayer : layers){
       drmHwcLayer->bMatch_ = false;
     }
     return;
 }
 
-int PlanStageVop2::MatchBestPlanes(
+int Vop356x::MatchBestPlanes(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -999,7 +999,7 @@ int PlanStageVop2::MatchBestPlanes(
 }
 
 
-int PlanStageVop2::MatchPlanes(
+int Vop356x::MatchPlanes(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1037,7 +1037,7 @@ int PlanStageVop2::MatchPlanes(
   }
   return 0;
 }
-int  PlanStageVop2::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_plane_groups){
+int  Vop356x::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_plane_groups){
   DrmDevice *drm = crtc->getDrmDevice();
   out_plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
@@ -1056,7 +1056,7 @@ int  PlanStageVop2::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_
   return out_plane_groups.size() > 0 ? 0 : -1;
 }
 
-void PlanStageVop2::ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers,
+void Vop356x::ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers,
                                               std::vector<DrmHwcLayer*>& tmp_layers){
   for (auto i = layers.begin(); i != layers.end();){
       if((*i)->bFbTarget_){
@@ -1087,7 +1087,7 @@ void PlanStageVop2::ResetLayerFromTmpExceptFB(std::vector<DrmHwcLayer*>& layers,
 }
 
 
-void PlanStageVop2::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
+void Vop356x::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
                                               std::vector<DrmHwcLayer*>& tmp_layers){
   for (auto i = tmp_layers.begin(); i != tmp_layers.end();){
          layers.emplace_back(std::move(*i));
@@ -1105,7 +1105,7 @@ void PlanStageVop2::ResetLayerFromTmp(std::vector<DrmHwcLayer*>& layers,
     return;
 }
 
-void PlanStageVop2::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
+void Vop356x::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
                                        std::vector<DrmHwcLayer*>& tmp_layers){
   for (auto i = layers.begin(); i != layers.end();){
       if((*i)->bFbTarget_){
@@ -1129,7 +1129,7 @@ void PlanStageVop2::MoveFbToTmp(std::vector<DrmHwcLayer*>& layers,
   return;
 }
 
-void PlanStageVop2::OutputMatchLayer(int iFirst, int iLast,
+void Vop356x::OutputMatchLayer(int iFirst, int iLast,
                                           std::vector<DrmHwcLayer *>& layers,
                                           std::vector<DrmHwcLayer *>& tmp_layers){
 
@@ -1167,7 +1167,7 @@ void PlanStageVop2::OutputMatchLayer(int iFirst, int iLast,
   }
   return;
 }
-int PlanStageVop2::TryOverlayPolicy(
+int Vop356x::TryOverlayPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1186,7 +1186,7 @@ int PlanStageVop2::TryOverlayPolicy(
   }
   return 0;
 }
-int PlanStageVop2::TryMixSkipPolicy(
+int Vop356x::TryMixSkipPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1325,7 +1325,7 @@ int PlanStageVop2::TryMixSkipPolicy(
       GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
       GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
 ************************************************************/
-int PlanStageVop2::TryMixVideoPolicy(
+int Vop356x::TryMixVideoPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1378,7 +1378,7 @@ int PlanStageVop2::TryMixVideoPolicy(
       GLES | 70b34c9080 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
       GLES | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 | 1136, 1194, 1175, 1243 | Sprite
 ************************************************************/
-int PlanStageVop2::TryMixUpPolicy(
+int Vop356x::TryMixUpPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1446,7 +1446,7 @@ int PlanStageVop2::TryMixUpPolicy(
        HWC | 711ec5ad80 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 2400.0,   84.0 |    0, 1516, 2400, 1600 | taskbar
        HWC | 711ec5a900 | 0000 | 0002 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,   39.0,   49.0 |  941,  810,  980,  859 | Sprite
 ************************************************************/
-int PlanStageVop2::TryMixDownPolicy(
+int Vop356x::TryMixDownPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1493,7 +1493,7 @@ int PlanStageVop2::TryMixDownPolicy(
   return ret;
 }
 
-int PlanStageVop2::TryMixPolicy(
+int Vop356x::TryMixPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1526,7 +1526,7 @@ int PlanStageVop2::TryMixPolicy(
   return -1;
 }
 
-int PlanStageVop2::TryGLESPolicy(
+int Vop356x::TryGLESPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1599,7 +1599,7 @@ int PlanStageVop2::TryGLESPolicy(
   return 0;
 }
 
-void PlanStageVop2::UpdateResevedPlane(DrmCrtc *crtc){
+void Vop356x::UpdateResevedPlane(DrmCrtc *crtc){
   // Reserved DrmPlane
   char reserved_plane_name[PROPERTY_VALUE_MAX] = {0};
   hwc_get_string_property("vendor.hwc.reserved_plane_name","NULL",reserved_plane_name);
@@ -1670,7 +1670,7 @@ void PlanStageVop2::UpdateResevedPlane(DrmCrtc *crtc){
  * Notes: (4096,1714)=>(1200,900) appear( DDR 1056M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.075307
  */
 #define CLUSTER_AFBC_DECODE_MAX_RATE 2.0
-bool PlanStageVop2::CheckGLESLayer(DrmHwcLayer *layer){
+bool Vop356x::CheckGLESLayer(DrmHwcLayer *layer){
   // RK356x can't overlay RGBA1010102
   if(layer->iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102){
     HWC2_ALOGD_IF_DEBUG("[%s]：RGBA1010102 format, not support overlay.",
@@ -1766,7 +1766,7 @@ bool PlanStageVop2::CheckGLESLayer(DrmHwcLayer *layer){
   return false;
 }
 
-void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
+void Vop356x::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
 
   // Collect layer info
   ctx.request.iAfbcdCnt=0;
@@ -1842,7 +1842,7 @@ void PlanStageVop2::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
   return;
 }
 
-void PlanStageVop2::InitSupportContext(
+void Vop356x::InitSupportContext(
     std::vector<PlaneGroup *> &plane_groups,
     DrmCrtc *crtc){
   // Collect Plane resource info
@@ -1903,7 +1903,7 @@ void PlanStageVop2::InitSupportContext(
   return;
 }
 
-void PlanStageVop2::InitStateContext(
+void Vop356x::InitStateContext(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
     DrmCrtc *crtc){
@@ -1959,7 +1959,7 @@ void PlanStageVop2::InitStateContext(
   return;
 }
 
-void PlanStageVop2::InitCrtcMirror(
+void Vop356x::InitCrtcMirror(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
     DrmCrtc *crtc){
@@ -2097,7 +2097,7 @@ void PlanStageVop2::InitCrtcMirror(
   return;
 }
 
-bool PlanStageVop2::TryOverlay(){
+bool Vop356x::TryOverlay(){
   if(ctx.request.iAfbcdCnt <= ctx.support.iAfbcdCnt &&
      ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
      ctx.request.iYuvCnt <= ctx.support.iYuvCnt &&
@@ -2109,7 +2109,7 @@ bool PlanStageVop2::TryOverlay(){
   return false;
 }
 
-void PlanStageVop2::TryMix(){
+void Vop356x::TryMix(){
   ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
   ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
   if(ctx.support.iYuvCnt > 0 || ctx.support.iAfbcdYuvCnt > 0)
@@ -2118,7 +2118,7 @@ void PlanStageVop2::TryMix(){
     ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
 }
 
-int PlanStageVop2::InitContext(
+int Vop356x::InitContext(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
     DrmCrtc *crtc,
@@ -2154,7 +2154,7 @@ int PlanStageVop2::InitContext(
 
   return 0;
 }
-int PlanStageVop2::TryHwcPolicy(
+int Vop356x::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     bool gles_policy) {
@@ -2203,7 +2203,7 @@ int PlanStageVop2::TryHwcPolicy(
   return -1;
 }
 
-bool PlanStageVop2::SupportPlatform(uint32_t soc_id){
+bool Vop356x::SupportPlatform(uint32_t soc_id){
   switch(soc_id){
     case 0x3566:
     case 0x3568:

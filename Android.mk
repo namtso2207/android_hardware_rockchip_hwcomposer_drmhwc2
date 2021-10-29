@@ -39,7 +39,8 @@ BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
 # API 31 -> Android 12.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk356x)
+# RK356x RK3588 use DrmHwc2
+ifneq ($(filter rk356x rk3588, $(strip $(TARGET_BOARD_PLATFORM))), )
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
 else  # BUILD_WITH_RK_EBOOK
@@ -52,7 +53,7 @@ endif
 
 # API 30 -> Android 11.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk356x)
+ifneq ($(filter rk356x rk3588, $(strip $(TARGET_BOARD_PLATFORM))), )
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
 else  # BUILD_WITH_RK_EBOOK
@@ -104,6 +105,7 @@ LOCAL_SRC_FILES := \
   drm/drmcompositorworker.cpp \
   drm/resourcemanager.cpp \
   drm/vsyncworker.cpp \
+  drm/invalidateworker.cpp \
   platform/platform.cpp \
   utils/autolock.cpp \
   platform/platformdrmgeneric.cpp \
@@ -111,10 +113,10 @@ LOCAL_SRC_FILES := \
   rockchip/drmlayer.cpp \
   rockchip/drmtype.cpp \
   rockchip/drmgralloc.cpp \
+  rockchip/drmbaseparameter.cpp \
   rockchip/platform/drmvop3399.cpp \
   rockchip/platform/drmvop356x.cpp \
-  drm/invalidateworker.cpp \
-  rockchip/drmbaseparameter.cpp
+  rockchip/platform/drmvop3588.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \
