@@ -108,15 +108,26 @@ typedef struct StateContext{
   bool bCommitMirrorMode=false;
   DrmCrtc *pCrtcMirror=NULL;
 
-  // Cluster 0/1 two win mode
+  // Cluster 0/1/2/3 two win mode
   bool bClu0TwoWinMode=false;
   bool bClu1TwoWinMode=false;
+  bool bClu2TwoWinMode=false;
+  bool bClu3TwoWinMode=false;
+
   bool bClu0Used=false;
   bool bClu1Used=false;
+  bool bClu2Used=false;
+  bool bClu3Used=false;
+
   int iClu0UsedZ=-1;
   int iClu1UsedZ=-1;
+  int iClu2UsedZ=-1;
+  int iClu3UsedZ=-1;
+
   int iClu0UsedDstXOffset=0;
   int iClu1UsedDstXOffset=0;
+  int iClu2UsedDstXOffset=0;
+  int iClu3UsedDstXOffset=0;
 
   // Multi area
   bool bMultiAreaEnable=false;

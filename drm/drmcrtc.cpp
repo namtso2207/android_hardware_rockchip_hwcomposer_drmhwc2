@@ -34,6 +34,19 @@ struct plane_mask_name {
   const char *name;
 };
 
+// RK3588
+struct plane_mask_name plane_mask_names_rk3588[] = {
+  { PLANE_RK3588_ALL_CLUSTER0_MASK, "Cluster0" },
+  { PLANE_RK3588_ALL_CLUSTER1_MASK, "Cluster1" },
+  { PLANE_RK3588_ALL_CLUSTER2_MASK, "Cluster2" },
+  { PLANE_RK3588_ALL_CLUSTER3_MASK, "Cluster3" },
+  { PLANE_RK3588_ALL_ESMART0_MASK, "Esmart0" },
+  { PLANE_RK3588_ALL_ESMART1_MASK, "Esmart1" },
+  { PLANE_RK3588_ALL_ESMART2_MASK, "Esmart2" },
+  { PLANE_RK3588_ALL_ESMART3_MASK, "Esmart3" },
+  { PLANE_RK3588_Unknown, "unknown" },
+};
+
 // RK356x
 struct plane_mask_name plane_mask_names_rk356x[] = {
   { DRM_PLANE_TYPE_CLUSTER0_MASK, "Cluster0" },
@@ -139,7 +152,15 @@ int DrmCrtc::Init() {
     ALOGE("Failed to get plane_mask property");
   }else{
 
-    if(isRK356x(soc_id_)){
+    if(isRK3588(soc_id_)){
+      for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk3588); i++){
+        bool have_mask = false;
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk3588[i].name);
+        if(have_mask){
+          plane_mask_ |= plane_mask_names_rk3588[i].mask;
+        }
+      }
+    }else if(isRK356x(soc_id_)){
       for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk356x); i++){
         bool have_mask = false;
         std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk356x[i].name);

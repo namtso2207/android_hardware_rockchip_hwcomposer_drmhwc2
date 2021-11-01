@@ -301,8 +301,59 @@ const char* DrmPlane::name() const{
 }
 
 void DrmPlane::mark_type_by_name(){
+  if(isRK3588(soc_id_)){
+    struct plane_type_name_rk3588 {
+      DrmPlaneTypeRK3588 type;
+      const char *name;
+    };
 
-  if(isRK356x(soc_id_)){
+    struct plane_type_name_rk3588 plane_type_names_rk3588[] = {
+      { PLANE_RK3588_CLUSTER0_WIN0, "Cluster0-win0" },
+      { PLANE_RK3588_CLUSTER0_WIN1, "Cluster0-win1" },
+
+      { PLANE_RK3588_CLUSTER1_WIN0, "Cluster1-win0" },
+      { PLANE_RK3588_CLUSTER1_WIN1, "Cluster1-win1" },
+
+      { PLANE_RK3588_CLUSTER2_WIN0, "Cluster2-win0" },
+      { PLANE_RK3588_CLUSTER2_WIN1, "Cluster2-win1" },
+
+      { PLANE_RK3588_CLUSTER3_WIN0, "Cluster3-win0" },
+      { PLANE_RK3588_CLUSTER3_WIN1, "Cluster3-win1" },
+
+      { PLANE_RK3588_ESMART0_WIN0, "Esmart0-win0" },
+      { PLANE_RK3588_ESMART0_WIN1, "Esmart0-win1" },
+      { PLANE_RK3588_ESMART0_WIN2, "Esmart0-win2" },
+      { PLANE_RK3588_ESMART0_WIN3, "Esmart0-win3" },
+
+      { PLANE_RK3588_ESMART1_WIN0, "Esmart1-win0" },
+      { PLANE_RK3588_ESMART1_WIN1, "Esmart1-win1" },
+      { PLANE_RK3588_ESMART1_WIN2, "Esmart1-win2" },
+      { PLANE_RK3588_ESMART1_WIN3, "Esmart1-win3" },
+
+      { PLANE_RK3588_ESMART2_WIN0, "Esmart2-win0" },
+      { PLANE_RK3588_ESMART2_WIN1, "Esmart2-win1" },
+      { PLANE_RK3588_ESMART2_WIN2, "Esmart2-win2" },
+      { PLANE_RK3588_ESMART2_WIN3, "Esmart2-win3" },
+
+      { PLANE_RK3588_ESMART3_WIN0, "Esmart3-win0" },
+      { PLANE_RK3588_ESMART3_WIN1, "Esmart3-win1" },
+      { PLANE_RK3588_ESMART3_WIN2, "Esmart3-win2" },
+      { PLANE_RK3588_ESMART3_WIN3, "Esmart3-win3" },
+
+      { PLANE_RK3588_Unknown, "unknown" },
+    };
+
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names_rk3588); i++){
+      int ret;
+      bool find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names_rk3588[i].name);
+      if(find_name){
+        win_type_ = plane_type_names_rk3588[i].type;
+        name_ = plane_type_names_rk3588[i].name;
+        break;
+      }
+    }
+  }else if(isRK356x(soc_id_)){
     struct plane_type_name_rk356x {
       DrmPlaneTypeRK356x type;
       const char *name;
@@ -565,7 +616,11 @@ void DrmPlane::set_reserved(bool bReserved) {
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){
-  return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+  if(get_scale()){
+    return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+  }else{
+    return scale_rate == 1.0;
+  }
 }
 
 bool DrmPlane::is_support_input(int input_w, int input_h){

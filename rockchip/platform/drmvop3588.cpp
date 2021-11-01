@@ -49,8 +49,6 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
-  ctx.state.bSmartScaleEnable = hwc_get_bool_property("vendor.hwc.smart_scale_enable","false");
-
 }
 
 bool Vop3588::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
@@ -235,7 +233,7 @@ int Vop3588::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,
             i++;
     }
 
-  // RK356x sort layer by ypos
+  // RK3588 sort layer by ypos
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
         if(iter->second.size() > 1) {
@@ -422,30 +420,53 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                       {
                           bool bNeed = false;
 
-                          // Cluster
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                          // Cluster 0
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
                                 ctx.state.iClu0UsedDstXOffset = 0;
                           }
-
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                          // Cluster 1
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                                 ctx.state.bClu1Used = false;
                                 ctx.state.iClu1UsedZ = -1;
                                 ctx.state.bClu1TwoWinMode = true;
                                 ctx.state.iClu1UsedDstXOffset = 0;
                           }
 
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0 &&
+                          // Cluster 2
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
+                                ctx.state.bClu2Used = false;
+                                ctx.state.iClu2UsedZ = -1;
+                                ctx.state.bClu2TwoWinMode = true;
+                                ctx.state.iClu2UsedDstXOffset = 0;
+                          }
+                          // Cluster 3
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
+                                ctx.state.bClu3Used = false;
+                                ctx.state.iClu3UsedZ = -1;
+                                ctx.state.bClu3TwoWinMode = true;
+                                ctx.state.iClu3UsedDstXOffset = 0;
+                          }
+
+                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
                              (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
                             ctx.state.bClu0TwoWinMode = false;
 
-                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0 &&
+                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
                              (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
                             ctx.state.bClu1TwoWinMode = false;
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
+                          if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
+                            ctx.state.bClu2TwoWinMode = false;
+
+                          if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
+                            ctx.state.bClu3TwoWinMode = false;
+
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -459,7 +480,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
                           }
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0){
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -473,6 +494,33 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             }
                           }
 
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
+                            if(!ctx.state.bClu2TwoWinMode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+
+                            if((ctx.state.iClu2UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
+                              ctx.state.bClu2TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              continue;
+                            }
+                          }
+
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
+                            if(!ctx.state.bClu3TwoWinMode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+
+                            if((ctx.state.iClu3UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
+                              ctx.state.bClu3TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              continue;
+                            }
+                          }
                           // Format
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
@@ -572,35 +620,6 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               continue;
                           }
 
-                          // RK3566 must match external display
-                          if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-
-                            // Output info
-                            int output_w = (*iter_layer)->display_frame_mirror.right - (*iter_layer)->display_frame_mirror.left;
-                            int output_h = (*iter_layer)->display_frame_mirror.bottom - (*iter_layer)->display_frame_mirror.top;
-
-                            if((*iter_plane)->is_support_output(output_w,output_h)){
-                              bNeed = true;
-                            }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror %s cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                      (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
-                              continue;
-
-                            }
-
-                            // Scale
-                            if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMulMirror_) &&
-                                (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
-                              bNeed = true;
-                            else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror %s cann't support scale factor(%f,%f)",
-                                      (*iter_plane)->name(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
-                              continue;
-                            }
-
-                          }
-
-
                           ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, %s, zops = %d",(*iter_layer)->uId_,
                               (*iter_plane)->name(),zpos);
                           //Find the match plane for layer,it will be commit.
@@ -611,7 +630,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           combine_layer_count++;
 
                           // Cluster disable two win mode?
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
@@ -621,7 +640,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               }else{
                                   ctx.state.bClu0TwoWinMode = true;
                               }
-                          }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                               ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
@@ -631,9 +650,28 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               }else{
                                   ctx.state.bClu1TwoWinMode = true;
                               }
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
+                              ctx.state.bClu2Used = true;
+                              ctx.state.iClu2UsedZ = zpos;
+                              ctx.state.iClu2UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
+                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                                  ctx.state.bClu2TwoWinMode = false;
+                              }else{
+                                  ctx.state.bClu2TwoWinMode = true;
+                              }
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
+                              ctx.state.bClu3Used = true;
+                              ctx.state.iClu3UsedZ = zpos;
+                              ctx.state.iClu3UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
+                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                                  ctx.state.bClu3TwoWinMode = false;
+                              }else{
+                                  ctx.state.bClu3TwoWinMode = true;
+                              }
                           }
                           break;
-
                       }
                   }
               }
@@ -708,30 +746,53 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
                       {
                           bool bNeed = false;
 
-                          // Cluster
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                          // Cluster 0
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
                                 ctx.state.iClu0UsedDstXOffset = 0;
                           }
-
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                          // Cluster 1
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                                 ctx.state.bClu1Used = false;
                                 ctx.state.iClu1UsedZ = -1;
                                 ctx.state.bClu1TwoWinMode = true;
                                 ctx.state.iClu1UsedDstXOffset = 0;
                           }
 
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0 &&
+                          // Cluster 2
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
+                                ctx.state.bClu2Used = false;
+                                ctx.state.iClu2UsedZ = -1;
+                                ctx.state.bClu2TwoWinMode = true;
+                                ctx.state.iClu2UsedDstXOffset = 0;
+                          }
+                          // Cluster 3
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
+                                ctx.state.bClu3Used = false;
+                                ctx.state.iClu3UsedZ = -1;
+                                ctx.state.bClu3TwoWinMode = true;
+                                ctx.state.iClu3UsedDstXOffset = 0;
+                          }
+
+                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
                              (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
                             ctx.state.bClu0TwoWinMode = false;
 
-                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0 &&
+                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
                              (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
                             ctx.state.bClu1TwoWinMode = false;
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN1) > 0){
+                          if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
+                            ctx.state.bClu2TwoWinMode = false;
+
+                          if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
+                             (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
+                            ctx.state.bClu3TwoWinMode = false;
+
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -745,7 +806,7 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
 
                           }
 
-                          if(((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN1) > 0){
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -754,6 +815,34 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
 
                             if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu1TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              continue;
+                            }
+                          }
+
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
+                            if(!ctx.state.bClu2TwoWinMode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+
+                            if((ctx.state.iClu2UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
+                              ctx.state.bClu2TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              continue;
+                            }
+                          }
+
+                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
+                            if(!ctx.state.bClu3TwoWinMode){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
+                              continue;
+                            }
+                            int dst_x_offset = (*iter_layer)->display_frame.left;
+
+                            if((ctx.state.iClu3UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
+                              ctx.state.bClu3TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
@@ -895,25 +984,45 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
                           combine_layer_count++;
 
                           // Cluster disable two win mode?
-                          if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER0_WIN0){
+                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||
+                              if(input_w > 2048 || output_w > 2048 ||  eotf != TRADITIONAL_GAMMA_SDR ||
                                  ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   ctx.state.bClu0TwoWinMode = false;
                               }else{
                                   ctx.state.bClu0TwoWinMode = true;
                               }
-                          }else if((*iter_plane)->win_type() & DRM_PLANE_TYPE_CLUSTER1_WIN0){
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                               ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                                   ctx.state.bClu1TwoWinMode = false;
                               }else{
                                   ctx.state.bClu1TwoWinMode = true;
+                              }
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
+                              ctx.state.bClu2Used = true;
+                              ctx.state.iClu2UsedZ = zpos;
+                              ctx.state.iClu2UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
+                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                                  ctx.state.bClu2TwoWinMode = false;
+                              }else{
+                                  ctx.state.bClu2TwoWinMode = true;
+                              }
+                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
+                              ctx.state.bClu3Used = true;
+                              ctx.state.iClu3UsedZ = zpos;
+                              ctx.state.iClu3UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
+                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                                  ctx.state.bClu3TwoWinMode = false;
+                              }else{
+                                  ctx.state.bClu3TwoWinMode = true;
                               }
                           }
                           break;
