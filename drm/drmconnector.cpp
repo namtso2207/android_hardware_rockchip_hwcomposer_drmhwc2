@@ -18,6 +18,7 @@
 
 #include "drmconnector.h"
 #include "drmdevice.h"
+#include "rockchip/utils/drmdebug.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -321,12 +322,16 @@ int DrmConnector::UpdateModes() {
     m.set_id(drm_->next_mode_id());
     new_raw_modes.push_back(m);
   }
+  raw_modes_.swap(new_raw_modes);
 
   if (!preferred_mode_found && modes_.size() != 0) {
     preferred_mode_id_ = modes_[0].id();
   }
 
   bModeReady_ = true;
+
+  HWC2_ALOGD_IF_DEBUG("conn=%d state=%d count_modes.size=%d modes_.size=%zu new_raw_modes.size=%zu",
+        id_, state_,c->count_modes, modes_.size(),new_raw_modes.size());
 
   drmModeFreeConnector(c);
 
