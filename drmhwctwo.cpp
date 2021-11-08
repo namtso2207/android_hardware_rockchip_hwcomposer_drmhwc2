@@ -877,13 +877,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     bool disable_afbdc = false;
     if(handle_ == HWC_DISPLAY_PRIMARY){
       if(isRK356x(resource_manager_->getSocId())){
-        if(ctx_.framebuffer_width % 4 != 0)
-           disable_afbdc = true;
-        if(disable_afbdc){
-          property_set( "vendor.gralloc.no_afbc_for_fb_target_layer", "1");
-          ALOGI("%s:line=%d RK356x primary framebuffer size %dx%d not support AFBC, to disable AFBC\n",
-                   __FUNCTION__, __LINE__, ctx_.framebuffer_width,ctx_.framebuffer_height);
+        if(ctx_.framebuffer_width % 4 != 0){
+          disable_afbdc = true;
+          HWC2_ALOGI("RK356x primary framebuffer size %dx%d not support AFBC, to disable AFBC\n",
+                      ctx_.framebuffer_width,ctx_.framebuffer_height);
         }
+      }
+      if(hwc_get_int_property("ro.vendor.rk_sdk","0") == 0){
+          disable_afbdc = true;
+          HWC2_ALOGI("Maybe GSI SDK, to disable AFBC\n");
+      }
+      if(disable_afbdc){
+        property_set( "vendor.gralloc.no_afbc_for_fb_target_layer", "1");
       }
     }
     if (!configs) {
