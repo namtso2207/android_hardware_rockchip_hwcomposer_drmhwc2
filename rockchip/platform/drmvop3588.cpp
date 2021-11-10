@@ -376,6 +376,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
   uint64_t alpha = 0xFF;
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
+  bool b8kMode = ctx.state.b8kMode_;
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -532,7 +533,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           // Input info
                           int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
                           int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
-                          if((*iter_plane)->is_support_input(input_w,input_h)){
+                          if(b8kMode ? (*iter_plane)->is_support_input_8k(input_w,input_h) : \
+                                       (*iter_plane)->is_support_input(input_w,input_h)){
                             bNeed = true;
                           }else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
@@ -545,7 +547,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
                           int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
 
-                          if((*iter_plane)->is_support_output(output_w,output_h)){
+                          if(b8kMode ? (*iter_plane)->is_support_output_8k(output_w,output_h) : \
+                                       (*iter_plane)->is_support_output(output_w,output_h)){
                             bNeed = true;
                           }else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
@@ -555,8 +558,10 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale
-                          if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
-                              (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
+                          if(b8kMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) : \
+                                       (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_)   &&
+                             b8kMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) : \
+                                       (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
                             bNeed = true;
                           else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
@@ -596,7 +601,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Only YUV use Cluster rotate
-                          if((*iter_plane)->is_support_transform((*iter_layer)->transform)){
+                          if(b8kMode ? (*iter_plane)->is_support_transform_8k((*iter_layer)->transform) : \
+                                       (*iter_plane)->is_support_transform((*iter_layer)->transform)){
                             if(((*iter_layer)->transform & (DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
                               // Cluster rotate must 64 align
                               if(((*iter_layer)->iStride_ % 64 != 0)){
@@ -2021,6 +2027,31 @@ void Vop3588::InitStateContext(
 
   // Commit mirror function
   InitCrtcMirror(layers,plane_groups,crtc);
+
+  // 8K Mode
+  DrmDevice *drm = crtc->getDrmDevice();
+  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+  if(conn && conn->state() != DRM_MODE_CONNECTED){
+    DrmMode mode = conn->current_mode();
+    if(ctx.state.b8kMode_ != mode.is_8k_mode()){
+      ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d %s 8K Mode.",
+          __FUNCTION__,__LINE__, mode.is_8k_mode() ? "Enter" : "Quit");
+    }
+    ctx.state.b8kMode_ = mode.is_8k_mode();
+    // Rreserved Cluster-1 and Esmart-1
+    for(auto &plane_group : plane_groups){
+      for(auto &p : plane_group->planes){
+        if(p->win_type() & PLANE_RK3588_ALL_CLUSTER1_MASK ||
+           p->win_type() & PLANE_RK3588_ALL_ESMART1_MASK ){
+          plane_group->bReserved = true;
+          ALOGI("%s,line=%d Reserved 8K plane name=%s",
+                  __FUNCTION__,__LINE__,p->name());
+        }else{
+          plane_group->bReserved = false;
+        }
+      }
+    }
+  }
 
   // FB-target need disable AFBCD?
   ctx.state.bDisableFBAfbcd = false;

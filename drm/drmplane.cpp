@@ -569,14 +569,6 @@ bool DrmPlane::get_yuv(){
     return b_yuv_;
 }
 
-int DrmPlane::get_scale_rate_max(){
-    return scale_max_;
-}
-
-int DrmPlane::get_scale_rate_min(){
-    return scale_min_;
-}
-
 int DrmPlane::get_input_w_max(){
     return input_w_max_;
 }
@@ -659,4 +651,42 @@ bool DrmPlane::is_support_transform(int transform){
   return (transform & rotate_) == transform;
 }
 
+// 8K
+int DrmPlane::get_input_w_max_8k(){
+    return 8096;
+}
+
+int DrmPlane::get_input_h_max_8k(){
+    return 4320;
+}
+
+int DrmPlane::get_output_w_max_8k(){
+    return 8096;
+}
+
+int DrmPlane::get_output_h_max_8k(){
+    return 4320;
+}
+
+bool DrmPlane::is_support_scale_8k(float scale_rate){
+  if(get_scale()){
+    return (scale_rate >= 0.9) && (scale_rate <= 1.1);
+  }else{
+    return scale_rate == 1.0;
+  }
+}
+
+bool DrmPlane::is_support_input_8k(int input_w, int input_h){
+  // RK platform VOP can't display src/dst w/h < 4 layer.
+  return (input_w <= 8096 && input_w >= 4) && (input_h <= 4320 && input_h >= 4);
+}
+
+bool DrmPlane::is_support_output_8k(int output_w, int output_h){
+  // RK platform VOP can't display src/dst w/h < 4 layer.
+  return (output_w <= 8096 && output_w >= 4) && (output_h <= 4320 && output_h >= 4);
+}
+
+bool DrmPlane::is_support_transform_8k(int transform){
+  return (transform & DRM_PLANE_ROTATION_0) == transform;
+}
 }  // namespace android

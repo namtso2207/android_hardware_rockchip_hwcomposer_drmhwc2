@@ -224,8 +224,6 @@ class DrmPlane {
   bool get_sdr2hdr();
   bool get_afbc();
   bool get_yuv();
-  int get_scale_rate_max();
-  int get_scale_rate_min();
   int get_input_w_max();
   int get_input_h_max();
   int get_output_w_max();
@@ -242,6 +240,18 @@ class DrmPlane {
   inline uint32_t get_possible_crtc_mask() const{ return possible_crtc_mask_; }
   inline void set_current_crtc_bit(uint32_t current_crtc) { current_crtc_ = current_crtc;}
   inline uint32_t get_current_crtc_bit() const{ return current_crtc_; }
+
+  // 8K
+  int get_input_w_max_8k();
+  int get_input_h_max_8k();
+  int get_output_w_max_8k();
+  int get_output_h_max_8k();
+  bool is_support_input_8k(int input_w, int input_h);
+  bool is_support_output_8k(int output_w, int output_h);
+  int  get_transform_8k();
+  bool is_support_transform_8k(int transform);
+  bool is_support_scale_8k(float scale_rate);
+
 
  private:
   DrmDevice *drm_;

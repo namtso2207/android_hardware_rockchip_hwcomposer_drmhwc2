@@ -142,6 +142,9 @@ typedef struct StateContext{
   // Soc id
   int iSocId=0;
   std::set<ComposeMode> setHwcPolicy;
+
+  // 8k display mode
+  bool b8kMode_;
 } StaCtx;
 
 typedef struct DrmVop2Context{
