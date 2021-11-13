@@ -41,6 +41,9 @@
 
 #include <log/log.h>
 
+
+#define DISBALE_AFBC_DYNAMIC 0
+
 namespace android {
 
 void Vop3588::Init(){
@@ -1652,7 +1655,7 @@ int Vop3588::TryGLESPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
 
-
+#if DISBALE_AFBC_DYNAMIC
   if(fb_target.size()==1){
     DrmHwcLayer* fb_layer = fb_target[0];
     // If there is a Cluster layer, FB enables AFBC
@@ -1704,7 +1707,8 @@ int Vop3588::TryGLESPolicy(
                                    DRM_PLANE_TYPE_SMART1_MASK;
     }
   }
-  int ret = MatchBestPlanes(composition,fb_target,crtc,plane_groups);
+#endif
+  int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
   if(!ret)
     return ret;
   else{
@@ -2055,7 +2059,7 @@ void Vop3588::InitStateContext(
       }
     }
   }
-
+#if DISBALE_AFBC_DYNAMIC
   // FB-target need disable AFBCD?
   ctx.state.bDisableFBAfbcd = false;
   for(auto &layer : layers){
@@ -2099,6 +2103,7 @@ void Vop3588::InitStateContext(
       break;
     }
   }
+#endif
   return;
 }
 
