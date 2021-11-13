@@ -1808,8 +1808,11 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
 
   // RK356x Cluster can't overlay act_w % 4 != 0 afbcd layer.
   if(layer->bAfbcd_){
-    if(act_w % 4 != 0)
+    if(act_w % 4 != 0){
+      HWC2_ALOGD_IF_DEBUG("[%s]：act_w=%d Cluster must act_w %% 4 != 0.",
+              layer->sLayerName_.c_str(),act_w);
       return true;
+    }
     //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = CLUSTER_AFBC_DECODE_MAX_RATE, Use GLES compose
     if(layer->uAclk_ > 0 && layer->uDclk_ > 0){
         char value[PROPERTY_VALUE_MAX];

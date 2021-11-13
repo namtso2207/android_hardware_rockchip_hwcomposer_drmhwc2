@@ -163,7 +163,7 @@ int DrmPlane::Init() {
   std::tie(ret,b_alpha_)   = feature_property_.value_bitmask("alpha");
   std::tie(ret,b_hdr2sdr_)   = feature_property_.value_bitmask("hdr2sdr");
   std::tie(ret,b_sdr2hdr_)   = feature_property_.value_bitmask("sdr2hdr");
-  //std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
+  std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
 
   if(isRK356x(soc_id_)){
     b_alpha_   = true;
