@@ -146,6 +146,10 @@ ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
 LOCAL_CPPFLAGS += -DVOP2=1
 endif
 
+ifneq (,$(filter mali-G610, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_CPPFLAGS += -DVOP2=1
+endif
+
 ifeq ($(TARGET_RK_GRALLOC_VERSION),4) # Gralloc 4.0
 
 LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1
@@ -173,6 +177,12 @@ endif
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
 LOCAL_CPPFLAGS += -DANDROID_Q
 ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/bifrost \
+  hardware/rockchip/libgralloc/bifrost/src
+endif
+
+ifneq (,$(filter mali-G610, $(TARGET_BOARD_PLATFORM_GPU)))
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libgralloc/bifrost \
   hardware/rockchip/libgralloc/bifrost/src
