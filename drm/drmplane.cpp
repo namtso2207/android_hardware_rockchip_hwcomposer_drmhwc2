@@ -626,7 +626,6 @@ bool DrmPlane::is_support_output(int output_w, int output_h){
 }
 
 bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
-#ifdef VOP2
   if(isRK3588(soc_id_)){
     if((win_type_ & PLANE_RK3588_ALL_CLUSTER_MASK) > 0 && afbcd)
       return support_format_list.count(format);
@@ -641,17 +640,16 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
       return support_format_list.count(format);
     else
       return false;
+  }else if(isRK3399(soc_id_)){
+      if(afbcd && get_afbc())
+        return support_format_list.count(format);
+      else if(!afbcd)
+        return support_format_list.count(format);
+      else
+        return false;
   }else{
       return false;
   }
-#else
-  if(afbcd && get_afbc())
-    return support_format_list.count(format);
-  else if(!afbcd)
-    return support_format_list.count(format);
-  else
-    return false;
-#endif
 }
 
 int DrmPlane::get_transform(){
