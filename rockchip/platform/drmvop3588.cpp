@@ -111,6 +111,7 @@ bool Vop3588::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
     if(layer_one->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || (layer_one->iFormat_ != layer_two->iFormat_)
+        || (layer_one->bAfbcd_ != layer_two->bAfbcd_)
         || layer_one->alpha!= layer_two->alpha
         || ((layer_one->bScale_ || layer_two->bScale_) && !ctx.state.bMultiAreaScaleEnable)
         || IsRec1IntersectRec2(&layer_one->display_frame,&layer_two->display_frame)
