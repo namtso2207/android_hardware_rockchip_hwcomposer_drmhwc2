@@ -420,19 +420,18 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                       ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,%s is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
                               (*iter_plane)->name(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
 
-
                       if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
                       {
                           bool bNeed = false;
 
-                          // Cluster 0
+                          // Cluster 0, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
                                 ctx.state.iClu0UsedDstXOffset = 0;
                           }
-                          // Cluster 1
+                          // Cluster 1, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                                 ctx.state.bClu1Used = false;
                                 ctx.state.iClu1UsedZ = -1;
@@ -440,92 +439,129 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                                 ctx.state.iClu1UsedDstXOffset = 0;
                           }
 
-                          // Cluster 2
+                          // Cluster 2, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
                                 ctx.state.bClu2Used = false;
                                 ctx.state.iClu2UsedZ = -1;
                                 ctx.state.bClu2TwoWinMode = true;
                                 ctx.state.iClu2UsedDstXOffset = 0;
                           }
-                          // Cluster 3
+                          // Cluster 3, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
                                 ctx.state.bClu3Used = false;
                                 ctx.state.iClu3UsedZ = -1;
                                 ctx.state.bClu3TwoWinMode = true;
                                 ctx.state.iClu3UsedDstXOffset = 0;
                           }
-
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
                              (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
                             ctx.state.bClu0TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
                              (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
                             ctx.state.bClu1TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
                              (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
                             ctx.state.bClu2TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
                              (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
                             ctx.state.bClu3TwoWinMode = false;
 
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
                             if((ctx.state.iClu0UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu0TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
                               continue;
                             }
-
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu0TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu1TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu1TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
                             if(!ctx.state.bClu2TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu2UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu2TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu2TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
                             if(!ctx.state.bClu3TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu3UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu3TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu3TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
+
                           // Format
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
@@ -756,14 +792,14 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
                       {
                           bool bNeed = false;
 
-                          // Cluster 0
+                          // Cluster 0, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
                                 ctx.state.iClu0UsedDstXOffset = 0;
                           }
-                          // Cluster 1
+                          // Cluster 1, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
                                 ctx.state.bClu1Used = false;
                                 ctx.state.iClu1UsedZ = -1;
@@ -771,89 +807,125 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
                                 ctx.state.iClu1UsedDstXOffset = 0;
                           }
 
-                          // Cluster 2
+                          // Cluster 2, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
                                 ctx.state.bClu2Used = false;
                                 ctx.state.iClu2UsedZ = -1;
                                 ctx.state.bClu2TwoWinMode = true;
                                 ctx.state.iClu2UsedDstXOffset = 0;
                           }
-                          // Cluster 3
+                          // Cluster 3, 初始化 Cluster 图层匹配参数
                           if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
                                 ctx.state.bClu3Used = false;
                                 ctx.state.iClu3UsedZ = -1;
                                 ctx.state.bClu3TwoWinMode = true;
                                 ctx.state.iClu3UsedDstXOffset = 0;
                           }
-
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
                              (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
                             ctx.state.bClu0TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
                              (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
                             ctx.state.bClu1TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
                              (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
                             ctx.state.bClu2TwoWinMode = false;
 
+                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
                           if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
                              (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
                             ctx.state.bClu3TwoWinMode = false;
 
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
                             if((ctx.state.iClu0UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu0TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
                               continue;
                             }
-
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu0TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
                             if(!ctx.state.bClu1TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu1TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu1TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
                             if(!ctx.state.bClu2TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu2UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu2TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
                               continue;
                             }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu2TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              continue;
+                            }
                           }
-
+                          // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
                             if(!ctx.state.bClu3TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
                             }
+                            // Two-Win 模式offset需要奇偶对齐
                             int dst_x_offset = (*iter_layer)->display_frame.left;
-
                             if((ctx.state.iClu3UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
                               ctx.state.bClu3TwoWinMode = false;
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
+                              continue;
+                            }
+                            // 输入输出分辨率要求小于2048
+                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
+                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            if(src_w > 2048 || dst_w > 2048){
+                              ctx.state.bClu3TwoWinMode = false;
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
                               continue;
                             }
                           }
