@@ -598,9 +598,15 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale
-                          if(b8kMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) : \
+                          // RK3588 源数据宽大于4096时，缩放系数需要做调整：
+                          //   Cluster:目前仅支持0.9-1.1的缩放;
+                          //   Esmart：可以支持 0.125-8 缩放；
+                          bool b8kScaleMode = false;
+                          if(b8kMode && (input_w > 4096))
+                            b8kScaleMode = true;
+                          if(b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) : \
                                        (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_)   &&
-                             b8kMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) : \
+                             b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) : \
                                        (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
                             bNeed = true;
                           else{
@@ -2111,7 +2117,7 @@ void Vop3588::InitStateContext(
   // 8K Mode
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-  if(conn && conn->state() != DRM_MODE_CONNECTED){
+  if(conn && conn->state() == DRM_MODE_CONNECTED){
     DrmMode mode = conn->current_mode();
     if(ctx.state.b8kMode_ != mode.is_8k_mode()){
       ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d %s 8K Mode.",

@@ -679,7 +679,11 @@ int DrmPlane::get_output_h_max_8k(){
 
 bool DrmPlane::is_support_scale_8k(float scale_rate){
   if(get_scale()){
-    return (scale_rate >= 0.9) && (scale_rate <= 1.1);
+    if((win_type_ & PLANE_RK3588_ALL_CLUSTER_MASK) > 0){
+      return (scale_rate >= 0.9) && (scale_rate <= 1.1);
+    }else{
+      return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+    }
   }else{
     return scale_rate == 1.0;
   }
