@@ -1190,14 +1190,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     return HWC2::Error::BadConfig;
   }
 
-  ret = composition->CreateAndAssignReleaseFences();
-  AddFenceToRetireFence(composition->take_out_fence());
+  // 利用 vendor.hwc.disable_releaseFence 属性强制关闭ReleaseFence，主要用于调试
+  char value[PROPERTY_VALUE_MAX];
+  property_get("vendor.hwc.disable_releaseFence", value, "0");
+  if(atoi(value) == 0){
+    ret = composition->CreateAndAssignReleaseFences();
+    AddFenceToRetireFence(composition->take_out_fence());
+  }
+
   ret = compositor_.QueueComposition(std::move(composition));
 
   return HWC2::Error::None;
 }
-
-
 
 HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   ATRACE_CALL();
