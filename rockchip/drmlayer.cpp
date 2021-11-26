@@ -174,12 +174,42 @@ int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
   transform = src_layer->transform;
   return ImportBuffer(importer);
 }
+
+void DrmHwcLayer::SetBlend(HWC2::BlendMode blend) {
+  switch (blend) {
+    case HWC2::BlendMode::None:
+      blending = DrmHwcBlending::kNone;
+      break;
+    case HWC2::BlendMode::Premultiplied:
+      blending = DrmHwcBlending::kPreMult;
+      break;
+    case HWC2::BlendMode::Coverage:
+      blending = DrmHwcBlending::kCoverage;
+      break;
+    default:
+      ALOGE("Unknown blending mode b=%d", blend);
+      blending = DrmHwcBlending::kNone;
+      break;
+  }
+}
+
 void DrmHwcLayer::SetSourceCrop(hwc_frect_t const &crop) {
   source_crop = crop;
 }
 
-void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
-  display_frame = frame;
+void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
+                                  hwc2_drm_display_t *ctx) {
+  float w_scale = 1;
+  float h_scale = 1;
+  if(!ctx->bStandardSwitchResolution){
+    w_scale   = ctx->rel_xres / (float)ctx->framebuffer_width;
+    h_scale    = ctx->rel_yres / (float)ctx->framebuffer_height;
+  }
+
+  display_frame.left   = (int)(frame.left   * w_scale);
+  display_frame.right  = (int)(frame.right  * w_scale);
+  display_frame.top    = (int)(frame.top    * h_scale);
+  display_frame.bottom = (int)(frame.bottom * h_scale);
 }
 
 void DrmHwcLayer::SetDisplayFrameMirror(hwc_rect_t const &frame) {

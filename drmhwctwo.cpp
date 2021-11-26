@@ -378,6 +378,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   resource_manager_->creatActiveDisplayCnt(display);
   resource_manager_->assignPlaneGroup();
 
+  // soc_id
+  ctx_.soc_id = resource_manager_->getSocId();
+  // vop aclk
   ctx_.aclk = crtc_->get_aclk();
   // Baseparameter Info
   ctx_.baseparameter_info = connector_->baseparameter_info();
@@ -1922,22 +1925,6 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->sf_composition = sf_type();
 
-  switch (blending_) {
-    case HWC2::BlendMode::None:
-      drmHwcLayer->blending = DrmHwcBlending::kNone;
-      break;
-    case HWC2::BlendMode::Premultiplied:
-      drmHwcLayer->blending = DrmHwcBlending::kPreMult;
-      break;
-    case HWC2::BlendMode::Coverage:
-      drmHwcLayer->blending = DrmHwcBlending::kCoverage;
-      break;
-    default:
-      ALOGE("Unknown blending mode b=%d", blending_);
-      drmHwcLayer->blending = DrmHwcBlending::kNone;
-      break;
-  }
-
   OutputFd release_fence     = release_fence_output();
   drmHwcLayer->sf_handle     = buffer_;
   drmHwcLayer->acquire_fence = acquire_fence_.Release();
@@ -1949,21 +1936,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
 
-  float w_scale = 1;
-  float h_scale = 1;
-  if(!ctx->bStandardSwitchResolution){
-    w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
-    h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
-  }
-
-  hwc_rect_t display_frame;
-
-  display_frame.left   = (int)(display_frame_.left   * w_scale);
-  display_frame.right  = (int)(display_frame_.right  * w_scale);
-  display_frame.top    = (int)(display_frame_.top    * h_scale);
-  display_frame.bottom = (int)(display_frame_.bottom * h_scale);
-
-  drmHwcLayer->SetDisplayFrame(display_frame);
+  drmHwcLayer->SetBlend(blending_);
+  drmHwcLayer->SetDisplayFrame(display_frame_, ctx);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
 
@@ -2025,21 +1999,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
 
-  float w_scale = 1;
-  float h_scale = 1;
-  if(!ctx->bStandardSwitchResolution){
-    w_scale = ctx->rel_xres / (float)ctx->framebuffer_width;
-    h_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
-  }
-
-  hwc_rect_t display_frame;
-
-  display_frame.left   = (int)(display_frame_.left   * w_scale);
-  display_frame.right  = (int)(display_frame_.right  * w_scale);
-  display_frame.top    = (int)(display_frame_.top    * h_scale);
-  display_frame.bottom = (int)(display_frame_.bottom * h_scale);
-
-  drmHwcLayer->SetDisplayFrame(display_frame);
+  drmHwcLayer->SetDisplayFrame(display_frame_, ctx);
   drmHwcLayer->SetSourceCrop(source_crop_);
   drmHwcLayer->SetTransform(transform_);
 

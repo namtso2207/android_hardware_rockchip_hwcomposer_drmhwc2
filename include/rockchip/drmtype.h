@@ -155,6 +155,7 @@ typedef enum attribute_flag {
 }attribute_flag_t;
 
 typedef struct hwc2_drm_display {
+  uint32_t soc_id;
   bool bStandardSwitchResolution = false;
   int framebuffer_width;
   int framebuffer_height;

@@ -206,9 +206,10 @@ struct DrmHwcLayer {
   int ImportBuffer(Importer *importer);
   int Init();
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
+  void SetBlend(HWC2::BlendMode blend);
   void SetTransform(HWC2::Transform sf_transform);
   void SetSourceCrop(hwc_frect_t const &crop);
-  void SetDisplayFrame(hwc_rect_t const &frame);
+  void SetDisplayFrame(hwc_rect_t const &frame, hwc2_drm_display_t *ctx);
   void SetDisplayFrameMirror(hwc_rect_t const &frame);
 
   buffer_handle_t get_usable_handle() const {
