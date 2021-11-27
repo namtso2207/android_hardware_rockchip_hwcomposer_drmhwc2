@@ -1453,6 +1453,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   UpdateLogLevel();
   UpdateBCSH();
   UpdateHdmiOutputFormat();
+  UpdateOverscan();
   if(!ctx_.bStandardSwitchResolution){
     UpdateDisplayMode();
     drm_->UpdateDisplayMode(handle_);
@@ -1678,9 +1679,16 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
         }
       }
     }
-
   }
+  return 0;
+}
 
+int DrmHwcTwo::HwcDisplay::UpdateOverscan(){
+  // RK3588 没有Overscan模块，所以需要用图层Scale实现Overscan效果
+  if(isRK3588(resource_manager_->getSocId()))
+    connector_->UpdateOverscan(handle_, ctx_.overscan_value);
+  else
+    ;// do notiong.
   return 0;
 }
 
