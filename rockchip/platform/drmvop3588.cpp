@@ -686,8 +686,11 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||  eotf != TRADITIONAL_GAMMA_SDR ||
-                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              if(input_w > 2048  ||
+                                 output_w > 2048 ||
+                                 eotf != TRADITIONAL_GAMMA_SDR ||
+                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0 ||
+                                 b8kMode){
                                   ctx.state.bClu0TwoWinMode = false;
                               }else{
                                   ctx.state.bClu0TwoWinMode = true;
@@ -696,8 +699,11 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              if(input_w > 2048  ||
+                                 output_w > 2048 ||
+                                 eotf != TRADITIONAL_GAMMA_SDR ||
+                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0 ||
+                                 b8kMode){
                                   ctx.state.bClu1TwoWinMode = false;
                               }else{
                                   ctx.state.bClu1TwoWinMode = true;
@@ -706,8 +712,11 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu2Used = true;
                               ctx.state.iClu2UsedZ = zpos;
                               ctx.state.iClu2UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              if(input_w > 2048  ||
+                                 output_w > 2048 ||
+                                 eotf != TRADITIONAL_GAMMA_SDR ||
+                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0 ||
+                                 b8kMode){
                                   ctx.state.bClu2TwoWinMode = false;
                               }else{
                                   ctx.state.bClu2TwoWinMode = true;
@@ -716,8 +725,11 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu3Used = true;
                               ctx.state.iClu3UsedZ = zpos;
                               ctx.state.iClu3UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
+                              if(input_w > 2048  ||
+                                 output_w > 2048 ||
+                                 eotf != TRADITIONAL_GAMMA_SDR ||
+                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0 ||
+                                 b8kMode){
                                   ctx.state.bClu3TwoWinMode = false;
                               }else{
                                   ctx.state.bClu3TwoWinMode = true;
