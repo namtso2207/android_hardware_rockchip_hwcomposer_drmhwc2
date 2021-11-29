@@ -1898,40 +1898,41 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
     //   return true;
     // }
 
+    // RK3588 Cluster性能与RK356x差异比较大，这部分限制暂时先关闭。
     //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = CLUSTER_AFBC_DECODE_MAX_RATE, Use GLES compose
-    if(layer->uAclk_ > 0 && layer->uDclk_ > 0){
-        char value[PROPERTY_VALUE_MAX];
-        property_get("vendor.hwc.cluster_afbc_decode_max_rate", value, "0");
-        double cluster_afbc_decode_max_rate = atof(value);
+    // if(layer->uAclk_ > 0 && layer->uDclk_ > 0){
+    //     char value[PROPERTY_VALUE_MAX];
+    //     property_get("vendor.hwc.cluster_afbc_decode_max_rate", value, "0");
+    //     double cluster_afbc_decode_max_rate = atof(value);
 
-        HWC2_ALOGD_IF_VERBOSE("[%s]：scale-rate=%f, allow_rate = %f, "
-                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  layer->sLayerName_.c_str(),
-                  (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
-                  cluster_afbc_decode_max_rate ,CLUSTER_AFBC_DECODE_MAX_RATE,
-                  layer->fHScaleMul_ ,layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
-      if(cluster_afbc_decode_max_rate > 0){
-        if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > cluster_afbc_decode_max_rate){
-          HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
-                    "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                    layer->sLayerName_.c_str(),
-                    (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
-                    CLUSTER_AFBC_DECODE_MAX_RATE,
-                    cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
-                    layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
-          return true;
-        }
-      }else if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
-        HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
-                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  layer->sLayerName_.c_str(),
-                  (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
-                  CLUSTER_AFBC_DECODE_MAX_RATE,
-                  cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
-                  layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
-        return true;
-      }
-    }
+    //     HWC2_ALOGD_IF_VERBOSE("[%s]：scale-rate=%f, allow_rate = %f, "
+    //               "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+    //               layer->sLayerName_.c_str(),
+    //               (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+    //               cluster_afbc_decode_max_rate ,CLUSTER_AFBC_DECODE_MAX_RATE,
+    //               layer->fHScaleMul_ ,layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+    //   if(cluster_afbc_decode_max_rate > 0){
+    //     if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > cluster_afbc_decode_max_rate){
+    //       HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+    //                 "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+    //                 layer->sLayerName_.c_str(),
+    //                 (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+    //                 CLUSTER_AFBC_DECODE_MAX_RATE,
+    //                 cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
+    //                 layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+    //       return true;
+    //     }
+    //   }else if((layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
+    //     HWC2_ALOGD_IF_DEBUG("[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
+    //               "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
+    //               layer->sLayerName_.c_str(),
+    //               (layer->fHScaleMul_ * layer->fVScaleMul_) / (layer->uAclk_/(layer->uDclk_ * 1.0)),
+    //               CLUSTER_AFBC_DECODE_MAX_RATE,
+    //               cluster_afbc_decode_max_rate, layer->fHScaleMul_ ,
+    //               layer->fVScaleMul_ ,layer->uAclk_ ,layer->uDclk_);
+    //     return true;
+    //   }
+    // }
   }
 
   // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
