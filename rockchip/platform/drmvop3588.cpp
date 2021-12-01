@@ -2139,15 +2139,23 @@ void Vop3588::InitStateContext(
           __FUNCTION__,__LINE__, mode.is_8k_mode() ? "Enter" : "Quit");
     }
     ctx.state.b8kMode_ = mode.is_8k_mode();
-    // Rreserved Cluster-1 and Esmart-1
-    for(auto &plane_group : plane_groups){
-      for(auto &p : plane_group->planes){
-        if(p->win_type() & PLANE_RK3588_ALL_CLUSTER1_MASK ||
-           p->win_type() & PLANE_RK3588_ALL_ESMART1_MASK ){
-          plane_group->bReserved = true;
-          ALOGI("%s,line=%d Reserved 8K plane name=%s",
-                  __FUNCTION__,__LINE__,p->name());
-        }else{
+    if(ctx.state.b8kMode_){
+      // 8K mode Rreserved Cluster-1 and Esmart-1
+      for(auto &plane_group : plane_groups){
+        for(auto &p : plane_group->planes){
+          if(p->win_type() & PLANE_RK3588_ALL_CLUSTER1_MASK ||
+              p->win_type() & PLANE_RK3588_ALL_CLUSTER3_MASK||
+              p->win_type() & PLANE_RK3588_ALL_ESMART1_MASK ||
+              p->win_type() & PLANE_RK3588_ALL_ESMART3_MASK){
+            plane_group->bReserved = true;
+            ALOGI("%s,line=%d Reserved 8K plane name=%s",
+                    __FUNCTION__,__LINE__,p->name());
+          }
+        }
+      }
+    }else{
+      for(auto &plane_group : plane_groups){
+        for(auto &p : plane_group->planes){
           plane_group->bReserved = false;
         }
       }
