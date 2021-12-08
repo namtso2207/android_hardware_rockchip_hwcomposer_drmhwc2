@@ -35,7 +35,6 @@
 #endif
 #define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
 
-
 namespace android {
 
 const hwc_drm_bo *DrmHwcBuffer::operator->() const {
@@ -68,8 +67,11 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
-int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width, uint32_t height, uint32_t format,
-        uint32_t hal_format, uint64_t modifier, uint32_t usage, uint32_t byte_stride){
+int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
+                            uint32_t height, uint32_t format,
+                            uint32_t hal_format, uint64_t modifier,
+                            uint32_t usage, uint32_t byte_stride,
+                            uint32_t gem_handle){
   bo_.fd = fd;
   bo_.width = width;
   bo_.height = height;
@@ -78,6 +80,7 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width, uint32_t height, uint32
   bo_.format = format;
   bo_.modifier = modifier;
   bo_.byte_stride = byte_stride;
+  bo_.gem_handles[0] = gem_handle;
   return 0;
 }
 
@@ -129,7 +132,8 @@ void DrmHwcNativeHandle::Clear() {
 
 int DrmHwcLayer::ImportBuffer(Importer *importer) {
 
-  buffer.SetBoInfo(iFd_, iWidth_, iHeight_, uFourccFormat_, iFormat_, uModifier_, iUsage, iByteStride_);
+  buffer.SetBoInfo(iFd_, iWidth_, iHeight_, uFourccFormat_,
+                   iFormat_, uModifier_, iUsage, iByteStride_, uGemHandle_);
 
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)

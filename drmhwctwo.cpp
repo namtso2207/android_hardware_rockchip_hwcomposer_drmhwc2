@@ -275,7 +275,7 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       importer_(importer),
       handle_(handle),
       type_(type),
-      client_layer_(UINT32_MAX),
+      client_layer_(UINT32_MAX,drm),
       init_success_(false){
 }
 
@@ -577,7 +577,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::AcceptDisplayChanges() {
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
-  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(layer_idx_));
+  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(layer_idx_, drm_));
   *layer = static_cast<hwc2_layer_t>(layer_idx_);
   ++layer_idx_;
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,*layer);
@@ -587,7 +587,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,layer);
 
-  if(layers_.count(layer)){
+  auto map_layer = layers_.find(layer);
+  if (map_layer != layers_.end()){
+    map_layer->second.clear();
     layers_.erase(layer);
     return HWC2::Error::None;
   }else{
@@ -1148,7 +1150,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
 
   return HWC2::Error::None;
 }
-
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
@@ -1971,6 +1972,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
     drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
     drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+    drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -1980,6 +1982,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
     drmHwcLayer->uModifier_ = 0;
+    drmHwcLayer->uGemHandle_ = 0;
     drmHwcLayer->sLayerName_.clear();
   }
 
@@ -2030,6 +2033,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
     drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
     drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+    drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
 
   }else{
     drmHwcLayer->iFd_     = -1;
@@ -2040,6 +2044,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->uFourccFormat_   = DRM_FORMAT_ABGR8888; // fb target default DRM_FORMAT_ABGR8888
     drmHwcLayer->uModifier_ = 0;
+    drmHwcLayer->uGemHandle_      = 0;
     drmHwcLayer->sLayerName_.clear();
   }
 
@@ -2047,7 +2052,6 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
   return;
 }
-
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 

@@ -75,8 +75,11 @@ class DrmHwcBuffer {
 
   int ImportBuffer(buffer_handle_t handle, Importer *importer);
 
-  int SetBoInfo(uint32_t fd, uint32_t width, uint32_t height, uint32_t format,
-        uint32_t hal_format, uint64_t modifier, uint32_t usage, uint32_t byte_stride);
+  int SetBoInfo(uint32_t fd, uint32_t width,
+                uint32_t height, uint32_t format,
+                uint32_t hal_format, uint64_t modifier,
+                uint32_t usage, uint32_t byte_stride,
+                uint32_t gem_handle);
  private:
   hwc_drm_bo bo_;
   Importer *importer_ = NULL;
@@ -183,6 +186,7 @@ struct DrmHwcLayer {
   int iByteStride_;
   int iUsage;
   uint32_t uFourccFormat_;
+  uint32_t uGemHandle_;
   uint64_t uModifier_;
   std::string sLayerName_;
 
