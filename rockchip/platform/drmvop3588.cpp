@@ -604,10 +604,11 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           bool b8kScaleMode = false;
                           if(b8kMode && (input_w > 4096))
                             b8kScaleMode = true;
-                          if(b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) : \
-                                       (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_)   &&
-                             b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) : \
-                                       (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
+
+                          if((b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) : \
+                                       (*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_))   &&
+                             (b8kScaleMode ? (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) : \
+                                       (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_)))
                             bNeed = true;
                           else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",

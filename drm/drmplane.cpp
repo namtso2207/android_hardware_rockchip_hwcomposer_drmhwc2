@@ -609,7 +609,7 @@ void DrmPlane::set_reserved(bool bReserved) {
 
 bool DrmPlane::is_support_scale(float scale_rate){
   if(get_scale()){
-    return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+    return (scale_rate > scale_min_) && (scale_rate < scale_max_);
   }else{
     return scale_rate == 1.0;
   }
