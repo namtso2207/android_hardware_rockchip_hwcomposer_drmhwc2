@@ -1139,10 +1139,7 @@ int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
               }
           }
       }
-
   }
-
-
   return -1;
 }
 
@@ -1747,7 +1744,6 @@ int Vop3588::TryGLESPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
 
-#if DISBALE_AFBC_DYNAMIC
   if(fb_target.size()==1){
     DrmHwcLayer* fb_layer = fb_target[0];
     // If there is a Cluster layer, FB enables AFBC
@@ -1757,18 +1753,18 @@ int Vop3588::TryGLESPolicy(
       // Check FB target property
       ctx.state.bDisableFBAfbcd = hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") > 0;
 
-      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
-      // CommirMirror must match two display scale limitation.
-      if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-        if((fb_layer->fHScaleMulMirror_ > 4.0 || fb_layer->fHScaleMulMirror_ < 0.25) ||
-           (fb_layer->fVScaleMulMirror_ > 4.0 || fb_layer->fVScaleMulMirror_ < 0.25) ||
-           (fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
-           (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
-          ctx.state.bDisableFBAfbcd = true;
-          ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
-               __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-        }
-      }
+      // // If FB-target unable to meet the scaling requirements, AFBC must be disable.
+      // // CommirMirror must match two display scale limitation.
+      // if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+      //   if((fb_layer->fHScaleMulMirror_ > 4.0 || fb_layer->fHScaleMulMirror_ < 0.25) ||
+      //      (fb_layer->fVScaleMulMirror_ > 4.0 || fb_layer->fVScaleMulMirror_ < 0.25) ||
+      //      (fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
+      //      (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
+      //     ctx.state.bDisableFBAfbcd = true;
+      //     ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
+      //          __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
+      //   }
+      // }
 
       // If FB-target unable to meet the scaling requirements, AFBC must be disable.
       if((fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
@@ -1784,22 +1780,22 @@ int Vop3588::TryGLESPolicy(
         ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
       }
     }
-    // RK3566 must match external display
-    if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-      if(fb_layer->bAfbcd_){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
-      }else if(fb_layer->bScale_ || fb_layer->fHScaleMulMirror_ != 1.0 || fb_layer->fVScaleMulMirror_ != 1.0){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
-      }else{
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
-      }
-    }else{
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK | DRM_PLANE_TYPE_ESMART0_MASK |
-                                   DRM_PLANE_TYPE_ESMART1_MASK | DRM_PLANE_TYPE_SMART0_MASK |
-                                   DRM_PLANE_TYPE_SMART1_MASK;
-    }
+    // // RK3566 must match external display
+    // if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
+    //   if(fb_layer->bAfbcd_){
+    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
+    //   }else if(fb_layer->bScale_ || fb_layer->fHScaleMulMirror_ != 1.0 || fb_layer->fVScaleMulMirror_ != 1.0){
+    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+    //   }else{
+    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+    //   }
+    // }else{
+    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK | DRM_PLANE_TYPE_ESMART0_MASK |
+    //                                DRM_PLANE_TYPE_ESMART1_MASK | DRM_PLANE_TYPE_SMART0_MASK |
+    //                                DRM_PLANE_TYPE_SMART1_MASK;
+    // }
   }
-#endif
+
   int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
   if(!ret)
     return ret;

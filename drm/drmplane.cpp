@@ -608,10 +608,20 @@ void DrmPlane::set_reserved(bool bReserved) {
 }
 
 bool DrmPlane::is_support_scale(float scale_rate){
-  if(get_scale()){
-    return (scale_rate > scale_min_) && (scale_rate < scale_max_);
+  if(isRK3588(soc_id_)){
+    if((win_type_ & PLANE_RK3588_ALL_CLUSTER_MASK) > 0)
+      return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+    // RK3588 Esmart scale down 1080x1920 => 135x240 颜色出现错误，故认为缩小倍数8倍为不支持
+    else if((win_type_ & PLANE_RK3588_ALL_ESMART_MASK) > 0)
+      return (scale_rate > scale_min_) && (scale_rate <= scale_max_);
+    else
+      return scale_rate == 1.0;
   }else{
-    return scale_rate == 1.0;
+    if(get_scale()){
+      return (scale_rate >= scale_min_) && (scale_rate <= scale_max_);
+    }else{
+      return scale_rate == 1.0;
+    }
   }
 }
 
