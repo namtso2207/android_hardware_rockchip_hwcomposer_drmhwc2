@@ -968,7 +968,7 @@ int Vop356x::MatchBestPlanes(
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
     ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                      crtc, std::make_pair(i->first, i->second),zpos, true);
+                      crtc, std::make_pair(i->first, i->second), zpos, true);
     // We don't have any planes left
     if (ret == -ENOENT){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d,line = %d",ret,__LINE__);
@@ -984,7 +984,7 @@ int Vop356x::MatchBestPlanes(
 
     if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
       ret = MatchPlaneMirror(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                    ctx.state.pCrtcMirror, std::make_pair(i->first, i->second),zpos);
+                    ctx.state.pCrtcMirror, std::make_pair(i->first, i->second), zpos, true);
       if (ret) {
         ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match mirror all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
         ResetLayer(layers);
