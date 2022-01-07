@@ -467,11 +467,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
+  // soc_id
+  ctx_.soc_id = resource_manager_->getSocId();
+  // vop aclk
   ctx_.aclk = crtc_->get_aclk();
-
-  // Baseparameter info
+  // Baseparameter Info
   ctx_.baseparameter_info = connector_->baseparameter_info();
-
   // Standard Switch Resolution Mode
   ctx_.bStandardSwitchResolution = hwc_get_bool_property("vendor.hwc.enable_display_configs","false");
 
