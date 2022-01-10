@@ -18,7 +18,7 @@
 
 #include "vsyncworker.h"
 #include "drmdevice.h"
-#include "worker.h"
+#include "utils/worker.h"
 
 #include <stdlib.h>
 #include <time.h>

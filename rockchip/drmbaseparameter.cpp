@@ -19,7 +19,7 @@
 
 #include "rockchip/drmbaseparameter.h"
 #include "rockchip/utils/drmdebug.h"
-#include "autolock.h"
+#include "utils/autolock.h"
 
 #include <log/log.h>
 #include <utils/String8.h>

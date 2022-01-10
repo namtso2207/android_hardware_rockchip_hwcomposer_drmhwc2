@@ -26,7 +26,7 @@
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer2.h>
 
-#include "autofd.h"
+#include "utils/autofd.h"
 #include "drmhwcgralloc.h"
 #include "rockchip/drmtype.h"
 

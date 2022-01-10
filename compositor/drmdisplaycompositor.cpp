@@ -34,7 +34,7 @@
 // System property
 #include <cutils/properties.h>
 
-#include "autolock.h"
+#include "utils/autolock.h"
 #include "drmcrtc.h"
 #include "drmdevice.h"
 #include "drmplane.h"

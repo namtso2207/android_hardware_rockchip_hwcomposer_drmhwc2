@@ -17,7 +17,7 @@
 #define LOG_TAG "hwc-invalidate-worker"
 
 #include "rockchip/invalidateworker.h"
-#include "worker.h"
+#include "utils/worker.h"
 
 #include <stdlib.h>
 #include <time.h>
