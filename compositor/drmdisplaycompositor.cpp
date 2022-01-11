@@ -295,7 +295,7 @@ DrmDisplayCompositor::CreateInitializedComposition() const {
     ALOGE("Failed to find resources for display = %d", display_);
     return std::unique_ptr<DrmDisplayComposition>();
   }
-  int ret = comp->Init(drm, crtc, importer.get(), planner_.get(), 0);
+  int ret = comp->Init(drm, crtc, importer.get(), planner_.get(), 0, -1);
   if (ret) {
     ALOGE("Failed to init composition for display = %d", display_);
     return std::unique_ptr<DrmDisplayComposition>();
@@ -555,15 +555,20 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
       DrmHwcLayer &layer = layers[source_layers.front()];
 
-      if (!test_only && layer.acquire_fence.get() >= 0) {
-        int acquire_fence = layer.acquire_fence.get();{
-          ret = sync_wait(acquire_fence, 1500);
-          if (ret) {
-            ALOGE("Failed to wait for acquire %d/%d 1500ms", acquire_fence, ret);
-            break;
-          }
+      if (!test_only && layer.acquire_fence.isValid()){
+        HWC2_ALOGD_IF_DEBUG("Wait AcquireFence frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+                            display_comp->frame_no(), layer.acquire_fence.getSize(),
+                            layer.acquire_fence.getActiveCount(), layer.acquire_fence.getSignaledCount(),
+                            layer.acquire_fence.getErrorCount(),layer.sLayerName_.c_str());
+        if(layer.acquire_fence.wait(1500)){
+          ALOGE("Failed to wait for acquire %d/%d 1500ms", layer.acquire_fence.getFd(), ret);
+          break;
         }
-        layer.acquire_fence.Close();
+        HWC2_ALOGD_IF_DEBUG("Wait finish AcquireFence frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+                            display_comp->frame_no(), layer.acquire_fence.getSize(),
+                            layer.acquire_fence.getActiveCount(), layer.acquire_fence.getSignaledCount(),
+                            layer.acquire_fence.getErrorCount(),layer.sLayerName_.c_str());
+        layer.acquire_fence.destroy();
       }
       if (!layer.buffer) {
         ALOGE("Expected a valid framebuffer for pset");
@@ -816,7 +821,6 @@ std::tuple<int, uint32_t> DrmDisplayCompositor::CreateModeBlob(
 
 
 void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition) {
-  int ret;
 
   if(!composition)
     return;
@@ -843,17 +847,13 @@ void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayCompositio
               break;
           }
           DrmHwcLayer &layer = layers[source_layers.front()];
-          if (layer.acquire_fence.get() >= 0) {
-              int acquire_fence = layer.acquire_fence.get();
-              int total_fence_timeout = 0;
-                  ret = sync_wait(acquire_fence, 1500);
-                  if (ret) {
-                    ALOGE("Failed to wait for acquire %d/%d 1500ms", acquire_fence, ret);
-                    break;
-                  }
-              layer.acquire_fence.Close();
+          if (layer.acquire_fence.isValid()) {
+            if(layer.acquire_fence.wait(1500)){
+              ALOGE("Failed to wait for acquire %d 1500ms", layer.acquire_fence.getFd());
+              break;
+            }
+            layer.acquire_fence.destroy();
           }
-
       }
   }
 
@@ -1097,7 +1097,7 @@ int DrmDisplayCompositor::FlattenOnDisplay(
   }
 
   ret = sync_wait(writeback_fence_, kWaitWritebackFence);
-  writeback_layer->acquire_fence.Set(writeback_fence_);
+  writeback_layer->acquire_fence = AcquireFence(writeback_fence_);
   writeback_fence_ = -1;
   if (ret) {
     ALOGE("Failed to wait on writeback fence");
@@ -1172,7 +1172,7 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
     return ret;
   }
   ret = sync_wait(writeback_fence_, kWaitWritebackFence);
-  writeback_layer.acquire_fence.Set(writeback_fence_);
+  writeback_layer.acquire_fence = AcquireFence(writeback_fence_);
   writeback_fence_ = -1;
   if (ret) {
     ALOGE("Failed to wait on writeback fence");

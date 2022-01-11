@@ -29,6 +29,7 @@
 #include "utils/autofd.h"
 #include "drmhwcgralloc.h"
 #include "rockchip/drmtype.h"
+#include "utils/drmfence.h"
 
 struct hwc_import_context;
 
@@ -156,8 +157,8 @@ struct DrmHwcLayer {
   float fVScaleMulMirror_;
   hwc_rect_t display_frame_mirror;
 
-  UniqueFd acquire_fence;
-  OutputFd release_fence;
+  AcquireFence acquire_fence;
+  ReleaseFence release_fence;
 
   // Display info
   uint32_t uAclk_=0;

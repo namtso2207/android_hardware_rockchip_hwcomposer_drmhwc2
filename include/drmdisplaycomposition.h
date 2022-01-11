@@ -21,6 +21,7 @@
 #include "drmlayer.h"
 #include "drmplane.h"
 #include "rockchip/utils/drmdebug.h"
+#include "utils/drmfence.h"
 
 #include <sstream>
 #include <vector>
@@ -124,8 +125,8 @@ class DrmDisplayComposition {
   DrmDisplayComposition(const DrmDisplayComposition &) = delete;
   ~DrmDisplayComposition();
 
-  int Init(DrmDevice *drm, DrmCrtc *crtc, Importer *importer, Planner *planner,
-           uint64_t frame_no);
+  int Init(DrmDevice *drm, DrmCrtc *crtc, Importer *importer,
+           Planner *planner, uint64_t frame_no, uint64_t display_id);
 
   int SetLayers(DrmHwcLayer *layers, size_t num_layers, bool geometry_changed);
   int AddPlaneComposition(DrmCompositionPlane plane);
@@ -134,11 +135,9 @@ class DrmDisplayComposition {
   int SetDisplayMode(const DrmMode &display_mode);
 
   int DisableUnusedPlanes();
-  int CreateAndAssignReleaseFences();
-  int SignalCompositionDone() {
-    ALOGD_IF(LogLevel(DBG_DEBUG),"%s: signal frame = %" PRIu64, __FUNCTION__,frame_no_);
-    return IncreaseTimelineToPoint(timeline_);
-  }
+  int CreateAndAssignReleaseFences(SyncTimeline &sync_timeline);
+  ReleaseFence GetReleaseFence(hwc2_layer_t layer_id);
+  int SignalCompositionDone();
 
   std::vector<DrmHwcLayer> &layers() {
     return layers_;
@@ -192,8 +191,6 @@ class DrmDisplayComposition {
 
  private:
   bool validate_composition_type(DrmCompositionType desired);
-  int CreateNextTimelineFence(const char* fence_name);
-  int IncreaseTimelineToPoint(int point);
 
   DrmDevice *drm_ = NULL;
   DrmCrtc *crtc_ = NULL;
@@ -215,6 +212,7 @@ class DrmDisplayComposition {
   std::vector<DrmCompositionPlane> composition_planes_;
 
   uint64_t frame_no_ = 0;
+  uint64_t display_id_;
 };
 }  // namespace android
 

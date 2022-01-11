@@ -21,6 +21,8 @@
 #include "platform.h"
 #include "rockchip/drmgralloc.h"
 #include "rockchip/invalidateworker.h"
+#include "utils/drmfence.h"
+
 
 #include <hardware/hwcomposer2.h>
 
@@ -58,10 +60,6 @@ class DrmHwcTwo : public hwc2_device_t {
 
     void clear(){
       buffer_ = NULL;
-      acquire_fence_.Close();
-      release_fence_.Close();
-      next_release_fence_.Close();
-
     }
 
     HWC2::Composition sf_type() const {
@@ -194,32 +192,20 @@ class DrmHwcTwo : public hwc2_device_t {
       }
     }
 
-    int take_acquire_fence() {
-      return acquire_fence_.Release();
-    }
-    void set_acquire_fence(int acquire_fence) {
-      acquire_fence_.Set(dup(acquire_fence));
+    void set_acquire_fence(AcquireFence &acquire_fence) {
+      acquire_fence_ = acquire_fence;
     }
 
-    int release_fence() {
-      return release_fence_.get();
+    AcquireFence &acquire_fence(){
+      return acquire_fence_;
     }
-    int next_release_fence() {
-      return next_release_fence_.get();
+
+    void set_release_fence(ReleaseFence &release_fence) {
+      release_fence_ = release_fence;
     }
-    int take_release_fence() {
-      return release_fence_.Release();
-    }
-    void manage_release_fence() {
-      release_fence_ = std::move(next_release_fence_);
-      next_release_fence_ = -1;
-    }
-    void manage_next_release_fence() {
-      next_release_fence_.Set(release_fence_raw_);
-      release_fence_raw_ = -1;
-    }
-    OutputFd release_fence_output() {
-      return OutputFd(&release_fence_raw_);
+
+    const ReleaseFence &release_fence(){
+      return release_fence_;
     }
 
     uint32_t id(){ return id_; }
@@ -260,10 +246,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::BlendMode blending_ = HWC2::BlendMode::None;
     buffer_handle_t buffer_ = NULL;
-    UniqueFd acquire_fence_;
-    int release_fence_raw_ = -1;
-    UniqueFd release_fence_;
-    UniqueFd next_release_fence_;
+    AcquireFence acquire_fence_;
+    ReleaseFence release_fence_;
     hwc_rect_t display_frame_;
     float alpha_ = 1.0f;
     hwc_frect_t source_crop_;
@@ -411,8 +395,6 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t layer_idx_ = 1;
     std::map<hwc2_layer_t, HwcLayer> layers_;
     HwcLayer client_layer_;
-    UniqueFd retire_fence_;
-    UniqueFd next_retire_fence_;
     int32_t color_mode_;
     bool init_success_;
     bool validate_success_;
@@ -424,6 +406,8 @@ class DrmHwcTwo : public hwc2_device_t {
     int fb_blanked;
 
     uint32_t frame_no_ = 0;
+    SyncTimeline sync_timeline_;
+    DeferredRetireFence d_retire_fence_;
   };
 
   class DrmHotplugHandler : public DrmEventHandler {

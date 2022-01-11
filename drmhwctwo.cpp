@@ -316,6 +316,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
   int display = static_cast<int>(handle_);
 
+  if(sync_timeline_.isValid()){
+    HWC2_ALOGD_IF_INFO("sync_timeline_ fd = %d isValid",sync_timeline_.getFd());
+  }
+
   connector_ = drm_->GetConnectorForDisplay(display);
   if (!connector_) {
     ALOGE("Failed to get connector for display %d", display);
@@ -1034,7 +1038,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
 HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
                                                     hwc2_layer_t *layers,
                                                     int32_t *fences) {
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  HWC2_ALOGD_IF_DEBUG("display-id=%" PRIu64,handle_);
 
   uint32_t num_layers = 0;
 
@@ -1048,11 +1052,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
     }
 
     layers[num_layers - 1] = l.first;
-    fences[num_layers - 1] = l.second.take_release_fence();
-    ALOGV("rk-debug GetReleaseFences [%" PRIu64 "][%d]",layers[num_layers - 1],fences[num_layers - 1]);
+    fences[num_layers - 1] = dup(l.second.release_fence().getFd());
+    HWC2_ALOGD_IF_DEBUG("Check Layer %" PRIu64 " Release %s Info: size=%d act=%d signal=%d err=%d",
+                        l.first,l.second.release_fence().getName().c_str(),
+                        l.second.release_fence().getSize(), l.second.release_fence().getActiveCount(),
+                        l.second.release_fence().getSignaledCount(), l.second.release_fence().getErrorCount());
     // the new fence semantics for a frame n by returning the fence from frame n-1. For frame 0,
     // the adapter returns NO_FENCE.
-    l.second.manage_release_fence();
   }
   *num_elements = num_layers;
   return HWC2::Error::None;
@@ -1061,43 +1067,48 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 void DrmHwcTwo::HwcDisplay::AddFenceToRetireFence(int fd) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
+  char acBuf[32];
+  ReleaseFence retire_fence;
   if (fd < 0){
+    // Collet all layer releaseFence
+    const ReleaseFence client_rf = client_layer_.release_fence();
+    if(client_rf.isValid()){
+      retire_fence = client_rf;
+      HWC2_ALOGD_IF_DEBUG("RetireFence %s frame = %d Info: size=%d act=%d signal=%d err=%d",
+                      retire_fence.getName().c_str(), frame_no_,
+                      retire_fence.getSize(),retire_fence.getActiveCount(),
+                      retire_fence.getSignaledCount(),retire_fence.getErrorCount());
+    }
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &hwc2layer : layers_) {
-
+      if(hwc2layer.second.validated_type() != HWC2::Composition::Device)
+        continue;
       // the new fence semantics for a frame n by returning the fence from frame n-1. For frame 0,
       // the adapter returns NO_FENCE.
-      hwc2layer.second.manage_next_release_fence();
-
-      int next_releaseFenceFd = hwc2layer.second.next_release_fence();
-      if (next_releaseFenceFd < 0)
-        continue;
-
-      if (next_retire_fence_.get() >= 0) {
-        int old_retire_fence = next_retire_fence_.get();
-        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, next_releaseFenceFd));
-      } else {
-        next_retire_fence_.Set(dup(next_releaseFenceFd));
+      const ReleaseFence rf = hwc2layer.second.release_fence();
+      if (rf.isValid()){
+        // cur_retire_fence is null
+        if(!retire_fence.isValid()){
+          retire_fence = rf;
+          continue;
+        }else{
+          sprintf(acBuf,"RTD%" PRIu64 "-FN%d-%" PRIu64,handle_, frame_no_, hwc2layer.first);
+          ReleaseFence temp_cur_rf = retire_fence;
+          retire_fence = ReleaseFence(rf, temp_cur_rf, acBuf);
+          HWC2_ALOGD_IF_DEBUG("RetireFence %s frame = %d merge %s + %s",
+                          retire_fence.getName().c_str(), frame_no_,rf.getName().c_str() ,temp_cur_rf.getName().c_str());
+        }
       }
     }
-    client_layer_.manage_next_release_fence();
-    int next_releaseFenceFd = client_layer_.next_release_fence();
-    if(next_releaseFenceFd > 0){
-      if (next_retire_fence_.get() >= 0) {
-        int old_retire_fence = next_retire_fence_.get();
-        next_retire_fence_.Set(sync_merge("dc_retire", old_retire_fence, next_releaseFenceFd));
-      } else {
-        next_retire_fence_.Set(dup(next_releaseFenceFd));
-      }
-    }
-    return;
   }else{
-    if (next_retire_fence_.get() >= 0) {
-      int old_fence = next_retire_fence_.get();
-      next_retire_fence_.Set(sync_merge("dc_retire", old_fence, fd));
-    } else {
-      next_retire_fence_.Set(dup(fd));
-    }
+    retire_fence = ReleaseFence(fd);
   }
+
+  HWC2_ALOGD_IF_DEBUG("RetireFence %s frame = %d Info: size=%d act=%d signal=%d err=%d",
+                  retire_fence.getName().c_str(), frame_no_,
+                  retire_fence.getSize(),retire_fence.getActiveCount(),
+                  retire_fence.getSignaledCount(),retire_fence.getErrorCount());
+  d_retire_fence_.add(std::move(retire_fence));
+  return;
 }
 
 bool SortByZpos(const DrmHwcLayer &drmHwcLayer1, const DrmHwcLayer &drmHwcLayer2){
@@ -1200,7 +1211,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
                                                          .CreateComposition();
-  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
+  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
 
   // TODO: Don't always assume geometry changed
   ret = composition->SetLayers(map.layers.data(), map.layers.size(), true);
@@ -1221,7 +1232,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   char value[PROPERTY_VALUE_MAX];
   property_get("vendor.hwc.disable_releaseFence", value, "0");
   if(atoi(value) == 0){
-    ret = composition->CreateAndAssignReleaseFences();
+    ret = composition->CreateAndAssignReleaseFences(sync_timeline_);
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+      if(l.second.sf_type() == HWC2::Composition::Device){
+        ReleaseFence rf = composition->GetReleaseFence(l.first);
+        l.second.set_release_fence(rf);
+      }
+    }
+    ReleaseFence rf = composition->GetReleaseFence(0);
+    client_layer_.set_release_fence(rf);
     AddFenceToRetireFence(composition->take_out_fence());
   }
 
@@ -1258,9 +1277,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   // The retire fence returned here is for the last frame, so return it and
   // promote the next retire fence
-  *retire_fence = retire_fence_.Release();
-  retire_fence_ = std::move(next_retire_fence_);
-
+  *retire_fence = dup(d_retire_fence_.get().getFd());
+  HWC2_ALOGD_IF_DEBUG("Return RetireFence %s frame = %d Info: size=%d act=%d signal=%d err=%d",
+                  d_retire_fence_.get().getName().c_str(), frame_no_,
+                  d_retire_fence_.get().getSize(),d_retire_fence_.get().getActiveCount(),
+                  d_retire_fence_.get().getSignaledCount(),d_retire_fence_.get().getErrorCount());
   ++frame_no_;
 
   UpdateTimerState(!static_screen_opt_);
@@ -1335,10 +1356,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
                                                    hwc_region_t /*damage*/) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", Buffer=%p, acq_fence=%d, dataspace=%x",
                          handle_,target,acquire_fence,dataspace);
-  UniqueFd uf(acquire_fence);
 
   client_layer_.set_buffer(target);
-  client_layer_.set_acquire_fence(uf.get());
+  AcquireFence af = AcquireFence(acquire_fence);
+  client_layer_.set_acquire_fence(af);
   client_layer_.SetLayerDataspace(dataspace);
   return HWC2::Error::None;
 }
@@ -1393,7 +1414,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_
                                                            .CreateComposition();
-  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_);
+  composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
   composition->SetDpmsMode(dpms_value);
   int ret = compositor_.QueueComposition(std::move(composition));
   if (ret) {
@@ -1861,8 +1882,6 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
                                                 int32_t acquire_fence) {
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", buffer=%p, acq_fence=%d" ,id_,buffer,acquire_fence);
-  UniqueFd uf(acquire_fence);
-
   //Deleting the following logic may cause the problem that the handle cannot be updated
   // The buffer and acquire_fence are handled elsewhere
 //  if (sf_type_ == HWC2::Composition::Client ||
@@ -1870,8 +1889,9 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
 //      sf_type_ == HWC2::Composition::SolidColor)
 //    return HWC2::Error::None;
 
+
   set_buffer(buffer);
-  set_acquire_fence(uf.get());
+  acquire_fence_ = AcquireFence(acquire_fence);
   return HWC2::Error::None;
 }
 
@@ -1957,10 +1977,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->sf_composition = sf_type();
 
-  OutputFd release_fence     = release_fence_output();
   drmHwcLayer->sf_handle     = buffer_;
-  drmHwcLayer->acquire_fence = acquire_fence_.Release();
-  drmHwcLayer->release_fence = std::move(release_fence);
+  drmHwcLayer->acquire_fence = acquire_fence_;
 
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
   drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
@@ -2018,10 +2036,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
 
   if(!validate){
-    OutputFd release_fence     = release_fence_output();
     drmHwcLayer->sf_handle     = buffer_;
-    drmHwcLayer->acquire_fence = acquire_fence_.Release();
-    drmHwcLayer->release_fence = std::move(release_fence);
+    drmHwcLayer->acquire_fence = acquire_fence_;
   }else{
     // Commit mirror function
     drmHwcLayer->SetDisplayFrameMirror(display_frame_);
