@@ -171,7 +171,7 @@ int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
                                      Importer *importer) {
   blending = src_layer->blending;
   sf_handle = src_layer->sf_handle;
-  acquire_fence = -1;
+  acquire_fence = AcquireFence::NO_FENCE;
   display_frame = src_layer->display_frame;
   alpha = src_layer->alpha;
   source_crop = src_layer->source_crop;

@@ -157,8 +157,8 @@ struct DrmHwcLayer {
   float fVScaleMulMirror_;
   hwc_rect_t display_frame_mirror;
 
-  AcquireFence acquire_fence;
-  ReleaseFence release_fence;
+  sp<AcquireFence> acquire_fence = AcquireFence::NO_FENCE;
+  sp<ReleaseFence> release_fence = ReleaseFence::NO_FENCE;
 
   // Display info
   uint32_t uAclk_=0;

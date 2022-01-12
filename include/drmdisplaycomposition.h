@@ -136,7 +136,7 @@ class DrmDisplayComposition {
 
   int DisableUnusedPlanes();
   int CreateAndAssignReleaseFences(SyncTimeline &sync_timeline);
-  ReleaseFence GetReleaseFence(hwc2_layer_t layer_id);
+  sp<ReleaseFence> GetReleaseFence(hwc2_layer_t layer_id);
   int SignalCompositionDone();
 
   std::vector<DrmHwcLayer> &layers() {
@@ -201,7 +201,6 @@ class DrmDisplayComposition {
   uint32_t dpms_mode_ = DRM_MODE_DPMS_ON;
   DrmMode display_mode_;
 
-  int timeline_fd_ = -1;
   int timeline_ = 0;
   int timeline_current_ = 0;
 

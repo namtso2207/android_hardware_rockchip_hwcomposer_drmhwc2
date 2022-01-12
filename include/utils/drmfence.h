@@ -19,51 +19,25 @@
 
 #include <android/sync.h>
 #include <libsync/sw_sync.h>
-#include <fcntl.h>
+#include <utils/RefBase.h>
 #include <vector>
 #include <queue>
+#include <unistd.h>
+#include <fcntl.h>
 
 namespace android {
+
 // C++ wrapper class for sync timeline.
 class SyncTimeline {
 public:
+    SyncTimeline() noexcept;
+    ~SyncTimeline();
     SyncTimeline(const SyncTimeline &) = delete;
     SyncTimeline& operator=(SyncTimeline&) = delete;
-    SyncTimeline() noexcept {
-        int fd = sw_sync_timeline_create();
-        if (fd == -1)
-            return;
-        bFdInitialized_ = true;
-        iFd_ = fd;
-    }
-    void destroy() {
-        if (bFdInitialized_) {
-            close(iFd_);
-            iFd_ = -1;
-            bFdInitialized_ = false;
-        }
-    }
-    ~SyncTimeline() {
-        destroy();
-    }
-    bool isValid() const {
-        if (bFdInitialized_) {
-            int status = fcntl(iFd_, F_GETFD, 0);
-            if (status >= 0)
-                return true;
-            else
-                return false;
-        }
-        else {
-            return false;
-        }
-    }
-    int getFd() const {
-        return iFd_;
-    }
-    int IncTimeline() {
-        return ++iTimelineCnt_;
-    }
+    void destroy();
+    bool isValid() const;
+    int getFd() const;
+    int IncTimeline();
 private:
     int iFd_ = -1;
     bool bFdInitialized_ = false;
@@ -78,158 +52,44 @@ struct SyncPointInfo {
 };
 
 static int s_fenceCount = 0;
+
 // Wrapper class for sync fence.
-class ReleaseFence {
+class ReleaseFence : public LightRefBase<ReleaseFence> {
 public:
+    static const sp<ReleaseFence> NO_FENCE;
     ReleaseFence(){};
-    ~ReleaseFence() {
-        destroy();
-    }
-    ReleaseFence(ReleaseFence &&fence) noexcept {
-        if (fence.isValid()) {
-            int fd = dup(fence.getFd());
-            if (fd == -1)
-                return;
-            setFd(fd, fence.getSyncTimelineFd(), fence.getName());
-        }
-    }
-    ReleaseFence(const ReleaseFence &fence) noexcept {
-        // This is ok, as sync fences are immutable after construction, so a dup
-        // is basically the same thing as a copy.
-        if (fence.isValid()) {
-            int fd = dup(fence.getFd());
-            if (fd == -1)
-                return;
-            setFd(fd, fence.getSyncTimelineFd(), fence.getName());
-        }
-    }
-    ReleaseFence(const int fd) noexcept {
-        int status = fcntl(fd, F_GETFD, 0);
-        if (status < 0)
-            return;
-        setFd(fd, -1);
-        bFdInitialized_ = true;
-    }
+    ~ReleaseFence();
+
+    ReleaseFence(const ReleaseFence& rhs) = delete;
+    ReleaseFence& operator=(const ReleaseFence& rhs) = delete;
+    ReleaseFence(ReleaseFence&& rhs) = delete;
+    ReleaseFence& operator=(ReleaseFence&& rhs) = delete;
+
+    ReleaseFence(const int fd, std::string name = "UnKnow") noexcept;
     ReleaseFence(const SyncTimeline &timeline,
               int value,
-              const char *name = nullptr) noexcept {
-        std::string autoName = "allocReleaseFence";
-        autoName += s_fenceCount;
-        s_fenceCount++;
-        int fd = sw_sync_fence_create(timeline.getFd(), name ? name : autoName.c_str(), value);
-        if (fd == -1)
-            return;
-        setFd(fd, timeline.getFd(), name);
+              const char *name = nullptr) noexcept;
 
-    }
-    ReleaseFence(const ReleaseFence &a, const ReleaseFence &b, const char *name = nullptr) noexcept {
-        std::string autoName = "mergeReleaseFence";
-        autoName += s_fenceCount;
-        s_fenceCount++;
-        int fd = sync_merge(name ? name : autoName.c_str(), a.getFd(), b.getFd());
-        if (fd == -1)
-            return;
-        setFd(fd, -1, name);
-    }
-    ReleaseFence& operator=(const ReleaseFence &rhs) noexcept {
-        destroy();
-        if (rhs.isValid()) {
-            setFd(dup(rhs.getFd()), rhs.getSyncTimelineFd(), rhs.getName());
-        }
-        return *this;
-    }
-    void clearFd() {
-        iFd_ = -1;
-        bFdInitialized_ = false;
-    }
-    void destroy() {
-        if (isValid()) {
-            close(iFd_);
-            clearFd();
-        }
-    }
-    bool isValid() const {
-        if (bFdInitialized_) {
-            int status = fcntl(iFd_, F_GETFD, 0);
-            if (status >= 0)
-                return true;
-            else
-                return false;
-        }
-        else {
-            return false;
-        }
-    }
-    int getFd() const {
-        return iFd_;
-    }
-    int getSyncTimelineFd() const {
-        return iSyncTimelineFd_;
-    }
-    std::string getName() const{
-        return sName_;
-    }
-    int wait(int timeout = -1) {
-        return sync_wait(iFd_, timeout);
-    }
-    int signal() {
-        if(iSyncTimelineFd_ < 0)
-          return -1;
-        return sw_sync_timeline_inc(iSyncTimelineFd_, 1);
-    }
-    std::vector<SyncPointInfo> getInfo() const {
-        std::vector<SyncPointInfo> fenceInfo;
-        struct sync_file_info *info = sync_file_info(getFd());
-        if (!info) {
-            return fenceInfo;
-        }
-        const auto fences = sync_get_fence_info(info);
-        for (uint32_t i = 0; i < info->num_fences; i++) {
-            fenceInfo.push_back(SyncPointInfo{
-                fences[i].driver_name,
-                fences[i].obj_name,
-                fences[i].timestamp_ns,
-                fences[i].status});
-        }
-        sync_file_info_free(info);
-        return fenceInfo;
-    }
-    int getSize() const {
-        return getInfo().size();
-    }
-    int getSignaledCount() const {
-        return countWithStatus(1);
-    }
-    int getActiveCount() const {
-        return countWithStatus(0);
-    }
-    int getErrorCount() const {
-        return countWithStatus(-1);
-    }
-
-    std::string dump() const {
-        std::string output;
-        for (auto &info : getInfo()) {
-          output += info.driverName + ":" + info.objectName + ":" + std::to_string(info.timeStampNs) + ":state=" + std::to_string(info.status) + "\n";
-        }
-        return output;
-    }
+    void clearFd();
+    void destroy();
+    bool isValid() const;
+    int merge(int fd, const char* name = nullptr);
+    int wait(int timeout = -1);
+    int signal();
+    int getFd() const;
+    int getSyncTimelineFd() const;
+    std::vector<SyncPointInfo> getInfo() const;
+    int getSize() const;
+    int getSignaledCount() const;
+    int getActiveCount() const;
+    int getErrorCount() const;
+    std::string dump() const;
+    std::string getName() const;
 private:
-    void setFd(int fd, int sync_timeline_fd, std::string name = "UnKnow") {
-        iFd_ = fd;
-        iSyncTimelineFd_ = sync_timeline_fd;
-        sName_ = name;
-        bFdInitialized_ = true;
-    }
-    int countWithStatus(int status) const {
-        int count = 0;
-        for (auto &info : getInfo()) {
-            if (info.status == status) {
-                count++;
-            }
-        }
-        return count;
-    }
+    // Only allow instantiation using ref counting.
+    friend class LightRefBase<ReleaseFence>;
+    void setFd(int fd, int sync_timeline_fd, std::string name = "UnKnow");
+    int countWithStatus(int status) const;
     int iFd_ = -1;
     int iSyncTimelineFd_ = -1;
     bool bFdInitialized_ = false;
@@ -237,135 +97,38 @@ private:
 };
 
 // Wrapper class for sync fence.
-class AcquireFence {
+class AcquireFence : public LightRefBase<AcquireFence> {
 public:
+    static const sp<AcquireFence> NO_FENCE;
     AcquireFence(){};
-    AcquireFence(AcquireFence &&fence) noexcept {
-        if (fence.isValid()) {
-            int fd = dup(fence.getFd());
-            setFd(fd);
-        }
-    }
-    AcquireFence(const AcquireFence &fence) noexcept {
-        // This is ok, as sync fences are immutable after construction, so a dup
-        // is basically the same thing as a copy.
-        if (fence.isValid()) {
-            int fd = dup(fence.getFd());
-            setFd(fd);
-        }
-    }
+    ~AcquireFence();
 
-    AcquireFence(const int fd) noexcept {
-        int status = fcntl(fd, F_GETFD, 0);
-        if (status < 0)
-            return;
-        setFd(fd);
-        bFdInitialized_ = true;
-    }
-    AcquireFence(const AcquireFence &a, const AcquireFence &b, const char *name = nullptr) noexcept {
-        std::string autoName = "mergeAcquireFence";
-        autoName += s_fenceCount;
-        s_fenceCount++;
-        int fd = sync_merge(name ? name : autoName.c_str(), a.getFd(), b.getFd());
-        if (fd == -1)
-            return;
-        setFd(fd);
-    }
+    AcquireFence(const AcquireFence& rhs) = delete;
+    AcquireFence& operator=(const AcquireFence& rhs) = delete;
+    AcquireFence(AcquireFence&& rhs) = delete;
+    AcquireFence& operator=(AcquireFence&& rhs) = delete;
+    AcquireFence(const int fd) noexcept;
 
-    ~AcquireFence() {
-        destroy();
-    }
-
-    void destroy() {
-        if (isValid()) {
-            close(iFd_);
-            clearFd();
-        }
-    }
-    bool isValid() const {
-        if (bFdInitialized_) {
-            int status = fcntl(iFd_, F_GETFD, 0);
-            if (status >= 0)
-                return true;
-            else
-                return false;
-        }
-        else {
-            return false;
-        }
-    }
-
-    AcquireFence& operator=(AcquireFence &rhs) noexcept {
-        destroy();
-        if (rhs.isValid()) {
-            setFd(dup(rhs.getFd()));
-        }
-        return *this;
-    }
-
-    AcquireFence& operator=(AcquireFence &&rhs) noexcept {
-        destroy();
-        if (rhs.isValid()) {
-            setFd(dup(rhs.getFd()));
-        }
-        return *this;
-    }
-    int getFd() const {
-        return iFd_;
-    }
-    int wait(int timeout = -1) {
-        return sync_wait(iFd_, timeout);
-    }
-    std::vector<SyncPointInfo> getInfo() const {
-        std::vector<SyncPointInfo> fenceInfo;
-        struct sync_file_info *info = sync_file_info(getFd());
-        if (!info) {
-            return fenceInfo;
-        }
-        const auto fences = sync_get_fence_info(info);
-        for (uint32_t i = 0; i < info->num_fences; i++) {
-            fenceInfo.push_back(SyncPointInfo{
-                fences[i].driver_name,
-                fences[i].obj_name,
-                fences[i].timestamp_ns,
-                fences[i].status});
-        }
-        sync_file_info_free(info);
-        return fenceInfo;
-    }
-    int getSize() const {
-        return getInfo().size();
-    }
-    int getSignaledCount() const {
-        return countWithStatus(1);
-    }
-    int getActiveCount() const {
-        return countWithStatus(0);
-    }
-    int getErrorCount() const {
-        return countWithStatus(-1);
-    }
+    void destroy();
+    bool isValid() const;
+    int getFd() const;
+    int merge(int fd, const char* name = nullptr);
+    int wait(int timeout = -1);
+    std::vector<SyncPointInfo> getInfo() const;
+    int getSize() const;
+    int getSignaledCount() const;
+    int getActiveCount() const;
+    int getErrorCount() const;
 private:
-    void setFd(int fd) {
-        iFd_ = fd;
-        bFdInitialized_ = true;
-    }
-    void clearFd() {
-        iFd_ = -1;
-        bFdInitialized_ = false;
-    }
-    int countWithStatus(int status) const {
-        int count = 0;
-        for (auto &info : getInfo()) {
-            if (info.status == status) {
-                count++;
-            }
-        }
-        return count;
-    }
+    // Only allow instantiation using ref counting.
+    friend class LightRefBase<AcquireFence>;
+    void setFd(int fd);
+    void clearFd();
+    int countWithStatus(int status) const;
     int iFd_ = -1;
     bool bFdInitialized_ = false;
 };
+
 // The semantics of the fences returned by the device differ between
 // hwc1.set() and hwc2.present(). Read hwcomposer.h and hwcomposer2.h
 // for more information.
@@ -387,23 +150,44 @@ private:
 class DeferredRetireFence {
     public:
         DeferredRetireFence()
-          : mFences({ReleaseFence(), ReleaseFence()}) {}
+          : mFences({ReleaseFence::NO_FENCE, ReleaseFence::NO_FENCE}) {}
 
-        void add(ReleaseFence &&rf) {
-            mFences.push(std::move(rf));
+        void add(int32_t fenceFd, std::string name) {
+            mFences.emplace(new ReleaseFence(fenceFd, name));
             mFences.pop();
         }
 
-        const ReleaseFence &get() const {
+        const sp<ReleaseFence> &get() const {
             return mFences.front();
         }
-
-        const ReleaseFence &get_back() const {
+        const sp<ReleaseFence> &get_back() const {
             return mFences.back();
         }
     private:
         // There are always two fences in this queue.
-        std::queue<ReleaseFence> mFences;
+        std::queue<sp<ReleaseFence>> mFences;
+};
+
+class DeferredReleaseFence {
+    public:
+        DeferredReleaseFence()
+          : mFences({ReleaseFence::NO_FENCE, ReleaseFence::NO_FENCE}) {}
+
+        void add(sp<ReleaseFence> rf) {
+            mFences.push(rf);
+            mFences.pop();
+        }
+
+        const sp<ReleaseFence> &get() const {
+            return mFences.front();
+        }
+
+        const sp<ReleaseFence> &get_back() const {
+            return mFences.back();
+        }
+    private:
+        // There are always two fences in this queue.
+        std::queue<sp<ReleaseFence>> mFences;
 };
 } // namespace android
 #endif

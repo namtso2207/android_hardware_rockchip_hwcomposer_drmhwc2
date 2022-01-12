@@ -116,7 +116,8 @@ LOCAL_SRC_FILES := \
   rockchip/drmbaseparameter.cpp \
   rockchip/platform/drmvop3399.cpp \
   rockchip/platform/drmvop356x.cpp \
-  rockchip/platform/drmvop3588.cpp
+  rockchip/platform/drmvop3588.cpp \
+  rockchip/utils/drmfence.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \

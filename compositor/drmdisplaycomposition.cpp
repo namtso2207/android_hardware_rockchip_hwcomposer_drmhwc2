@@ -37,11 +37,7 @@
 namespace android {
 
 DrmDisplayComposition::~DrmDisplayComposition() {
-  if (timeline_fd_ >= 0) {
-    SignalCompositionDone();
-    close(timeline_fd_);
-  }
-
+    // SignalCompositionDone();
 }
 
 int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
@@ -195,18 +191,18 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timel
     }
     int sync_timeline_cnt = sync_timeline.IncTimeline();
     sprintf(acBuf,"RFD%" PRIu64 "-FN%" PRIu64 "-TC%d" ,display_id_, frame_no_, sync_timeline_cnt);
-    layer->release_fence = ReleaseFence(sync_timeline, sync_timeline_cnt, acBuf);
-    if (!layer->release_fence.isValid()){
+    layer->release_fence = sp<ReleaseFence>(new ReleaseFence(sync_timeline, sync_timeline_cnt, acBuf));
+    if (layer->release_fence->isValid()){
+      HWC2_ALOGD_IF_DEBUG(" Create ReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
+    }else{
       HWC2_ALOGE(" Create ReleaseFence(%s) Fail!: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
       return -1;
-    }else{
-      HWC2_ALOGD_IF_DEBUG(" Create ReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
     }
   }
   return 0;
 }
 
-ReleaseFence DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
+sp<ReleaseFence> DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
   ATRACE_CALL();
   std::unordered_set<DrmHwcLayer *> comp_layers;
 
@@ -231,7 +227,7 @@ ReleaseFence DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
       return layer->release_fence;
     }
   }
-  return ReleaseFence(-1);
+  return ReleaseFence::NO_FENCE;
 }
 
 int DrmDisplayComposition::SignalCompositionDone() {
@@ -250,17 +246,20 @@ int DrmDisplayComposition::SignalCompositionDone() {
     return 0;
 
   for (DrmHwcLayer *layer : comp_layers) {
-    if (!layer || !layer->release_fence.isValid()){
+    if (!layer || !layer->release_fence->isValid()){
       continue;
     }
-    int act = layer->release_fence.getActiveCount();
-    int sig = layer->release_fence.getSignaledCount();
-    int ret = layer->release_fence.signal();
+    int act,sig;
+    if(LogLevel(DBG_DEBUG)){
+      act = layer->release_fence->getActiveCount();
+      sig = layer->release_fence->getSignaledCount();
+    }
+    int ret = layer->release_fence->signal();
     if(LogLevel(DBG_DEBUG))
       HWC2_ALOGD_IF_DEBUG("Signal %s frame = %" PRIu64 " %s Info: size=%d act=%d signal=%d err=%d LayerName=%s ",
-                          act == 1 && sig == 0 && layer->release_fence.getActiveCount() == 0 && layer->release_fence.getSignaledCount() == 1 ? "Sucess" : "Fail",
-                          frame_no_,layer->release_fence.getName().c_str(),layer->release_fence.getSize(),layer->release_fence.getActiveCount(),
-                          layer->release_fence.getSignaledCount(),layer->release_fence.getErrorCount(),
+                          act == 1 && sig == 0 && layer->release_fence->getActiveCount() == 0 && layer->release_fence->getSignaledCount() == 1 ? "Sucess" : "Fail",
+                          frame_no_,layer->release_fence->getName().c_str(),layer->release_fence->getSize(),layer->release_fence->getActiveCount(),
+                          layer->release_fence->getSignaledCount(),layer->release_fence->getErrorCount(),
                           layer->sLayerName_.c_str());
   }
   return 0;

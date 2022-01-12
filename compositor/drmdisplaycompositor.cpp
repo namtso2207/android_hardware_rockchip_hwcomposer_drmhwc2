@@ -555,20 +555,15 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
       DrmHwcLayer &layer = layers[source_layers.front()];
 
-      if (!test_only && layer.acquire_fence.isValid()){
-        HWC2_ALOGD_IF_DEBUG("Wait AcquireFence frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
-                            display_comp->frame_no(), layer.acquire_fence.getSize(),
-                            layer.acquire_fence.getActiveCount(), layer.acquire_fence.getSignaledCount(),
-                            layer.acquire_fence.getErrorCount(),layer.sLayerName_.c_str());
-        if(layer.acquire_fence.wait(1500)){
-          ALOGE("Failed to wait for acquire %d/%d 1500ms", layer.acquire_fence.getFd(), ret);
+      if (!test_only && layer.acquire_fence->isValid()){
+        if(layer.acquire_fence->wait(1500)){
+          HWC2_ALOGE("Wait AcquireFence failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+                            display_comp->frame_no(), layer.acquire_fence->getSize(),
+                            layer.acquire_fence->getActiveCount(), layer.acquire_fence->getSignaledCount(),
+                            layer.acquire_fence->getErrorCount(),layer.sLayerName_.c_str());
           break;
         }
-        HWC2_ALOGD_IF_DEBUG("Wait finish AcquireFence frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
-                            display_comp->frame_no(), layer.acquire_fence.getSize(),
-                            layer.acquire_fence.getActiveCount(), layer.acquire_fence.getSignaledCount(),
-                            layer.acquire_fence.getErrorCount(),layer.sLayerName_.c_str());
-        layer.acquire_fence.destroy();
+        layer.acquire_fence->destroy();
       }
       if (!layer.buffer) {
         ALOGE("Expected a valid framebuffer for pset");
@@ -847,12 +842,12 @@ void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayCompositio
               break;
           }
           DrmHwcLayer &layer = layers[source_layers.front()];
-          if (layer.acquire_fence.isValid()) {
-            if(layer.acquire_fence.wait(1500)){
-              ALOGE("Failed to wait for acquire %d 1500ms", layer.acquire_fence.getFd());
+          if (layer.acquire_fence->isValid()) {
+            if(layer.acquire_fence->wait(1500)){
+              ALOGE("Failed to wait for acquire %d 1500ms", layer.acquire_fence->getFd());
               break;
             }
-            layer.acquire_fence.destroy();
+            layer.acquire_fence->destroy();
           }
       }
   }
@@ -1097,7 +1092,7 @@ int DrmDisplayCompositor::FlattenOnDisplay(
   }
 
   ret = sync_wait(writeback_fence_, kWaitWritebackFence);
-  writeback_layer->acquire_fence = AcquireFence(writeback_fence_);
+  writeback_layer->acquire_fence = sp<AcquireFence>(new AcquireFence(writeback_fence_));
   writeback_fence_ = -1;
   if (ret) {
     ALOGE("Failed to wait on writeback fence");
@@ -1172,7 +1167,7 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
     return ret;
   }
   ret = sync_wait(writeback_fence_, kWaitWritebackFence);
-  writeback_layer.acquire_fence = AcquireFence(writeback_fence_);
+  writeback_layer.acquire_fence = sp<AcquireFence>(new AcquireFence(writeback_fence_));
   writeback_fence_ = -1;
   if (ret) {
     ALOGE("Failed to wait on writeback fence");

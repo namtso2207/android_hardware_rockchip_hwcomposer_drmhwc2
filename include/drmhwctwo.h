@@ -192,20 +192,24 @@ class DrmHwcTwo : public hwc2_device_t {
       }
     }
 
-    void set_acquire_fence(AcquireFence &acquire_fence) {
-      acquire_fence_ = acquire_fence;
+    void set_acquire_fence(sp<AcquireFence> af) {
+      acquire_fence_ = af;
     }
 
-    AcquireFence &acquire_fence(){
+    const sp<AcquireFence> acquire_fence(){
       return acquire_fence_;
     }
 
-    void set_release_fence(ReleaseFence &release_fence) {
-      release_fence_ = release_fence;
+    void set_release_fence(sp<ReleaseFence> rf) {
+      release_fence_.add(rf);
     }
 
-    const ReleaseFence &release_fence(){
-      return release_fence_;
+    const sp<ReleaseFence> release_fence(){
+      return release_fence_.get();
+    }
+
+    const sp<ReleaseFence> back_release_fence(){
+      return release_fence_.get_back();
     }
 
     uint32_t id(){ return id_; }
@@ -246,8 +250,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::BlendMode blending_ = HWC2::BlendMode::None;
     buffer_handle_t buffer_ = NULL;
-    AcquireFence acquire_fence_;
-    ReleaseFence release_fence_;
+    sp<AcquireFence> acquire_fence_ = AcquireFence::NO_FENCE;
+    DeferredReleaseFence release_fence_;
     hwc_rect_t display_frame_;
     float alpha_ = 1.0f;
     hwc_frect_t source_crop_;
