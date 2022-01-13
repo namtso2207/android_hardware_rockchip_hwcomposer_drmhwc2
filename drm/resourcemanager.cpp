@@ -198,12 +198,19 @@ int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_n
     if(conn->isSpiltMode()){
       for(auto &plane_group : all_plane_group){
         uint64_t plane_group_win_type = plane_group->win_type;
-        if(plane_group_win_type & PLANE_RK3588_CLUSTER0_WIN1||
-          plane_group_win_type & PLANE_RK3588_CLUSTER1_WIN1 ||
-          plane_group_win_type & PLANE_RK3588_CLUSTER2_WIN1 ||
-          plane_group_win_type & PLANE_RK3588_CLUSTER3_WIN1){
-            continue;
-          }
+        if(isRK356x(soc_id_)){
+          if(plane_group_win_type & DRM_PLANE_TYPE_CLUSTER0_WIN1||
+            plane_group_win_type & DRM_PLANE_TYPE_CLUSTER1_WIN1){
+              continue;
+            }
+        }else if(isRK3588(soc_id_)){
+          if(plane_group_win_type & PLANE_RK3588_CLUSTER0_WIN1||
+              plane_group_win_type & PLANE_RK3588_CLUSTER1_WIN1 ||
+              plane_group_win_type & PLANE_RK3588_CLUSTER2_WIN1 ||
+              plane_group_win_type & PLANE_RK3588_CLUSTER3_WIN1){
+              continue;
+            }
+        }
         if(plane_group->possible_display_ == display_id){
           only_one_plane=true;
           continue;
