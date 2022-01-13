@@ -2401,7 +2401,57 @@ int Vop3588::InitContext(
 }
 int Vop3588::TryHwcPolicy(
     std::vector<DrmCompositionPlane> *composition,
-    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc,
+    bool gles_policy) {
+  int ret;
+  // Get PlaneGroup
+  if(plane_groups.size()==0){
+    ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
+    return -1;
+  }
+
+  // Init context
+  InitContext(layers,plane_groups,crtc,gles_policy);
+
+  // Try to match overlay policy
+  if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
+    ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
+      TryMix();
+    }
+  }
+
+  // Try to match mix policy
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
+    ret = TryMixPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match mix policy fail, try to match other policy.");
+      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    }
+  }
+
+  // Try to match GLES policy
+  if(ctx.state.setHwcPolicy.count(HWC_GLES_POLICY)){
+    ret = TryGLESPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
+  ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
+  return -1;
+}
+
+int Vop3588::TryHwcPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers,
+    DrmCrtc *crtc,
     bool gles_policy) {
 
   // Get PlaneGroup
@@ -2457,6 +2507,5 @@ bool Vop3588::SupportPlatform(uint32_t soc_id){
   }
   return false;
 }
-
 }
 

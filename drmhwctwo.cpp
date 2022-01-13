@@ -1139,8 +1139,23 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       layers.push_back(&drm_hwc_layers_[i]);
   }
 
+  std::vector<PlaneGroup *> plane_groups;
+  DrmDevice *drm = crtc_->getDrmDevice();
+  plane_groups.clear();
+  std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
+  for(auto &plane_group : all_plane_groups){
+      if(handle_ == 0){
+        if(plane_group->win_type & PLANE_RK3588_ALL_CLUSTER0_MASK)
+          plane_groups.push_back(plane_group);
+      }else if(handle_ != 0){
+        if(plane_group->win_type & PLANE_RK3588_ALL_CLUSTER1_MASK)
+          plane_groups.push_back(plane_group);
+      }else
+        plane_groups.push_back(plane_group);
+  }
+
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, crtc_, static_screen_opt_ || force_gles_);
+           composition_planes_) = planner_->TryHwcPolicy(layers, plane_groups, crtc_, static_screen_opt_ || force_gles_);
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;

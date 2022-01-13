@@ -75,4 +75,60 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
   return std::make_tuple(ret, std::move(composition));
 }
 
+
+std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc,
+    bool gles_policy) {
+  std::vector<DrmCompositionPlane> composition;
+  int ret = -1;
+  // Go through the provisioning stages and provision planes
+  for (auto &i : stages_) {
+    if(i->SupportPlatform(crtc->get_soc_id())){
+      switch(crtc->get_soc_id()){
+        // Before E.C.O.
+        case 0x3566:
+        case 0x3568:
+          ret = i->TryHwcPolicy(&composition, layers, plane_groups, crtc, true);
+          if (ret) {
+            ALOGE("Failed provision stage with ret %d", ret);
+            return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+          }
+          break;
+        // // After E.C.O.
+        // case 0x3566a:
+        // case 0x3568a:
+        //   ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
+        //   if (ret) {
+        //     ALOGE("Failed provision stage with ret %d", ret);
+        //     return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+        //   }
+        //   break;
+        // case 0x3399:
+        //   ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
+        //   if (ret) {
+        //     ALOGE("Failed provision stage with ret %d", ret);
+        //     return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+        //   }
+        // case 0x3588:
+        //   ret = i->TryHwcPolicy(&composition, layers, crtc, gles_policy);
+        //   if (ret) {
+        //     ALOGE("Failed provision stage with ret %d", ret);
+        //     return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+        //   }
+        //   break;
+        default:
+          ret = i->TryHwcPolicy(&composition, layers, plane_groups,  crtc, gles_policy);
+          if (ret) {
+            ALOGE("Failed provision stage with ret %d", ret);
+            return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
+          }
+          break;
+      }
+    }
+  }
+  return std::make_tuple(ret, std::move(composition));
+}
+
 }  // namespace android
