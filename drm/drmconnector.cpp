@@ -222,8 +222,6 @@ int DrmConnector::Init() {
     ALOGW("Could not get USER_SPLIT_MODE property\n");
   }else{
     std::tie(ret,bSpiltMode_) = spilt_mode_property_.value();
-    ALOGI("rk-debug name=%s bSpiltMode_=%d",cUniqueName_,bSpiltMode_);
-    //std::tie(ret,unique_id_) = connector_id_property_.value();
   }
 
   return 0;
