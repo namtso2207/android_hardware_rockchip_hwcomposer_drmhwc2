@@ -594,7 +594,7 @@ int DrmDevice::GetCommitMirrorDisplayId() const {
 
 DrmConnector *DrmDevice::GetConnectorForDisplay(int display) const {
   for (auto &conn : connectors_) {
-    if (conn->display() == display)
+    if (conn->display() == (display & 0xf))
       return conn.get();
   }
   return NULL;
@@ -635,7 +635,7 @@ DrmConnector *DrmDevice::AvailableWritebackConnector(int display) const {
 
 DrmCrtc *DrmDevice::GetCrtcForDisplay(int display) const {
   for (auto &crtc : crtcs_) {
-    if (crtc->display() == display)
+    if (crtc->display() == (display & 0xf))
       return crtc.get();
   }
   return NULL;

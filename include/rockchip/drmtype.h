@@ -213,6 +213,8 @@ typedef struct hwc2_drm_display {
   int framebuffer_width;
   int framebuffer_height;
   int vrefresh;
+  int rel_xoffset;
+  int rel_yoffset;
   int rel_xres;
   int rel_yres;
   uint32_t dclk;

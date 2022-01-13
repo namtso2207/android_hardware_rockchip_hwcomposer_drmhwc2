@@ -216,10 +216,10 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
     bottom_scale = ctx->rel_yres / (float)ctx->framebuffer_height;
   }
 
-  display_frame.left   = (int)(frame.left   * left_scale  );
-  display_frame.right  = (int)(frame.right  * right_scale );
-  display_frame.top    = (int)(frame.top    * top_scale   );
-  display_frame.bottom = (int)(frame.bottom * bottom_scale);
+  display_frame.left   = (int)(frame.left   * left_scale  ) + ctx->rel_xoffset;
+  display_frame.right  = (int)(frame.right  * right_scale ) + ctx->rel_xoffset;
+  display_frame.top    = (int)(frame.top    * top_scale   ) + ctx->rel_yoffset;
+  display_frame.bottom = (int)(frame.bottom * bottom_scale) + ctx->rel_yoffset;
 
   // RK3588 硬件未提供Overscan功能，所以需要利用Scale实现Overscan效果
   if(isRK3588(ctx->soc_id)){

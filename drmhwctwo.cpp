@@ -132,6 +132,13 @@ HWC2::Error DrmHwcTwo::Init() {
       ALOGE("Failed to create display %d with error %d", i, ret);
       return ret;
     }
+    if( i == 0 ){
+      ret = CreateDisplay(1 << 4, HWC2::DisplayType::Physical);
+      if (ret != HWC2::Error::None) {
+        ALOGE("Failed to create display %d with error %d", i, ret);
+        return ret;
+      }
+    }
   }
 
   auto &drmDevices = resource_manager_->getDrmDevices();
@@ -242,6 +249,8 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
     case HWC2::Callback::Hotplug: {
       auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
       hotplug(data, HWC_DISPLAY_PRIMARY,
+              static_cast<int32_t>(HWC2::Connection::Connected));
+      hotplug(data, (HWC_DISPLAY_PRIMARY+1) << 4,
               static_cast<int32_t>(HWC2::Connection::Connected));
       auto &drmDevices = resource_manager_->getDrmDevices();
       for (auto &device : drmDevices)
@@ -868,7 +877,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     }
 
     ctx_.rel_xres = best_mode.h_display();
-    ctx_.rel_yres = best_mode.v_display();
+    ctx_.rel_yres = best_mode.v_display() / 2;
+    if(handle_ != 0){
+      ctx_.rel_xoffset = 0;//best_mode.h_display();
+      ctx_.rel_yoffset = best_mode.v_display() / 2;
+    }
 
     // AFBC limit
     bool disable_afbdc = false;
@@ -2168,7 +2181,8 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
         ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
           conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
         HandleDisplayHotplug(conn->display(), conn->state());
-      }
+        HandleDisplayHotplug((conn->display()+1) << 4, conn->state());
+        }
     }
 }
 
@@ -2197,11 +2211,13 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       display.ChosePreferredConfig();
       display.CheckStateAndReinit();
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+      hwc2_->HandleDisplayHotplug((display_id+1) << 4, DRM_MODE_CONNECTED);
     }else{
       display.ClearDisplay();
       drm_->ReleaseDpyRes(display_id);
       display.ReleaseResource();
       hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+      hwc2_->HandleDisplayHotplug((display_id+1) << 4, DRM_MODE_DISCONNECTED);
     }
   }
 

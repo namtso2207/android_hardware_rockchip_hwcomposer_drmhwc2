@@ -108,7 +108,7 @@ DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
 
 DrmDevice *ResourceManager::GetDrmDevice(int display) {
   for (auto &drm : drms_) {
-    if (drm->HandlesDisplay(display))
+    if (drm->HandlesDisplay(display & 0xf))
       return drm.get();
   }
   return NULL;
@@ -116,7 +116,7 @@ DrmDevice *ResourceManager::GetDrmDevice(int display) {
 
 std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
   for (unsigned int i = 0; i < drms_.size(); i++) {
-    if (drms_[i]->HandlesDisplay(display))
+    if (drms_[i]->HandlesDisplay(display & 0xf))
       return importers_[i];
   }
   return NULL;
@@ -155,7 +155,8 @@ int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_n
     }
 
     uint32_t crtc_mask = 1 << crtc->pipe();
-    uint64_t plane_mask = crtc->get_plane_mask();
+    uint64_t plane_mask = 0;
+    plane_mask = PLANE_RK3588_ALL_CLUSTER0_MASK | PLANE_RK3588_ALL_CLUSTER1_MASK;//crtc->get_plane_mask();
     ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
              crtc->id(),crtc_mask,plane_mask);
     for(auto &plane_group : all_plane_group){
