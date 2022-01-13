@@ -139,7 +139,7 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
     bool disable_plane = false;
     //loop plane
     uint32_t crtc_mask = 1 << crtc()->pipe();
-    if((*iter)->acquire(crtc_mask)){
+    if((*iter)->acquire(crtc_mask,display_)){
       disable_plane = true;
     }
 

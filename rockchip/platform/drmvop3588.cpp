@@ -1781,6 +1781,9 @@ int Vop3588::TryGLESPolicy(
         fb_layer->bAfbcd_ = true;
         ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
       }
+    }else{
+        fb_layer->bAfbcd_ = false;
+        ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
     }
     // // RK3566 must match external display
     // if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){

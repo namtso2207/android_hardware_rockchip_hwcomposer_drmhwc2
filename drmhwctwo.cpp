@@ -1150,7 +1150,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   plane_groups.clear();
   std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
   for(auto &plane_group : all_plane_groups){
-    if(plane_group->acquire(1 << crtc_->pipe(),handle_)){
+    if(plane_group->acquire(1 << crtc_->pipe(), handle_)){
       plane_groups.push_back(plane_group);
     }
   }

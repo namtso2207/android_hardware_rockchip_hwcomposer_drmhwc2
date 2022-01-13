@@ -70,7 +70,7 @@ typedef struct tagPlaneGroup{
     if(!(current_crtc_ & crtc_mask))
       return false;
 
-    if(!(possible_display_ & dispaly))
+    if(possible_display_ != dispaly)
       return false;
 
     return true;
@@ -85,10 +85,10 @@ typedef struct tagPlaneGroup{
   }
 
   bool set_current_crtc(uint32_t crtc_mask, int64_t display){
-  current_crtc_ = crtc_mask;
-  possible_display_ = display;
-  return true;
-}
+    current_crtc_ = crtc_mask;
+    possible_display_ = display;
+    return true;
+  }
 
 }PlaneGroup;
 
