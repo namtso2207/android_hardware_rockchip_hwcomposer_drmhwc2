@@ -56,6 +56,7 @@ int ResourceManager::Init() {
     return ret ? -EINVAL : ret;
   }
 
+
   fb0_fd = open("/dev/graphics/fb0", O_RDWR, 0);
   if(fb0_fd < 0){
     ALOGE("Open fb0 fail in %s",__FUNCTION__);
@@ -67,6 +68,13 @@ int ResourceManager::Init() {
       std::pair<int, std::shared_ptr<DrmDisplayCompositor>>(crtc->id(),std::make_shared<DrmDisplayCompositor>()));
     HWC2_ALOGI("New DrmDisplayCompositor crtc=%d",crtc->id());
   }
+
+  displays_ = drm->GetDisplays();
+  if(displays_.size() == 0){
+    ALOGE("Failed to initialize any displays");
+    return ret ? -EINVAL : ret;
+  }
+
   return 0;
 }
 
@@ -176,23 +184,51 @@ int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_n
         return -1;
     }
 
+    DrmConnector *conn = drm->GetConnectorForDisplay(display_id);
+    if(!conn){
+        ALOGE("%s,line=%d connector is NULL.",__FUNCTION__,__LINE__);
+        return -1;
+    }
+
     uint32_t crtc_mask = 1 << crtc->pipe();
-    uint64_t plane_mask = 0;
-    plane_mask = PLANE_RK3588_ALL_CLUSTER0_MASK | PLANE_RK3588_ALL_CLUSTER1_MASK;//crtc->get_plane_mask();
-    ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-             crtc->id(),crtc_mask,plane_mask);
-    for(auto &plane_group : all_plane_group){
-      uint64_t plane_group_win_type = plane_group->win_type;
-      if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_crtc(crtc_mask);
-        all_unused_plane_mask &= (~plane_group_win_type);
+    uint64_t plane_mask = crtc->get_plane_mask();
+    bool only_one_plane = false;
+    HWC2_ALOGI("display-id=%d crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64,
+            display_id, crtc->id(), crtc_mask,plane_mask);
+    if(conn->isSpiltMode()){
+      for(auto &plane_group : all_plane_group){
+        uint64_t plane_group_win_type = plane_group->win_type;
+        if(plane_group_win_type & PLANE_RK3588_CLUSTER0_WIN1||
+          plane_group_win_type & PLANE_RK3588_CLUSTER1_WIN1 ||
+          plane_group_win_type & PLANE_RK3588_CLUSTER2_WIN1 ||
+          plane_group_win_type & PLANE_RK3588_CLUSTER3_WIN1){
+            continue;
+          }
+        if(plane_group->possible_display_ == display_id){
+          only_one_plane=true;
+          continue;
+        }
+        if(!only_one_plane && plane_group->possible_display_ == -1 &&
+          ((plane_mask & plane_group_win_type) == plane_group_win_type)){
+          plane_group->set_current_crtc(crtc_mask, display_id);
+          all_unused_plane_mask &= (~plane_group_win_type);
+          only_one_plane=true;
+        }
+      }
+    }else{
+      for(auto &plane_group : all_plane_group){
+        uint64_t plane_group_win_type = plane_group->win_type;
+        if(((plane_mask & plane_group_win_type) == plane_group_win_type)){
+          plane_group->set_current_crtc(crtc_mask, display_id);
+          all_unused_plane_mask &= (~plane_group_win_type);
+        }
       }
     }
   }
-
   for(auto &plane_group : all_plane_group){
-    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_crtc_);
+    HWC2_ALOGI("name=%s cur_crtcs_mask=0x%x possible-display=%" PRIi64 ,
+            plane_group->planes[0]->name(),plane_group->current_crtc_,plane_group->possible_display_);
+
   }
   return 0;
 }

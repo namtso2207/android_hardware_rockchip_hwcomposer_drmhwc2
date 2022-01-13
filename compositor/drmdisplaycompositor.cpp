@@ -664,9 +664,9 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
             break;
         }
       }
-      zpos = comp_plane.get_zpos();
-      if( display_comp->display() > 0xf)
-        zpos = 1;
+      zpos = layer.iZpos_;
+      if(display_comp->display() > 0xf)
+        zpos=1;
       if(zpos < 0)
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 

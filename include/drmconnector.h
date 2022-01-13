@@ -109,6 +109,9 @@ class DrmConnector {
   bool is_hdmi_support_hdr() const;
   int switch_hdmi_hdr_mode(android_dataspace_t colorspace);
 
+  void SetSpiltMode(bool enable) { bSpiltMode_ = enable;};
+  bool isSpiltMode() const{ return bSpiltMode_;}
+
   const DrmProperty &brightness_id_property() const;
   const DrmProperty &contrast_id_property() const;
   const DrmProperty &saturation_id_property() const;
@@ -194,6 +197,8 @@ class DrmConnector {
   // output format
   output_format    uColorFormat_ = output_rgb;
   output_depth uColorDepth_ = depth_24bit;
+  // Spilt mode
+  bool bSpiltMode_=false;
 };
 }  // namespace android
 

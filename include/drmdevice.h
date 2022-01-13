@@ -140,9 +140,13 @@ class DrmDevice {
   int UpdateConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
   int DumpConnectorBaseInfo(unsigned int connector_type,unsigned int connector_id,struct disp_info *info);
   int SetScreenInfo(unsigned int connector_type,unsigned int connector_id, int index, struct screen_info *info);
+
+  std::map<int, int> GetDisplays() { return displays_;}
+
  private:
   void init_white_modes(void);
   void ConfigurePossibleDisplays();
+  void ConfigureSpiltDisplays();
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
                   DrmProperty *property);

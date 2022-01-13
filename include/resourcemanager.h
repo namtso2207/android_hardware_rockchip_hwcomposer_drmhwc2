@@ -49,6 +49,11 @@ class ResourceManager {
   int getDisplayCount() const {
     return num_displays_;
   }
+
+  std::map<int,int> getDisplays() const {
+    return displays_;
+  }
+
   void creatActiveDisplayCnt(int display) {
     if(active_display_.count(display) == 0)
       active_display_.insert(display);
@@ -79,6 +84,7 @@ class ResourceManager {
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
   std::map<int, std::shared_ptr<DrmDisplayCompositor>> mapDrmDisplayCompositor_;
+  std::map<int,int> displays_;
   DrmGralloc *drmGralloc_;
   int fb0_fd;
   int soc_id_;
