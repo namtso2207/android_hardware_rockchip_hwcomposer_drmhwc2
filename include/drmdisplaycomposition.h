@@ -155,6 +155,9 @@ class DrmDisplayComposition {
     return frame_no_;
   }
 
+  int display() const {
+    return display_id_;
+  }
   DrmCompositionType type() const {
     return type_;
   }

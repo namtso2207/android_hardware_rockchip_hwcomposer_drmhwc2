@@ -290,7 +290,7 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 
 void DrmHwcTwo::HwcDisplay::ClearDisplay() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
-  compositor_.ClearDisplay();
+  compositor_->ClearDisplay();
 }
 
 void DrmHwcTwo::HwcDisplay::ReleaseResource(){
@@ -361,7 +361,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::NoResources;
   }
 
-  ret = compositor_.Init(resource_manager_, display);
+  compositor_ = resource_manager_->GetDrmDisplayCompositor(crtc_);
+  ret = compositor_->Init(resource_manager_, display);
   if (ret) {
     ALOGE("Failed display compositor init for display %d (%d)", display, ret);
     return HWC2::Error::NoResources;
@@ -453,7 +454,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
-  ret = compositor_.Init(resource_manager_, display);
+  compositor_ = resource_manager_->GetDrmDisplayCompositor(crtc_);
+  ret = compositor_->Init(resource_manager_, display);
   if (ret) {
     ALOGE("Failed display compositor init for display %d (%d)", display, ret);
     return HWC2::Error::NoResources;
@@ -1215,8 +1217,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     map.layers.emplace_back(std::move(drm_hwc_layer));
   }
 
-  std::unique_ptr<DrmDisplayComposition> composition = compositor_
-                                                         .CreateComposition();
+  std::unique_ptr<DrmDisplayComposition> composition = compositor_->CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
 
   // TODO: Don't always assume geometry changed
@@ -1252,7 +1253,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     AddFenceToRetireFence(composition->take_out_fence());
   }
 
-  ret = compositor_.QueueComposition(std::move(composition));
+  ret = compositor_->QueueComposition(std::move(composition));
 
   return HWC2::Error::None;
 }
@@ -1421,11 +1422,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       return HWC2::Error::BadParameter;
   };
 
-  std::unique_ptr<DrmDisplayComposition> composition = compositor_
-                                                           .CreateComposition();
+  std::unique_ptr<DrmDisplayComposition> composition = compositor_->CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
   composition->SetDpmsMode(dpms_value);
-  int ret = compositor_.QueueComposition(std::move(composition));
+  int ret = compositor_->QueueComposition(std::move(composition));
   if (ret) {
     ALOGE("Failed to apply the dpms composition ret=%d", ret);
     return HWC2::Error::BadParameter;

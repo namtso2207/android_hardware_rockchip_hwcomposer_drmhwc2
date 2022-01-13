@@ -17,7 +17,6 @@
 #ifndef ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 #define ANDROID_DRM_DISPLAY_COMPOSITOR_H_
 
-
 #include "drmdisplaycomposition.h"
 #include "drmframebuffer.h"
 #include "drmlayer.h"
@@ -46,6 +45,7 @@
 #define FLATTEN_COUNTDOWN_INIT 60
 
 namespace android {
+class ResourceManager;
 
 class DrmDisplayCompositor {
  public:
@@ -150,9 +150,9 @@ class DrmDisplayCompositor {
   // Store the display request from SF.
   std::queue<std::unique_ptr<DrmDisplayComposition>> composite_queue_;
   // Store the request that is about to be submitted for display.
-  std::queue<std::unique_ptr<DrmDisplayComposition>> next_composition_queue_;
+  std::map<int,std::unique_ptr<DrmDisplayComposition>> collect_composition_map_;
   // Store the request currently being displayed on the screen.
-  std::queue<std::unique_ptr<DrmDisplayComposition>> active_composition_queue_;
+  std::map<int,std::unique_ptr<DrmDisplayComposition>> active_composition_map_;
 
   std::unique_ptr<DrmDisplayComposition> active_composition_;
 

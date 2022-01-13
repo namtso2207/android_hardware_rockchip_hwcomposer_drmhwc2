@@ -39,6 +39,7 @@
 #include "drmdevice.h"
 #include "drmplane.h"
 #include "rockchip/drmtype.h"
+#include "rockchip/utils/drmdebug.h"
 
 #define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 1
 
@@ -119,12 +120,18 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
   exist_display.clear();
   if (!frame_queue_.empty()) {
     while(frame_queue_.size() > 0){
-      if(exist_display.count(compositor_->display()))
-        break;
+      if(exist_display.count(frame.composition->display())){
+        frame_queue_temp.push(std::move(frame));
+        continue;
+      }
       frame = std::move(frame_queue_.front());
       frame_queue_.pop();
       compositor_->CollectInfo(std::move(frame.composition), frame.status);
       exist_display.insert(compositor_->display());
+    }
+    while(frame_queue_temp.size()){
+      frame_queue_.push(std::move(frame_queue_temp.front()));
+      frame_queue_temp.pop();
     }
   }else{ // frame_queue_ is empty
     ALOGW_IF(LogLevel(DBG_DEBUG),"%s,line=%d frame_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
@@ -197,6 +204,9 @@ DrmDisplayCompositor::~DrmDisplayCompositor() {
 }
 
 int DrmDisplayCompositor::Init(ResourceManager *resource_manager, int display) {
+  if(initialized_)
+    return 0;
+
   resource_manager_ = resource_manager;
   display_ = display;
   DrmDevice *drm = resource_manager_->GetDrmDevice(display);
@@ -655,6 +665,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         }
       }
       zpos = comp_plane.get_zpos();
+      if( display_comp->display() > 0xf)
+        zpos = 1;
       if(zpos < 0)
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 
@@ -741,7 +753,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
     out_log << "DrmDisplayCompositor[" << index << "]"
             << " frame_no=" << display_comp->frame_no()
-            << " display=" << display_
+            << " display=" << display_comp->display()
             << " plane=" << (plane ? plane->name() : "Unknow")
             << " crct id=" << crtc->id()
             << " fb id=" << fb_id
@@ -848,7 +860,7 @@ void DrmDisplayCompositor::CollectInfo(
     ClearDisplay();
     return;
   }
-  next_composition_queue_.push(std::move(composition));
+  collect_composition_map_.insert(std::make_pair<int,std::unique_ptr<DrmDisplayComposition>>(composition->display(),std::move(composition)));
 }
 
 void DrmDisplayCompositor::Commit() {
@@ -877,22 +889,18 @@ void DrmDisplayCompositor::Commit() {
   if (lock.Lock())
     return;
   ++dump_frames_composited_;
-  while(active_composition_queue_.size() > 0){
-      std::unique_ptr<DrmDisplayComposition> active_composition(std::move(active_composition_queue_.front()));
-      active_composition_queue_.pop();
-      active_composition->SignalCompositionDone();
-  }
-
-  // Enter ClearDisplay state must to SignalCompositionDone
-  while(next_composition_queue_.size() > 0){
-    std::unique_ptr<DrmDisplayComposition> composition(std::move(next_composition_queue_.front()));
-    next_composition_queue_.pop();
-    if(clear_){
-      SingalCompsition(std::move(composition));
-    }else{
-      active_composition_queue_.push(std::move(composition));
+  for(auto &collect_composition : collect_composition_map_){
+    auto active_composition = active_composition_map_.find(collect_composition.first);
+    if(active_composition != active_composition_map_.end()){
+      active_composition->second->SignalCompositionDone();
+      active_composition_map_.erase(active_composition);
     }
   }
+
+  for(auto &collect_composition : collect_composition_map_){
+    active_composition_map_.insert(std::move(collect_composition));
+  }
+  collect_composition_map_.clear();
   //flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
   //vsync_worker_.VSyncControl(!writeback);
 }
@@ -1057,6 +1065,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         }
       }
       zpos = comp_plane.get_zpos();
+      if(display_comp->display() > 0xf)
+        zpos = 1;
       if(zpos < 0)
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 
@@ -1143,7 +1153,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
     out_log << "DrmDisplayCompositor[" << index << "]"
             << " frame_no=" << display_comp->frame_no()
-            << " display=" << display_
+            << " display=" << display_comp->display()
             << " plane=" << (plane ? plane->name() : "Unknow")
             << " crct id=" << crtc->id()
             << " fb id=" << fb_id
@@ -1325,11 +1335,7 @@ void DrmDisplayCompositor::ClearDisplay() {
   if (lock.Lock())
     return;
 
-  while(active_composition_queue_.size() > 0){
-      std::unique_ptr<DrmDisplayComposition> active_composition(std::move(active_composition_queue_.front()));
-      active_composition_queue_.pop();
-      active_composition->SignalCompositionDone();
-  }
+  active_composition_map_.clear();
 
   //Singal the remainder fences in composite queue.
   while(!composite_queue_.empty())

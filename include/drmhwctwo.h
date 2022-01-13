@@ -380,7 +380,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
-    DrmDisplayCompositor compositor_;
+    std::shared_ptr<DrmDisplayCompositor> compositor_;
     std::shared_ptr<Importer> importer_;
     std::unique_ptr<Planner> planner_;
 

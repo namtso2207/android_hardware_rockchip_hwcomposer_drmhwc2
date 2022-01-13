@@ -21,11 +21,14 @@
 #include "platform.h"
 #include "rockchip/drmgralloc.h"
 #include "rockchip/drmbaseparameter.h"
+#include "drmdisplaycompositor.h"
 
 #include <string.h>
 #include <set>
+#include <map>
 
 namespace android {
+class DrmDisplayCompositor;
 
 class ResourceManager {
  public:
@@ -63,6 +66,7 @@ class ResourceManager {
 
   int getFb0Fd() { return fb0_fd;}
   int getSocId() { return soc_id_;}
+  std::shared_ptr<DrmDisplayCompositor> GetDrmDisplayCompositor(DrmCrtc* crtc);
 
  private:
   ResourceManager();
@@ -74,6 +78,7 @@ class ResourceManager {
   std::set<int> active_display_;
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
+  std::map<int, std::shared_ptr<DrmDisplayCompositor>> mapDrmDisplayCompositor_;
   DrmGralloc *drmGralloc_;
   int fb0_fd;
   int soc_id_;

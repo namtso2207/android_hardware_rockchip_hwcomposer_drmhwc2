@@ -60,6 +60,13 @@ int ResourceManager::Init() {
   if(fb0_fd < 0){
     ALOGE("Open fb0 fail in %s",__FUNCTION__);
   }
+
+  DrmDevice *drm = drms_.front().get();
+  for(auto &crtc : drm->crtcs()){
+    mapDrmDisplayCompositor_.insert(
+      std::pair<int, std::shared_ptr<DrmDisplayCompositor>>(crtc->id(),std::make_shared<DrmDisplayCompositor>()));
+    HWC2_ALOGI("New DrmDisplayCompositor crtc=%d",crtc->id());
+  }
   return 0;
 }
 
@@ -120,6 +127,21 @@ std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
       return importers_[i];
   }
   return NULL;
+}
+
+std::shared_ptr<DrmDisplayCompositor> ResourceManager::GetDrmDisplayCompositor(DrmCrtc* crtc){
+  if(!crtc){
+    HWC2_ALOGE("crtc is null");
+    return NULL;
+  }
+
+  if(mapDrmDisplayCompositor_.size() == 0){
+    HWC2_ALOGE("mapDrmDisplayCompositor_.size()=0");
+    return NULL;
+  }
+
+  auto pairDrmDisplayCompositor = mapDrmDisplayCompositor_.find(crtc->id());
+  return pairDrmDisplayCompositor->second;
 }
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
