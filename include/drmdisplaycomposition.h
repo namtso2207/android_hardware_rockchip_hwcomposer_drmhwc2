@@ -212,6 +212,10 @@ class DrmDisplayComposition {
 
   uint64_t frame_no_ = 0;
   uint64_t display_id_;
+
+  // mutable since we need to acquire in HaveQueuedComposites
+  mutable pthread_mutex_t lock_;
+  bool signal_;
 };
 }  // namespace android
 

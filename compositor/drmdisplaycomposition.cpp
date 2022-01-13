@@ -23,6 +23,7 @@
 #include "drmplane.h"
 #include "platform.h"
 #include "utils/drmfence.h"
+#include "utils/autolock.h"
 
 #include <stdlib.h>
 
@@ -37,7 +38,8 @@
 namespace android {
 
 DrmDisplayComposition::~DrmDisplayComposition() {
-    // SignalCompositionDone();
+    SignalCompositionDone();
+    pthread_mutex_destroy(&lock_);
 }
 
 int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
@@ -49,6 +51,13 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
   planner_ = planner;
   frame_no_ = frame_no;
   display_id_ = display_id;
+
+  int ret = pthread_mutex_init(&lock_, NULL);
+  if (ret) {
+    ALOGE("Failed to initialize drm compositor lock %d\n", ret);
+    return ret;
+  }
+
   return 0;
 }
 
@@ -169,7 +178,10 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
 
 int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timeline) {
   ATRACE_CALL();
-
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -1;
+  signal_ = false;
   std::unordered_set<DrmHwcLayer *> comp_layers;
 
   for (const DrmCompositionPlane &plane : composition_planes_) {
@@ -204,6 +216,9 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timel
 
 sp<ReleaseFence> DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
   ATRACE_CALL();
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return ReleaseFence::NO_FENCE;
   std::unordered_set<DrmHwcLayer *> comp_layers;
 
   for (const DrmCompositionPlane &plane : composition_planes_) {
@@ -231,6 +246,15 @@ sp<ReleaseFence> DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
 }
 
 int DrmDisplayComposition::SignalCompositionDone() {
+  ATRACE_CALL();
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -1;
+
+  if(signal_){
+    HWC2_ALOGD_IF_VERBOSE("Have been signal frame = %" PRIu64", not to signal.",frame_no_);
+    return 0;
+  }
   HWC2_ALOGD_IF_DEBUG("Will to signal frame = %" PRIu64,frame_no_);
   std::unordered_set<DrmHwcLayer *> comp_layers;
   for (const DrmCompositionPlane &plane : composition_planes_) {
@@ -262,6 +286,7 @@ int DrmDisplayComposition::SignalCompositionDone() {
                           layer->release_fence->getSignaledCount(),layer->release_fence->getErrorCount(),
                           layer->sLayerName_.c_str());
   }
+  signal_ = true;
   return 0;
 }
 
