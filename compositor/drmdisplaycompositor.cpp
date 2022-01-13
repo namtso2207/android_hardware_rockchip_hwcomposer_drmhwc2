@@ -114,9 +114,18 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
   }
 
   FrameState frame;
+  std::queue<FrameState> frame_queue_temp;
+  std::set<int> exist_display;
+  exist_display.clear();
   if (!frame_queue_.empty()) {
-    frame = std::move(frame_queue_.front());
-    frame_queue_.pop();
+    while(frame_queue_.size() > 0){
+      if(exist_display.count(compositor_->display()))
+        break;
+      frame = std::move(frame_queue_.front());
+      frame_queue_.pop();
+      compositor_->CollectInfo(std::move(frame.composition), frame.status);
+      exist_display.insert(compositor_->display());
+    }
   }else{ // frame_queue_ is empty
     ALOGW_IF(LogLevel(DBG_DEBUG),"%s,line=%d frame_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
     Unlock();
@@ -130,7 +139,8 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
     ALOGE("Failed to wait for signal, %d", wait_ret);
     return;
   }
-  compositor_->ApplyFrame(std::move(frame.composition), frame.status);
+  compositor_->Commit();
+  compositor_->SyntheticWaitVBlank();
 }
 
 
@@ -435,6 +445,457 @@ int DrmDisplayCompositor::CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc,
   return ret;
 }
 
+static const int64_t kOneSecondNs = 1 * 1000 * 1000 * 1000;
+int DrmDisplayCompositor::GetTimestamp() {
+  struct timespec current_time;
+  int ret = clock_gettime(CLOCK_MONOTONIC, &current_time);
+  last_timestamp_ = current_time.tv_sec * kOneSecondNs + current_time.tv_nsec;
+  return 0;
+}
+
+/*
+ * Returns the timestamp of the next vsync in phase with last_timestamp_.
+ * For example:
+ *  last_timestamp_ = 137
+ *  frame_ns = 50
+ *  current = 683
+ *
+ *  ret = (50 * ((683 - 137)/50 + 1)) + 137
+ *  ret = 687
+ *
+ *  Thus, we must sleep until timestamp 687 to maintain phase with the last
+ *  timestamp.
+ */
+int64_t DrmDisplayCompositor::GetPhasedVSync(int64_t frame_ns, int64_t current) {
+  if (last_timestamp_ < 0)
+    return current + frame_ns;
+
+  return frame_ns * ((current - last_timestamp_) / frame_ns + 1) +
+         last_timestamp_;
+}
+
+int DrmDisplayCompositor::SyntheticWaitVBlank() {
+  ATRACE_CALL();
+  int ret = clock_gettime(CLOCK_MONOTONIC, &vsync_);
+  float refresh = 60.0f;  // Default to 60Hz refresh rate
+  DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+  DrmConnector *conn = drm->GetConnectorForDisplay(display_);
+  if (conn && conn->state() == DRM_MODE_CONNECTED) {
+    if (conn->active_mode().v_refresh() > 0.0f)
+      refresh = conn->active_mode().v_refresh();
+  }
+
+  float percentage = 0.7f; // 30% Remaining Time to the drm driver。
+  int64_t phased_timestamp = GetPhasedVSync(kOneSecondNs / refresh * percentage,
+                                            vsync_.tv_sec * kOneSecondNs +
+                                                vsync_.tv_nsec);
+  vsync_.tv_sec = phased_timestamp / kOneSecondNs;
+  vsync_.tv_nsec = phased_timestamp - (vsync_.tv_sec * kOneSecondNs);
+  do {
+    ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &vsync_, NULL);
+  } while (ret == -1 && errno == EINTR);
+  if (ret)
+    return ret;
+  return 0;
+}
+
+int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
+                                            DrmDisplayComposition *display_comp,
+                                            bool test_only,
+                                            DrmConnector *writeback_conn,
+                                            DrmHwcBuffer *writeback_buffer) {
+  ATRACE_CALL();
+
+  int ret = 0;
+
+  std::vector<DrmHwcLayer> &layers = display_comp->layers();
+  std::vector<DrmCompositionPlane> &comp_planes = display_comp
+                                                      ->composition_planes();
+  DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+  //uint64_t out_fences[drm->crtcs().size()];
+
+  DrmConnector *connector = drm->GetConnectorForDisplay(display_);
+  if (!connector) {
+    ALOGE("Could not locate connector for display %d", display_);
+    return -ENODEV;
+  }
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
+  if (!crtc) {
+    ALOGE("Could not locate crtc for display %d", display_);
+    return -ENODEV;
+  }
+
+  if (writeback_buffer != NULL) {
+    if (writeback_conn == NULL) {
+      ALOGE("Invalid arguments requested writeback without writeback conn");
+      return -EINVAL;
+    }
+    ret = SetupWritebackCommit(pset, crtc->id(), writeback_conn,
+                               writeback_buffer);
+    if (ret < 0) {
+      ALOGE("Failed to Setup Writeback Commit ret = %d", ret);
+      return ret;
+    }
+  }
+
+  if (crtc->can_overscan()) {
+    int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
+    if(ret < 0){
+      drmModeAtomicFree(pset);
+      return ret;
+    }
+  }
+
+  // RK3566 mirror commit
+  bool mirror_commit = false;
+  DrmCrtc *mirror_commit_crtc = NULL;
+  for (DrmCompositionPlane &comp_plane : comp_planes) {
+    if(comp_plane.mirror()){
+      mirror_commit = true;
+      mirror_commit_crtc = comp_plane.crtc();
+      break;
+    }
+  }
+  if(mirror_commit){
+    if (mirror_commit_crtc->can_overscan()) {
+      int mirror_display_id = mirror_commit_crtc->display();
+      DrmConnector *mirror_connector = drm->GetConnectorForDisplay(mirror_display_id);
+      if (!mirror_connector) {
+        ALOGE("Could not locate connector for display %d", mirror_display_id);
+      }
+      int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,mirror_connector->unique_name());
+      if(ret < 0){
+        drmModeAtomicFree(pset);
+        return ret;
+      }
+    }
+  }
+
+  uint64_t zpos = 0;
+
+  for (DrmCompositionPlane &comp_plane : comp_planes) {
+    DrmPlane *plane = comp_plane.plane();
+    DrmCrtc *crtc = comp_plane.crtc();
+    std::vector<size_t> &source_layers = comp_plane.source_layers();
+
+    int fb_id = -1;
+    hwc_rect_t display_frame;
+    // Commit mirror function
+    hwc_rect_t display_frame_mirror;
+    hwc_frect_t source_crop;
+    uint64_t rotation = 0;
+    uint64_t alpha = 0xFFFF;
+    uint64_t blend = 0;
+    uint16_t eotf = TRADITIONAL_GAMMA_SDR;
+    uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
+
+    int dst_l,dst_t,dst_w,dst_h;
+    int src_l,src_t,src_w,src_h;
+    bool afbcd = false, yuv = false;
+    if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
+
+      if(source_layers.empty()){
+        ALOGE("Can't handle empty source layer CompositionPlane.");
+        continue;
+      }
+
+      if (source_layers.size() > 1) {
+        ALOGE("Can't handle more than one source layer sz=%zu type=%d",
+              source_layers.size(), comp_plane.type());
+        continue;
+      }
+
+      if (source_layers.front() >= layers.size()) {
+        ALOGE("Source layer index %zu out of bounds %zu type=%d",
+              source_layers.front(), layers.size(), comp_plane.type());
+        break;
+      }
+
+      DrmHwcLayer &layer = layers[source_layers.front()];
+
+      if (!test_only && layer.acquire_fence->isValid()){
+        if(layer.acquire_fence->wait(1500)){
+          HWC2_ALOGE("Wait AcquireFence failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+                            display_comp->frame_no(), layer.acquire_fence->getSize(),
+                            layer.acquire_fence->getActiveCount(), layer.acquire_fence->getSignaledCount(),
+                            layer.acquire_fence->getErrorCount(),layer.sLayerName_.c_str());
+          break;
+        }
+        layer.acquire_fence->destroy();
+      }
+      if (!layer.buffer) {
+        ALOGE("Expected a valid framebuffer for pset");
+        break;
+      }
+      fb_id = layer.buffer->fb_id;
+      display_frame = layer.display_frame;
+      display_frame_mirror = layer.display_frame_mirror;
+      source_crop = layer.source_crop;
+      if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha << 8;
+      eotf = layer.uEOTF;
+      colorspace = layer.uColorSpace;
+      afbcd = layer.bAfbcd_;
+      yuv = layer.bYuv_;
+
+      if (plane->blend_property().id()) {
+        switch (layer.blending) {
+          case DrmHwcBlending::kPreMult:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "Pre-multiplied");
+            break;
+          case DrmHwcBlending::kCoverage:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "Coverage");
+            break;
+          case DrmHwcBlending::kNone:
+          default:
+            std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+                "None");
+            break;
+        }
+      }
+      zpos = comp_plane.get_zpos();
+      if(zpos < 0)
+        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+
+      rotation = layer.transform;
+    }
+
+    // Disable the plane if there's no framebuffer
+    if (fb_id < 0) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->crtc_property().id(), 0) < 0 ||
+            drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->fb_property().id(), 0) < 0;
+      if (ret) {
+        ALOGE("Failed to add plane %d disable to pset", plane->id());
+        break;
+      }
+      continue;
+    }
+    src_l = (int)source_crop.left;
+    src_t = (int)source_crop.top;
+    src_w = (int)(source_crop.right - source_crop.left);
+    src_h = (int)(source_crop.bottom - source_crop.top);
+
+    // Commit mirror function
+    if(comp_plane.mirror()){
+      dst_l = display_frame_mirror.left;
+      dst_t = display_frame_mirror.top;
+      dst_w = display_frame_mirror.right - display_frame_mirror.left;
+      dst_h = display_frame_mirror.bottom - display_frame_mirror.top;
+    }else{
+      dst_l = display_frame.left;
+      dst_t = display_frame.top;
+      dst_w = display_frame.right - display_frame.left;
+      dst_h = display_frame.bottom - display_frame.top;
+    }
+
+    if(yuv){
+      src_l = ALIGN_DOWN(src_l, 2);
+      src_t = ALIGN_DOWN(src_t, 2);
+    }
+
+
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                   plane->crtc_property().id(), crtc->id()) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->fb_property().id(), fb_id) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->crtc_x_property().id(),
+                                    dst_l) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->crtc_y_property().id(),
+                                    dst_t) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->crtc_w_property().id(),
+                                    dst_w) <
+           0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->crtc_h_property().id(),
+                                    dst_h) <
+           0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->src_x_property().id(),
+                                    (int)(src_l) << 16) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->src_y_property().id(),
+                                    (int)(src_t) << 16) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->src_w_property().id(),
+                                    (int)(src_w)
+                                        << 16) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->src_h_property().id(),
+                                    (int)(src_h)
+                                        << 16) < 0;
+    ret |= drmModeAtomicAddProperty(pset, plane->id(),
+                                   plane->zpos_property().id(), zpos) < 0;
+    if (ret) {
+      ALOGE("Failed to add plane %d to set", plane->id());
+      break;
+    }
+
+    size_t index=0;
+    std::ostringstream out_log;
+
+    out_log << "DrmDisplayCompositor[" << index << "]"
+            << " frame_no=" << display_comp->frame_no()
+            << " display=" << display_
+            << " plane=" << (plane ? plane->name() : "Unknow")
+            << " crct id=" << crtc->id()
+            << " fb id=" << fb_id
+            << " display_frame[" << dst_l << ","
+            << dst_t << "," << dst_w
+            << "," << dst_h << "]"
+            << " source_crop[" << src_l << ","
+            << src_t << "," << src_w
+            << "," << src_h << "]"
+            << ", zpos=" << zpos
+            ;
+    index++;
+
+    if (plane->rotation_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->rotation_property().id(),
+                                     rotation) < 0;
+      if (ret) {
+        ALOGE("Failed to add rotation property %d to plane %d",
+              plane->rotation_property().id(), plane->id());
+        break;
+      }
+      out_log << " rotation=" << rotation;
+    }
+
+    if (plane->alpha_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->alpha_property().id(), alpha) < 0;
+      if (ret) {
+        ALOGE("Failed to add alpha property %d to plane %d",
+              plane->alpha_property().id(), plane->id());
+        break;
+      }
+      out_log << " alpha=" << std::hex <<  alpha;
+    }
+
+    if (plane->blend_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->blend_property().id(), blend) < 0;
+      if (ret) {
+        ALOGE("Failed to add pixel blend mode property %d to plane %d",
+              plane->blend_property().id(), plane->id());
+        break;
+      }
+      out_log << " blend mode =" << blend;
+    }
+
+    if(plane->get_hdr2sdr() && plane->eotf_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->eotf_property().id(),
+                                     eotf) < 0;
+      if (ret) {
+        ALOGE("Failed to add eotf property %d to plane %d",
+              plane->eotf_property().id(), plane->id());
+        break;
+      }
+      out_log << " eotf=" << std::hex <<  eotf;
+    }
+
+    if(plane->colorspace_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                     plane->colorspace_property().id(),
+                                     colorspace) < 0;
+      if (ret) {
+        ALOGE("Failed to add colorspace property %d to plane %d",
+              plane->colorspace_property().id(), plane->id());
+        break;
+      }
+      out_log << " colorspace=" << std::hex <<  colorspace;
+    }
+
+    ALOGD_IF(LogLevel(DBG_INFO),"%s",out_log.str().c_str());
+    out_log.clear();
+  }
+  return ret;
+}
+
+void DrmDisplayCompositor::CollectInfo(
+    std::unique_ptr<DrmDisplayComposition> composition,
+    int status, bool writeback) {
+  ATRACE_CALL();
+
+  if(!pset_){
+    pset_ = drmModeAtomicAlloc();
+    if (!pset_) {
+      ALOGE("Failed to allocate property set");
+      return ;
+    }
+  }
+
+  int ret = status;
+  if (!ret && !clear_) {
+    if (writeback && !CountdownExpired()) {
+      ALOGE("Abort playing back scene");
+      return;
+    }
+    ret = CollectCommitInfo(pset_, composition.get(), false);
+  }
+
+  if (ret) {
+    ALOGE("Composite failed for display %d", display_);
+    // Disable the hw used by the last active composition. This allows us to
+    // signal the release fences from that composition to avoid hanging.
+    ClearDisplay();
+    return;
+  }
+  next_composition_queue_.push(std::move(composition));
+}
+
+void DrmDisplayCompositor::Commit() {
+  ATRACE_CALL();
+  if(!pset_){
+    ALOGE("pset_ is NULL");
+    return;
+  }
+  DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+  uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+  int ret = drmModeAtomicCommit(drm->fd(), pset_, flags, drm);
+  if (ret) {
+    ALOGE("Failed to commit pset ret=%d\n", ret);
+    drmModeAtomicFree(pset_);
+    pset_=NULL;
+  }else{
+    GetTimestamp();
+  }
+
+  if (pset_){
+    drmModeAtomicFree(pset_);
+    pset_=NULL;
+  }
+
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return;
+  ++dump_frames_composited_;
+  while(active_composition_queue_.size() > 0){
+      std::unique_ptr<DrmDisplayComposition> active_composition(std::move(active_composition_queue_.front()));
+      active_composition_queue_.pop();
+      active_composition->SignalCompositionDone();
+  }
+
+  // Enter ClearDisplay state must to SignalCompositionDone
+  while(next_composition_queue_.size() > 0){
+    std::unique_ptr<DrmDisplayComposition> composition(std::move(next_composition_queue_.front()));
+    next_composition_queue_.pop();
+    if(clear_){
+      SingalCompsition(std::move(composition));
+    }else{
+      active_composition_queue_.push(std::move(composition));
+    }
+  }
+  //flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
+  //vsync_worker_.VSyncControl(!writeback);
+}
 
 int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                       bool test_only,
@@ -443,7 +904,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   ATRACE_CALL();
 
   int ret = 0;
-
   std::vector<DrmHwcLayer> &layers = display_comp->layers();
   std::vector<DrmCompositionPlane> &comp_planes = display_comp
                                                       ->composition_planes();
@@ -865,7 +1325,11 @@ void DrmDisplayCompositor::ClearDisplay() {
   if (lock.Lock())
     return;
 
-  SingalCompsition(std::move(active_composition_));
+  while(active_composition_queue_.size() > 0){
+      std::unique_ptr<DrmDisplayComposition> active_composition(std::move(active_composition_queue_.front()));
+      active_composition_queue_.pop();
+      active_composition->SignalCompositionDone();
+  }
 
   //Singal the remainder fences in composite queue.
   while(!composite_queue_.empty())
