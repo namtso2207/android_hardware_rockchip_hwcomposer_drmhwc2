@@ -385,11 +385,11 @@ int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
      iter != plane_groups.end(); ++iter) {
      uint32_t combine_layer_count = 0;
      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
-                                   "current_possible_crtcs=0x%x,possible_crtcs=0x%x",
+                                   "current_crtc_=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
-                                   (1<<crtc->pipe()), (*iter)->current_possible_crtcs,(*iter)->possible_crtcs);
+                                   (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
       //find the match zpos plane group
-      if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_possible_crtcs) > 0))
+      if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_crtc_) > 0))
       {
           ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
 
@@ -671,11 +671,11 @@ int Vop356x::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
      iter != plane_groups.end(); ++iter) {
      uint32_t combine_layer_count = 0;
      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
-                                   "current_possible_crtcs=0x%x,possible_crtcs=0x%x",
+                                   "current_crtc_=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
-                                   (1<<crtc->pipe()), (*iter)->current_possible_crtcs,(*iter)->possible_crtcs);
+                                   (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
       //find the match zpos plane group
-      if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_possible_crtcs) > 0))
+      if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_crtc_) > 0))
       {
           ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
 

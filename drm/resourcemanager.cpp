@@ -161,7 +161,7 @@ int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_n
     for(auto &plane_group : all_plane_group){
       uint64_t plane_group_win_type = plane_group->win_type;
       if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_possible_crtcs(crtc_mask);
+        plane_group->set_current_crtc(crtc_mask);
         all_unused_plane_mask &= (~plane_group_win_type);
       }
     }
@@ -169,7 +169,7 @@ int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_n
 
   for(auto &plane_group : all_plane_group){
     ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
+             plane_group->planes[0]->name(),plane_group->current_crtc_);
   }
   return 0;
 }
@@ -268,7 +268,7 @@ int ResourceManager::assignPlaneByRK3566(DrmDevice* drm, int active_display_num)
     for(auto &plane_group : all_plane_group){
       uint64_t plane_group_win_type = plane_group->win_type;
       if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_possible_crtcs(crtc_mask);
+        plane_group->set_current_crtc(crtc_mask);
         all_unused_plane_mask &= (~plane_group_win_type);
       }
     }
@@ -276,7 +276,7 @@ int ResourceManager::assignPlaneByRK3566(DrmDevice* drm, int active_display_num)
 
   for(auto &plane_group : all_plane_group){
     ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
+             plane_group->planes[0]->name(),plane_group->current_crtc_);
   }
   return 0;
 }
@@ -357,7 +357,7 @@ int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
     for(auto &plane_group : all_plane_group){
       uint64_t plane_group_win_type = plane_group->win_type;
       if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_possible_crtcs(crtc_mask);
+        plane_group->set_current_crtc(crtc_mask);
         all_unused_plane_mask &= (~plane_group_win_type);
       }
     }
@@ -377,7 +377,7 @@ int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
         for(auto &plane_group : all_plane_group){
           uint64_t plane_group_win_type = plane_group->win_type;
           if((all_unused_plane_mask & plane_group_win_type) > 0){
-            plane_group->set_current_possible_crtcs(crtc_mask);
+            plane_group->set_current_crtc(crtc_mask);
             all_unused_plane_mask &= (~plane_group_win_type);
           }
         }
@@ -403,7 +403,7 @@ int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
       for(auto &plane_group : all_plane_group){
         uint64_t plane_group_win_type = plane_group->win_type;
         if(((all_unused_plane_mask & need_plane_mask) & plane_group_win_type) == plane_group_win_type){
-          plane_group->set_current_possible_crtcs(crtc_mask);
+          plane_group->set_current_crtc(crtc_mask);
           all_unused_plane_mask &= (~plane_group_win_type);
 
           for(int i = 0 ; i < ARRAY_SIZE(planes_mask_names); i++){
@@ -418,7 +418,7 @@ int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
 
   for(auto &plane_group : all_plane_group){
     ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_possible_crtcs);
+             plane_group->planes[0]->name(),plane_group->current_crtc_);
   }
   return 0;
 }

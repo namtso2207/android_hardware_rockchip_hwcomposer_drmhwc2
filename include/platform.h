@@ -43,86 +43,26 @@ typedef struct tagPlaneGroup{
   uint64_t win_type;
 	std::vector<DrmPlane*> planes;
 
-  // RK356x support dynamic switching
-  uint32_t enable_possible_crtc=0;
-  uint32_t disable_possible_crtc=0;
-  uint32_t disable_necessary_cnt=0;
-  uint32_t current_crtc=0;
-  uint32_t current_possible_crtcs=0;
-
-  bool is_release(uint32_t   crtc_mask){
-    if(bReserved)
-      return false;
-    if((crtc_mask & current_crtc) > 0 && !(crtc_mask & current_possible_crtcs)){
-      return true;
-    }
-    return false;
-  }
-  bool release(uint32_t crtc_mask){
-    if(bReserved)
-      return false;
-    if(!(possible_crtcs & crtc_mask))
-      return false;
-
-    if(!(current_crtc & crtc_mask))
-      return false;
-
-    enable_possible_crtc = 0;
-    disable_possible_crtc = 0;
-
-    return true;
-  }
-
-  bool release_necessary_cnt(uint32_t crtc_mask){
-    if(bReserved)
-      return false;
-    if(!(possible_crtcs & crtc_mask))
-      return false;
-
-    if(!(current_crtc & crtc_mask))
-      return false;
-
-    if(disable_necessary_cnt < 3){
-      disable_necessary_cnt++;
-      disable_possible_crtc=0;
-    }else{
-      enable_possible_crtc=0;
-      disable_necessary_cnt=0;
-    }
-
-    return true;
-  }
+  uint32_t current_crtc_ = 0;
 
   bool acquire(uint32_t crtc_mask){
     if(bReserved)
       return false;
-    if(possible_crtcs == crtc_mask){
-      set_current_possible_crtcs(crtc_mask);
-      enable_possible_crtc = crtc_mask;
-      disable_possible_crtc = crtc_mask;
-      return true;
-    }
 
     if(!(possible_crtcs & crtc_mask))
       return false;
 
-    if(!(current_possible_crtcs & crtc_mask))
+    if(!(current_crtc_ & crtc_mask))
       return false;
 
-    if(!disable_possible_crtc && !enable_possible_crtc){
-      current_crtc = crtc_mask;
-    }
-
-    if(!(current_crtc & crtc_mask))
-      return false;
-
-    enable_possible_crtc = crtc_mask;
-    disable_possible_crtc = crtc_mask;
     return true;
   }
 
-  bool set_current_possible_crtcs(uint32_t crtc_mask){
-    current_possible_crtcs = crtc_mask;
+  bool set_current_crtc(uint32_t crtc_mask){
+    if(!(possible_crtcs & crtc_mask)){
+      return false;
+    }
+    current_crtc_ = crtc_mask;
     return true;
   }
 }PlaneGroup;
