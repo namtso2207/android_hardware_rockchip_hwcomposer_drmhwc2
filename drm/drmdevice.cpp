@@ -375,7 +375,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   }
 
   ConfigurePossibleDisplays();
-  ConfigureSpiltDisplays();
 
   DrmConnector *primary = NULL;
   for (auto &conn : connectors_) {
@@ -887,32 +886,6 @@ void DrmDevice::ConfigurePossibleDisplays(){
   }
   return;
 }
-
-// RK surport
-void DrmDevice::ConfigureSpiltDisplays(){
-  char spilt_display_name[PROPERTY_VALUE_MAX];
-  int spilt_display_length;
-  std::string conn_name;
-  char acConnName[50];
-
-  spilt_display_length = property_get("vendor.hwc.device.spilt_display", spilt_display_name, NULL);
-
-  if (spilt_display_length) {
-    std::stringstream ss(spilt_display_name);
-    uint32_t connector_priority = 0;
-    while(getline(ss, conn_name, ',')) {
-      for (auto &conn : connectors_) {
-        snprintf(acConnName,50,"%s-%d",connector_type_str(conn->type()),conn->type_id());
-        if (!strcmp(connector_type_str(conn->type()), conn_name.c_str()) ||
-            !strcmp(acConnName, conn_name.c_str())){
-          conn->SetSpiltMode(true);
-        }
-      }
-    }
-  }
-  return;
-}
-
 
 static pthread_mutex_t diplay_route_mutex = PTHREAD_MUTEX_INITIALIZER;
 int DrmDevice::UpdateDisplayGamma(int display_id){

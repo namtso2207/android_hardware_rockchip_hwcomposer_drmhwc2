@@ -186,6 +186,7 @@ int DrmConnector::Init() {
   }
 
 
+
   drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
   bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
   bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
@@ -214,6 +215,17 @@ int DrmConnector::Init() {
   }
 
   snprintf(cUniqueName_,30,"%s-%d",drm_->connector_type_str(type_),unique_id_);
+
+  bSpiltMode_=false;
+  ret = drm_->GetConnectorProperty(*this, "USER_SPLIT_MODE", &spilt_mode_property_);
+  if (ret) {
+    ALOGW("Could not get USER_SPLIT_MODE property\n");
+  }else{
+    std::tie(ret,bSpiltMode_) = spilt_mode_property_.value();
+    ALOGI("rk-debug name=%s bSpiltMode_=%d",cUniqueName_,bSpiltMode_);
+    //std::tie(ret,unique_id_) = connector_id_property_.value();
+  }
+
   return 0;
 }
 

@@ -593,8 +593,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
 
     DrmMode const &best_mode = connector_->best_mode();
 
-    ctx_.framebuffer_width = best_mode.h_display();
-    ctx_.framebuffer_height = best_mode.v_display();
+
+    if(connector_->isSpiltMode()){
+      ctx_.framebuffer_width = best_mode.h_display() / 2;
+      ctx_.framebuffer_height = best_mode.v_display();
+    }else{
+      ctx_.framebuffer_width = best_mode.h_display();
+      ctx_.framebuffer_height = best_mode.v_display();
+    }
 
     *config = mode.id();
   }else{
@@ -872,6 +878,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     if(connector_->isSpiltMode()){
       ctx_.rel_xres = best_mode.h_display() / 2;
       ctx_.rel_yres = best_mode.v_display();
+      ctx_.framebuffer_width = ctx_.framebuffer_width / 2;
+      ctx_.framebuffer_height = ctx_.framebuffer_height;
       if(handle_ > 0xf){
         ctx_.rel_xoffset = best_mode.h_display() / 2;
         ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;

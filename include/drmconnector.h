@@ -108,8 +108,6 @@ class DrmConnector {
   bool isSupportHLG() { return bSupportHLG_; }
   bool is_hdmi_support_hdr() const;
   int switch_hdmi_hdr_mode(android_dataspace_t colorspace);
-
-  void SetSpiltMode(bool enable) { bSpiltMode_ = enable;};
   bool isSpiltMode() const{ return bSpiltMode_;}
 
   const DrmProperty &brightness_id_property() const;
@@ -170,6 +168,7 @@ class DrmConnector {
   DrmProperty color_depth_caps_property_;
 
   DrmProperty connector_id_property_;
+  DrmProperty spilt_mode_property_;
   std::vector<DrmEncoder *> possible_encoders_;
   drmModeConnectorPtr connector_;
 
