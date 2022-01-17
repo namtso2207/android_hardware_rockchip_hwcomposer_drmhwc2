@@ -18,10 +18,22 @@
 
 #include "platform.h"
 #include "drmdevice.h"
+#include "rockchip/platform/drmvop3399.h"
+#include "rockchip/platform/drmvop356x.h"
+#include "rockchip/platform/drmvop3588.h"
 
 #include <log/log.h>
 
 namespace android {
+
+std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
+  std::unique_ptr<Planner> planner(new Planner);
+  planner->AddStage<Vop356x>();
+  planner->AddStage<Vop3588>();
+  planner->AddStage<Vop3399>();
+  return planner;
+}
+
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,

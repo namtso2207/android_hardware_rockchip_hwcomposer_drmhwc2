@@ -18,15 +18,11 @@
 
 #include "platformdrmgeneric.h"
 #include "drmdevice.h"
-#include "platform.h"
 #if USE_GRALLOC_4
 #else
 #include "gralloc_drm_handle.h"
 #endif
 #include "rockchip/drmgralloc.h"
-#include "rockchip/platform/drmvop3399.h"
-#include "rockchip/platform/drmvop356x.h"
-#include "rockchip/platform/drmvop3588.h"
 
 #include <drm_fourcc.h>
 #include <xf86drm.h>
@@ -287,13 +283,4 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
 
   return true;
 }
-
-std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
-  std::unique_ptr<Planner> planner(new Planner);
-  planner->AddStage<Vop356x>();
-  planner->AddStage<Vop3588>();
-  planner->AddStage<Vop3399>();
-  return planner;
-}
-
 }
