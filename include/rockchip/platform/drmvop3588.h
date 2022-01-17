@@ -159,10 +159,6 @@ typedef struct DrmVop2Context{
   bool SupportPlatform(uint32_t soc_id);
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
                    std::vector<DrmHwcLayer*> &layers,
-                   DrmCrtc *crtc,
-                   bool gles_policy);
-  int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
-                   std::vector<DrmHwcLayer*> &layers,
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCrtc *crtc,
                    bool gles_policy);

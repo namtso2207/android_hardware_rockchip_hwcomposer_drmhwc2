@@ -125,7 +125,6 @@ LOCAL_CPPFLAGS += \
   -DRK_DRM_GRALLOC \
   -DUSE_HWC2 \
   -DMALI_AFBC_GRALLOC \
-  -DUSE_DRM_GENERIC_IMPORTER \
   -Wno-unreachable-code-loop-increment \
   -DUSE_NO_ASPECT_RATIO
 

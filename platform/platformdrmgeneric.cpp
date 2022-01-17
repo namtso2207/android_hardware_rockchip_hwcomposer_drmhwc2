@@ -41,7 +41,6 @@
 
 namespace android {
 
-#ifdef USE_DRM_GENERIC_IMPORTER
 // static
 Importer *Importer::CreateInstance(DrmDevice *drm) {
   DrmGenericImporter *importer = new DrmGenericImporter(drm);
@@ -56,7 +55,6 @@ Importer *Importer::CreateInstance(DrmDevice *drm) {
   }
   return importer;
 }
-#endif
 
 DrmGenericImporter::DrmGenericImporter(DrmDevice *drm)
     : drm_(drm),
@@ -290,7 +288,6 @@ bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
   return true;
 }
 
-#ifdef USE_DRM_GENERIC_IMPORTER
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<Vop356x>();
@@ -298,5 +295,5 @@ std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   planner->AddStage<Vop3399>();
   return planner;
 }
-#endif
+
 }
