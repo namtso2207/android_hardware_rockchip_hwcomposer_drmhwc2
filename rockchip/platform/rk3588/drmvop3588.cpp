@@ -41,7 +41,6 @@
 
 #include <log/log.h>
 
-
 namespace android {
 
 void Vop3588::Init(){
@@ -50,6 +49,65 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
+}
+
+bool Vop3588::SupportPlatform(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3588:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+int Vop3588::TryHwcPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers,
+    std::vector<PlaneGroup *> &plane_groups,
+    DrmCrtc *crtc,
+    bool gles_policy) {
+  int ret;
+  // Get PlaneGroup
+  if(plane_groups.size()==0){
+    ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
+    return -1;
+  }
+
+  // Init context
+  InitContext(layers,plane_groups,crtc,gles_policy);
+
+  // Try to match overlay policy
+  if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
+    ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
+      TryMix();
+    }
+  }
+
+  // Try to match mix policy
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
+    ret = TryMixPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match mix policy fail, try to match other policy.");
+      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    }
+  }
+
+  // Try to match GLES policy
+  if(ctx.state.setHwcPolicy.count(HWC_GLES_POLICY)){
+    ret = TryGLESPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
+  ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
+  return -1;
 }
 
 bool Vop3588::HasLayer(std::vector<DrmHwcLayer*>& layer_vector,DrmHwcLayer *layer){
@@ -1972,6 +2030,7 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
   }
 
   switch(layer->sf_composition){
+    case HWC2::Composition::Client:
     case HWC2::Composition::Sideband:
     case HWC2::Composition::SolidColor:
       HWC2_ALOGD_IF_DEBUG("[%s]：sf_composition =0x%x not support overlay.",
@@ -2156,6 +2215,7 @@ void Vop3588::InitStateContext(
               p->win_type() & PLANE_RK3588_ALL_ESMART3_MASK){
             plane_group->bReserved = true;
             HWC2_ALOGD_IF_DEBUG("Reserved 8K plane name=%s", p->name());
+
           }
         }
       }
@@ -2401,64 +2461,6 @@ int Vop3588::InitContext(
     TryMix();
 
   return 0;
-}
-int Vop3588::TryHwcPolicy(
-    std::vector<DrmCompositionPlane> *composition,
-    std::vector<DrmHwcLayer*> &layers,
-    std::vector<PlaneGroup *> &plane_groups,
-    DrmCrtc *crtc,
-    bool gles_policy) {
-  int ret;
-  // Get PlaneGroup
-  if(plane_groups.size()==0){
-    ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
-    return -1;
-  }
-
-  // Init context
-  InitContext(layers,plane_groups,crtc,gles_policy);
-
-  // Try to match overlay policy
-  if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
-    ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-    else{
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
-      TryMix();
-    }
-  }
-
-  // Try to match mix policy
-  if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
-    ret = TryMixPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-    else{
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Match mix policy fail, try to match other policy.");
-      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-    }
-  }
-
-  // Try to match GLES policy
-  if(ctx.state.setHwcPolicy.count(HWC_GLES_POLICY)){
-    ret = TryGLESPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-  }
-
-  ALOGE("%s,%d Can't match HWC policy",__FUNCTION__,__LINE__);
-  return -1;
-}
-
-bool Vop3588::SupportPlatform(uint32_t soc_id){
-  switch(soc_id){
-    case 0x3588:
-      return true;
-    default:
-      break;
-  }
-  return false;
 }
 }
 

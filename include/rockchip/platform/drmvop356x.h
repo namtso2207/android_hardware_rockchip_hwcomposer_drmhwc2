@@ -148,6 +148,8 @@ typedef struct DrmVop2Context{
                    std::vector<PlaneGroup *> &plane_groups,
                    DrmCrtc *crtc,
                    bool gles_policy);
+  // Try to assign DrmPlane to display
+  int TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys);
 
  protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,

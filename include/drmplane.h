@@ -26,6 +26,64 @@
 #include <set>
 
 namespace android {
+class DrmPlane;
+typedef struct tagPlaneGroup{
+  bool     bReserved;
+  bool     bUse;
+  uint32_t zpos;
+  uint32_t possible_crtcs;
+  uint64_t share_id;
+  uint64_t win_type;
+  int64_t possible_display_=-1;
+	std::vector<DrmPlane*> planes;
+
+  uint32_t current_crtc_ = 0;
+
+  bool acquire(uint32_t crtc_mask){
+    if(bReserved)
+      return false;
+
+    if(!(possible_crtcs & crtc_mask))
+      return false;
+
+    if(!(current_crtc_ & crtc_mask))
+      return false;
+
+    return true;
+  }
+
+  bool acquire(uint32_t crtc_mask, int64_t dispaly){
+    if(bReserved)
+      return false;
+
+    if(!(possible_crtcs & crtc_mask))
+      return false;
+
+    if(!(current_crtc_ & crtc_mask))
+      return false;
+
+    if(possible_display_ != dispaly)
+      return false;
+
+    return true;
+  }
+
+  bool set_current_crtc(uint32_t crtc_mask){
+    if(!(possible_crtcs & crtc_mask)){
+      return false;
+    }
+    current_crtc_ = crtc_mask;
+    return true;
+  }
+
+  bool set_current_crtc(uint32_t crtc_mask, int64_t display){
+    current_crtc_ = crtc_mask;
+    possible_display_ = display;
+    return true;
+  }
+
+}PlaneGroup;
+
 
 // Rk3588
 enum DrmPlaneTypeRK3588{

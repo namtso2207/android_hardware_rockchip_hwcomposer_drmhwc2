@@ -32,65 +32,6 @@
 namespace android {
 
 class DrmDevice;
-class DrmPlanes;
-
-#define DRM_PLANE_DYNAMIC_SWITCH 0
-typedef struct tagPlaneGroup{
-  bool     bReserved;
-  bool     bUse;
-  uint32_t zpos;
-  uint32_t possible_crtcs;
-  uint64_t share_id;
-  uint64_t win_type;
-  int64_t possible_display_=-1;
-	std::vector<DrmPlane*> planes;
-
-  uint32_t current_crtc_ = 0;
-
-  bool acquire(uint32_t crtc_mask){
-    if(bReserved)
-      return false;
-
-    if(!(possible_crtcs & crtc_mask))
-      return false;
-
-    if(!(current_crtc_ & crtc_mask))
-      return false;
-
-    return true;
-  }
-
-  bool acquire(uint32_t crtc_mask, int64_t dispaly){
-    if(bReserved)
-      return false;
-
-    if(!(possible_crtcs & crtc_mask))
-      return false;
-
-    if(!(current_crtc_ & crtc_mask))
-      return false;
-
-    if(possible_display_ != dispaly)
-      return false;
-
-    return true;
-  }
-
-  bool set_current_crtc(uint32_t crtc_mask){
-    if(!(possible_crtcs & crtc_mask)){
-      return false;
-    }
-    current_crtc_ = crtc_mask;
-    return true;
-  }
-
-  bool set_current_crtc(uint32_t crtc_mask, int64_t display){
-    current_crtc_ = crtc_mask;
-    possible_display_ = display;
-    return true;
-  }
-
-}PlaneGroup;
 
 class Importer {
  public:
@@ -134,6 +75,9 @@ class Planner {
                                 std::vector<DrmHwcLayer*> &layers,
                                 DrmCrtc *crtc,
                                 std::vector<PlaneGroup *> &plane_groups) = 0;
+
+    virtual int TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys) = 0;
+
    protected:
 
     // Inserts the given layer:plane in the composition at the back
@@ -161,6 +105,9 @@ class Planner {
       DrmCrtc *crtc,
       bool gles_policy);
 
+  // Try to assign DrmPlane to display
+  int TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys);
+
   template <typename T, typename... A>
   void AddStage(A &&... args) {
     stages_.emplace_back(
@@ -168,7 +115,6 @@ class Planner {
   }
 
  private:
-
   std::vector<std::unique_ptr<PlanStage>> stages_;
 };
 }  // namespace android

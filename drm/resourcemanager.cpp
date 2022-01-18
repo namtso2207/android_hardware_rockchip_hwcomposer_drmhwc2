@@ -491,9 +491,6 @@ int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
 
 
 int ResourceManager::assignPlaneGroup(){
-
-  dynamic_assigin_enable_ = hwc_get_bool_property("vendor.hwc.dynamic_assigin_plane","false");
-
   uint32_t active_display_num = getActiveDisplayCnt();
   if(active_display_num==0){
     ALOGI_IF(DBG_INFO,"%s,line=%d, active_display_num = %u not to assignPlaneGroup",

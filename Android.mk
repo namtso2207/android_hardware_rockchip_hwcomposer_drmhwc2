@@ -92,8 +92,6 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES := \
   drmhwctwo.cpp \
-  compositor/drmdisplaycomposition.cpp \
-  compositor/drmdisplaycompositor.cpp \
   drm/drmconnector.cpp \
   drm/drmcrtc.cpp \
   drm/drmdevice.cpp \
@@ -106,18 +104,23 @@ LOCAL_SRC_FILES := \
   drm/resourcemanager.cpp \
   drm/vsyncworker.cpp \
   drm/invalidateworker.cpp \
-  platform/platform.cpp \
   utils/autolock.cpp \
-  platform/platformdrmgeneric.cpp \
+  rockchip/compositor/drmdisplaycomposition.cpp \
+  rockchip/compositor/drmdisplaycompositor.cpp \
   rockchip/utils/drmdebug.cpp \
-  rockchip/drmlayer.cpp \
-  rockchip/drmtype.cpp \
-  rockchip/drmgralloc.cpp \
-  rockchip/drmbaseparameter.cpp \
-  rockchip/platform/drmvop3399.cpp \
-  rockchip/platform/drmvop356x.cpp \
-  rockchip/platform/drmvop3588.cpp \
-  rockchip/utils/drmfence.cpp
+  rockchip/common/drmfence.cpp \
+  rockchip/common/drmlayer.cpp \
+  rockchip/common/drmtype.cpp \
+  rockchip/common/drmgralloc.cpp \
+  rockchip/common/drmbaseparameter.cpp \
+  rockchip/platform/common/platformdrmgeneric.cpp \
+  rockchip/platform/common/platform.cpp \
+  rockchip/platform/rk3399/drmvop3399.cpp \
+  rockchip/platform/rk356x/drmvop356x.cpp \
+  rockchip/platform/rk3588/drmvop3588.cpp \
+  rockchip/platform/rk3399/drmhwc3399.cpp \
+  rockchip/platform/rk356x/drmhwc356x.cpp \
+  rockchip/platform/rk3588/drmhwc3588.cpp
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \
@@ -152,7 +155,7 @@ LOCAL_SHARED_LIBRARIES += \
     android.hardware.graphics.mapper@4.0
 
 LOCAL_SRC_FILES += \
-    rockchip/drmgralloc4.cpp
+    rockchip/common/drmgralloc4.cpp
 
 LOCAL_HEADER_LIBRARIES += \
     libgralloc_headers
