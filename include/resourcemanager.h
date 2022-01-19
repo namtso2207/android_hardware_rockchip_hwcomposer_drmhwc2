@@ -65,9 +65,6 @@ class ResourceManager {
   uint32_t getActiveDisplayCnt() { return active_display_.size();}
 
   int assignPlaneGroup();
-  int assignPlaneByPlaneMask(DrmDevice* drm, int active_display_num);
-  int assignPlaneByRK3566(DrmDevice* drm, int active_display_num);
-  int assignPlaneByHWC(DrmDevice* drm, int active_display_num);
 
   int getFb0Fd() { return fb0_fd;}
   int getSocId() { return soc_id_;}
@@ -83,6 +80,7 @@ class ResourceManager {
   std::set<int> active_display_;
   std::vector<std::unique_ptr<DrmDevice>> drms_;
   std::vector<std::shared_ptr<Importer>> importers_;
+  std::unique_ptr<HwcPlatform> hwcPlatform_;
   std::map<int, std::shared_ptr<DrmDisplayCompositor>> mapDrmDisplayCompositor_;
   std::map<int,int> displays_;
   DrmGralloc *drmGralloc_;

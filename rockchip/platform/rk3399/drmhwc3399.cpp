@@ -17,15 +17,84 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "hwc-drm-two"
 
-#include "rockchip/platform/drmvop3399.h"
+#include "platform.h"
+#include "rockchip/platform/drmhwc3399.h"
 #include "drmdevice.h"
 
 #include <log/log.h>
 
 namespace android {
 
-int Vop3399::TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys){
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+void Hwc3399::Init(){
+}
+
+bool Hwc3399::SupportPlatform(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3399:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+int Hwc3399::assignPlaneByPlaneMask(DrmDevice* drm, const std::set<int> &active_display){
+  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
+  // First, assign active display plane_mask
+  for(auto &display_id : active_display){
+    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
+    if(!crtc){
+        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
+        return -1;
+    }
+
+    DrmConnector *conn = drm->GetConnectorForDisplay(display_id);
+    if(!conn){
+        ALOGE("%s,line=%d connector is NULL.",__FUNCTION__,__LINE__);
+        return -1;
+    }
+
+    uint32_t crtc_mask = 1 << crtc->pipe();
+    uint64_t plane_mask = crtc->get_plane_mask();
+    HWC2_ALOGI("display-id=%d crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64,
+            display_id, crtc->id(), crtc_mask, plane_mask);
+    for(auto &plane_group : all_plane_group){
+      uint64_t plane_group_win_type = plane_group->win_type;
+      if(((plane_mask & plane_group_win_type) == plane_group_win_type)){
+        plane_group->set_current_crtc(crtc_mask, display_id);
+      }
+    }
+  }
+  for(auto &plane_group : all_plane_group){
+    HWC2_ALOGI("name=%s cur_crtcs_mask=0x%x possible-display=%" PRIi64 ,
+            plane_group->planes[0]->name(),plane_group->current_crtc_,plane_group->possible_display_);
+
+  }
+  return 0;
+}
+
+int Hwc3399::TryAssignPlane(DrmDevice* drm, const std::set<int> &active_display){
   int ret = -1;
+  bool have_plane_mask = false;
+  for(auto &display_id : active_display){
+    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
+    if(!crtc){
+      ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
+      continue;
+    }
+
+    ALOGI_IF(DBG_INFO,"%s,line=%d, active_display_num = %zu, display=%d",
+                                 __FUNCTION__,__LINE__, active_display.size(),display_id);
+
+    if(crtc->get_plane_mask() > 0){
+      have_plane_mask = true;
+    }
+  }
+
+  assignPlaneByPlaneMask(drm, active_display);
+
   return ret;
 }
 }

@@ -24,9 +24,6 @@
 #include <sstream>
 #include <string>
 
-
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 namespace android {
 
 ResourceManager::ResourceManager() :
@@ -66,13 +63,19 @@ int ResourceManager::Init() {
   for(auto &crtc : drm->crtcs()){
     mapDrmDisplayCompositor_.insert(
       std::pair<int, std::shared_ptr<DrmDisplayCompositor>>(crtc->id(),std::make_shared<DrmDisplayCompositor>()));
-    HWC2_ALOGI("New DrmDisplayCompositor crtc=%d",crtc->id());
+    HWC2_ALOGI("Create DrmDisplayCompositor crtc=%d",crtc->id());
   }
 
   displays_ = drm->GetDisplays();
   if(displays_.size() == 0){
     ALOGE("Failed to initialize any displays");
     return ret ? -EINVAL : ret;
+  }
+
+  hwcPlatform_ = HwcPlatform::CreateInstance(drm);
+  if (!hwcPlatform_) {
+    ALOGE("Failed to create HwcPlatform instance");
+    return -1;
   }
 
   return 0;
@@ -152,344 +155,6 @@ std::shared_ptr<DrmDisplayCompositor> ResourceManager::GetDrmDisplayCompositor(D
   return pairDrmDisplayCompositor->second;
 }
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-struct planes_mask_name {
-  uint64_t mask;
-  const char *name;
-};
-
-struct planes_mask_name planes_mask_names[] = {
-  { DRM_PLANE_TYPE_CLUSTER0_WIN0 | DRM_PLANE_TYPE_CLUSTER1_WIN0, "Cluster-win0" },
-  { DRM_PLANE_TYPE_CLUSTER0_WIN1 | DRM_PLANE_TYPE_CLUSTER1_WIN1, "Cluster-win1" },
-  { DRM_PLANE_TYPE_ESMART0_MASK  | DRM_PLANE_TYPE_ESMART1_MASK, "Esmart" },
-  { DRM_PLANE_TYPE_SMART0_MASK   | DRM_PLANE_TYPE_SMART1_MASK, "Smart" },
-};
-
-int ResourceManager::assignPlaneByPlaneMask(DrmDevice* drm, int active_display_num){
-  // all plane mask init
-  uint64_t all_unused_plane_mask = 0;
-  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
-  for(auto &plane_group : all_plane_group){
-    if((all_unused_plane_mask & plane_group->win_type) == 0){
-      all_unused_plane_mask |= plane_group->win_type;
-    }
-  }
-
-  // First, assign active display plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-
-    DrmConnector *conn = drm->GetConnectorForDisplay(display_id);
-    if(!conn){
-        ALOGE("%s,line=%d connector is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-
-    uint32_t crtc_mask = 1 << crtc->pipe();
-    uint64_t plane_mask = crtc->get_plane_mask();
-    bool only_one_plane = false;
-    HWC2_ALOGI("display-id=%d crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64,
-            display_id, crtc->id(), crtc_mask,plane_mask);
-    if(conn->isSpiltMode()){
-      for(auto &plane_group : all_plane_group){
-        uint64_t plane_group_win_type = plane_group->win_type;
-        if(isRK356x(soc_id_)){
-          if(plane_group_win_type & DRM_PLANE_TYPE_CLUSTER0_WIN1||
-            plane_group_win_type & DRM_PLANE_TYPE_CLUSTER1_WIN1){
-              continue;
-            }
-        }else if(isRK3588(soc_id_)){
-          if(plane_group_win_type & PLANE_RK3588_CLUSTER0_WIN1||
-              plane_group_win_type & PLANE_RK3588_CLUSTER1_WIN1 ||
-              plane_group_win_type & PLANE_RK3588_CLUSTER2_WIN1 ||
-              plane_group_win_type & PLANE_RK3588_CLUSTER3_WIN1){
-              continue;
-            }
-        }
-        if(plane_group->possible_display_ == display_id){
-          only_one_plane=true;
-          continue;
-        }
-        if(!only_one_plane && plane_group->possible_display_ == -1 &&
-          ((plane_mask & plane_group_win_type) == plane_group_win_type)){
-          plane_group->set_current_crtc(crtc_mask, display_id);
-          all_unused_plane_mask &= (~plane_group_win_type);
-          only_one_plane=true;
-        }
-      }
-    }else{
-      for(auto &plane_group : all_plane_group){
-        uint64_t plane_group_win_type = plane_group->win_type;
-        if(((plane_mask & plane_group_win_type) == plane_group_win_type)){
-          plane_group->set_current_crtc(crtc_mask, display_id);
-          all_unused_plane_mask &= (~plane_group_win_type);
-        }
-      }
-    }
-  }
-  for(auto &plane_group : all_plane_group){
-    HWC2_ALOGI("name=%s cur_crtcs_mask=0x%x possible-display=%" PRIi64 ,
-            plane_group->planes[0]->name(),plane_group->current_crtc_,plane_group->possible_display_);
-
-  }
-  return 0;
-}
-
-struct assign_plane_group{
-	int display_type;
-  uint64_t drm_type_mask;
-  bool have_assigin;
-};
-
-struct assign_plane_group assign_mask_default[] = {
-  { HWC_DISPLAY_PRIMARY , DRM_PLANE_TYPE_CLUSTER0_WIN0 | DRM_PLANE_TYPE_CLUSTER0_WIN1 | DRM_PLANE_TYPE_ESMART0_WIN0 | DRM_PLANE_TYPE_SMART0_WIN0, false},
-  { HWC_DISPLAY_EXTERNAL, DRM_PLANE_TYPE_CLUSTER1_WIN0 | DRM_PLANE_TYPE_CLUSTER1_WIN1 | DRM_PLANE_TYPE_SMART1_WIN0, false},
-  { HWC_DISPLAY_VIRTUAL , DRM_PLANE_TYPE_ESMART1_WIN0, false},
-};
-
-struct assign_plane_group assign_mask_rk3566[] = {
-  { HWC_DISPLAY_PRIMARY , DRM_PLANE_TYPE_CLUSTER0_WIN0 | DRM_PLANE_TYPE_CLUSTER0_WIN1 | DRM_PLANE_TYPE_ESMART0_WIN0 | DRM_PLANE_TYPE_SMART0_WIN0, false},
-  { HWC_DISPLAY_EXTERNAL, DRM_PLANE_TYPE_CLUSTER1_WIN0 | DRM_PLANE_TYPE_CLUSTER1_WIN1 | DRM_PLANE_TYPE_ESMART1_WIN0 | DRM_PLANE_TYPE_SMART1_WIN0, false},
-};
-
-
-int ResourceManager::assignPlaneByRK3566(DrmDevice* drm, int active_display_num){
-
-  // all plane mask init
-  uint64_t all_unused_plane_mask = 0;
-  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
-  for(auto &plane_group : all_plane_group){
-    if((all_unused_plane_mask & plane_group->win_type) == 0){
-      all_unused_plane_mask |= plane_group->win_type;
-    }
-  }
-  // Reset have_assigin
-  for(int i = 0; i < ARRAY_SIZE(assign_mask_rk3566);i++){
-      assign_mask_rk3566[i].have_assigin = false;
-  }
-
-  // hwc_plane_mask: First, set display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-    uint64_t hwc_plane_mask=0;
-    for(int i = 0; i < ARRAY_SIZE(assign_mask_rk3566);i++){
-      if(display_id == assign_mask_rk3566[i].display_type){
-        hwc_plane_mask = assign_mask_rk3566[i].drm_type_mask;
-        assign_mask_rk3566[i].have_assigin = true;
-        break;
-      }
-    }
-    if(hwc_plane_mask > 0){
-      crtc->set_hwc_plane_mask(hwc_plane_mask);
-      ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d ,hwc_plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-               crtc->id(),hwc_plane_mask);
-    }
-  }
-
-  // hwc_plane_mask: Second, set display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-    if(crtc->get_hwc_plane_mask())
-      continue;
-
-    uint64_t hwc_plane_mask=0;
-    for(int i = 0; i < ARRAY_SIZE(assign_mask_rk3566);i++){
-      if(assign_mask_rk3566[i].have_assigin == false){
-        hwc_plane_mask = assign_mask_rk3566[i].drm_type_mask;
-        assign_mask_rk3566[i].have_assigin = true;
-      }
-    }
-    if(hwc_plane_mask > 0){
-      crtc->set_hwc_plane_mask(hwc_plane_mask);
-      ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d ,hwc_plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-               crtc->id(),hwc_plane_mask);
-    }
-  }
-
-  // First, assign active display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-
-    uint32_t crtc_mask = 1 << crtc->pipe();
-    uint64_t plane_mask = crtc->get_hwc_plane_mask();
-    ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-             crtc->id(),crtc_mask,plane_mask);
-    for(auto &plane_group : all_plane_group){
-      uint64_t plane_group_win_type = plane_group->win_type;
-      if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_crtc(crtc_mask);
-        all_unused_plane_mask &= (~plane_group_win_type);
-      }
-    }
-  }
-
-  for(auto &plane_group : all_plane_group){
-    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_crtc_);
-  }
-  return 0;
-}
-
-
-int ResourceManager::assignPlaneByHWC(DrmDevice* drm, int active_display_num){
-  // all plane mask init
-  uint64_t all_unused_plane_mask = 0;
-  std::vector<PlaneGroup*> all_plane_group = drm->GetPlaneGroups();
-  for(auto &plane_group : all_plane_group){
-    if((all_unused_plane_mask & plane_group->win_type) == 0){
-      all_unused_plane_mask |= plane_group->win_type;
-    }
-  }
-  // Reset have_assigin
-  for(int i = 0; i < ARRAY_SIZE(assign_mask_default);i++){
-      assign_mask_default[i].have_assigin = false;
-  }
-
-  // hwc_plane_mask: First, set display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-    uint64_t hwc_plane_mask=0;
-    for(int i = 0; i < ARRAY_SIZE(assign_mask_default);i++){
-      if(display_id == assign_mask_default[i].display_type){
-        hwc_plane_mask = assign_mask_default[i].drm_type_mask;
-        assign_mask_default[i].have_assigin = true;
-        break;
-      }
-    }
-    if(hwc_plane_mask > 0){
-      crtc->set_hwc_plane_mask(hwc_plane_mask);
-      ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d ,hwc_plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-               crtc->id(),hwc_plane_mask);
-    }
-  }
-
-  // hwc_plane_mask: Second, set display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-    if(crtc->get_hwc_plane_mask())
-      continue;
-
-    uint64_t hwc_plane_mask=0;
-    for(int i = 0; i < ARRAY_SIZE(assign_mask_default);i++){
-      if(assign_mask_default[i].have_assigin == false){
-        hwc_plane_mask = assign_mask_default[i].drm_type_mask;
-        assign_mask_default[i].have_assigin = true;
-      }
-    }
-    if(hwc_plane_mask > 0){
-      crtc->set_hwc_plane_mask(hwc_plane_mask);
-      ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d ,hwc_plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-               crtc->id(),hwc_plane_mask);
-    }
-  }
-
-  // First, assign active display hwc_plane_mask
-  for(auto &display_id : active_display_){
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-        ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-        return -1;
-    }
-
-    uint32_t crtc_mask = 1 << crtc->pipe();
-    uint64_t plane_mask = crtc->get_hwc_plane_mask();
-    ALOGI_IF(DBG_INFO,"%s,line=%d, crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64 ,__FUNCTION__,__LINE__,
-             crtc->id(),crtc_mask,plane_mask);
-    for(auto &plane_group : all_plane_group){
-      uint64_t plane_group_win_type = plane_group->win_type;
-      if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_crtc(crtc_mask);
-        all_unused_plane_mask &= (~plane_group_win_type);
-      }
-    }
-  }
-
-  // Second, assign still unused DrmPlane
-  if(active_display_num == 1){
-    if(all_unused_plane_mask!=0){
-      for(auto &display_id : active_display_){
-        DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-        if(!crtc){
-            ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-            return -1;
-        }
-
-        uint32_t crtc_mask = 1 << crtc->pipe();
-        for(auto &plane_group : all_plane_group){
-          uint64_t plane_group_win_type = plane_group->win_type;
-          if((all_unused_plane_mask & plane_group_win_type) > 0){
-            plane_group->set_current_crtc(crtc_mask);
-            all_unused_plane_mask &= (~plane_group_win_type);
-          }
-        }
-      }
-    }
-  }else if(active_display_num == 2){
-    for(auto &display_id : active_display_){
-      DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-      if(!crtc){
-          ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-          return -1;
-      }
-
-      uint32_t crtc_mask = 1 << crtc->pipe();
-      uint64_t plane_mask = crtc->get_hwc_plane_mask();
-      uint64_t need_plane_mask = 0;
-      for(int i = 0 ; i < ARRAY_SIZE(planes_mask_names); i++){
-        if((planes_mask_names[i].mask & plane_mask)==0){
-          need_plane_mask |= planes_mask_names[i].mask;
-        }
-      }
-
-      for(auto &plane_group : all_plane_group){
-        uint64_t plane_group_win_type = plane_group->win_type;
-        if(((all_unused_plane_mask & need_plane_mask) & plane_group_win_type) == plane_group_win_type){
-          plane_group->set_current_crtc(crtc_mask);
-          all_unused_plane_mask &= (~plane_group_win_type);
-
-          for(int i = 0 ; i < ARRAY_SIZE(planes_mask_names); i++){
-            if((planes_mask_names[i].mask & plane_group_win_type) > 0){
-              need_plane_mask &= (~planes_mask_names[i].mask);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  for(auto &plane_group : all_plane_group){
-    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_crtc_);
-  }
-  return 0;
-}
-
-
 int ResourceManager::assignPlaneGroup(){
   uint32_t active_display_num = getActiveDisplayCnt();
   if(active_display_num==0){
@@ -498,42 +163,10 @@ int ResourceManager::assignPlaneGroup(){
     return -1;
   }
 
-  DrmDevice* drm = NULL;
-  bool have_plane_mask = false;
-  for(auto &display_id : active_display_){
-    drm = GetDrmDevice(display_id);
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
-    if(!crtc){
-      ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
-      continue;
-    }
-
-    ALOGI_IF(DBG_INFO,"%s,line=%d, active_display_num = %u, display=%d",
-                                 __FUNCTION__,__LINE__,active_display_num,display_id);
-
-    if(crtc->get_plane_mask() > 0){
-      have_plane_mask = true;
-    }
-  }
-
-
-  if(isRK356x(soc_id_)){
-    if(isRK3566(soc_id_)){
-      if(have_plane_mask){
-        assignPlaneByPlaneMask(drm, active_display_num);
-      }else{
-        assignPlaneByRK3566(drm, active_display_num);
-      }
-    }else{
-      if(have_plane_mask){
-        assignPlaneByPlaneMask(drm, active_display_num);
-      }else{
-        assignPlaneByHWC(drm, active_display_num);
-      }
-
-    }
-  }else{
-    assignPlaneByPlaneMask(drm, active_display_num);
+  int ret = hwcPlatform_->TryAssignPlane(drms_.front().get(),active_display_);
+  if(ret){
+    HWC2_ALOGI("TryAssignPlane fail, ret = %d",ret);
+    return ret;
   }
   return 0;
 }
