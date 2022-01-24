@@ -938,10 +938,29 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
                                                       int32_t *layer_requests) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
+  uint32_t num_request = 0;
+  if(hwc_get_int_property("ro.vendor.rk_sdk","0") == 0){
+    HWC2_ALOGI("Maybe GSI SDK, to disable AFBC\n");
+  if (!layers || !layer_requests){
+    *num_elements = num_request;
+    return HWC2::Error::None;
+  }else{
+    *display_requests = 0;
+    return HWC2::Error::None;
+  }
+  }
+
   // TODO: I think virtual display should request
   //      HWC2_DISPLAY_REQUEST_WRITE_CLIENT_TARGET_TO_OUTPUT here
-  uint32_t num_request = 0;
-  if(!client_layer_.isAfbc()){
+  uint32_t client_layer_id = false;
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
+    if (l.second.validated_type() == HWC2::Composition::Client) {
+        client_layer_id = l.first;
+        break;
+    }
+  }
+
+  if(client_layer_id > 0 && validate_success_ && !client_layer_.isAfbc()){
     num_request++;
     if(display_requests){
       // RK: Reuse HWC2_DISPLAY_REQUEST_FLIP_CLIENT_TARGET definition to
@@ -955,13 +974,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
   if (!layers || !layer_requests)
     *num_elements = num_request;
   else{
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
-      if (l.second.validated_type() == HWC2::Composition::Client) {
-          layers[0] = l.first;
-          layer_requests[0] = 0;
-          break;
-      }
-    }
+    layers[0] = client_layer_id;
+    layer_requests[0] = 0;
   }
 
   return HWC2::Error::None;
