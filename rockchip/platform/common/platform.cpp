@@ -81,14 +81,15 @@ std::unique_ptr<HwcPlatform> HwcPlatform::CreateInstance(DrmDevice *drm_device) 
       planner->AddStage<Hwc3399>();
       break;
     case 0x3566:
-    case 0x3568:
     // after ECO
     case 0x3566a:
+    case 0x3568:
+    // after ECO
     case 0x3568a:
       planner->AddStage<Hwc356x>();
       break;
     case 0x3588:
-      planner->AddStage<Hwc3399>();
+      planner->AddStage<Hwc3588>();
       break;
     default:
       HWC2_ALOGE("Cann't fina a suitable Planner Stage, soc_id=%x",drm_device->getSocId());
