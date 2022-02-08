@@ -115,7 +115,7 @@ int DrmDisplayComposition::AddPlaneDisable(DrmPlane *plane) {
   return 0;
 }
 
-int DrmDisplayComposition::AddPlaneComposition(DrmCompositionPlane plane) {
+int DrmDisplayComposition::AddPlaneComposition(DrmCompositionPlane &&plane) {
   composition_planes_.emplace_back(std::move(plane));
   return 0;
 }

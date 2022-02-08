@@ -65,8 +65,31 @@ class DrmCompositionPlane {
   };
 
   DrmCompositionPlane() = default;
-  DrmCompositionPlane(DrmCompositionPlane &&rhs) = default;
-  DrmCompositionPlane &operator=(DrmCompositionPlane &&other) = default;
+  DrmCompositionPlane(DrmCompositionPlane &&rhs){
+    type_  = rhs.type();
+    plane_ = rhs.plane();
+    crtc_  = rhs.crtc();
+    mirror_ = rhs.mirror();
+
+    if(rhs.type() == Type::kLayer){
+      zpos_ = rhs.get_zpos();
+      source_layers_.clear();
+      source_layers_.push_back(rhs.source_layers().front());
+    }
+  };
+  DrmCompositionPlane &operator=(DrmCompositionPlane &&rhs){
+    type_  = rhs.type();
+    plane_ = rhs.plane();
+    crtc_  = rhs.crtc();
+    mirror_ = rhs.mirror();
+
+    if(rhs.type() == Type::kLayer){
+      zpos_ = rhs.get_zpos();
+      source_layers_.clear();
+      source_layers_.push_back(rhs.source_layers().front());
+    }
+    return *this;
+  };
   DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc)
       : type_(type),
         plane_(plane),
@@ -108,7 +131,7 @@ class DrmCompositionPlane {
     return source_layers_;
   }
  int get_zpos() { return zpos_; }
- void set_zpos( int zpos) { zpos_ =  zpos; }
+ void set_zpos(int zpos) { zpos_ =  zpos; }
 
  private:
   int zpos_;
@@ -129,7 +152,7 @@ class DrmDisplayComposition {
            Planner *planner, uint64_t frame_no, uint64_t display_id);
 
   int SetLayers(DrmHwcLayer *layers, size_t num_layers, bool geometry_changed);
-  int AddPlaneComposition(DrmCompositionPlane plane);
+  int AddPlaneComposition(DrmCompositionPlane &&plane);
   int AddPlaneDisable(DrmPlane *plane);
   int SetDpmsMode(uint32_t dpms_mode);
   int SetDisplayMode(const DrmMode &display_mode);
