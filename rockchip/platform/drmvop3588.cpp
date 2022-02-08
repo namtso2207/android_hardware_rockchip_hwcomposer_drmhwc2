@@ -107,6 +107,10 @@ bool Vop3588::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
     if(!ctx.state.bMultiAreaEnable)
       return false;
 
+    // 8K display mode must to disable MultilArea Mode.
+    if(ctx.state.b8kMode_)
+      return false;
+
     //multi region only support RGBA888 RGBX8888 RGB888 565 BGRA888 NV12
     if(layer_one->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
         || layer_two->iFormat_ >= HAL_PIXEL_FORMAT_YCrCb_NV12_10
