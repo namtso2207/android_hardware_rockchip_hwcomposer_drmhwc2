@@ -159,12 +159,12 @@ class DrmConnector {
   DrmProperty hue_id_property_;
   DrmProperty hdr_metadata_property_;
   DrmProperty hdr_panel_property_;
-  DrmProperty colorspace_;
+  DrmProperty colorspace_property_;
 
-  DrmProperty color_format_;
-  DrmProperty color_depth_;
-  DrmProperty color_format_caps_;
-  DrmProperty color_depth_caps_;
+  DrmProperty color_format_property_;
+  DrmProperty color_depth_property_;
+  DrmProperty color_format_caps_property_;
+  DrmProperty color_depth_caps_property_;
 
   DrmProperty connector_id_property_;
   std::vector<DrmEncoder *> possible_encoders_;
@@ -179,7 +179,7 @@ class DrmConnector {
   bool bSupportSt2084_;
   bool bSupportHLG_;
   struct hdr_static_metadata hdr_metadata_;
-  int colorimetry_;
+  DrmColorspaceType colorspace_ = DrmColorspaceType::DEFAULT;
   struct hdr_output_metadata last_hdr_metadata_;
   // Baseparameter Support
   bool baseparameter_ready_;
