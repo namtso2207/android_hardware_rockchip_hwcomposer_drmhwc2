@@ -132,16 +132,47 @@ int DrmConnector::Init() {
   if (ret)
     ALOGW("Could not get hdr panel metadata property\n");
 
-  ret = drm_->GetConnectorProperty(*this, "hdmi_output_colorimetry", &hdmi_output_colorimetry_);
-  if (ret)
-    ALOGW("Could not get hdmi_output_colorimetry property\n");
+  // Kernel version 5.10 starts using new attribute definitions Colorspace
+  ret = drm_->GetConnectorProperty(*this, "Colorspace", &colorspace_);
+  if (ret){
+    ALOGW("Could not get Colorspace property, try to get hdmi_output_colorimetry property.\n");
+    // Before Kernel version 5.10 starts using old attribute definitions hdmi_output_colorimetry
+    ret = drm_->GetConnectorProperty(*this, "hdmi_output_colorimetry", &colorspace_);
+    if(ret){
+      ALOGW("Could not get hdmi_output_colorimetry property.\n");
+    }
+  }
 
-  ret = drm_->GetConnectorProperty(*this, "hdmi_output_format", &hdmi_output_format_);
+  // Kernel version 5.10 starts using new attribute definitions color_format
+  ret = drm_->GetConnectorProperty(*this, "color_format", &color_format_);
+  if (ret) {
+    ALOGW("Could not get color_format property, try to get hdmi_output_format property.\n");
+    // Before Kernel version 5.10 using old attribute definitions hdmi_output_format
+    ret = drm_->GetConnectorProperty(*this, "hdmi_output_format", &color_format_);
+    if(ret){
+      ALOGW("Could not get hdmi_output_format property.\n");
+    }
+  }
+
+  // Kernel version 5.10 starts using new attribute definitions color_depth
+  ret = drm_->GetConnectorProperty(*this, "color_depth", &color_depth_);
+  if (ret) {
+    ALOGW("Could not get color_depth property, try to get hdmi_output_depth\n");
+    // Before Kernel version 5.10 using old attribute definitions hdmi_output_depth
+    ret = drm_->GetConnectorProperty(*this, "hdmi_output_depth", &color_depth_);
+    if(ret){
+      ALOGW("Could not get hdmi_output_depth property\n");
+    }
+  }
+
+  // Kernel version 5.10 to get color_format_caps
+  ret = drm_->GetConnectorProperty(*this, "color_format_caps", &color_format_caps_);
   if (ret) {
     ALOGW("Could not get hdmi_output_format property\n");
   }
 
-  ret = drm_->GetConnectorProperty(*this, "hdmi_output_depth", &hdmi_output_depth_);
+  // Kernel version 5.10 to get color_depth_caps
+  ret = drm_->GetConnectorProperty(*this, "color_depth_caps", &color_depth_caps_);
   if (ret) {
    ALOGW("Could not get hdmi_output_depth property\n");
   }
@@ -653,7 +684,7 @@ bool DrmConnector::ParseHdmiOutputFormat(char* strprop, output_format *format, o
 }
 
 int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
-  if(!(hdmi_output_format_property().id() > 0 || hdmi_output_depth_property().id() > 0)){
+  if(!(color_format_property().id() > 0 || color_depth_property().id() > 0)){
     return 0;
   }
 
@@ -726,17 +757,17 @@ int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
 
   if(need_change_format > 0) {
     ALOGI("%s,line=%d %s change hdmi output format: %d", __FUNCTION__,__LINE__, cUniqueName_, color_format);
-    ret = drmModeAtomicAddProperty(pset, id(), hdmi_output_format_property().id(), color_format);
+    ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), color_format);
     if (ret < 0) {
-      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, hdmi_output_format_property().id(), id());
+      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, color_format_property().id(), id());
     }
   }
 
   if(need_change_depth > 0) {
     ALOGI("%s,line=%d %s change hdmi output depth: %d", __FUNCTION__,__LINE__, cUniqueName_, color_depth);
-    ret = drmModeAtomicAddProperty(pset, id(), hdmi_output_depth_property().id(), color_depth);
+    ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
     if (ret < 0) {
-      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, hdmi_output_depth_property().id(), id());
+      ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, color_depth_property().id(), id());
     }
   }
 
@@ -919,7 +950,7 @@ int DrmConnector::switch_hdmi_hdr_mode(android_dataspace_t colorspace){
         }
       }
 
-      if(hdmi_output_colorimetry_property().id()){
+      if(colorspace_property().id()){
           if((colorspace & HAL_DATASPACE_STANDARD_BT2020) == HAL_DATASPACE_STANDARD_BT2020){
               colorimetry = COLOR_METRY_ITU_2020;
           }
@@ -927,9 +958,9 @@ int DrmConnector::switch_hdmi_hdr_mode(android_dataspace_t colorspace){
           if(colorimetry_ != colorimetry){
               hdr_state_update = true;
               ALOGD_IF(LogLevel(DBG_DEBUG),"%s: change bt2020 colorimetry=%d", __FUNCTION__, colorimetry);
-              ret = drmModeAtomicAddProperty(pset, id(), hdmi_output_colorimetry_property().id(), colorimetry);
+              ret = drmModeAtomicAddProperty(pset, id(), colorspace_property().id(), colorimetry);
               if (ret < 0) {
-                ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__,hdmi_output_colorimetry_property().id(), id());
+                ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__,colorspace_property().id(), id());
               }
           }else{
               ALOGD_IF(LogLevel(DBG_DEBUG),"%s: no need to update colorimetry", __FUNCTION__);
@@ -981,16 +1012,16 @@ const DrmProperty &DrmConnector::hdr_panel_property() const {
   return hdr_panel_property_;
 }
 
-const DrmProperty &DrmConnector::hdmi_output_colorimetry_property() const {
-  return hdmi_output_colorimetry_;
+const DrmProperty &DrmConnector::colorspace_property() const {
+  return colorspace_;
 }
 
-const DrmProperty &DrmConnector::hdmi_output_format_property() const {
-  return hdmi_output_format_;
+const DrmProperty &DrmConnector::color_format_property() const {
+  return color_format_;
 }
 
-const DrmProperty &DrmConnector::hdmi_output_depth_property() const {
-  return hdmi_output_depth_;
+const DrmProperty &DrmConnector::color_depth_property() const {
+  return color_depth_;
 }
 
 }  // namespace android

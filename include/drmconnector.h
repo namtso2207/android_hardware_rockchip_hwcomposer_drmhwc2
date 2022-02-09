@@ -115,9 +115,9 @@ class DrmConnector {
   const DrmProperty &hue_id_property() const;
   const DrmProperty &hdr_metadata_property() const;
   const DrmProperty &hdr_panel_property() const;
-  const DrmProperty &hdmi_output_colorimetry_property() const;
-  const DrmProperty &hdmi_output_format_property() const;
-  const DrmProperty &hdmi_output_depth_property() const;
+  const DrmProperty &colorspace_property() const;
+  const DrmProperty &color_format_property() const;
+  const DrmProperty &color_depth_property() const;
 
   const std::vector<DrmHdr> &get_hdr_support_list() const { return drmHdr_; }
   struct hdr_static_metadata* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
@@ -159,9 +159,13 @@ class DrmConnector {
   DrmProperty hue_id_property_;
   DrmProperty hdr_metadata_property_;
   DrmProperty hdr_panel_property_;
-  DrmProperty hdmi_output_colorimetry_;
-  DrmProperty hdmi_output_format_;
-  DrmProperty hdmi_output_depth_;
+  DrmProperty colorspace_;
+
+  DrmProperty color_format_;
+  DrmProperty color_depth_;
+  DrmProperty color_format_caps_;
+  DrmProperty color_depth_caps_;
+
   DrmProperty connector_id_property_;
   std::vector<DrmEncoder *> possible_encoders_;
   drmModeConnectorPtr connector_;
