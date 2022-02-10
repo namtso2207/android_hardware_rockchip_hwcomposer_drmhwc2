@@ -85,7 +85,7 @@ typedef struct tagPlaneGroup{
 }PlaneGroup;
 
 
-// Rk3588
+// RK3588
 enum DrmPlaneTypeRK3588{
       // Cluster 0
       PLANE_RK3588_CLUSTER0_WIN0 = 1 << 0,
@@ -165,11 +165,16 @@ enum DrmPlaneTypeRK356x{
 
       DRM_PLANE_TYPE_CLUSTER0_MASK= 0x3,
       DRM_PLANE_TYPE_CLUSTER1_MASK= 0xc,
-      DRM_PLANE_TYPE_CLUSTER_MASK = 0xf,
+
       DRM_PLANE_TYPE_ESMART0_MASK = 0xf0,
       DRM_PLANE_TYPE_ESMART1_MASK = 0xf00,
+
       DRM_PLANE_TYPE_SMART0_MASK  = 0xf000,
       DRM_PLANE_TYPE_SMART1_MASK  = 0xf0000,
+
+      DRM_PLANE_TYPE_ALL_CLUSTER_MASK = 0xf,
+      DRM_PLANE_TYPE_ALL_ESMART_MASK  = 0xff0,
+      DRM_PLANE_TYPE_ALL_SMART_MASK   = 0xff000,
       DRM_PLANE_TYPE_VOP2_Unknown      = 0xffffffff,
 };
 

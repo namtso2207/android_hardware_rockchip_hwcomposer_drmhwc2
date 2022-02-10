@@ -876,12 +876,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     }
 
     if(connector_->isSpiltMode()){
-      ctx_.rel_xres = best_mode.h_display() / 2;
+      ctx_.rel_xres = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
       ctx_.rel_yres = best_mode.v_display();
-      ctx_.framebuffer_width = ctx_.framebuffer_width / 2;
+      ctx_.framebuffer_width = ctx_.framebuffer_width / DRM_CONNECTOR_SPILT_RATIO;
       ctx_.framebuffer_height = ctx_.framebuffer_height;
-      if(handle_ > 0xf){
-        ctx_.rel_xoffset = best_mode.h_display() / 2;
+      if(handle_ >= DRM_CONNECTOR_SPILT_MODE_MASK){
+        ctx_.rel_xoffset = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
         ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
       }
     }else{
@@ -2191,20 +2191,22 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
           continue;
         // HWC_DISPLAY_PRIMARY display have been hotplug
         if(conn->display() == HWC_DISPLAY_PRIMARY){
+          // SpiltDisplay Hotplug
           if(conn->isSpiltMode()){
-            HandleDisplayHotplug((conn->display()+0xf0), conn->state());
-            ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
-              conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
+            HandleDisplayHotplug((conn->GetSpiltModeId()), conn->state());
+            ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d SpiltDisplay=%d\n",
+              conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id(),conn->GetSpiltModeId());
           }
           continue;
         }
         ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
           conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
         HandleDisplayHotplug(conn->display(), conn->state());
+        // SpiltDisplay Hotplug
         if(conn->isSpiltMode()){
-            HandleDisplayHotplug((conn->display()+0xf0), conn->state());
-            ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
-              conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
+          HandleDisplayHotplug((conn->GetSpiltModeId()), conn->state());
+          ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d SpiltDisplay=%d\n",
+            conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id(),conn->GetSpiltModeId());
         }
       }
     }
@@ -2234,28 +2236,29 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       display.UpdateDisplayMode();
       display.ChosePreferredConfig();
       display.CheckStateAndReinit();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
-      if(conn->isSpiltMode()){
-        int spilt_display_id = conn->display()+0xf0;
-        auto &display = hwc2_->displays_.at(spilt_display_id);
-        display.HoplugEventTmeline();
-        display.UpdateDisplayMode();
-        display.ChosePreferredConfig();
-        display.CheckStateAndReinit();
-        hwc2_->HandleDisplayHotplug(spilt_display_id, DRM_MODE_CONNECTED);
-      }
+      hwc2_->HandleDisplayHotplug(display_id, cur_state);
     }else{
       display.ClearDisplay();
       drm_->ReleaseDpyRes(display_id);
       display.ReleaseResource();
-      hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-      if(conn->isSpiltMode()){
-        int spilt_display_id = conn->display()+0xf0;
-        auto &display = hwc2_->displays_.at(spilt_display_id);
+      hwc2_->HandleDisplayHotplug(display_id, cur_state);
+    }
+
+    // SpiltDisplay Hoplug.
+    if(conn->isSpiltMode()){
+      int display_id = conn->GetSpiltModeId();
+      auto &display = hwc2_->displays_.at(display_id);
+      if (cur_state == DRM_MODE_CONNECTED) {
+        display.HoplugEventTmeline();
+        display.UpdateDisplayMode();
+        display.ChosePreferredConfig();
+        display.CheckStateAndReinit();
+        hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      }else{
         display.ClearDisplay();
         drm_->ReleaseDpyRes(display_id);
         display.ReleaseResource();
-        hwc2_->HandleDisplayHotplug(spilt_display_id, DRM_MODE_DISCONNECTED);
+        hwc2_->HandleDisplayHotplug(display_id, cur_state);
       }
     }
   }

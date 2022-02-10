@@ -185,8 +185,6 @@ int DrmConnector::Init() {
     std::tie(ret,unique_id_) = connector_id_property_.value();
   }
 
-
-
   drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
   bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
   bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);

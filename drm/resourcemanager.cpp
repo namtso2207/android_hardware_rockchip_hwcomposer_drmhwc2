@@ -126,7 +126,7 @@ DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
 
 DrmDevice *ResourceManager::GetDrmDevice(int display) {
   for (auto &drm : drms_) {
-    if (drm->HandlesDisplay(display & 0xf))
+    if (drm->HandlesDisplay(display & ~DRM_CONNECTOR_SPILT_MODE_MASK))
       return drm.get();
   }
   return NULL;
@@ -134,7 +134,7 @@ DrmDevice *ResourceManager::GetDrmDevice(int display) {
 
 std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
   for (unsigned int i = 0; i < drms_.size(); i++) {
-    if (drms_[i]->HandlesDisplay(display & 0xf))
+    if (drms_[i]->HandlesDisplay(display & ~DRM_CONNECTOR_SPILT_MODE_MASK))
       return importers_[i];
   }
   return NULL;
@@ -163,7 +163,7 @@ int ResourceManager::assignPlaneGroup(){
     return -1;
   }
 
-  int ret = hwcPlatform_->TryAssignPlane(drms_.front().get(),active_display_);
+  int ret = hwcPlatform_->TryAssignPlane(drms_.front().get(), active_display_);
   if(ret){
     HWC2_ALOGI("TryAssignPlane fail, ret = %d",ret);
     return ret;

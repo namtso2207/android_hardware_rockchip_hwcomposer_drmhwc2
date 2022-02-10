@@ -126,8 +126,8 @@ void DrmDisplayCompositor::FrameWorker::Routine() {
         frame_queue_temp.push(std::move(frame));
         continue;
       }
+      exist_display.insert(frame.composition->display());
       compositor_->CollectInfo(std::move(frame.composition), frame.status);
-      exist_display.insert(compositor_->display());
     }
     while(frame_queue_temp.size()){
       frame_queue_.push(std::move(frame_queue_temp.front()));

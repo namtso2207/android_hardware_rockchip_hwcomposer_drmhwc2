@@ -1265,7 +1265,7 @@ int Vop356x::TryMixSkipPolicy(
 
   if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+      if(plane_group->win_type & DRM_PLANE_TYPE_ALL_CLUSTER_MASK)
         iPlaneSize--;
     }
   }
@@ -1458,7 +1458,7 @@ int Vop356x::TryMixUpPolicy(
 
   if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+      if(plane_group->win_type & DRM_PLANE_TYPE_ALL_CLUSTER_MASK)
         iPlaneSize--;
     }
   }
@@ -1642,16 +1642,16 @@ int Vop356x::TryGLESPolicy(
     // RK3566 must match external display
     if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
       if(fb_layer->bAfbcd_){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ALL_CLUSTER_MASK;
       }else if(fb_layer->bScale_ || fb_layer->fHScaleMulMirror_ != 1.0 || fb_layer->fVScaleMulMirror_ != 1.0){
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ALL_ESMART_MASK;
       }else{
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ALL_SMART_MASK;
       }
     }else{
-        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK | DRM_PLANE_TYPE_ESMART0_MASK |
-                                   DRM_PLANE_TYPE_ESMART1_MASK | DRM_PLANE_TYPE_SMART0_MASK |
-                                   DRM_PLANE_TYPE_SMART1_MASK;
+        fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ALL_CLUSTER_MASK |
+                                   DRM_PLANE_TYPE_ALL_ESMART_MASK  |
+                                   DRM_PLANE_TYPE_ALL_SMART_MASK;
     }
   }
   int ret = MatchBestPlanes(composition,fb_target,crtc,plane_groups);

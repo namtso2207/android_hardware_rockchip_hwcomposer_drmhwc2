@@ -1467,7 +1467,7 @@ int Vop3588::TryMixSkipPolicy(
 
   if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+      if(plane_group->win_type & PLANE_RK3588_ALL_CLUSTER_MASK)
         iPlaneSize--;
     }
   }
@@ -1660,7 +1660,7 @@ int Vop3588::TryMixUpPolicy(
 
   if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
+      if(plane_group->win_type & PLANE_RK3588_ALL_CLUSTER_MASK)
         iPlaneSize--;
     }
   }

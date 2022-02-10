@@ -29,6 +29,9 @@
 
 namespace android {
 
+#define DRM_CONNECTOR_SPILT_MODE_MASK 0xf0
+#define DRM_CONNECTOR_SPILT_RATIO 2
+
 class DrmDevice;
 
 class DrmConnector {
@@ -109,6 +112,7 @@ class DrmConnector {
   bool is_hdmi_support_hdr() const;
   int switch_hdmi_hdr_mode(android_dataspace_t colorspace);
   bool isSpiltMode() const{ return bSpiltMode_;}
+  int GetSpiltModeId() const{ return (display_ + DRM_CONNECTOR_SPILT_MODE_MASK);}
 
   const DrmProperty &brightness_id_property() const;
   const DrmProperty &contrast_id_property() const;

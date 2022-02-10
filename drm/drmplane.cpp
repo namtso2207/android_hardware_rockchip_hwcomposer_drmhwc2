@@ -644,9 +644,9 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
     else
       return false;
   }else if(isRK356x(soc_id_)){
-    if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) > 0 && afbcd)
+    if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) > 0 && afbcd)
       return support_format_list.count(format);
-    else if((win_type_ & DRM_PLANE_TYPE_CLUSTER_MASK) == 0 && !afbcd)
+    else if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) == 0 && !afbcd)
       return support_format_list.count(format);
     else
       return false;

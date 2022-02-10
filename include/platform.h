@@ -101,9 +101,6 @@ class Planner {
       DrmCrtc *crtc,
       bool gles_policy);
 
-  // Try to assign DrmPlane to display
-  int TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys);
-
   template <typename T, typename... A>
   void AddStage(A &&... args) {
     stages_.emplace_back(

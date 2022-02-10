@@ -30,6 +30,7 @@
 
 namespace android {
 
+// Planner
 std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *drm_device) {
   std::unique_ptr<Planner> planner(new Planner);
   switch(drm_device->getSocId()){
@@ -73,12 +74,12 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::TryHwcPolicy(
   return std::make_tuple(ret, std::move(composition));
 }
 
-
+// HwcPlatform
 std::unique_ptr<HwcPlatform> HwcPlatform::CreateInstance(DrmDevice *drm_device) {
-  std::unique_ptr<HwcPlatform> planner(new HwcPlatform);
+  std::unique_ptr<HwcPlatform> hwcPlatform(new HwcPlatform);
   switch(drm_device->getSocId()){
     case 0x3399:
-      planner->AddStage<Hwc3399>();
+      hwcPlatform->AddStage<Hwc3399>();
       break;
     case 0x3566:
     // after ECO
@@ -86,18 +87,19 @@ std::unique_ptr<HwcPlatform> HwcPlatform::CreateInstance(DrmDevice *drm_device) 
     case 0x3568:
     // after ECO
     case 0x3568a:
-      planner->AddStage<Hwc356x>();
+      hwcPlatform->AddStage<Hwc356x>();
       break;
     case 0x3588:
-      planner->AddStage<Hwc3588>();
+      hwcPlatform->AddStage<Hwc3588>();
       break;
     default:
       HWC2_ALOGE("Cann't fina a suitable Planner Stage, soc_id=%x",drm_device->getSocId());
       break;
   }
-  return planner;
+  return hwcPlatform;
 }
 
+// TryAssignPlane, Assign hardware layer resources.
 int HwcPlatform::TryAssignPlane(DrmDevice* drm, const std::set<int> &map_dpys){
   int ret = -1;
   // Go through the provisioning stages and provision planes

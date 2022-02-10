@@ -46,6 +46,10 @@ class ResourceManager {
     return drms_;
   }
 
+  const std::unique_ptr<HwcPlatform> &getHwcPlatform() const {
+    return hwcPlatform_;
+  }
+
   int getDisplayCount() const {
     return num_displays_;
   }

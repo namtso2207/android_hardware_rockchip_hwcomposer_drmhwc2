@@ -1086,13 +1086,6 @@ int Vop3399::TryMixSkipPolicy(
 
   int iPlaneSize = plane_groups.size();
 
-  if(ctx.request.iAfbcdCnt == 0){
-    for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
-        iPlaneSize--;
-    }
-  }
-
   if(iPlaneSize == 0){
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
               __FUNCTION__,__LINE__,iPlaneSize);
@@ -1279,19 +1272,10 @@ int Vop3399::TryMixUpPolicy(
 
   int iPlaneSize = plane_groups.size();
 
-  if(ctx.request.iAfbcdCnt == 0){
-    for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_CLUSTER_MASK)
-        iPlaneSize--;
-    }
-  }
-
   if(iPlaneSize == 0){
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
               __FUNCTION__,__LINE__,iPlaneSize);
   }
-
-
 
   std::pair<int, int> layer_indices(-1, -1);
 

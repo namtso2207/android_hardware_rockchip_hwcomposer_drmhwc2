@@ -460,8 +460,8 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   // SpiltMode
   for (auto &conn : connectors_) {
     if(conn->isSpiltMode()){
-      ALOGI("rk-debug %s enable isSpiltMode",conn->unique_name());
-      int spilt_display_id = conn->display() + 0xf0;
+      HWC2_ALOGI("%s enable isSpiltMode, to create SpiltModeDisplay id=0x%x",conn->unique_name(),conn->GetSpiltModeId());
+      int spilt_display_id = conn->GetSpiltModeId();
       displays_[spilt_display_id] = spilt_display_id;
     }
   }
@@ -603,7 +603,7 @@ int DrmDevice::GetCommitMirrorDisplayId() const {
 
 DrmConnector *DrmDevice::GetConnectorForDisplay(int display) const {
   for (auto &conn : connectors_) {
-    if (conn->display() == (display & 0xf))
+    if (conn->display() == (display & ~DRM_CONNECTOR_SPILT_MODE_MASK))
       return conn.get();
   }
   return NULL;
@@ -644,7 +644,7 @@ DrmConnector *DrmDevice::AvailableWritebackConnector(int display) const {
 
 DrmCrtc *DrmDevice::GetCrtcForDisplay(int display) const {
   for (auto &crtc : crtcs_) {
-    if (crtc->display() == (display & 0xf))
+    if (crtc->display() == (display & ~DRM_CONNECTOR_SPILT_MODE_MASK))
       return crtc.get();
   }
   return NULL;
