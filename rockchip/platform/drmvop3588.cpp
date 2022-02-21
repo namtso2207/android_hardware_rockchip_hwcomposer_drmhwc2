@@ -42,8 +42,6 @@
 #include <log/log.h>
 
 
-#define DISBALE_AFBC_DYNAMIC 0
-
 namespace android {
 
 void Vop3588::Init(){
@@ -1346,7 +1344,7 @@ void Vop3588::OutputMatchLayer(int iFirst, int iLast,
 
   if(iFirst < 0 || iLast < 0 || iFirst > iLast)
   {
-      ALOGE("invalid value iFirst=%d, iLast=%d", iFirst, iLast);
+      HWC2_ALOGD_IF_DEBUG("invalid value iFirst=%d, iLast=%d", iFirst, iLast);
       return;
   }
 
@@ -2136,8 +2134,7 @@ void Vop3588::InitStateContext(
   if(conn && conn->state() == DRM_MODE_CONNECTED){
     DrmMode mode = conn->current_mode();
     if(ctx.state.b8kMode_ != mode.is_8k_mode()){
-      ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d %s 8K Mode.",
-          __FUNCTION__,__LINE__, mode.is_8k_mode() ? "Enter" : "Quit");
+      HWC2_ALOGD_IF_DEBUG("%s 8K Mode.", mode.is_8k_mode() ? "Enter" : "Quit");
     }
     ctx.state.b8kMode_ = mode.is_8k_mode();
     if(ctx.state.b8kMode_){
@@ -2149,9 +2146,14 @@ void Vop3588::InitStateContext(
               p->win_type() & PLANE_RK3588_ALL_ESMART1_MASK ||
               p->win_type() & PLANE_RK3588_ALL_ESMART3_MASK){
             plane_group->bReserved = true;
-            ALOGI("%s,line=%d Reserved 8K plane name=%s",
-                    __FUNCTION__,__LINE__,p->name());
+            HWC2_ALOGD_IF_DEBUG("Reserved 8K plane name=%s", p->name());
           }
+        }
+      }
+      for(auto &layer : layers){
+        if(layer->bFbTarget_){
+            HWC2_ALOGD_IF_DEBUG("8K Mode, disable Fb-target Afbc");
+            layer->bAfbcd_ = 0;
         }
       }
     }else{
@@ -2162,7 +2164,7 @@ void Vop3588::InitStateContext(
       }
     }
   }
-#if DISBALE_AFBC_DYNAMIC
+
   // FB-target need disable AFBCD?
   ctx.state.bDisableFBAfbcd = false;
   for(auto &layer : layers){
@@ -2180,19 +2182,6 @@ void Vop3588::InitStateContext(
       }
 
       // If FB-target unable to meet the scaling requirements, AFBC must be disable.
-      // CommirMirror must match two display scale limitation.
-      if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-        if((layer->fHScaleMulMirror_ > 4.0 || layer->fHScaleMulMirror_ < 0.25) ||
-           (layer->fVScaleMulMirror_ > 4.0 || layer->fVScaleMulMirror_ < 0.25) ||
-           (layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
-           (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
-          ctx.state.bDisableFBAfbcd = true;
-          ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
-               __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-        }
-      }
-
-      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
       if((layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
          (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
         ctx.state.bDisableFBAfbcd = true;
@@ -2206,7 +2195,6 @@ void Vop3588::InitStateContext(
       break;
     }
   }
-#endif
   return;
 }
 
