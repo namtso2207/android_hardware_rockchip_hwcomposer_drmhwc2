@@ -1095,6 +1095,54 @@ int DrmDevice::BindDpyRes(int display_id){
     return -EINVAL;
   }
 
+  // if current mode not equal kernel mode , must to disable all
+  // plane.
+  DrmCrtc *crtc = conn->encoder()->crtc();
+  DrmMode current_mode = conn->current_mode();
+  if(!current_mode.equal_no_flag_and_type(crtc->kernel_mode())){
+    HWC2_ALOGI("Display-id=%d kernel-mode not equal to current-mode,"
+               "must to disable all plane.", display_id);
+
+    int ret;
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return -ENOMEM;
+    }
+
+    // Disable DrmPlane resource.
+    for(auto &plane_group : plane_groups_){
+      uint32_t crtc_mask = 1 << crtc->pipe();
+      if(!plane_group->acquire(crtc_mask))
+          continue;
+      for(auto &plane : plane_group->planes){
+        if(!plane)
+          continue;
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                       plane->crtc_property().id(), 0) < 0 ||
+              drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
+                                       0) < 0;
+        if (ret) {
+          ALOGE("Failed to add plane %d disable to pset", plane->id());
+          drmModeAtomicFree(pset);
+          pthread_mutex_unlock(&diplay_route_mutex);
+          return ret;
+        }
+        HWC2_ALOGI("Crtc-id = %d disable plane-id = %d", crtc->id(), plane->id());
+      }
+    }
+
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+    if (ret < 0) {
+      ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+      drmModeAtomicFree(pset);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+  }
+
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
@@ -1111,8 +1159,6 @@ int DrmDevice::BindDpyRes(int display_id){
   ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
             conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
   CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[0]);
-
-  DrmCrtc *crtc = conn->encoder()->crtc();
 
   // Enable DrmConnector DPMS on.
   conn->SetDpmsMode(DRM_MODE_DPMS_ON);
