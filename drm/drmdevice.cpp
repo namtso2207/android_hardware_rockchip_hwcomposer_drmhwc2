@@ -1161,7 +1161,10 @@ int DrmDevice::BindDpyRes(int display_id){
   CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[0]);
 
   // Enable DrmConnector DPMS on.
-  conn->SetDpmsMode(DRM_MODE_DPMS_ON);
+  // The note is due to HJC's suggestion that the DRM driver
+  // will actively call the DPMS_ON interface when connecting Crtc and Connector,
+  // and no additional calls are required.
+  // conn->SetDpmsMode(DRM_MODE_DPMS_ON);
 
   // Bind DrmCrtc and DrmConnector
   DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), crtc->id());
@@ -1221,7 +1224,10 @@ int DrmDevice::ReleaseDpyRes(int display_id){
     }
 
     // Disable DrmConnector resource.
-    conn->SetDpmsMode(DRM_MODE_DPMS_OFF);
+    // The note is due to HJC's suggestion that the DRM driver
+    // will actively call the DPMS_OFF interface when disconnecting the CRTC from the Connector,
+    // and no additional calls are required.
+    // conn->SetDpmsMode(DRM_MODE_DPMS_OFF);
     DRM_ATOMIC_ADD_PROP(conn->id(), conn->crtc_id_property().id(), 0);
 
     // Disable DrmPlane resource.
