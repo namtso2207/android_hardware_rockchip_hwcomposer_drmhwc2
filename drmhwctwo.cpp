@@ -417,9 +417,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
     return HWC2::Error::NoResources;
   }
 
-  resource_manager_->creatActiveDisplayCnt(display);
-  resource_manager_->assignPlaneGroup();
-
   UpdateDisplayMode();
   int ret = drm_->BindDpyRes(handle_);
   if (ret) {
@@ -442,6 +439,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   if (ret) {
     HWC2_ALOGE("Failed to UpdateDisplay3DLut for display=%d %d\n", display, ret);
   }
+
+  resource_manager_->creatActiveDisplayCnt(display);
+  resource_manager_->assignPlaneGroup();
 
   // Reset HwcLayer resource
   if(handle_ != HWC_DISPLAY_PRIMARY){
