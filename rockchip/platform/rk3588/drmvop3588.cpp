@@ -2030,7 +2030,6 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
   }
 
   switch(layer->sf_composition){
-    case HWC2::Composition::Client:
     case HWC2::Composition::Sideband:
     case HWC2::Composition::SolidColor:
       HWC2_ALOGD_IF_DEBUG("[%s]：sf_composition =0x%x not support overlay.",
