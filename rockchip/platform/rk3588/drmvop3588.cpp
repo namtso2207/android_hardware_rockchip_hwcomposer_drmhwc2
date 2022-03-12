@@ -514,24 +514,40 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                                 ctx.state.iClu3UsedDstXOffset = 0;
                           }
                           // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
+                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
+                            if(((zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ)) ||
+                               (ctx.state.iClu0UsedFormat != (*iter_layer)->uFourccFormat_) ||
+                               (ctx.state.iClu0UsedAfbc != (*iter_layer)->bAfbcd_)){
                             ctx.state.bClu0TwoWinMode = false;
+                            }
+                          }
 
                           // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
+                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
+                            if(((zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ)) ||
+                               (ctx.state.iClu1UsedFormat != (*iter_layer)->uFourccFormat_) ||
+                               (ctx.state.iClu1UsedAfbc != (*iter_layer)->bAfbcd_)){
                             ctx.state.bClu1TwoWinMode = false;
+                            }
+                          }
 
                           // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
+                          if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
+                            if(((zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ)) ||
+                               (ctx.state.iClu2UsedFormat != (*iter_layer)->uFourccFormat_) ||
+                               (ctx.state.iClu2UsedAfbc != (*iter_layer)->bAfbcd_)){
                             ctx.state.bClu2TwoWinMode = false;
+                            }
+                          }
 
                           // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
+                          if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
+                            if(((zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ)) ||
+                               (ctx.state.iClu3UsedFormat != (*iter_layer)->uFourccFormat_) ||
+                               (ctx.state.iClu3UsedAfbc != (*iter_layer)->bAfbcd_)){
                             ctx.state.bClu3TwoWinMode = false;
+                            }
+                          }
 
                           // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
@@ -747,6 +763,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              ctx.state.iClu0UsedFormat = (*iter_layer)->uFourccFormat_;
+                              ctx.state.iClu0UsedAfbc = (*iter_layer)->bAfbcd_;
                               if(input_w > 2048  ||
                                  output_w > 2048 ||
                                  eotf != TRADITIONAL_GAMMA_SDR ||
@@ -760,6 +778,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu1Used = true;
                               ctx.state.iClu1UsedZ = zpos;
                               ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              ctx.state.iClu1UsedFormat = (*iter_layer)->uFourccFormat_;
+                              ctx.state.iClu1UsedAfbc = (*iter_layer)->bAfbcd_;
                               if(input_w > 2048  ||
                                  output_w > 2048 ||
                                  eotf != TRADITIONAL_GAMMA_SDR ||
@@ -773,6 +793,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu2Used = true;
                               ctx.state.iClu2UsedZ = zpos;
                               ctx.state.iClu2UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              ctx.state.iClu2UsedFormat = (*iter_layer)->uFourccFormat_;
+                              ctx.state.iClu2UsedAfbc = (*iter_layer)->bAfbcd_;
                               if(input_w > 2048  ||
                                  output_w > 2048 ||
                                  eotf != TRADITIONAL_GAMMA_SDR ||
@@ -786,6 +808,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               ctx.state.bClu3Used = true;
                               ctx.state.iClu3UsedZ = zpos;
                               ctx.state.iClu3UsedDstXOffset = (*iter_layer)->display_frame.left;
+                              ctx.state.iClu3UsedFormat = (*iter_layer)->uFourccFormat_;
+                              ctx.state.iClu3UsedAfbc = (*iter_layer)->bAfbcd_;
                               if(input_w > 2048  ||
                                  output_w > 2048 ||
                                  eotf != TRADITIONAL_GAMMA_SDR ||
