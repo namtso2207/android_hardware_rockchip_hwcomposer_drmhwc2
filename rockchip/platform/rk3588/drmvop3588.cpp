@@ -465,7 +465,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                   //reset is_match to false
                   (*iter_layer)->bMatch_ = false;
 
-                  if(match_best){
+                  if(match_best || (*iter_layer)->iBestPlaneType > 0){
                       if(!((*iter)->win_type & (*iter_layer)->iBestPlaneType)){
                           ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d, plane_group win-type = 0x%" PRIx64 " , layer best-type = %x, not match ",
                           __LINE__,(*iter)->win_type, (*iter_layer)->iBestPlaneType);

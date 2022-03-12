@@ -1982,6 +1982,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->eDataSpace_ = dataspace_;
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->sf_composition = sf_type();
+  drmHwcLayer->iBestPlaneType = 0;
 
   drmHwcLayer->sf_handle     = buffer_;
   drmHwcLayer->acquire_fence = acquire_fence_;
@@ -2039,6 +2040,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->bSkipLayer_ = false;
   drmHwcLayer->blending    = DrmHwcBlending::kPreMult;
   drmHwcLayer->iZpos_      = z_order_;
+  drmHwcLayer->iBestPlaneType = 0;
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
 
   if(!validate){
