@@ -69,15 +69,16 @@ ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
 include $(CLEAR_VARS)
 
 LOCAL_SHARED_LIBRARIES := \
-	libcutils \
-	libdrm \
-	libhardware \
-	liblog \
-	libui \
-	libutils \
-	libsync_vendor \
-        libtinyxml2 \
-        libbaseparameter
+  libcutils \
+  libdrm \
+  libhardware \
+  liblog \
+  libui \
+  libutils \
+  libsync_vendor \
+  libtinyxml2 \
+  libbaseparameter \
+  libaive
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -88,7 +89,11 @@ LOCAL_C_INCLUDES := \
   system/core \
   system/core/libsync/include \
   external/tinyxml2 \
-  hardware/rockchip/libbaseparameter
+  hardware/rockchip/libbaseparameter \
+  hardware/rockchip/librga/include \
+  hardware/rockchip/librga/im2d_api \
+  hardware/rockchip/libaive/include
+
 
 LOCAL_SRC_FILES := \
   drmhwctwo.cpp \
@@ -120,7 +125,10 @@ LOCAL_SRC_FILES := \
   rockchip/platform/rk3588/drmvop3588.cpp \
   rockchip/platform/rk3399/drmhwc3399.cpp \
   rockchip/platform/rk356x/drmhwc356x.cpp \
-  rockchip/platform/rk3588/drmhwc3588.cpp
+  rockchip/platform/rk3588/drmhwc3588.cpp \
+  rockchip/common/drmbufferqueue.cpp \
+  rockchip/common/drmbuffer.cpp
+
 
 LOCAL_CPPFLAGS += \
   -DHWC2_USE_CPP11 \
@@ -204,8 +212,14 @@ LOCAL_PROPRIETARY_MODULE := true
 endif
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -Wno-unused-function -Wno-unused-private-field -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
-LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
+LOCAL_CFLAGS += \
+  -Wno-unused-function \
+  -Wno-unused-private-field \
+  -Wno-unused-function \
+  -Wno-unused-variable \
+  -Wno-unused-parameter \
+  -fPIC
+
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)

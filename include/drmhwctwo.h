@@ -104,7 +104,7 @@ class DrmHwcTwo : public hwc2_device_t {
             drmGralloc_ = drm_gralloc;
             name_ = name;
             uBufferId_ = buffer_id;
-            int ret = drmGralloc_->hwc_get_gemhandle_from_fd(drm_->fd(), buffer_fd, uBufferId_, &uGemHandle_);
+            int ret = drmGralloc_->hwc_get_gemhandle_from_fd(buffer_fd, uBufferId_, &uGemHandle_);
             if(ret){
               HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, name_, uBufferId_);
             }
@@ -168,6 +168,7 @@ class DrmHwcTwo : public hwc2_device_t {
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",buffer);
         }else{
           pBufferInfo_ = ret.first->second;
+          pBufferInfo_->uBufferId_ = buffer_id;
           pBufferInfo_->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
           pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
           pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);

@@ -37,7 +37,7 @@ class UniqueFd {
   }
 
   ~UniqueFd() {
-    if (fd_ >= 0)
+    if (fd_ > 0)
       close(fd_);
   }
 
@@ -48,20 +48,30 @@ class UniqueFd {
   }
 
   int Set(int fd) {
-    if (fd_ >= 0)
+    if (fd_ > 0)
       close(fd_);
     fd_ = fd;
     return fd_;
   }
 
   void Close() {
-    if (fd_ >= 0)
+    if (fd_ > 0)
       close(fd_);
     fd_ = -1;
   }
 
+  int Dup() const{
+    if(fd_ > 0)
+      return dup(fd_);
+    return -1;
+  }
+
   int get() const {
     return fd_;
+  }
+
+  int* get_ptr() {
+    return &fd_;
   }
 
  private:
@@ -84,7 +94,7 @@ struct OutputFd {
   }
 
   int Set(int fd) {
-    if (*fd_ >= 0)
+    if (*fd_ > 0)
       close(*fd_);
     *fd_ = fd;
     return fd;

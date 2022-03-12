@@ -38,6 +38,8 @@
 
 #include "platform.h"
 #include "drmdevice.h"
+#include "Aive.h"
+#include "drmbufferqueue.h"
 
 #include <cutils/properties.h>
 
@@ -79,6 +81,7 @@ typedef struct RequestContext{
   int iCnt=0;
   int iScaleCnt=0;
   int iYuvCnt=0;
+  int iYuvRotateCnt=0;
   int iLargeYuvCnt=0;
   int iRotateCnt=0;
   int iHdrCnt=0;
@@ -164,7 +167,11 @@ typedef struct DrmVop2Context{
 } Vop2Ctx;
 
  public:
-  Vop3588(){ Init(); }
+  Vop3588():bufferQueue480p_(std::make_shared<DrmBufferQueue>()),
+            bufferQueue720p_(std::make_shared<DrmBufferQueue>()),
+            bufferQueue1080p_(std::make_shared<DrmBufferQueue>()){
+    Init();
+  }
   void Init();
   bool SupportPlatform(uint32_t soc_id);
   int TryHwcPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -176,6 +183,9 @@ typedef struct DrmVop2Context{
   int TryAssignPlane(DrmDevice* drm, const std::map<int,int> map_dpys);
  protected:
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryRgaPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
   int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -203,6 +213,7 @@ typedef struct DrmVop2Context{
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
+  bool TryRgaOverlay();
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
   void UpdateResevedPlane(DrmCrtc *crtc);
@@ -250,6 +261,13 @@ typedef struct DrmVop2Context{
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best);
  private:
+  Aive* aive_;
+  AiveContext aiveCtx_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue480p_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue720p_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue1080p_;
+  int lastSharpningState_;
+
   Vop2Ctx ctx;
 };
 

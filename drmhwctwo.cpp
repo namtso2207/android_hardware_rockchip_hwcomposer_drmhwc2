@@ -1173,7 +1173,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
     if(drm_hwc_layer.bMatch_){
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
-      ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
+      if(drm_hwc_layer.bUseRga_){
+        ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device-RGA : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
+      }else{
+        ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
+      }
     }else{
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Client);
@@ -2002,6 +2006,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->SetDisplayFrameMirror(display_frame_);
 
   if(buffer_){
+    drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
     drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
     drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
     drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
@@ -2040,8 +2045,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->bSkipLayer_ = false;
   drmHwcLayer->blending    = DrmHwcBlending::kPreMult;
   drmHwcLayer->iZpos_      = z_order_;
-  drmHwcLayer->iBestPlaneType = 0;
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
+  drmHwcLayer->iBestPlaneType = 0;
 
   if(!validate){
     drmHwcLayer->sf_handle     = buffer_;

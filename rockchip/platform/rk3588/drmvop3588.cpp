@@ -49,6 +49,7 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
+  aive_ = Aive::Get();
 }
 
 bool Vop3588::SupportPlatform(uint32_t soc_id){
@@ -75,7 +76,7 @@ int Vop3588::TryHwcPolicy(
   }
 
   // Init context
-  InitContext(layers,plane_groups,crtc,gles_policy);
+  InitContext(layers,plane_groups,crtc,false);
 
   // Try to match overlay policy
   if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
@@ -85,6 +86,16 @@ int Vop3588::TryHwcPolicy(
     else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match overlay policy fail, try to match other policy.");
       TryMix();
+    }
+  }
+
+  // Try to match rga policy
+  if(ctx.state.setHwcPolicy.count(HWC_RGA_OVERLAY_LOPICY)){
+    ret = TryRgaPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match rga policy fail, try to match other policy.");
     }
   }
 
@@ -518,7 +529,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             if(((zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ)) ||
                                (ctx.state.iClu0UsedFormat != (*iter_layer)->uFourccFormat_) ||
                                (ctx.state.iClu0UsedAfbc != (*iter_layer)->bAfbcd_)){
-                            ctx.state.bClu0TwoWinMode = false;
+                              ctx.state.bClu0TwoWinMode = false;
                             }
                           }
 
@@ -527,7 +538,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             if(((zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ)) ||
                                (ctx.state.iClu1UsedFormat != (*iter_layer)->uFourccFormat_) ||
                                (ctx.state.iClu1UsedAfbc != (*iter_layer)->bAfbcd_)){
-                            ctx.state.bClu1TwoWinMode = false;
+                              ctx.state.bClu1TwoWinMode = false;
                             }
                           }
 
@@ -536,7 +547,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             if(((zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ)) ||
                                (ctx.state.iClu2UsedFormat != (*iter_layer)->uFourccFormat_) ||
                                (ctx.state.iClu2UsedAfbc != (*iter_layer)->bAfbcd_)){
-                            ctx.state.bClu2TwoWinMode = false;
+                              ctx.state.bClu2TwoWinMode = false;
                             }
                           }
 
@@ -545,7 +556,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             if(((zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ)) ||
                                (ctx.state.iClu3UsedFormat != (*iter_layer)->uFourccFormat_) ||
                                (ctx.state.iClu3UsedAfbc != (*iter_layer)->bAfbcd_)){
-                            ctx.state.bClu3TwoWinMode = false;
+                              ctx.state.bClu3TwoWinMode = false;
                             }
                           }
 
@@ -646,9 +657,9 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             if((*iter_layer)->bFbTarget_ && (*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,!(*iter_layer)->bAfbcd_)){
                                 (*iter_layer)->bAfbcd_ = !(*iter_layer)->bAfbcd_;
                             }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
-                            continue;
-                          }
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
+                              continue;
+                            }
                           }
 
                           // Input info
@@ -1611,6 +1622,250 @@ int Vop3588::TryMixSkipPolicy(
   }
   return ret;
 }
+int Vop3588::TryRgaPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  std::vector<DrmHwcLayer*> tmp_layers;
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  //save fb into tmp_layers
+
+  bool rga_layer_ready = false;
+  bool use_laster_rga_layer = false;
+  std::shared_ptr<DrmBuffer> dst_buffer;
+
+  char value[PROPERTY_VALUE_MAX];
+  property_get("vendor.hwc.enable_sharpning", value, "1");
+  int enable_sharpning = 0;
+  enable_sharpning = atoi(value);
+
+  int dlss_mode = 720;
+  static uint64_t last_buffer_id = 0;
+  for(auto &drmLayer : layers){
+    if(!drmLayer->bAfbcd_ &&
+       drmLayer->iWidth_ <= 2560 &&
+       (drmLayer->bYuv_ || strstr(drmLayer->sLayerName_.c_str(), "SurfaceView"))){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+        if(lastSharpningState_ != enable_sharpning || drmLayer->uBufferId_ != last_buffer_id){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+          // 1. Init Ctx
+          int ret = aive_->InitCtx(aiveCtx_);
+          if(ret){
+            HWC2_ALOGE("Aive ctx init fail");
+            continue;
+          }
+          // 2. Set buffer Info
+          AiveImageInfo src;
+          src.mBufferInfo_.iFd_     = drmLayer->iFd_;
+          src.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
+          src.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
+          src.mBufferInfo_.iFormat_ = drmLayer->iFormat_;
+          src.mBufferInfo_.iStride_ = drmLayer->iStride_;
+          src.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
+          src.mBufferInfo_.uDataSpace_ = (uint64_t)drmLayer->eDataSpace_;
+
+          src.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
+          src.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
+          src.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
+          src.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
+
+          ret = aive_->SetSrcImage(aiveCtx_, src);
+          if(ret){
+            printf("Aive SetSrcImage fail\n");
+            continue;
+          }
+
+          // 3. Get dst info
+          AiveImageInfo require;
+          ret = aive_->GetDstRequireInfo(aiveCtx_, require);
+          if(ret){
+            printf("Aive GetDstRequireInfo fail\n");
+            continue;
+          }
+
+          // 4. Alloc dst_buffer
+          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+            dst_buffer = bufferQueue480p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                            require.mBufferInfo_.iHeight_,
+                                                            require.mBufferInfo_.iFormat_,
+                                                           "DLSS-GPUSS-SurfaceView-480p");
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+            dst_buffer = bufferQueue720p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                            require.mBufferInfo_.iHeight_,
+                                                            require.mBufferInfo_.iFormat_,
+                                                           "DLSS-GPUSS-SurfaceView-720p");
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+            dst_buffer = bufferQueue1080p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                             require.mBufferInfo_.iHeight_,
+                                                             require.mBufferInfo_.iFormat_,
+                                                             "DLSS-GPUSS-SurfaceView-1440p");
+          }
+
+          if(dst_buffer == NULL){
+            HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
+            continue;
+          }
+
+          // 5. Set buffer Info
+          AiveImageInfo dst;
+          dst.mBufferInfo_.iFd_     = dst_buffer->GetFd();
+          dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
+          dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
+          dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
+          dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+          dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
+
+          dst.mCrop_.iLeft_  = require.mCrop_.iLeft_;
+          dst.mCrop_.iTop_   = require.mCrop_.iTop_;
+          dst.mCrop_.iRight_ = require.mCrop_.iRight_;
+          dst.mCrop_.iBottom_= require.mCrop_.iBottom_;
+
+          ret = aive_->SetDstImage(aiveCtx_, dst);
+          if(ret){
+            printf("Aive SetSrcImage fail\n");
+            continue;
+          }
+
+          hwc_frect_t source_crop;
+          source_crop.left   = require.mCrop_.iLeft_;
+          source_crop.top    = require.mCrop_.iTop_;
+          source_crop.right  = require.mCrop_.iRight_;
+          source_crop.bottom = require.mCrop_.iBottom_;
+          drmLayer->UpdateAndStoreInfoFromDrmBuffer(dst_buffer->GetHandle(),
+                                                    dst_buffer->GetFd(),
+                                                    dst_buffer->GetFormat(),
+                                                    dst_buffer->GetWidth(),
+                                                    dst_buffer->GetHeight(),
+                                                    dst_buffer->GetStride(),
+                                                    dst_buffer->GetByteStride(),
+                                                    dst_buffer->GetUsage(),
+                                                    dst_buffer->GetFourccFormat(),
+                                                    dst_buffer->GetModifier(),
+                                                    dst_buffer->GetName(),
+                                                    source_crop,
+                                                    dst_buffer->GetBufferId(),
+                                                    dst_buffer->GetGemHandle());
+          rga_layer_ready = true;
+          drmLayer->bUseRga_ = true;
+          drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          if(lastSharpningState_ != enable_sharpning)
+            ALOGD("rk-debug lastSharpningState_(%d => %d), to update DLSS layer.",lastSharpningState_,enable_sharpning);
+          lastSharpningState_ = enable_sharpning;
+        }else{
+          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+            dst_buffer = bufferQueue480p_->BackDrmBuffer();
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+            dst_buffer = bufferQueue720p_->BackDrmBuffer();
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+            dst_buffer = bufferQueue1080p_->BackDrmBuffer();
+          }
+
+          if(dst_buffer == NULL){
+            HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
+            break;
+          }
+
+          hwc_frect_t source_crop;
+          source_crop.left   = aiveCtx_.mDst_.mCrop_.iLeft_;
+          source_crop.top    = aiveCtx_.mDst_.mCrop_.iTop_;
+          source_crop.right  = aiveCtx_.mDst_.mCrop_.iRight_;
+          source_crop.bottom = aiveCtx_.mDst_.mCrop_.iBottom_;
+          drmLayer->UpdateAndStoreInfoFromDrmBuffer(dst_buffer->GetHandle(),
+                                                    dst_buffer->GetFd(),
+                                                    dst_buffer->GetFormat(),
+                                                    dst_buffer->GetWidth(),
+                                                    dst_buffer->GetHeight(),
+                                                    dst_buffer->GetStride(),
+                                                    dst_buffer->GetByteStride(),
+                                                    dst_buffer->GetUsage(),
+                                                    dst_buffer->GetFourccFormat(),
+                                                    dst_buffer->GetModifier(),
+                                                    dst_buffer->GetName(),
+                                                    source_crop,
+                                                    dst_buffer->GetBufferId(),
+                                                    dst_buffer->GetGemHandle());
+          use_laster_rga_layer = true;
+          drmLayer->bUseRga_ = true;
+          drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          break;
+        }
+      }
+  }
+  if(rga_layer_ready){
+    ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d rga layer ready, to matchPlanes",__FUNCTION__,__LINE__);
+    int ret = 0;
+    if(ctx.request.iSkipCnt > 0){
+      ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
+    }else{
+      ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
+      if(ret){
+        ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
+      }
+    }
+    if(!ret){ // Match sucess, to call im2d interface
+      for(auto &drmLayer : layers){
+        if(drmLayer->bUseRga_){
+          int output_fence = 0;
+          ret = aive_->RunAsync(aiveCtx_, &output_fence);
+          if(ret){
+            HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
+            drmLayer->bUseRga_ = false;
+          }
+          dst_buffer->SetFinishFence(dup(output_fence));
+          drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
+          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+            bufferQueue480p_->QueueBuffer(dst_buffer);
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+            bufferQueue720p_->QueueBuffer(dst_buffer);
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+            bufferQueue1080p_->QueueBuffer(dst_buffer);
+          }
+          last_buffer_id = aiveCtx_.mSrc_.mBufferInfo_.uBufferId_;
+          return ret;
+        }
+      }
+      ResetLayerFromTmp(layers,tmp_layers);
+      return ret;
+    }else{ // Match fail, skip rga policy
+      HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
+      for(auto &drmLayer : layers){
+        if(drmLayer->bUseRga_){
+          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+            bufferQueue480p_->QueueBuffer(dst_buffer);
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+            bufferQueue720p_->QueueBuffer(dst_buffer);
+          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+            bufferQueue1080p_->QueueBuffer(dst_buffer);
+          }
+          drmLayer->ResetInfoFromStore();
+          drmLayer->bUseRga_ = false;
+        }
+      }
+      ResetLayerFromTmp(layers,tmp_layers);
+      return -1;
+    }
+  }else if(use_laster_rga_layer){
+    ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d rga layer ready, to matchPlanes",__FUNCTION__,__LINE__);
+    int ret = -1;
+    if(ctx.request.iSkipCnt > 0){
+      ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
+    }else{
+      ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
+      if(ret){
+        ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
+      }
+    }
+    if(!ret){ // Match sucess, to call im2d interface
+      HWC2_ALOGD_IF_DEBUG("Use last rga layer.");
+      return ret;
+    }
+  }
+  HWC2_ALOGD_IF_DEBUG("fail!, No layer use RGA policy.");
+  ResetLayerFromTmp(layers,tmp_layers);
+  return -1;
+}
 
 /*************************mix video*************************
  Video ovelay
@@ -2445,6 +2700,12 @@ bool Vop3588::TryOverlay(){
   return false;
 }
 
+bool Vop3588::TryRgaOverlay(){
+  ctx.state.setHwcPolicy.insert(HWC_RGA_OVERLAY_LOPICY);
+  return true;
+}
+
+
 void Vop3588::TryMix(){
   ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
   ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
@@ -2485,9 +2746,15 @@ int Vop3588::InitContext(
           __FUNCTION__,__LINE__);
 
   // Match policy first
-  if(!TryOverlay())
-    TryMix();
-
+  DrmDevice *drm = crtc->getDrmDevice();
+  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+  if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
+      // Match policy first
+      TryRgaOverlay();
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+  }else{
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+  }
   return 0;
 }
 }

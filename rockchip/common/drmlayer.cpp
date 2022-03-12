@@ -535,6 +535,109 @@ supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
   return TRADITIONAL_GAMMA_SDR;
 }
 
+void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
+      int fd, int format, int w, int h, int stride,
+      int byte_stride, int usage, uint32_t fourcc, uint64_t modefier,
+      std::string name, hwc_frect_t &intput_crop, uint64_t buffer_id,
+      uint32_t gemhandle){
+
+  storeLayerInfo_.valid_       = true;
+  storeLayerInfo_.sf_handle    = sf_handle;
+  storeLayerInfo_.transform    = transform;
+  storeLayerInfo_.source_crop  = source_crop;
+  storeLayerInfo_.display_frame  = display_frame;
+  storeLayerInfo_.iFd_         = iFd_;
+  storeLayerInfo_.iFormat_     = iFormat_;
+  storeLayerInfo_.iWidth_      = iWidth_;
+  storeLayerInfo_.iHeight_     = iHeight_;
+  storeLayerInfo_.iStride_     = iStride_;
+  storeLayerInfo_.iByteStride_ = iByteStride_;
+  storeLayerInfo_.iUsage = iUsage;
+  storeLayerInfo_.uFourccFormat_ = uFourccFormat_;
+  storeLayerInfo_.uModifier_     = uModifier_;
+  storeLayerInfo_.sLayerName_    = sLayerName_;
+  storeLayerInfo_.uBufferId_    = uBufferId_;
+  storeLayerInfo_.uGemHandle_   = uGemHandle_;
+
+  sf_handle      = handle;
+  iFd_           = fd;
+  iFormat_       = format;
+  iWidth_        = w;
+  iHeight_       = h;
+  iStride_       = stride;
+  iByteStride_   = byte_stride;
+  iUsage         = usage;
+  uFourccFormat_ = fourcc;
+  uModifier_     = modefier;
+  sLayerName_    = name;
+  uBufferId_     = buffer_id;
+  uGemHandle_    = gemhandle;
+
+  iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+
+  source_crop.left   = intput_crop.left;
+  source_crop.top    = intput_crop.top;
+  source_crop.right  = intput_crop.right;
+  source_crop.bottom = intput_crop.bottom;
+
+  transform = DRM_MODE_ROTATE_0;
+  Init();
+  ALOGI("AiveTransform : LayerId[%u] Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
+        "                            Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
+             uId_,
+             storeLayerInfo_.uFourccFormat_,storeLayerInfo_.uFourccFormat_>>8,
+             storeLayerInfo_.uFourccFormat_>>16,storeLayerInfo_.uFourccFormat_>>24,
+             storeLayerInfo_.iWidth_,storeLayerInfo_.iHeight_,storeLayerInfo_.iStride_,
+             storeLayerInfo_.source_crop.left,storeLayerInfo_.source_crop.top,
+             storeLayerInfo_.source_crop.right,storeLayerInfo_.source_crop.bottom,
+             storeLayerInfo_.display_frame.left,storeLayerInfo_.display_frame.top,
+             storeLayerInfo_.display_frame.right,storeLayerInfo_.display_frame.bottom,
+             TransformToString(storeLayerInfo_.transform).c_str(),storeLayerInfo_.transform,
+             uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,iWidth_,iHeight_,iStride_,
+             source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+             display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,
+             TransformToString(transform).c_str(),transform);
+  return;
+}
+
+void DrmHwcLayer::ResetInfoFromStore(){
+  if(!storeLayerInfo_.valid_){
+    HWC2_ALOGE("ResetInfoFromStore fail, There may be some errors.");
+    return;
+  }
+
+  sf_handle    = storeLayerInfo_.sf_handle;
+  transform    = storeLayerInfo_.transform;
+  source_crop  = storeLayerInfo_.source_crop;
+  iFd_         = storeLayerInfo_.iFd_;
+  iFormat_     = storeLayerInfo_.iFormat_;
+  iWidth_      = storeLayerInfo_.iWidth_ ;
+  iHeight_     = storeLayerInfo_.iHeight_;
+  iStride_     = storeLayerInfo_.iStride_;
+  iByteStride_ = storeLayerInfo_.iByteStride_;
+  iUsage       = storeLayerInfo_.iUsage;
+  uFourccFormat_ = storeLayerInfo_.uFourccFormat_;
+  uModifier_     = storeLayerInfo_.uModifier_;
+  sLayerName_    = storeLayerInfo_.sLayerName_;
+  uBufferId_     = storeLayerInfo_.uBufferId_;
+  uGemHandle_    = storeLayerInfo_.uGemHandle_;
+
+  Init();
+  ALOGI("reset:DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
+             "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d,gles=%d\n",
+             uId_,iWidth_,iHeight_,iStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
+             TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
+             source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+             display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,bGlesCompose_);
+
+  memset(&storeLayerInfo_, 0x00, sizeof(storeLayerInfo_));
+  storeLayerInfo_.valid_ = false;
+
+  return;
+}
+
+
+
 std::string DrmHwcLayer::TransformToString(uint32_t transform) const{
   switch (transform) {
       case DRM_MODE_ROTATE_0:
@@ -587,5 +690,65 @@ int DrmHwcLayer::DumpInfo(String8 &out){
                        display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_);
     return 0;
 }
+
+int DrmHwcLayer::DumpData(){
+  if(!sf_handle){
+    ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d LayerId=%u Buffer is null.",__FUNCTION__,__LINE__,uId_);
+    return -1;
+  }
+
+  DrmGralloc *drm_gralloc = DrmGralloc::getInstance();
+  if(!drm_gralloc){
+    ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d LayerId=%u drm_gralloc is null.",__FUNCTION__,__LINE__,uId_);
+    return -1;
+  }
+  void* cpu_addr = NULL;
+  static int frame_cnt =0;
+  int width,height,stride,byte_stride,format,size;
+  int ret = 0;
+  width  = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_WIDTH);
+  height = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_HEIGHT);
+  stride = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_STRIDE);
+  format = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_FORMAT);
+  size   = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_SIZE);
+  byte_stride = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_BYTE_STRIDE);
+
+  cpu_addr = drm_gralloc->hwc_get_handle_lock(sf_handle,width,height);
+  if(ret){
+    ALOGE("%s,line=%d, LayerId=%u, lock fail ret = %d ",__FUNCTION__,__LINE__,uId_,ret);
+    return ret;
+  }
+  FILE * pfile = NULL;
+  char data_name[100] ;
+  system("mkdir /data/dump/ && chmod /data/dump/ 777 ");
+  sprintf(data_name,"/data/dump/%d_%15.15s_id-%d_%dx%d_f-%d.bin",
+          frame_cnt++,sLayerName_.size() < 5 ? "unset" : sLayerName_.c_str(),
+          uId_,stride,height,format);
+
+  pfile = fopen(data_name,"wb");
+  if(pfile)
+  {
+      fwrite((const void *)cpu_addr,(size_t)(size),1,pfile);
+      fflush(pfile);
+      fclose(pfile);
+      ALOGD(" dump surface layer_id=%d ,data_name %s,w:%d,h:%d,stride :%d,size=%d,cpu_addr=%p",
+          uId_,data_name,width,height,byte_stride,size,cpu_addr);
+  }
+  else
+  {
+      ALOGE("Open %s fail", data_name);
+      ALOGD(" dump surface layer_id=%d ,data_name %s,w:%d,h:%d,stride :%d,size=%d,cpu_addr=%p",
+          uId_,data_name,width,height,byte_stride,size,cpu_addr);
+  }
+
+
+  ret = drm_gralloc->hwc_get_handle_unlock(sf_handle);
+  if(ret){
+    ALOGE("%s,line=%d, LayerId=%u, unlock fail ret = %d ",__FUNCTION__,__LINE__,uId_,ret);
+    return ret;
+  }
+  return 0;
+}
+
 
 }  // namespace android

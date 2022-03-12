@@ -57,16 +57,21 @@ DrmGralloc::DrmGralloc(){
 #endif
 }
 
-DrmGralloc::~DrmGralloc(){}
+DrmGralloc::~DrmGralloc(){
+  if(drmDeviceFd_>0)
+    close(drmDeviceFd_);
 
-void DrmGralloc::set_drm_version(int version){
+}
 
+void DrmGralloc::set_drm_version(int drm_device, int version){
 #if USE_GRALLOC_4
     gralloc4::set_drm_version(version);
-    drmVersion_ = version;
 #endif
+    drmDeviceFd_ = drm_device;
+    drmVersion_ = version;
     return;
 }
+
 int DrmGralloc::hwc_get_handle_width(buffer_handle_t hnd)
 {
 
@@ -578,20 +583,19 @@ int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
   return ret;
 }
 
-int DrmGralloc::hwc_get_gemhandle_from_fd(int drm_device_fd,
-                                          uint64_t buffer_fd,
+int DrmGralloc::hwc_get_gemhandle_from_fd(uint64_t buffer_fd,
                                           uint64_t buffer_id,
                                           uint32_t *out_gem_handle){
   auto mapGemHandle = mapGemHandles_.find(buffer_id);
   if(mapGemHandle == mapGemHandles_.end()){
     HWC2_ALOGD_IF_VERBOSE("Call drmPrimeFDToHandle buf_fd=%" PRIu64 " buf_id=%" PRIx64, buffer_fd, buffer_id);
     uint32_t gem_handle;
-    int ret = drmPrimeFDToHandle(drm_device_fd, buffer_fd, &gem_handle);
+    int ret = drmPrimeFDToHandle(drmDeviceFd_, buffer_fd, &gem_handle);
     if (ret) {
       HWC2_ALOGE("failed to import prime fd %" PRIu64 " ret=%d", buffer_fd, ret);
       return ret;
     }
-    auto ptrGemHandle = std::make_shared<GemHandle>(drm_device_fd,gem_handle);
+    auto ptrGemHandle = std::make_shared<GemHandle>(drmDeviceFd_,gem_handle);
     auto res = mapGemHandles_.insert(std::pair<uint64_t, std::shared_ptr<GemHandle>>(buffer_id, ptrGemHandle));
     if(res.second==false){
         HWC2_ALOGE("mapGemHandles_ insert fail. maybe buffer_id %" PRIu64 " has existed", buffer_id);
