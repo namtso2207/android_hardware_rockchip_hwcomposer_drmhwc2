@@ -62,6 +62,7 @@ typedef enum tagComposeMode{
    HWC_MIX_LOPICY,
    HWC_GLES_POLICY,
    HWC_RGA_OVERLAY_LOPICY,
+   HWC_AIVE_OVERLAY_LOPICY,
    HWC_3D_LOPICY,
    HWC_DEBUG_POLICY
 }ComposeMode;
@@ -185,7 +186,7 @@ typedef struct DrmVop2Context{
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
-  int TryRgaPolicy(std::vector<DrmCompositionPlane> *composition,
+  int TryAivePolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
   int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,
@@ -213,7 +214,7 @@ typedef struct DrmVop2Context{
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
-  bool TryRgaOverlay();
+  bool TryAiveOverlay();
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
   void UpdateResevedPlane(DrmCrtc *crtc);
@@ -262,6 +263,7 @@ typedef struct DrmVop2Context{
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best);
  private:
   Aive* aive_;
+  bool bAiveReady_;
   AiveContext aiveCtx_;
   std::shared_ptr<DrmBufferQueue> bufferQueue480p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue720p_;

@@ -49,7 +49,12 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
+  bAiveReady_ = false;
   aive_ = Aive::Get();
+  if(aive_ != NULL){
+    bAiveReady_ = true;
+    HWC2_ALOGI("Aive module ready. to enable AiveMode.");
+  }
 }
 
 bool Vop3588::SupportPlatform(uint32_t soc_id){
@@ -78,6 +83,16 @@ int Vop3588::TryHwcPolicy(
   // Init context
   InitContext(layers,plane_groups,crtc,false);
 
+  // Try to match rga policy
+  if(ctx.state.setHwcPolicy.count(HWC_AIVE_OVERLAY_LOPICY)){
+    ret = TryAivePolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else{
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Match rga policy fail, try to match other policy.");
+    }
+  }
+
   // Try to match overlay policy
   if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
     ret = TryOverlayPolicy(composition,layers,crtc,plane_groups);
@@ -89,15 +104,6 @@ int Vop3588::TryHwcPolicy(
     }
   }
 
-  // Try to match rga policy
-  if(ctx.state.setHwcPolicy.count(HWC_RGA_OVERLAY_LOPICY)){
-    ret = TryRgaPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-    else{
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Match rga policy fail, try to match other policy.");
-    }
-  }
 
   // Try to match mix policy
   if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
@@ -1622,7 +1628,7 @@ int Vop3588::TryMixSkipPolicy(
   }
   return ret;
 }
-int Vop3588::TryRgaPolicy(
+int Vop3588::TryAivePolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -2700,8 +2706,8 @@ bool Vop3588::TryOverlay(){
   return false;
 }
 
-bool Vop3588::TryRgaOverlay(){
-  ctx.state.setHwcPolicy.insert(HWC_RGA_OVERLAY_LOPICY);
+bool Vop3588::TryAiveOverlay(){
+  ctx.state.setHwcPolicy.insert(HWC_AIVE_OVERLAY_LOPICY);
   return true;
 }
 
@@ -2745,16 +2751,19 @@ int Vop3588::InitContext(
           ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
 
+  int iAiveMode = hwc_get_int_property(AIVE_MODE_NAME,"0");
   // Match policy first
-  DrmDevice *drm = crtc->getDrmDevice();
-  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-  if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
+  if(bAiveReady_ && iAiveMode > 0){
+    DrmDevice *drm = crtc->getDrmDevice();
+    DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+    if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
       // Match policy first
-      TryRgaOverlay();
-    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-  }else{
-    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+      TryAiveOverlay();
+    }
   }
+  if(!TryOverlay())
+    TryMix();
+
   return 0;
 }
 }
