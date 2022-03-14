@@ -78,7 +78,7 @@ LOCAL_SHARED_LIBRARIES := \
   libsync_vendor \
   libtinyxml2 \
   libbaseparameter \
-  libaive
+  libsvep
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -92,7 +92,7 @@ LOCAL_C_INCLUDES := \
   hardware/rockchip/libbaseparameter \
   hardware/rockchip/librga/include \
   hardware/rockchip/librga/im2d_api \
-  hardware/rockchip/libaive/include
+  hardware/rockchip/libsvep/include
 
 
 LOCAL_SRC_FILES := \

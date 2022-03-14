@@ -49,11 +49,11 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
-  bAiveReady_ = false;
-  aive_ = Aive::Get();
-  if(aive_ != NULL){
-    bAiveReady_ = true;
-    HWC2_ALOGI("Aive module ready. to enable AiveMode.");
+  bSvepReady_ = false;
+  svep_ = Svep::Get();
+  if(svep_ != NULL){
+    bSvepReady_ = true;
+    HWC2_ALOGI("Svep module ready. to enable SvepMode.");
   }
 }
 
@@ -84,8 +84,8 @@ int Vop3588::TryHwcPolicy(
   InitContext(layers,plane_groups,crtc,false);
 
   // Try to match rga policy
-  if(ctx.state.setHwcPolicy.count(HWC_AIVE_OVERLAY_LOPICY)){
-    ret = TryAivePolicy(composition,layers,crtc,plane_groups);
+  if(ctx.state.setHwcPolicy.count(HWC_SVEP_OVERLAY_LOPICY)){
+    ret = TrySvepPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
     else{
@@ -1628,7 +1628,7 @@ int Vop3588::TryMixSkipPolicy(
   }
   return ret;
 }
-int Vop3588::TryAivePolicy(
+int Vop3588::TrySvepPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -1657,13 +1657,13 @@ int Vop3588::TryAivePolicy(
         if(lastSharpningState_ != enable_sharpning || drmLayer->uBufferId_ != last_buffer_id){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
           // 1. Init Ctx
-          int ret = aive_->InitCtx(aiveCtx_);
+          int ret = svep_->InitCtx(svepCtx_);
           if(ret){
-            HWC2_ALOGE("Aive ctx init fail");
+            HWC2_ALOGE("Svep ctx init fail");
             continue;
           }
           // 2. Set buffer Info
-          AiveImageInfo src;
+          SvepImageInfo src;
           src.mBufferInfo_.iFd_     = drmLayer->iFd_;
           src.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
           src.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
@@ -1677,32 +1677,32 @@ int Vop3588::TryAivePolicy(
           src.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
           src.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
 
-          ret = aive_->SetSrcImage(aiveCtx_, src);
+          ret = svep_->SetSrcImage(svepCtx_, src);
           if(ret){
-            printf("Aive SetSrcImage fail\n");
+            printf("Svep SetSrcImage fail\n");
             continue;
           }
 
           // 3. Get dst info
-          AiveImageInfo require;
-          ret = aive_->GetDstRequireInfo(aiveCtx_, require);
+          SvepImageInfo require;
+          ret = svep_->GetDstRequireInfo(svepCtx_, require);
           if(ret){
-            printf("Aive GetDstRequireInfo fail\n");
+            printf("Svep GetDstRequireInfo fail\n");
             continue;
           }
 
           // 4. Alloc dst_buffer
-          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
             dst_buffer = bufferQueue480p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
                                                            "DLSS-GPUSS-SurfaceView-480p");
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             dst_buffer = bufferQueue720p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
                                                            "DLSS-GPUSS-SurfaceView-720p");
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             dst_buffer = bufferQueue1080p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                              require.mBufferInfo_.iHeight_,
                                                              require.mBufferInfo_.iFormat_,
@@ -1715,7 +1715,7 @@ int Vop3588::TryAivePolicy(
           }
 
           // 5. Set buffer Info
-          AiveImageInfo dst;
+          SvepImageInfo dst;
           dst.mBufferInfo_.iFd_     = dst_buffer->GetFd();
           dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
           dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
@@ -1728,9 +1728,9 @@ int Vop3588::TryAivePolicy(
           dst.mCrop_.iRight_ = require.mCrop_.iRight_;
           dst.mCrop_.iBottom_= require.mCrop_.iBottom_;
 
-          ret = aive_->SetDstImage(aiveCtx_, dst);
+          ret = svep_->SetDstImage(svepCtx_, dst);
           if(ret){
-            printf("Aive SetSrcImage fail\n");
+            printf("Svep SetSrcImage fail\n");
             continue;
           }
 
@@ -1760,11 +1760,11 @@ int Vop3588::TryAivePolicy(
             ALOGD("rk-debug lastSharpningState_(%d => %d), to update DLSS layer.",lastSharpningState_,enable_sharpning);
           lastSharpningState_ = enable_sharpning;
         }else{
-          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
             dst_buffer = bufferQueue480p_->BackDrmBuffer();
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             dst_buffer = bufferQueue720p_->BackDrmBuffer();
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             dst_buffer = bufferQueue1080p_->BackDrmBuffer();
           }
 
@@ -1774,10 +1774,10 @@ int Vop3588::TryAivePolicy(
           }
 
           hwc_frect_t source_crop;
-          source_crop.left   = aiveCtx_.mDst_.mCrop_.iLeft_;
-          source_crop.top    = aiveCtx_.mDst_.mCrop_.iTop_;
-          source_crop.right  = aiveCtx_.mDst_.mCrop_.iRight_;
-          source_crop.bottom = aiveCtx_.mDst_.mCrop_.iBottom_;
+          source_crop.left   = svepCtx_.mDst_.mCrop_.iLeft_;
+          source_crop.top    = svepCtx_.mDst_.mCrop_.iTop_;
+          source_crop.right  = svepCtx_.mDst_.mCrop_.iRight_;
+          source_crop.bottom = svepCtx_.mDst_.mCrop_.iBottom_;
           drmLayer->UpdateAndStoreInfoFromDrmBuffer(dst_buffer->GetHandle(),
                                                     dst_buffer->GetFd(),
                                                     dst_buffer->GetFormat(),
@@ -1814,21 +1814,21 @@ int Vop3588::TryAivePolicy(
       for(auto &drmLayer : layers){
         if(drmLayer->bUseRga_){
           int output_fence = 0;
-          ret = aive_->RunAsync(aiveCtx_, &output_fence);
+          ret = svep_->RunAsync(svepCtx_, &output_fence);
           if(ret){
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
             drmLayer->bUseRga_ = false;
           }
           dst_buffer->SetFinishFence(dup(output_fence));
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
-          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
             bufferQueue480p_->QueueBuffer(dst_buffer);
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             bufferQueue720p_->QueueBuffer(dst_buffer);
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             bufferQueue1080p_->QueueBuffer(dst_buffer);
           }
-          last_buffer_id = aiveCtx_.mSrc_.mBufferInfo_.uBufferId_;
+          last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
           return ret;
         }
       }
@@ -1838,11 +1838,11 @@ int Vop3588::TryAivePolicy(
       HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
       for(auto &drmLayer : layers){
         if(drmLayer->bUseRga_){
-          if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_480p){
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
             bufferQueue480p_->QueueBuffer(dst_buffer);
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_720p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             bufferQueue720p_->QueueBuffer(dst_buffer);
-          }else if(aiveCtx_.mAiveMode_ == AiveMode::AIVE_1080p){
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             bufferQueue1080p_->QueueBuffer(dst_buffer);
           }
           drmLayer->ResetInfoFromStore();
@@ -2706,8 +2706,8 @@ bool Vop3588::TryOverlay(){
   return false;
 }
 
-bool Vop3588::TryAiveOverlay(){
-  ctx.state.setHwcPolicy.insert(HWC_AIVE_OVERLAY_LOPICY);
+bool Vop3588::TrySvepOverlay(){
+  ctx.state.setHwcPolicy.insert(HWC_SVEP_OVERLAY_LOPICY);
   return true;
 }
 
@@ -2751,14 +2751,14 @@ int Vop3588::InitContext(
           ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
 
-  int iAiveMode = hwc_get_int_property(AIVE_MODE_NAME,"0");
+  int iSvepMode = hwc_get_int_property(SVEP_MODE_NAME,"0");
   // Match policy first
-  if(bAiveReady_ && iAiveMode > 0){
+  if(bSvepReady_ && iSvepMode > 0){
     DrmDevice *drm = crtc->getDrmDevice();
     DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
     if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
       // Match policy first
-      TryAiveOverlay();
+      TrySvepOverlay();
     }
   }
   if(!TryOverlay())

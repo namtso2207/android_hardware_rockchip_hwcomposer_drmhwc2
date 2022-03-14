@@ -582,7 +582,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
 
   transform = DRM_MODE_ROTATE_0;
   Init();
-  ALOGI("AiveTransform : LayerId[%u] Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
+  ALOGI("SvepTransform : LayerId[%u] Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
         "                            Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
              uId_,
              storeLayerInfo_.uFourccFormat_,storeLayerInfo_.uFourccFormat_>>8,
