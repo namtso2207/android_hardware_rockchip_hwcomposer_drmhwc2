@@ -18,7 +18,7 @@
 #define _DRM_BUFFER_H_
 
 #include "rockchip/drmgralloc.h"
-#include "autofd.h"
+#include "utils/autofd.h"
 
 #include <ui/GraphicBuffer.h>
 

@@ -49,12 +49,14 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
+#ifdef USE_LIBSVEP
   bSvepReady_ = false;
   svep_ = Svep::Get();
   if(svep_ != NULL){
     bSvepReady_ = true;
     HWC2_ALOGI("Svep module ready. to enable SvepMode.");
   }
+#endif
 }
 
 bool Vop3588::SupportPlatform(uint32_t soc_id){
@@ -83,6 +85,7 @@ int Vop3588::TryHwcPolicy(
   // Init context
   InitContext(layers,plane_groups,crtc,false);
 
+#ifdef USE_LIBSVEP
   // Try to match rga policy
   if(ctx.state.setHwcPolicy.count(HWC_SVEP_OVERLAY_LOPICY)){
     ret = TrySvepPolicy(composition,layers,crtc,plane_groups);
@@ -92,6 +95,7 @@ int Vop3588::TryHwcPolicy(
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match rga policy fail, try to match other policy.");
     }
   }
+#endif
 
   // Try to match overlay policy
   if(ctx.state.setHwcPolicy.count(HWC_OVERLAY_LOPICY)){
@@ -1628,6 +1632,14 @@ int Vop3588::TryMixSkipPolicy(
   }
   return ret;
 }
+
+#ifdef USE_LIBSVEP
+
+bool Vop3588::TrySvepOverlay(){
+  ctx.state.setHwcPolicy.insert(HWC_SVEP_OVERLAY_LOPICY);
+  return true;
+}
+
 int Vop3588::TrySvepPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -1872,7 +1884,7 @@ int Vop3588::TrySvepPolicy(
   ResetLayerFromTmp(layers,tmp_layers);
   return -1;
 }
-
+#endif
 /*************************mix video*************************
  Video ovelay
 -----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
@@ -2706,12 +2718,6 @@ bool Vop3588::TryOverlay(){
   return false;
 }
 
-bool Vop3588::TrySvepOverlay(){
-  ctx.state.setHwcPolicy.insert(HWC_SVEP_OVERLAY_LOPICY);
-  return true;
-}
-
-
 void Vop3588::TryMix(){
   ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
   ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
@@ -2743,6 +2749,7 @@ int Vop3588::InitContext(
     return 0;
   }
 
+#ifdef USE_LIBSVEP
   ALOGD_IF(LogLevel(DBG_DEBUG),"request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d,skip=%d\n"
           "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d, %s,line=%d,",
           ctx.request.iAfbcdCnt,ctx.request.iScaleCnt,ctx.request.iYuvCnt,
@@ -2761,6 +2768,8 @@ int Vop3588::InitContext(
       TrySvepOverlay();
     }
   }
+#endif
+
   if(!TryOverlay())
     TryMix();
 

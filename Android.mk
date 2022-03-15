@@ -77,8 +77,7 @@ LOCAL_SHARED_LIBRARIES := \
   libutils \
   libsync_vendor \
   libtinyxml2 \
-  libbaseparameter \
-  libsvep
+  libbaseparameter
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -91,8 +90,7 @@ LOCAL_C_INCLUDES := \
   external/tinyxml2 \
   hardware/rockchip/libbaseparameter \
   hardware/rockchip/librga/include \
-  hardware/rockchip/librga/im2d_api \
-  hardware/rockchip/libsvep/include
+  hardware/rockchip/librga/im2d_api
 
 
 LOCAL_SRC_FILES := \
@@ -201,8 +199,17 @@ LOCAL_C_INCLUDES += \
 endif
 endif
 
-MAJOR_VERSION := "RK_GRAPHICS_VER=commit-id:$(shell cd $(LOCAL_PATH) && git log  -1 --oneline | awk '{print $$1}')"
-LOCAL_CPPFLAGS += -DRK_GRAPHICS_VER=\"$(MAJOR_VERSION)\"
+# BOARD_USES_LIBSVEP=true
+ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libsvep/include
+
+LOCAL_SHARED_LIBRARIES += \
+	libsvep
+
+LOCAL_CFLAGS += \
+	-DUSE_LIBSVEP=1
+endif
 
 LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_HARDWARE)
 

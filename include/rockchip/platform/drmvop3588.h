@@ -38,8 +38,11 @@
 
 #include "platform.h"
 #include "drmdevice.h"
-#include "Svep.h"
 #include "drmbufferqueue.h"
+
+#ifdef USE_LIBSVEP
+#include "Svep.h"
+#endif
 
 #include <cutils/properties.h>
 
@@ -168,9 +171,14 @@ typedef struct DrmVop2Context{
 } Vop2Ctx;
 
  public:
-  Vop3588():bufferQueue480p_(std::make_shared<DrmBufferQueue>()),
-            bufferQueue720p_(std::make_shared<DrmBufferQueue>()),
-            bufferQueue1080p_(std::make_shared<DrmBufferQueue>()){
+  Vop3588()
+#ifdef USE_LIBSVEP
+    :
+    bufferQueue480p_(std::make_shared<DrmBufferQueue>()),
+    bufferQueue720p_(std::make_shared<DrmBufferQueue>()),
+    bufferQueue1080p_(std::make_shared<DrmBufferQueue>())
+#endif
+  {
     Init();
   }
   void Init();
@@ -186,9 +194,11 @@ typedef struct DrmVop2Context{
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
+#ifdef USE_LIBSVEP
   int TrySvepPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
+#endif
   int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
@@ -214,7 +224,11 @@ typedef struct DrmVop2Context{
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
+
+#ifdef USE_LIBSVEP
   bool TrySvepOverlay();
+#endif
+
   void TryMix();
   void InitCrtcMirror(std::vector<DrmHwcLayer*> &layers,std::vector<PlaneGroup *> &plane_groups,DrmCrtc *crtc);
   void UpdateResevedPlane(DrmCrtc *crtc);
@@ -262,6 +276,7 @@ typedef struct DrmVop2Context{
                      DrmCompositionPlane::Type type, DrmCrtc *crtc,
                      std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best);
  private:
+#ifdef USE_LIBSVEP
   Svep* svep_;
   bool bSvepReady_;
   SvepContext svepCtx_;
@@ -269,7 +284,7 @@ typedef struct DrmVop2Context{
   std::shared_ptr<DrmBufferQueue> bufferQueue720p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue1080p_;
   int lastSharpningState_;
-
+#endif
   Vop2Ctx ctx;
 };
 
