@@ -205,7 +205,10 @@ LOCAL_C_INCLUDES += \
   hardware/rockchip/libsvep/include
 
 LOCAL_SHARED_LIBRARIES += \
-	libsvep
+	libsvep \
+	librknnrt \
+	libOpenCL \
+	librkvdlss
 
 LOCAL_CFLAGS += \
 	-DUSE_LIBSVEP=1

@@ -174,7 +174,8 @@ typedef struct DrmVop2Context{
   Vop3588()
 #ifdef USE_LIBSVEP
     :
-    bufferQueue480p_(std::make_shared<DrmBufferQueue>()),
+    bufferQueue360p_(std::make_shared<DrmBufferQueue>()),
+    bufferQueue540p_(std::make_shared<DrmBufferQueue>()),
     bufferQueue720p_(std::make_shared<DrmBufferQueue>()),
     bufferQueue1080p_(std::make_shared<DrmBufferQueue>())
 #endif
@@ -280,7 +281,8 @@ typedef struct DrmVop2Context{
   Svep* svep_;
   bool bSvepReady_;
   SvepContext svepCtx_;
-  std::shared_ptr<DrmBufferQueue> bufferQueue480p_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue360p_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue540p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue720p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue1080p_;
   int lastSharpningState_;

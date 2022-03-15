@@ -1659,7 +1659,6 @@ int Vop3588::TrySvepPolicy(
   int enable_sharpning = 0;
   enable_sharpning = atoi(value);
 
-  int dlss_mode = 720;
   static uint64_t last_buffer_id = 0;
   for(auto &drmLayer : layers){
     if(!drmLayer->bAfbcd_ &&
@@ -1704,11 +1703,16 @@ int Vop3588::TrySvepPolicy(
           }
 
           // 4. Alloc dst_buffer
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
-            dst_buffer = bufferQueue480p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
+            dst_buffer = bufferQueue360p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
-                                                           "DLSS-GPUSS-SurfaceView-480p");
+                                                           "DLSS-GPUSS-SurfaceView-360p");
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
+            dst_buffer = bufferQueue540p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                            require.mBufferInfo_.iHeight_,
+                                                            require.mBufferInfo_.iFormat_,
+                                                           "DLSS-GPUSS-SurfaceView-540p");
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             dst_buffer = bufferQueue720p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
@@ -1772,8 +1776,10 @@ int Vop3588::TrySvepPolicy(
             ALOGD("rk-debug lastSharpningState_(%d => %d), to update DLSS layer.",lastSharpningState_,enable_sharpning);
           lastSharpningState_ = enable_sharpning;
         }else{
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
-            dst_buffer = bufferQueue480p_->BackDrmBuffer();
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
+            dst_buffer = bufferQueue360p_->BackDrmBuffer();
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
+            dst_buffer = bufferQueue540p_->BackDrmBuffer();
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             dst_buffer = bufferQueue720p_->BackDrmBuffer();
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
@@ -1833,8 +1839,10 @@ int Vop3588::TrySvepPolicy(
           }
           dst_buffer->SetFinishFence(dup(output_fence));
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
-            bufferQueue480p_->QueueBuffer(dst_buffer);
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
+            bufferQueue360p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
+            bufferQueue540p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             bufferQueue720p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
@@ -1850,8 +1858,10 @@ int Vop3588::TrySvepPolicy(
       HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
       for(auto &drmLayer : layers){
         if(drmLayer->bUseRga_){
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_480p){
-            bufferQueue480p_->QueueBuffer(dst_buffer);
+          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
+            bufferQueue360p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
+            bufferQueue540p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             bufferQueue720p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
