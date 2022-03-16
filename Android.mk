@@ -206,7 +206,7 @@ LOCAL_C_INCLUDES += \
 
 LOCAL_SHARED_LIBRARIES += \
 	libsvep \
-	librknnrt \
+	librknnrt-svep \
 	libOpenCL \
 	librkvdlss
 
