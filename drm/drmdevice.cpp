@@ -1086,8 +1086,7 @@ int DrmDevice::BindDpyRes(int display_id){
     snprintf(property_conn_name,50,"vendor.hwc.device.display-%d",display_id);
     property_set(property_conn_name, conn_name);
   }else{
-    ALOGD_IF(LogLevel(DBG_DEBUG),"%s:line=%d, display-id=%d conn-id=%d can't find crtc resource.",
-              __FUNCTION__,__LINE__,display_id,conn->id());
+    HWC2_ALOGE("display-id=%d conn-id=%d can't find crtc resource.", display_id, conn->id());
     char conn_name[50];
     char property_conn_name[50];
     snprintf(conn_name,50,"%s-%d:no_crtc",connector_type_str(conn->type()),conn->type_id());

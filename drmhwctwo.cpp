@@ -279,14 +279,21 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
       init_success_(false){
 }
 
-void DrmHwcTwo::HwcDisplay::ClearDisplay() {
+int DrmHwcTwo::HwcDisplay::ClearDisplay() {
+  if(!init_success_){
+    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    return -1;
+  }
+
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   compositor_->ClearDisplay();
+  return 0;
 }
 
-void DrmHwcTwo::HwcDisplay::ReleaseResource(){
+int DrmHwcTwo::HwcDisplay::ReleaseResource(){
   resource_manager_->removeActiveDisplayCnt(static_cast<int>(handle_));
   resource_manager_->assignPlaneGroup();
+  return 0;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
@@ -1266,6 +1273,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
+  if(!init_success_){
+    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    return HWC2::Error::BadDisplay;
+  }
+
   DumpAllLayerData();
 
   HWC2::Error ret;
@@ -1405,6 +1417,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
+  if(!init_success_){
+    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    return HWC2::Error::BadDisplay;
+  }
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", mode_in=%d",handle_,mode_in);
 
   uint64_t dpms_value = 0;
@@ -1506,6 +1522,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
                                                    uint32_t *num_requests) {
   ATRACE_CALL();
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+
+  if(!init_success_){
+    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    return HWC2::Error::BadDisplay;
+  }
   // Enable/disable debug log
   UpdateLogLevel();
   UpdateBCSH();
@@ -2221,6 +2242,7 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
 
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
+  int32_t ret = 0;
   for (auto &conn : drm_->connectors()) {
     drmModeConnection old_state = conn->state();
     conn->ResetModesReady();
@@ -2239,16 +2261,34 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     int display_id = conn->display();
     auto &display = hwc2_->displays_.at(display_id);
     if (cur_state == DRM_MODE_CONNECTED) {
-      display.HoplugEventTmeline();
-      display.UpdateDisplayMode();
-      display.ChosePreferredConfig();
-      display.CheckStateAndReinit();
-      hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      ret |= (int32_t)display.HoplugEventTmeline();
+      ret |= (int32_t)display.UpdateDisplayMode();
+      ret |= (int32_t)display.ChosePreferredConfig();
+      ret |= (int32_t)display.CheckStateAndReinit();
+      if(ret != 0){
+        HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+      }else{
+        HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+        hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      }
     }else{
-      display.ClearDisplay();
-      drm_->ReleaseDpyRes(display_id);
-      display.ReleaseResource();
-      hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      ret |= (int32_t)display.ClearDisplay();
+      ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
+      ret |= (int32_t)display.ReleaseResource();
+      if(ret != 0){
+        HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+      }else{
+        HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+        hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      }
     }
 
     // SpiltDisplay Hoplug.
@@ -2256,16 +2296,34 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       int display_id = conn->GetSpiltModeId();
       auto &display = hwc2_->displays_.at(display_id);
       if (cur_state == DRM_MODE_CONNECTED) {
-        display.HoplugEventTmeline();
-        display.UpdateDisplayMode();
-        display.ChosePreferredConfig();
-        display.CheckStateAndReinit();
-        hwc2_->HandleDisplayHotplug(display_id, cur_state);
+        ret |= (int32_t)display.HoplugEventTmeline();
+        ret |= (int32_t)display.UpdateDisplayMode();
+        ret |= (int32_t)display.ChosePreferredConfig();
+        ret |= (int32_t)display.CheckStateAndReinit();
+        if(ret != 0){
+          HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
+                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+        }else{
+          HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
+                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+          hwc2_->HandleDisplayHotplug(display_id, cur_state);
+        }
       }else{
-        display.ClearDisplay();
-        drm_->ReleaseDpyRes(display_id);
-        display.ReleaseResource();
+      ret |= (int32_t)display.ClearDisplay();
+      ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
+      ret |= (int32_t)display.ReleaseResource();
+      if(ret != 0){
+        HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+      }else{
+        HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
         hwc2_->HandleDisplayHotplug(display_id, cur_state);
+      }
       }
     }
   }

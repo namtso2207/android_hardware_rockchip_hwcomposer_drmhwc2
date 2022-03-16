@@ -302,8 +302,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::Error UnregisterInvalidateCallback();
 
-    void ClearDisplay();
-    void ReleaseResource();
+    int ClearDisplay();
+    int ReleaseResource();
 
     HWC2::Error CheckDisplayState();
 
