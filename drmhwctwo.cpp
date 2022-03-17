@@ -1431,8 +1431,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SyncPowerMode() {
   HWC2::Error error = SetPowerMode((int32_t)mPowerMode_);
   if(error != HWC2::Error::None){
     HWC2_ALOGE("SetPowerMode fail %d", error);
-  return error;
-}
+    return error;
+  }
 
   bNeedSyncPMState_ = false;
   return HWC2::Error::None;
@@ -2137,6 +2137,195 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->sLayerName_.clear();
   }
 
+#ifdef USE_LIBSVEP
+  char value[PROPERTY_VALUE_MAX];
+  property_get("persist.sys.svep.mode", value, "0");
+  int new_value = 0;
+  new_value = atoi(value);
+  if(new_value == 2){
+    property_set("vendor.gralloc.no_afbc_for_fb_target_layer", "1");
+    if(validate){
+      if(bufferQueue_ == NULL){
+        bufferQueue_ = std::make_shared<DrmBufferQueue>();
+
+      }
+      if(svep_ == NULL){
+
+        svep_ = Svep::Get();
+        if(svep_ != NULL){
+          bSvepReady_ = true;
+          HWC2_ALOGI("Svep module ready. to enable SvepMode.");
+        }
+      }
+      if(bSvepReady_){
+        // 1. Init Ctx
+        int ret = svep_->InitCtx(svepCtx_);
+        if(ret){
+          HWC2_ALOGE("Svep ctx init fail");
+          return;
+        }
+        // 2. Set buffer Info
+        SvepImageInfo src;
+        src.mBufferInfo_.iFd_     = 1;
+        src.mBufferInfo_.iWidth_  = drmHwcLayer->iFbWidth_;
+        src.mBufferInfo_.iHeight_ = drmHwcLayer->iFbHeight_;
+        src.mBufferInfo_.iFormat_ = HAL_PIXEL_FORMAT_RGBA_8888;
+        src.mBufferInfo_.iStride_ = drmHwcLayer->iFbWidth_;
+        src.mBufferInfo_.uBufferId_ = 0x1;
+
+        src.mCrop_.iLeft_  = (int)drmHwcLayer->source_crop.left;
+        src.mCrop_.iTop_   = (int)drmHwcLayer->source_crop.top;
+        src.mCrop_.iRight_ = (int)drmHwcLayer->source_crop.right;
+        src.mCrop_.iBottom_= (int)drmHwcLayer->source_crop.bottom;
+
+        ret = svep_->SetSrcImage(svepCtx_, src);
+        if(ret){
+          printf("Svep SetSrcImage fail\n");
+          return;
+        }
+
+        // 3. Get dst info
+        SvepImageInfo require;
+        ret = svep_->GetDstRequireInfo(svepCtx_, require);
+        if(ret){
+          printf("Svep GetDstRequireInfo fail\n");
+          return;
+        }
+
+        hwc_frect_t source_crop;
+        source_crop.left   = require.mCrop_.iLeft_;
+        source_crop.top    = require.mCrop_.iTop_;
+        source_crop.right  = require.mCrop_.iRight_;
+        source_crop.bottom = require.mCrop_.iBottom_;
+
+        drmHwcLayer->iWidth_  = require.mBufferInfo_.iWidth_;
+        drmHwcLayer->iHeight_ = require.mBufferInfo_.iHeight_;
+        drmHwcLayer->iStride_ = require.mBufferInfo_.iStride_;
+        drmHwcLayer->iFormat_ = require.mBufferInfo_.iFormat_;
+        drmHwcLayer->SetSourceCrop(source_crop);
+      }
+    }else{
+      if(bufferQueue_ == NULL){
+        bufferQueue_ = std::make_shared<DrmBufferQueue>();
+
+      }
+      if(svep_ == NULL){
+        svep_ = Svep::Get();
+        if(svep_ != NULL){
+          bSvepReady_ = true;
+          HWC2_ALOGI("Svep module ready. to enable SvepMode.");
+        }
+      }
+      if(bSvepReady_){
+        // 1. Init Ctx
+        int ret = svep_->InitCtx(svepCtx_);
+        if(ret){
+          HWC2_ALOGE("Svep ctx init fail");
+          return;
+        }
+        // 2. Set buffer Info
+        SvepImageInfo src;
+        src.mBufferInfo_.iFd_     = drmHwcLayer->iFd_;
+        src.mBufferInfo_.iWidth_  = drmHwcLayer->iWidth_;
+        src.mBufferInfo_.iHeight_ = drmHwcLayer->iHeight_;
+        src.mBufferInfo_.iFormat_ = drmHwcLayer->iFormat_;
+        src.mBufferInfo_.iStride_ = drmHwcLayer->iStride_;
+        src.mBufferInfo_.uBufferId_ = drmHwcLayer->uBufferId_;
+        src.mBufferInfo_.uDataSpace_ = (uint64_t)drmHwcLayer->eDataSpace_;
+
+        src.mCrop_.iLeft_  = (int)drmHwcLayer->source_crop.left;
+        src.mCrop_.iTop_   = (int)drmHwcLayer->source_crop.top;
+        src.mCrop_.iRight_ = (int)drmHwcLayer->source_crop.right;
+        src.mCrop_.iBottom_= (int)drmHwcLayer->source_crop.bottom;
+
+        ret = svep_->SetSrcImage(svepCtx_, src);
+        if(ret){
+          printf("Svep SetSrcImage fail\n");
+          return;
+        }
+
+        // 3. Get dst info
+        SvepImageInfo require;
+        ret = svep_->GetDstRequireInfo(svepCtx_, require);
+        if(ret){
+          printf("Svep GetDstRequireInfo fail\n");
+          return;
+        }
+
+        std::shared_ptr<DrmBuffer> dst_buffer;
+        dst_buffer = bufferQueue_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                    require.mBufferInfo_.iHeight_,
+                                                    require.mBufferInfo_.iFormat_,
+                                                    "FB-target-transform");
+
+        if(dst_buffer == NULL){
+          HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
+          return;
+        }
+
+        // 5. Set buffer Info
+        SvepImageInfo dst;
+        dst.mBufferInfo_.iFd_     = dst_buffer->GetFd();
+        dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
+        dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
+        dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
+        dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+        dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
+
+        dst.mCrop_.iLeft_  = require.mCrop_.iLeft_;
+        dst.mCrop_.iTop_   = require.mCrop_.iTop_;
+        dst.mCrop_.iRight_ = require.mCrop_.iRight_;
+        dst.mCrop_.iBottom_= require.mCrop_.iBottom_;
+
+        ret = svep_->SetDstImage(svepCtx_, dst);
+        if(ret){
+          printf("Svep SetSrcImage fail\n");
+          bufferQueue_->QueueBuffer(dst_buffer);
+          return;
+        }
+
+        hwc_frect_t source_crop;
+        source_crop.left   = require.mCrop_.iLeft_;
+        source_crop.top    = require.mCrop_.iTop_;
+        source_crop.right  = require.mCrop_.iRight_;
+        source_crop.bottom = require.mCrop_.iBottom_;
+        drmHwcLayer->UpdateAndStoreInfoFromDrmBuffer(dst_buffer->GetHandle(),
+                                                  dst_buffer->GetFd(),
+                                                  dst_buffer->GetFormat(),
+                                                  dst_buffer->GetWidth(),
+                                                  dst_buffer->GetHeight(),
+                                                  dst_buffer->GetStride(),
+                                                  dst_buffer->GetByteStride(),
+                                                  dst_buffer->GetUsage(),
+                                                  dst_buffer->GetFourccFormat(),
+                                                  dst_buffer->GetModifier(),
+                                                  dst_buffer->GetName(),
+                                                  source_crop,
+                                                  dst_buffer->GetBufferId(),
+                                                  dst_buffer->GetGemHandle());
+        ret = drmHwcLayer->acquire_fence->wait(1500);
+        if(ret){
+          HWC2_ALOGE("wait Fb-Target 1500ms timeout, ret=%d",ret);
+          drmHwcLayer->bUseRga_ = false;
+          bufferQueue_->QueueBuffer(dst_buffer);
+          return;
+        }
+        int output_fence = 0;
+        ret = svep_->RunAsync(svepCtx_, &output_fence);
+        if(ret){
+          HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
+          drmHwcLayer->bUseRga_ = false;
+          bufferQueue_->QueueBuffer(dst_buffer);
+          return;
+        }
+        dst_buffer->SetFinishFence(dup(output_fence));
+        drmHwcLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
+        bufferQueue_->QueueBuffer(dst_buffer);
+      }
+    }
+  }
+#endif
+
   drmHwcLayer->Init();
 
   return;
@@ -2342,15 +2531,15 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       ret |= (int32_t)display.ReleaseResource();
       if(ret != 0){
         HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
-                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
-                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+                  cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                  conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
       }else{
         HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
-                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
-                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+                  cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                  conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
         hwc2_->HandleDisplayHotplug(display_id, cur_state);
       }
-      }
+    }
     }
   }
 

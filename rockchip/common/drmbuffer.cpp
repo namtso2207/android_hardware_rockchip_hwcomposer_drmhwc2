@@ -155,6 +155,38 @@ uint64_t DrmBuffer::GetBufferId(){
 uint32_t DrmBuffer::GetGemHandle(){
   return uGemHandle_;
 }
+void* DrmBuffer::Lock(){
+  if(!buffer_){
+    HWC2_ALOGI("LayerId=%" PRIu64 " Buffer is null.",uId);
+    return NULL;
+  }
+
+  void* cpu_addr = NULL;
+  static int frame_cnt =0;
+  int ret = 0;
+  cpu_addr = ptrDrmGralloc_->hwc_get_handle_lock(buffer_,iWidth_,iHeight_);
+  if(ret){
+    HWC2_ALOGE("buffer-id=%" PRIu64 " lock fail ret = %d ",uId,ret);
+    return NULL;
+  }
+
+  return cpu_addr;
+}
+
+int DrmBuffer::Unlock(){
+  if(!buffer_){
+    HWC2_ALOGI("LayerId=%" PRIu64 " Buffer is null.",uId);
+    return -1;
+  }
+
+  int ret = ptrDrmGralloc_->hwc_get_handle_unlock(buffer_);
+  if(ret){
+    HWC2_ALOGE("buffer-id=%" PRIu64 " unlock fail ret = %d ",uId,ret);
+    return ret;
+  }
+  return ret;
+}
+
 UniqueFd DrmBuffer::GetFinishFence(){
   return dup(iFinishFence_.get());
 }

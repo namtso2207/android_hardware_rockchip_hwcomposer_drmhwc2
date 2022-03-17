@@ -2759,7 +2759,6 @@ int Vop3588::InitContext(
     return 0;
   }
 
-#ifdef USE_LIBSVEP
   ALOGD_IF(LogLevel(DBG_DEBUG),"request:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d,skip=%d\n"
           "support:afbcd=%d,scale=%d,yuv=%d,rotate=%d,hdr=%d, %s,line=%d,",
           ctx.request.iAfbcdCnt,ctx.request.iScaleCnt,ctx.request.iYuvCnt,
@@ -2768,14 +2767,22 @@ int Vop3588::InitContext(
           ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
 
+#ifdef USE_LIBSVEP
   int iSvepMode = hwc_get_int_property(SVEP_MODE_NAME,"0");
   // Match policy first
-  if(bSvepReady_ && iSvepMode > 0){
-    DrmDevice *drm = crtc->getDrmDevice();
-    DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-    if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
-      // Match policy first
-      TrySvepOverlay();
+  HWC2_ALOGI("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, iSvepMode, bSvepReady_);
+  if(bSvepReady_){
+    if(iSvepMode == 1){
+      DrmDevice *drm = crtc->getDrmDevice();
+      DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+      if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
+        // Match policy first
+        TrySvepOverlay();
+      }
+    }else if(iSvepMode == 2){
+      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Force use GLES compose, %s=%d , soc_id=%x",SVEP_MODE_NAME,iSvepMode,ctx.state.iSocId);
+      return 0;
     }
   }
 #endif

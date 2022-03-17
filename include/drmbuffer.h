@@ -44,6 +44,8 @@ public:
   uint64_t GetModifier();
   uint64_t GetBufferId();
   uint32_t GetGemHandle();
+  void* Lock();
+  int Unlock();
   UniqueFd GetFinishFence();
   int SetFinishFence(int fence);
   int WaitFinishFence();

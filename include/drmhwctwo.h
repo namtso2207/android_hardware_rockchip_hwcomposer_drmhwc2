@@ -23,6 +23,10 @@
 #include "rockchip/invalidateworker.h"
 #include "utils/drmfence.h"
 
+#include "drmbufferqueue.h"
+#ifdef USE_LIBSVEP
+#include "Svep.h"
+#endif
 
 #include <hardware/hwcomposer2.h>
 
@@ -274,6 +278,12 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Buffer info point
     std::shared_ptr<bufferInfo_t> pBufferInfo_;
+#ifdef USE_LIBSVEP
+    std::shared_ptr<DrmBufferQueue> bufferQueue_;
+    Svep* svep_;
+    bool bSvepReady_;
+    SvepContext svepCtx_;
+#endif
   };
 
   struct HwcCallback {
