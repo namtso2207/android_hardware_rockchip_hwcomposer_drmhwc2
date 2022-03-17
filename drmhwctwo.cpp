@@ -1416,16 +1416,34 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
   return unsupported(__func__, buffer, release_fence);
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
+HWC2::Error DrmHwcTwo::HwcDisplay::SyncPowerMode() {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+
   if(!init_success_){
     HWC2_ALOGE("init_success_=%d skip.",init_success_);
     return HWC2::Error::BadDisplay;
   }
+
+  if(!bNeedSyncPMState_){
+    HWC2_ALOGI("bNeedSyncPMState_=%d don't need to sync PowerMode state.",bNeedSyncPMState_);
+  }
+
+  HWC2::Error error = SetPowerMode((int32_t)mPowerMode_);
+  if(error != HWC2::Error::None){
+    HWC2_ALOGE("SetPowerMode fail %d", error);
+  return error;
+}
+
+  bNeedSyncPMState_ = false;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", mode_in=%d",handle_,mode_in);
 
   uint64_t dpms_value = 0;
-  auto mode = static_cast<HWC2::PowerMode>(mode_in);
-  switch (mode) {
+  mPowerMode_ = static_cast<HWC2::PowerMode>(mode_in);
+  switch (mPowerMode_) {
     case HWC2::PowerMode::Off:
       dpms_value = DRM_MODE_DPMS_OFF;
       break;
@@ -1434,12 +1452,18 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       break;
     case HWC2::PowerMode::Doze:
     case HWC2::PowerMode::DozeSuspend:
-      ALOGI("Power mode %d is unsupported\n", mode);
+      ALOGI("Power mode %d is unsupported\n", mPowerMode_);
       return HWC2::Error::Unsupported;
     default:
-      ALOGI("Power mode %d is BadParameter\n", mode);
+      ALOGI("Power mode %d is BadParameter\n", mPowerMode_);
       return HWC2::Error::BadParameter;
   };
+
+  if(!init_success_){
+    bNeedSyncPMState_ = true;
+    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    return HWC2::Error::BadDisplay;
+  }
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_->CreateComposition();
   composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
@@ -2274,6 +2298,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
         hwc2_->HandleDisplayHotplug(display_id, cur_state);
+        display.SyncPowerMode();
       }
     }else{
       ret |= (int32_t)display.ClearDisplay();
@@ -2309,6 +2334,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                     conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
           hwc2_->HandleDisplayHotplug(display_id, cur_state);
+          display.SyncPowerMode();
         }
       }else{
       ret |= (int32_t)display.ClearDisplay();

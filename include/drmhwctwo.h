@@ -343,6 +343,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetColorTransform(const float *matrix, int32_t hint);
     HWC2::Error SetOutputBuffer(buffer_handle_t buffer, int32_t release_fence);
     HWC2::Error SetPowerMode(int32_t mode);
+    HWC2::Error SyncPowerMode();
     HWC2::Error SetVsyncEnabled(int32_t enabled);
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){
@@ -408,6 +409,8 @@ class DrmHwcTwo : public hwc2_device_t {
     bool static_screen_timer_enable_;
     bool static_screen_opt_;
     bool force_gles_;
+    bool bNeedSyncPMState_;
+    HWC2::PowerMode mPowerMode_;
     int fb_blanked;
 
     uint32_t frame_no_ = 0;
