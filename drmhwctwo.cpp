@@ -2320,6 +2320,13 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         }
         dst_buffer->SetFinishFence(dup(output_fence));
         drmHwcLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
+
+        property_get("vendor.dump", value, "false");
+        if(!strcmp(value, "true")){
+          drmHwcLayer->acquire_fence->wait();
+          dst_buffer->DumpData();
+        }
+
         bufferQueue_->QueueBuffer(dst_buffer);
       }
     }
