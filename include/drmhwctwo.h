@@ -231,6 +231,8 @@ class DrmHwcTwo : public hwc2_device_t {
     void DisableAfbc() { is_afbc_ = false;};
     bool isAfbc() { return is_afbc_;};
 
+    int DoSvep(bool validate, DrmHwcLayer *drmHwcLayer);
+
     // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
@@ -278,6 +280,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Buffer info point
     std::shared_ptr<bufferInfo_t> pBufferInfo_;
+
 #ifdef USE_LIBSVEP
     std::shared_ptr<DrmBufferQueue> bufferQueue_;
     Svep* svep_;

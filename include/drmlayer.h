@@ -31,6 +31,11 @@
 #include "rockchip/drmtype.h"
 #include "utils/drmfence.h"
 
+#include "drmbufferqueue.h"
+#ifdef USE_LIBSVEP
+#include "Svep.h"
+#endif
+
 struct hwc_import_context;
 
 #include "rockchip/drmgralloc.h"
@@ -253,7 +258,6 @@ struct DrmHwcLayer {
   void SetSourceCrop(hwc_frect_t const &crop);
   void SetDisplayFrame(hwc_rect_t const &frame, hwc2_drm_display_t *ctx);
   void SetDisplayFrameMirror(hwc_rect_t const &frame);
-
   void UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
       int fd, int format, int w, int h, int stride,
       int byte_stride, int usage, uint32_t fourcc, uint64_t modefier,

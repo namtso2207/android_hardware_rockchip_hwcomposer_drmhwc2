@@ -1133,6 +1133,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   uint32_t client_id = 0;
   DrmHwcLayer client_target_layer;
   client_layer_.PopulateFB(client_id, &client_target_layer, &ctx_, frame_no_, true);
+
+#ifdef USE_LIBSVEP
+  if(handle_ == 0){
+    int ret = client_layer_.DoSvep(true, &client_target_layer);
+    if(ret){
+      HWC2_ALOGE("ClientLayer DoSvep fail, ret = %d", ret);
+    }
+  }
+#endif
+
   drm_hwc_layers_.emplace_back(std::move(client_target_layer));
 
   ALOGD_HWC2_DRM_LAYER_INFO((DBG_INFO),drm_hwc_layers_);
@@ -1218,6 +1228,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
     if(drm_hwc_layer.bFbTarget_){
       uint32_t client_id = 0;
       client_layer_.PopulateFB(client_id, &drm_hwc_layer, &ctx_, frame_no_, false);
+#ifdef USE_LIBSVEP
+      if(handle_ == 0){
+        int ret = client_layer_.DoSvep(false, &drm_hwc_layer);
+        if(ret){
+          HWC2_ALOGE("ClientLayer DoSvep fail, ret = %d", ret);
+        }
+      }
+#endif
     }
     ret = drm_hwc_layer.ImportBuffer(importer_.get());
     if (ret) {
@@ -2137,20 +2155,25 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->sLayerName_.clear();
   }
 
+  drmHwcLayer->Init();
+
+  return;
+}
+
 #ifdef USE_LIBSVEP
+int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
   char value[PROPERTY_VALUE_MAX];
   property_get("persist.sys.svep.mode", value, "0");
   int new_value = 0;
   new_value = atoi(value);
   if(new_value == 2){
-    property_set("vendor.gralloc.no_afbc_for_fb_target_layer", "1");
     if(validate){
       if(bufferQueue_ == NULL){
         bufferQueue_ = std::make_shared<DrmBufferQueue>();
 
       }
       if(svep_ == NULL){
-
+        property_set("vendor.gralloc.no_afbc_for_fb_target_layer", "1");
         svep_ = Svep::Get();
         if(svep_ != NULL){
           bSvepReady_ = true;
@@ -2162,7 +2185,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         int ret = svep_->InitCtx(svepCtx_);
         if(ret){
           HWC2_ALOGE("Svep ctx init fail");
-          return;
+          return ret;
         }
         // 2. Set buffer Info
         SvepImageInfo src;
@@ -2181,7 +2204,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         ret = svep_->SetSrcImage(svepCtx_, src);
         if(ret){
           printf("Svep SetSrcImage fail\n");
-          return;
+          return ret;
         }
 
         // 3. Get dst info
@@ -2189,7 +2212,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         ret = svep_->GetDstRequireInfo(svepCtx_, require);
         if(ret){
           printf("Svep GetDstRequireInfo fail\n");
-          return;
+          return ret;
         }
 
         hwc_frect_t source_crop;
@@ -2221,7 +2244,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         int ret = svep_->InitCtx(svepCtx_);
         if(ret){
           HWC2_ALOGE("Svep ctx init fail");
-          return;
+          return ret;
         }
         // 2. Set buffer Info
         SvepImageInfo src;
@@ -2241,7 +2264,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         ret = svep_->SetSrcImage(svepCtx_, src);
         if(ret){
           printf("Svep SetSrcImage fail\n");
-          return;
+          return ret;
         }
 
         // 3. Get dst info
@@ -2249,7 +2272,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         ret = svep_->GetDstRequireInfo(svepCtx_, require);
         if(ret){
           printf("Svep GetDstRequireInfo fail\n");
-          return;
+          return ret;
         }
 
         std::shared_ptr<DrmBuffer> dst_buffer;
@@ -2260,7 +2283,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 
         if(dst_buffer == NULL){
           HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
-          return;
+          return ret;
         }
 
         // 5. Set buffer Info
@@ -2281,7 +2304,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
         if(ret){
           printf("Svep SetSrcImage fail\n");
           bufferQueue_->QueueBuffer(dst_buffer);
-          return;
+          return ret;
         }
 
         hwc_frect_t source_crop;
@@ -2308,7 +2331,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
           HWC2_ALOGE("wait Fb-Target 1500ms timeout, ret=%d",ret);
           drmHwcLayer->bUseRga_ = false;
           bufferQueue_->QueueBuffer(dst_buffer);
-          return;
+          return ret;
         }
         int output_fence = 0;
         ret = svep_->RunAsync(svepCtx_, &output_fence);
@@ -2316,7 +2339,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
           HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
           drmHwcLayer->bUseRga_ = false;
           bufferQueue_->QueueBuffer(dst_buffer);
-          return;
+          return ret;
         }
         dst_buffer->SetFinishFence(dup(output_fence));
         drmHwcLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
@@ -2326,17 +2349,16 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
           drmHwcLayer->acquire_fence->wait();
           dst_buffer->DumpData();
         }
-
         bufferQueue_->QueueBuffer(dst_buffer);
       }
     }
   }
-#endif
 
   drmHwcLayer->Init();
 
-  return;
+  return 0;
 }
+#endif
 
 void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
 
