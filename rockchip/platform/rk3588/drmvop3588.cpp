@@ -2770,7 +2770,7 @@ int Vop3588::InitContext(
 #ifdef USE_LIBSVEP
   int iSvepMode = hwc_get_int_property(SVEP_MODE_NAME,"0");
   // Match policy first
-  HWC2_ALOGI("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, iSvepMode, bSvepReady_);
+  HWC2_ALOGD_IF_DEBUG("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, iSvepMode, bSvepReady_);
   if(bSvepReady_){
     if(iSvepMode == 1){
       DrmDevice *drm = crtc->getDrmDevice();
@@ -2781,7 +2781,10 @@ int Vop3588::InitContext(
       }
     }else if(iSvepMode == 2){
       ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Force use GLES compose, %s=%d , soc_id=%x",SVEP_MODE_NAME,iSvepMode,ctx.state.iSocId);
+      HWC2_ALOGD_IF_DEBUG("Force use GLES compose, %s=%d , soc_id=%x",
+                                                                      SVEP_MODE_NAME,
+                                                                      iSvepMode,
+                                                                      ctx.state.iSocId);
       return 0;
     }
   }

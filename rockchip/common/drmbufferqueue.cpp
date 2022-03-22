@@ -40,7 +40,7 @@ bool DrmBufferQueue::NeedsReallocation(int w, int h, int format){
   if(currentBuffer_->GetWidth()  != w ||
      currentBuffer_->GetHeight() != h ||
      currentBuffer_->GetFormat() != format){
-    HWC2_ALOGI("old[%d,%d,%d]=>[%d,%d,%d] queue.size()=%zu name=%s",
+    HWC2_ALOGD_IF_DEBUG("old[%d,%d,%d]=>[%d,%d,%d] queue.size()=%zu name=%s",
                  currentBuffer_->GetWidth(),
                  currentBuffer_->GetHeight(),
                  currentBuffer_->GetFormat(),
@@ -52,7 +52,6 @@ bool DrmBufferQueue::NeedsReallocation(int w, int h, int format){
 }
 
 std::shared_ptr<DrmBuffer> DrmBufferQueue::FrontDrmBuffer(){
-  HWC2_ALOGD_IF_DEBUG("");
   if(bufferQueue_.size() > 0){
     currentBuffer_ = bufferQueue_.front();
     HWC2_ALOGD_IF_DEBUG("Id=%" PRIu64 " Buffer=%p , queue.size()=%zu, Front success!",
@@ -63,7 +62,6 @@ std::shared_ptr<DrmBuffer> DrmBufferQueue::FrontDrmBuffer(){
 }
 
 std::shared_ptr<DrmBuffer> DrmBufferQueue::BackDrmBuffer(){
-  HWC2_ALOGD_IF_DEBUG("");
   if(bufferQueue_.size() > 0){
     currentBuffer_ = bufferQueue_.back();
     HWC2_ALOGD_IF_DEBUG("Id=%" PRIu64 " Buffer=%p , queue.size()=%zu, Back success!",
@@ -85,7 +83,7 @@ std::shared_ptr<DrmBuffer> DrmBufferQueue::DequeueDrmBuffer(int w, int h, int fo
                    w, h, format, name.c_str());
         return NULL;
       }
-      HWC2_ALOGI(" NeedsReallocation sucess! w=%d h=%d format=%d name=%s",w, h, format, name.c_str());
+      HWC2_ALOGD_IF_DEBUG(" NeedsReallocation sucess! w=%d h=%d format=%d name=%s",w, h, format, name.c_str());
       return currentBuffer_;
     }
     currentBuffer_->WaitReleaseFence();
@@ -119,7 +117,7 @@ int DrmBufferQueue::QueueBuffer(const std::shared_ptr<DrmBuffer> buffer){
   }
   HWC2_ALOGE("Queue fail, Id=%" PRIu64 " fd=%d current=%p buffer=%p queue.size()=%zu name=%s",
                  buffer->GetId(), currentBuffer_->GetFd(), currentBuffer_.get(), buffer.get(),bufferQueue_.size(), sName_.c_str());
-  return 0;
+  return -1;
 }
 
 }//namespace android

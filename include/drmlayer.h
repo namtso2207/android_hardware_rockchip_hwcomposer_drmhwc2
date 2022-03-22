@@ -31,10 +31,6 @@
 #include "rockchip/drmtype.h"
 #include "utils/drmfence.h"
 
-#include "drmbufferqueue.h"
-#ifdef USE_LIBSVEP
-#include "Svep.h"
-#endif
 
 struct hwc_import_context;
 

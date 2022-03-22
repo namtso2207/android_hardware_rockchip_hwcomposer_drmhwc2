@@ -70,7 +70,6 @@ DrmBuffer::~DrmBuffer(){
     close(iFd_);
     iFd_ = -1;
   }
-  HWC2_ALOGI("DrmBuffer release, w=%d h=%d format=%d",iWidth_,iHeight_,iFormat_);
 }
 
 int DrmBuffer::Init(){
@@ -190,14 +189,15 @@ int DrmBuffer::Unlock(){
 UniqueFd DrmBuffer::GetFinishFence(){
   return dup(iFinishFence_.get());
 }
+
 int DrmBuffer::SetFinishFence(int fence){
   if(WaitFinishFence()){
     return -1;
   }
   iFinishFence_.Set(fence);
-  HWC2_ALOGE("Name=%s Buffer-Id=0x%" PRIx64 " iFinishFence_=%d inputFence=%d",  sName_.c_str(), uBufferId_, iFinishFence_.get(),fence);
   return 0;
 }
+
 int DrmBuffer::WaitFinishFence(){
   int ret = 0;
   if(iFinishFence_.get() > 0){
@@ -205,14 +205,15 @@ int DrmBuffer::WaitFinishFence(){
     if (ret) {
       HWC2_ALOGE("Failed to wait for RGA finish fence %d/%d 1500ms", iFinishFence_.get(), ret);
     }
-    HWC2_ALOGE("Name=%s Buffer-Id=0x%" PRIx64 " iFinishFence_=%d wait success.",  sName_.c_str(), uBufferId_, iFinishFence_.get());
     iFinishFence_.Close();
   }
   return ret;
 }
+
 UniqueFd DrmBuffer::GetReleaseFence(){
   return iReleaseFence_.Release();
 }
+
 OutputFd DrmBuffer::ReleaseFenceOutput(){
   if(WaitReleaseFence()){
     return OutputFd(NULL);
@@ -226,7 +227,6 @@ int DrmBuffer::WaitReleaseFence(){
     if (ret) {
       HWC2_ALOGE("Failed to wait for RGA finish fence %d/%d 1500ms", iReleaseFence_.get(), ret);
     }
-    HWC2_ALOGE("Name=%s Buffer-Id=0x%" PRIx64 " iReleaseFence_=%d success.",  sName_.c_str(), uBufferId_, iReleaseFence_.get());
     iReleaseFence_.Close();
   }
   return ret;

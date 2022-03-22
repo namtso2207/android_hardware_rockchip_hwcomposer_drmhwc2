@@ -2163,14 +2163,13 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 #ifdef USE_LIBSVEP
 int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
   char value[PROPERTY_VALUE_MAX];
-  property_get("persist.sys.svep.mode", value, "0");
+  property_get(SVEP_MODE_NAME, value, "0");
   int new_value = 0;
   new_value = atoi(value);
   if(new_value == 2){
     if(validate){
       if(bufferQueue_ == NULL){
         bufferQueue_ = std::make_shared<DrmBufferQueue>();
-
       }
       if(svep_ == NULL){
         property_set("vendor.gralloc.no_afbc_for_fb_target_layer", "1");
@@ -2230,7 +2229,6 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
     }else{
       if(bufferQueue_ == NULL){
         bufferQueue_ = std::make_shared<DrmBufferQueue>();
-
       }
       if(svep_ == NULL){
         svep_ = Svep::Get();
