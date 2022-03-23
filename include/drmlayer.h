@@ -243,7 +243,7 @@ struct DrmHwcLayer {
   v4l2_colorspace uColorSpace = V4L2_COLORSPACE_DEFAULT;
   uint16_t uEOTF=0;
 
-  bool bUseRga_;
+  bool bUseSvep_;
   DrmLayerInfoStore storeLayerInfo_;
 
   int ImportBuffer(Importer *importer);

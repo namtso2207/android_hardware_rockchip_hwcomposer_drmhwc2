@@ -1190,8 +1190,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
     if(drm_hwc_layer.bMatch_){
       auto map_hwc2layer = layers_.find(drm_hwc_layer.uId_);
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
-      if(drm_hwc_layer.bUseRga_){
-        ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device-RGA : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
+      if(drm_hwc_layer.bUseSvep_){
+        ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device-Svep : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
       }else{
         ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
       }
@@ -1901,20 +1901,30 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
   for(auto &drmHwcLayer : drm_hwc_layers_){
     // Video
     if(drmHwcLayer.bYuv_){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Yuv %s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
       enable_timer = false;
       break;
     }
+
+#ifdef USE_LIBSVEP
+    // Svep
+    if(drmHwcLayer.bUseSvep_){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Svep %s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
+      enable_timer = false;
+      break;
+    }
+#endif
 
     // Surface w/h is larger than FB
     int crop_w = static_cast<int>(drmHwcLayer.source_crop.right - drmHwcLayer.source_crop.left);
     int crop_h = static_cast<int>(drmHwcLayer.source_crop.bottom - drmHwcLayer.source_crop.top);
     if(crop_w * crop_h > ctx_.framebuffer_width * ctx_.framebuffer_height){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"LargeSurface %s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
       enable_timer = false;
       break;
     }
   }
   static_screen_timer_enable_ = enable_timer;
-  ALOGD_IF(LogLevel(DBG_DEBUG),"%s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
   return 0;
 }
 int DrmHwcTwo::HwcDisplay::UpdateTimerState(bool gles_comp){
@@ -2327,7 +2337,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         ret = drmHwcLayer->acquire_fence->wait(1500);
         if(ret){
           HWC2_ALOGE("wait Fb-Target 1500ms timeout, ret=%d",ret);
-          drmHwcLayer->bUseRga_ = false;
+          drmHwcLayer->bUseSvep_ = false;
           bufferQueue_->QueueBuffer(dst_buffer);
           return ret;
         }
@@ -2335,7 +2345,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         ret = svep_->RunAsync(svepCtx_, &output_fence);
         if(ret){
           HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
-          drmHwcLayer->bUseRga_ = false;
+          drmHwcLayer->bUseSvep_ = false;
           bufferQueue_->QueueBuffer(dst_buffer);
           return ret;
         }

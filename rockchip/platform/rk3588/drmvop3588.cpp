@@ -83,7 +83,7 @@ int Vop3588::TryHwcPolicy(
   }
 
   // Init context
-  InitContext(layers,plane_groups,crtc,false);
+  InitContext(layers,plane_groups,crtc,gles_policy);
 
 #ifdef USE_LIBSVEP
   // Try to match rga policy
@@ -1778,7 +1778,7 @@ int Vop3588::TrySvepPolicy(
                                                     dst_buffer->GetBufferId(),
                                                     dst_buffer->GetGemHandle());
           rga_layer_ready = true;
-          drmLayer->bUseRga_ = true;
+          drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
           if(lastSharpningState_ != enable_sharpning)
             ALOGD("rk-debug lastSharpningState_(%d => %d), to update DLSS layer.",lastSharpningState_,enable_sharpning);
@@ -1819,7 +1819,7 @@ int Vop3588::TrySvepPolicy(
                                                     dst_buffer->GetBufferId(),
                                                     dst_buffer->GetGemHandle());
           use_laster_rga_layer = true;
-          drmLayer->bUseRga_ = true;
+          drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
           break;
         }
@@ -1838,12 +1838,12 @@ int Vop3588::TrySvepPolicy(
     }
     if(!ret){ // Match sucess, to call im2d interface
       for(auto &drmLayer : layers){
-        if(drmLayer->bUseRga_){
+        if(drmLayer->bUseSvep_){
           int output_fence = 0;
           ret = svep_->RunAsync(svepCtx_, &output_fence);
           if(ret){
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
-            drmLayer->bUseRga_ = false;
+            drmLayer->bUseSvep_ = false;
           }
           dst_buffer->SetFinishFence(dup(output_fence));
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
@@ -1865,7 +1865,7 @@ int Vop3588::TrySvepPolicy(
     }else{ // Match fail, skip rga policy
       HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
       for(auto &drmLayer : layers){
-        if(drmLayer->bUseRga_){
+        if(drmLayer->bUseSvep_){
           if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
             bufferQueue360p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
@@ -1876,7 +1876,7 @@ int Vop3588::TrySvepPolicy(
             bufferQueue1080p_->QueueBuffer(dst_buffer);
           }
           drmLayer->ResetInfoFromStore();
-          drmLayer->bUseRga_ = false;
+          drmLayer->bUseSvep_ = false;
         }
       }
       ResetLayerFromTmp(layers,tmp_layers);
