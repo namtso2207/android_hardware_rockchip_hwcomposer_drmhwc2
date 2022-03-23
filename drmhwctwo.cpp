@@ -1444,6 +1444,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SyncPowerMode() {
 
   if(!bNeedSyncPMState_){
     HWC2_ALOGI("bNeedSyncPMState_=%d don't need to sync PowerMode state.",bNeedSyncPMState_);
+    return HWC2::Error::None;
   }
 
   HWC2::Error error = SetPowerMode((int32_t)mPowerMode_);
@@ -1503,6 +1504,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     fb_blank = FB_BLANK_UNBLANK;
   else
     ALOGE("dpmsValue is invalid value= %" PRIu64 "",dpms_value);
+
   if(fb_blank != fb_blanked && fb0_fd > 0){
     int err = ioctl(fb0_fd, FBIOBLANK, fb_blank);
     ALOGD_IF(LogLevel(DBG_DEBUG),"%s Notice fb_blank to fb=%d", __FUNCTION__, fb_blank);
