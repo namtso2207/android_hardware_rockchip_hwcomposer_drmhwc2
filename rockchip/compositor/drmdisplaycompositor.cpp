@@ -254,8 +254,10 @@ int DrmDisplayCompositor::QueueComposition(
 
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
-      if (!active_)
+      if (!active_){
+        HWC2_ALOGD_IF_INFO("active_=%d skip frame_no=%" PRIu64 , active_, composition->frame_no());
         return -ENODEV;
+      }
       break;
     case DRM_COMPOSITION_TYPE_DPMS:
       /*

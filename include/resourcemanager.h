@@ -22,6 +22,7 @@
 #include "rockchip/drmgralloc.h"
 #include "rockchip/drmbaseparameter.h"
 #include "drmdisplaycompositor.h"
+#include "drmhwctwo.h"
 
 #include <string.h>
 #include <set>
@@ -29,6 +30,7 @@
 
 namespace android {
 class DrmDisplayCompositor;
+class DrmHwcTwo;
 
 class ResourceManager {
  public:
@@ -37,17 +39,21 @@ class ResourceManager {
     return &drmResourceManager_;
   }
 
-  int Init();
+  int Init(DrmHwcTwo *hwc2);
   DrmDevice *GetDrmDevice(int display);
   std::shared_ptr<Importer> GetImporter(int display);
   DrmConnector *AvailableWritebackConnector(int display);
 
-  const std::vector<std::unique_ptr<DrmDevice>> &getDrmDevices() const {
+  const std::vector<std::unique_ptr<DrmDevice>> &GetDrmDevices() const {
     return drms_;
   }
 
-  const std::unique_ptr<HwcPlatform> &getHwcPlatform() const {
+  const std::unique_ptr<HwcPlatform> &GetHwcPlatform() const {
     return hwcPlatform_;
+  }
+
+  DrmHwcTwo *GetHwc2() const {
+    return hwc2_;
   }
 
   int getDisplayCount() const {
@@ -74,6 +80,7 @@ class ResourceManager {
   int getSocId() { return soc_id_;}
   std::shared_ptr<DrmDisplayCompositor> GetDrmDisplayCompositor(DrmCrtc* crtc);
 
+
  private:
   ResourceManager();
   ResourceManager(const ResourceManager &) = delete;
@@ -88,6 +95,7 @@ class ResourceManager {
   std::map<int, std::shared_ptr<DrmDisplayCompositor>> mapDrmDisplayCompositor_;
   std::map<int,int> displays_;
   DrmGralloc *drmGralloc_;
+  DrmHwcTwo *hwc2_;
   int fb0_fd;
   int soc_id_;
   int drmVersion_;

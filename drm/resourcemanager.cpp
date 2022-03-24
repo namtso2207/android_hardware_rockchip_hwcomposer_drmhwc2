@@ -24,6 +24,9 @@
 #include <sstream>
 #include <string>
 
+//XML prase
+#include <tinyxml2.h>
+
 namespace android {
 
 ResourceManager::ResourceManager() :
@@ -31,7 +34,8 @@ ResourceManager::ResourceManager() :
   drmGralloc_ = DrmGralloc::getInstance();
 }
 
-int ResourceManager::Init() {
+int ResourceManager::Init(DrmHwcTwo *hwc2) {
+  hwc2_ = hwc2;
   char path_pattern[PROPERTY_VALUE_MAX];
   // Could be a valid path or it can have at the end of it the wildcard %
   // which means that it will try open all devices until an error is met.

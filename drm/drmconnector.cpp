@@ -370,7 +370,7 @@ int DrmConnector::UpdateModes() {
   bModeReady_ = true;
 
   HWC2_ALOGD_IF_DEBUG("conn=%d state=%d count_modes.size=%d modes_.size=%zu new_raw_modes.size=%zu",
-        id_, state_,c->count_modes, modes_.size(),new_raw_modes.size());
+        id_, state_,c->count_modes, modes_.size(),raw_modes_.size());
 
   drmModeFreeConnector(c);
 
@@ -1036,4 +1036,55 @@ const DrmProperty &DrmConnector::color_depth_property() const {
   return color_depth_property_;
 }
 
+int DrmConnector::GetSpiltModeId() const {
+  return (display_ + DRM_CONNECTOR_SPILT_MODE_MASK);
+}
+
+bool DrmConnector::isHorizontalSpilt() const {
+  return bHorizontalSpilt_;
+}
+
+int DrmConnector::setHorizontalSpilt(){
+  if(!bSpiltMode_){
+    bHorizontalSpilt_ = false;
+    return -1;
+  }
+
+  bHorizontalSpilt_ = true;
+  return 0;
+}
+
+bool DrmConnector::isCropSpilt() const {
+  return bCropSpilt_;
+}
+
+int DrmConnector::setCropSpilt(int32_t fbWidth,
+                               int32_t fbHeight,
+                               int32_t srcX,
+                               int32_t srcY,
+                               int32_t srcW,
+                               int32_t srcH){
+  bCropSpilt_ = true;
+  FbWidth_ = fbWidth;
+  FbHeight_ = fbHeight;
+  SrcX_ = srcX;
+  SrcY_ = srcY;
+  SrcW_ = srcW;
+  SrcH_ = srcH;
+  return 0;
+}
+
+int DrmConnector::getCropSpiltFb(int32_t *fbWidth, int32_t *fbHeight){
+  *fbWidth = FbWidth_;
+  *fbHeight = FbHeight_;
+  return 0;
+}
+
+int DrmConnector::getCropInfo(int32_t *srcX, int32_t *srcY, int32_t *srcW, int32_t *srcH){
+  *srcX = SrcX_;
+  *srcY = SrcY_;
+  *srcW = SrcW_;
+  *srcH = SrcH_;
+  return 0;
+}
 }  // namespace android

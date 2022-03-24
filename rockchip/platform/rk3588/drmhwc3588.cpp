@@ -115,7 +115,7 @@ int Hwc3588::assignPlaneByPlaneMask(DrmDevice* drm, const std::set<int> &active_
     }
 
     // Connector SplitMode
-    if(conn->isSpiltMode()){
+    if(conn->isHorizontalSpilt()){
       uint32_t crtc_mask = 1 << crtc->pipe();
       uint64_t plane_mask = crtc->get_plane_mask();
       HWC2_ALOGI("SpiltDisplay id=%d crtc-id=%d mask=0x%x ,plane_mask=0x%" PRIx64,

@@ -119,7 +119,7 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
 
 HWC2::Error DrmHwcTwo::Init() {
   HWC2_ALOGD_IF_VERBOSE();
-  int rv = resource_manager_->Init();
+  int rv = resource_manager_->Init(this);
   if (rv) {
     ALOGE("Can't initialize the resource manager %d", rv);
     return HWC2::Error::NoResources;
@@ -134,7 +134,7 @@ HWC2::Error DrmHwcTwo::Init() {
     }
   }
 
-  auto &drmDevices = resource_manager_->getDrmDevices();
+  auto &drmDevices = resource_manager_->GetDrmDevices();
   for (auto &device : drmDevices) {
     device->RegisterHotplugHandler(new DrmHotplugHandler(this, device.get()));
   }
@@ -243,7 +243,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
       auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
       hotplug(data, HWC_DISPLAY_PRIMARY,
               static_cast<int32_t>(HWC2::Connection::Connected));
-      auto &drmDevices = resource_manager_->getDrmDevices();
+      auto &drmDevices = resource_manager_->GetDrmDevices();
       for (auto &device : drmDevices)
         HandleInitialHotplugState(device.get());
       break;
@@ -364,6 +364,17 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   if (ret) {
     ALOGE("Failed display compositor init for display %d (%d)", display, ret);
     return HWC2::Error::NoResources;
+  }
+
+  // CropSpilt must to
+  if(connector_->isCropSpilt()){
+    std::unique_ptr<DrmDisplayComposition> composition = compositor_->CreateComposition();
+    composition->Init(drm_, crtc_, importer_.get(), planner_.get(), frame_no_, handle_);
+    composition->SetDpmsMode(DRM_MODE_DPMS_ON);
+    ret = compositor_->QueueComposition(std::move(composition));
+    if (ret) {
+      HWC2_ALOGE("Failed to apply the dpms composition ret=%d", ret);
+    }
   }
 
   resource_manager_->creatActiveDisplayCnt(display);
@@ -579,7 +590,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::DestroyLayer(hwc2_layer_t layer) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", layer-id=%" PRIu64,handle_,layer);
-
   auto map_layer = layers_.find(layer);
   if (map_layer != layers_.end()){
     map_layer->second.clear();
@@ -601,7 +611,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
     DrmMode const &best_mode = connector_->best_mode();
 
 
-    if(connector_->isSpiltMode()){
+    if(connector_->isHorizontalSpilt()){
       ctx_.framebuffer_width = best_mode.h_display() / 2;
       ctx_.framebuffer_height = best_mode.v_display();
     }else{
@@ -882,7 +892,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
       ALOGE("Failed to find available display mode for display %" PRIu64 "\n", handle_);
     }
 
-    if(connector_->isSpiltMode()){
+    if(connector_->isHorizontalSpilt()){
       ctx_.rel_xres = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
       ctx_.rel_yres = best_mode.v_display();
       ctx_.framebuffer_width = ctx_.framebuffer_width / DRM_CONNECTOR_SPILT_RATIO;
@@ -891,6 +901,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
         ctx_.rel_xoffset = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
         ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
       }
+    }else if(connector_->isCropSpilt()){
+      int32_t fb_w = 0, fb_h = 0;
+      connector_->getCropSpiltFb(&fb_w, &fb_h);
+      ctx_.framebuffer_width = fb_w;
+      ctx_.framebuffer_height = fb_h;
+      ctx_.rel_xres = best_mode.h_display();
+      ctx_.rel_yres = best_mode.v_display();
     }else{
       ctx_.rel_xres = best_mode.h_display();
       ctx_.rel_yres = best_mode.v_display();
@@ -1173,7 +1190,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   }
 
   std::tie(ret,
-           composition_planes_) = planner_->TryHwcPolicy(layers, plane_groups, crtc_, static_screen_opt_ || force_gles_);
+           composition_planes_) = planner_->TryHwcPolicy(layers, plane_groups, crtc_,
+                                                         static_screen_opt_ ||
+                                                         force_gles_ ||
+                                                         connector_->isCropSpilt());
   if (ret){
     ALOGE("First, GLES policy fail ret=%d", ret);
     return HWC2::Error::BadConfig;
@@ -1214,7 +1234,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
 
   map.display = static_cast<int>(handle_);
   map.geometry_changed = true;  // TODO: Fix this
-
   bool use_client_layer = false;
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
     if(l.second.sf_type() == HWC2::Composition::Client)
@@ -1304,8 +1323,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail %s, %s,line=%d", handle_,
           validate_success_? "" : "or validate fail.",__FUNCTION__, __LINE__);
     ClearDisplay();
-    *retire_fence = -1;
-    return HWC2::Error::None;
   }else{
     ret = CreateComposition();
     if (ret == HWC2::Error::BadLayer) {
@@ -1317,15 +1334,29 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
       return ret;
   }
 
-  // The retire fence returned here is for the last frame, so return it and
-  // promote the next retire fence
-  *retire_fence = d_retire_fence_.get()->isValid() ? dup(d_retire_fence_.get()->getFd()) : -1;
-  if(LogLevel(DBG_DEBUG))
-    HWC2_ALOGD_IF_DEBUG("Return RetireFence(%d) %s frame = %d Info: size=%d act=%d signal=%d err=%d",
-                    d_retire_fence_.get()->isValid(),
-                    d_retire_fence_.get()->getName().c_str(), frame_no_,
-                    d_retire_fence_.get()->getSize(),d_retire_fence_.get()->getActiveCount(),
-                    d_retire_fence_.get()->getSignaledCount(),d_retire_fence_.get()->getErrorCount());
+  int32_t merge_retire_fence = -1;
+  DoMirrorDisplay(&merge_retire_fence);
+  if(merge_retire_fence > 0){
+    if(d_retire_fence_.get()->isValid()){
+      char acBuf[32];
+      sprintf(acBuf,"RTD%" PRIu64 "M-FN%d-%d", handle_, frame_no_, 0);
+      sp<ReleaseFence> rt = sp<ReleaseFence>(new ReleaseFence(merge_retire_fence, acBuf));
+      *retire_fence = rt->merge(d_retire_fence_.get()->getFd(), acBuf);
+    }else{
+      *retire_fence = merge_retire_fence;
+    }
+  }else{
+    // The retire fence returned here is for the last frame, so return it and
+    // promote the next retire fence
+    *retire_fence = d_retire_fence_.get()->isValid() ? dup(d_retire_fence_.get()->getFd()) : -1;
+    if(LogLevel(DBG_DEBUG))
+      HWC2_ALOGD_IF_DEBUG("Return RetireFence(%d) %s frame = %d Info: size=%d act=%d signal=%d err=%d",
+                      d_retire_fence_.get()->isValid(),
+                      d_retire_fence_.get()->getName().c_str(), frame_no_,
+                      d_retire_fence_.get()->getSize(),d_retire_fence_.get()->getActiveCount(),
+                      d_retire_fence_.get()->getSignaledCount(),d_retire_fence_.get()->getErrorCount());
+  }
+
   ++frame_no_;
 
   UpdateTimerState(!static_screen_opt_);
@@ -1367,28 +1398,43 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
                                 .bottom = static_cast<int>(mode->v_display())};
     client_layer_.SetLayerDisplayFrame(display_frame);
     hwc_frect_t source_crop = {.left = 0.0f,
-                               .top = 0.0f,
-                               .right = mode->h_display() + 0.0f,
-                               .bottom = mode->v_display() + 0.0f};
+                              .top = 0.0f,
+                              .right = mode->h_display() + 0.0f,
+                              .bottom = mode->v_display() + 0.0f};
     client_layer_.SetLayerSourceCrop(source_crop);
+
 
     drm_->UpdateDisplayMode(handle_);
     // SetDisplayModeInfo cost 2.5ms - 5ms, a A few cases cost 10ms - 20ms
     connector_->SetDisplayModeInfo(handle_);
   }else{
+    if(connector_->isCropSpilt()){
+      int32_t srcX, srcY, srcW, srcH;
+      connector_->getCropInfo(&srcX, &srcY, &srcW, &srcH);
+      hwc_rect_t display_frame = {.left = 0,
+                                  .top = 0,
+                                  .right = static_cast<int>(ctx_.framebuffer_width),
+                                  .bottom = static_cast<int>(ctx_.framebuffer_height)};
+      client_layer_.SetLayerDisplayFrame(display_frame);
+      hwc_frect_t source_crop = {.left = srcX + 0.0f,
+                                 .top  = srcY + 0.0f,
+                                 .right = srcX + srcW + 0.0f,
+                                 .bottom = srcY + srcH + 0.0f};
+      client_layer_.SetLayerSourceCrop(source_crop);
 
-    // Setup the client layer's dimensions
-    hwc_rect_t display_frame = {.left = 0,
-                                .top = 0,
-                                .right = static_cast<int>(ctx_.framebuffer_width),
-                                .bottom = static_cast<int>(ctx_.framebuffer_height)};
-    client_layer_.SetLayerDisplayFrame(display_frame);
-    hwc_frect_t source_crop = {.left = 0.0f,
-                               .top = 0.0f,
-                               .right = ctx_.framebuffer_width + 0.0f,
-                               .bottom = ctx_.framebuffer_height + 0.0f};
-    client_layer_.SetLayerSourceCrop(source_crop);
-
+    }else{
+      // Setup the client layer's dimensions
+      hwc_rect_t display_frame = {.left = 0,
+                                  .top = 0,
+                                  .right = static_cast<int>(ctx_.framebuffer_width),
+                                  .bottom = static_cast<int>(ctx_.framebuffer_height)};
+      client_layer_.SetLayerDisplayFrame(display_frame);
+      hwc_frect_t source_crop = {.left = 0.0f,
+                                .top = 0.0f,
+                                .right = ctx_.framebuffer_width + 0.0f,
+                                .bottom = ctx_.framebuffer_height + 0.0f};
+      client_layer_.SetLayerSourceCrop(source_crop);
+    }
   }
 
   return HWC2::Error::None;
@@ -1527,7 +1573,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       DrmConnector *extend = drm_->GetConnectorForDisplay(display_id);
       if(extend != NULL){
         int extend_display_id = extend->display();
-        auto &display = g_ctx->displays_.at(extend_display_id);
+        auto &display = resource_manager_->GetHwc2()->displays_.at(extend_display_id);
         display.ClearDisplay();
         ret = drm_->ReleaseDpyRes(extend_display_id);
         if (ret) {
@@ -1595,7 +1641,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   }
 
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    l.second.set_validated_type(HWC2::Composition::Invalid);
+    l.second.set_validated_type(HWC2::Composition::Client);
 
   ret = CheckDisplayState();
   if(ret != HWC2::Error::None){
@@ -1959,6 +2005,77 @@ int DrmHwcTwo::HwcDisplay::InvalidateControl(uint64_t refresh, int refresh_cnt){
     return 0;
 }
 
+int DrmHwcTwo::HwcDisplay::DoMirrorDisplay(int32_t *retire_fence){
+  if(handle_ != 0)
+    return 0;
+
+  if(!connector_->isCropSpilt()){
+    return 0;
+  }
+
+  int32_t merge_rt_fence;
+  int32_t display_cnt = 1;
+  for (auto &conn : drm_->connectors()) {
+    if(!connector_->isCropSpilt()){
+      continue;
+    }
+    int display_id = conn->display();
+    if(display_id != 0){
+      auto &display = resource_manager_->GetHwc2()->displays_.at(display_id);
+      if (conn->state() == DRM_MODE_CONNECTED) {
+        static hwc2_layer_t layer_id = 0;
+        if(display.has_layer(layer_id)){
+        }else{
+          display.CreateLayer(&layer_id);
+        }
+        HwcLayer &layer = display.get_layer(layer_id);
+        hwc_rect_t frame = {0,0,1920,1080};
+        layer.SetLayerDisplayFrame(frame);
+        hwc_frect_t crop = {0.0, 0.0, 1920.0, 1080.0};
+        layer.SetLayerSourceCrop(crop);
+        layer.SetLayerZOrder(0);
+        layer.SetLayerBlendMode(HWC2_BLEND_MODE_NONE);
+        layer.SetLayerPlaneAlpha(1.0);
+        layer.SetLayerCompositionType(HWC2_COMPOSITION_DEVICE);
+        // layer.SetLayerBuffer(NULL,-1);
+        layer.SetLayerTransform(0);
+        uint32_t num_types;
+        uint32_t num_requests;
+        display.ValidateDisplay(&num_types,&num_requests);
+        // display.GetChangedCompositionTypes();
+        // display.GetDisplayRequests();
+        display.AcceptDisplayChanges();
+        hwc_region_t damage;
+        display.SetClientTarget(client_layer_.buffer(),
+                                dup(client_layer_.acquire_fence()->getFd()),
+                                0,
+                                damage);
+        int32_t rt_fence;
+        display.PresentDisplay(&rt_fence);
+        if(merge_rt_fence > 0){
+            char acBuf[32];
+            sprintf(acBuf,"RTD%" PRIu64 "M-FN%d-%d", handle_, frame_no_, display_cnt++);
+            sp<ReleaseFence> rt = sp<ReleaseFence>(new ReleaseFence(rt_fence, acBuf));
+            if(rt->isValid()){
+              sprintf(acBuf,"RTD%" PRIu64 "M-FN%d-%d",handle_, frame_no_, display_cnt++);
+              int32_t merge_rt_fence_temp = merge_rt_fence;
+              merge_rt_fence = rt->merge(merge_rt_fence, acBuf);
+              close(merge_rt_fence_temp);
+            }else{
+              HWC2_ALOGE("connector %u type=%s, type_id=%d is MirrorDisplay get retireFence fail.\n",
+                          conn->id(),
+                          drm_->connector_type_str(conn->type()),
+                          conn->type_id());
+            }
+        }else{
+          merge_rt_fence = rt_fence;
+        }
+      }
+    }
+  }
+  *retire_fence = merge_rt_fence;
+  return 0;
+}
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", blend=%d" ,id_,mode);
@@ -2442,7 +2559,7 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
   if(isRK3566(resource_manager_->getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
       if(displayid != HWC_DISPLAY_PRIMARY){
-        auto &drmDevices = resource_manager_->getDrmDevices();
+        auto &drmDevices = resource_manager_->GetDrmDevices();
         for (auto &device : drmDevices) {
           if(state==DRM_MODE_CONNECTED)
             device->SetCommitMirrorDisplayId(displayid);
@@ -2472,18 +2589,29 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
         // HWC_DISPLAY_PRIMARY display have been hotplug
         if(conn->display() == HWC_DISPLAY_PRIMARY){
           // SpiltDisplay Hotplug
-          if(conn->isSpiltMode()){
+          if(conn->isHorizontalSpilt()){
             HandleDisplayHotplug((conn->GetSpiltModeId()), conn->state());
             ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d SpiltDisplay=%d\n",
               conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id(),conn->GetSpiltModeId());
           }
           continue;
         }
+        // CropSpilt only register primary display.
+        if(conn->display() != HWC_DISPLAY_PRIMARY){
+          // SpiltDisplay Hotplug
+          if(conn->isCropSpilt()){
+            HWC2_ALOGI("HWC2 Init: not to register connector %u type=%s, type_id=%d isCropSpilt=%d\n",
+                      conn->id(),drmDevice->connector_type_str(conn->type()),
+                      conn->type_id(),
+                      conn->isCropSpilt());
+            continue;
+          }
+        }
         ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
           conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
         HandleDisplayHotplug(conn->display(), conn->state());
         // SpiltDisplay Hotplug
-        if(conn->isSpiltMode()){
+        if(conn->isHorizontalSpilt()){
           HandleDisplayHotplug((conn->GetSpiltModeId()), conn->state());
           ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d SpiltDisplay=%d\n",
             conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id(),conn->GetSpiltModeId());
@@ -2491,7 +2619,6 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
       }
     }
 }
-
 
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   int32_t ret = 0;
@@ -2521,6 +2648,11 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
         HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+      }else if(conn->isCropSpilt()){
+        HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d isCropSpilt skip hotplug.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+        display.SetPowerMode(HWC2_POWER_MODE_ON);
       }else{
         HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -2536,6 +2668,11 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
         HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+      }else if(conn->isCropSpilt()){
+        HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d isCropSpilt skip hotplug.",
+                   cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                   conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+        // display.SetPowerMode(HWC2_POWER_MODE_OFF);
       }else{
         HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -2545,7 +2682,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     }
 
     // SpiltDisplay Hoplug.
-    if(conn->isSpiltMode()){
+    if(conn->isHorizontalSpilt()){
       int display_id = conn->GetSpiltModeId();
       auto &display = hwc2_->displays_.at(display_id);
       if (cur_state == DRM_MODE_CONNECTED) {
@@ -2822,6 +2959,7 @@ int DrmHwcTwo::HookDevOpen(const struct hw_module_t *module, const char *name,
     ALOGE("Failed to initialize DrmHwcTwo err=%d\n", err);
     return -EINVAL;
   }
+
   g_ctx = ctx.get();
 
   signal(SIGALRM, StaticScreenOptHandler);

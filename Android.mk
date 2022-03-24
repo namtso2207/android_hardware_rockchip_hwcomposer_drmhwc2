@@ -215,6 +215,7 @@ LOCAL_CFLAGS += \
 endif
 
 LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_HARDWARE)
+LOCAL_REQUIRED_MODULES := HwComposerEnv.xml
 
 # API 26 -> Android 8.0
 ifeq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \>= 26)))
@@ -235,7 +236,16 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
 include $(BUILD_SHARED_LIBRARY)
 
+## copy init.qcom.test.rc from etc to /vendor/etc/init/hw
+include $(CLEAR_VARS)
+LOCAL_MODULE := HwComposerEnv.xml
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_CLASS := ETC
+LOCAL_SRC_FILES := HwComposerEnv.xml
+include $(BUILD_PREBUILT)
+
 endif
+
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
 include $(call all-makefiles-under,$(LOCAL_PATH))
 endif

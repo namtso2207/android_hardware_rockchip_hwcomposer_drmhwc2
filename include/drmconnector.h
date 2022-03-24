@@ -111,8 +111,21 @@ class DrmConnector {
   bool isSupportHLG() { return bSupportHLG_; }
   bool is_hdmi_support_hdr() const;
   int switch_hdmi_hdr_mode(android_dataspace_t colorspace);
-  bool isSpiltMode() const{ return bSpiltMode_;}
-  int GetSpiltModeId() const{ return (display_ + DRM_CONNECTOR_SPILT_MODE_MASK);}
+
+  int GetSpiltModeId() const;
+  bool isHorizontalSpilt() const;
+  int setHorizontalSpilt();
+
+  bool isCropSpilt() const;
+  int setCropSpilt(int32_t fbWidth,
+                   int32_t fbHeight,
+                   int32_t srcX,
+                   int32_t srcY,
+                   int32_t srcW,
+                   int32_t srcH);
+  int getCropSpiltFb(int32_t *fbWidth, int32_t *fbHeight);
+  int getCropInfo(int32_t *srcX, int32_t *srcY, int32_t *srcW, int32_t *srcH);
+
 
   const DrmProperty &brightness_id_property() const;
   const DrmProperty &contrast_id_property() const;
@@ -202,6 +215,16 @@ class DrmConnector {
   output_depth uColorDepth_ = depth_24bit;
   // Spilt mode
   bool bSpiltMode_=false;
+  // Horizontal mode
+  bool bHorizontalSpilt_=false;
+  // Crop mode
+  bool bCropSpilt_=false;
+  int32_t FbWidth_=0;
+  int32_t FbHeight_=0;
+  int32_t SrcX_=0;
+  int32_t SrcY_=0;
+  int32_t SrcW_=0;
+  int32_t SrcH_=0;
 };
 }  // namespace android
 

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#ifndef DRM_HWC_TWO_H
+#define DRM_HWC_TWO_H
 #include "drmdisplaycompositor.h"
 #include "drmlayer.h"
 #include "resourcemanager.h"
@@ -37,8 +39,10 @@ namespace android {
 class DrmGralloc;
 class DrmHwcTwo;
 class GemHandle;
+class ResourceManager;
+class DrmDisplayCompositor;
 
-DrmHwcTwo *g_ctx = NULL;
+static DrmHwcTwo *g_ctx = NULL;
 
 #define MAX_NUM_BUFFER_SLOTS 32
 
@@ -219,10 +223,17 @@ class DrmHwcTwo : public hwc2_device_t {
 
     uint32_t id(){ return id_; }
 
-    void PopulateDrmLayer(hwc2_layer_t layer_id,DrmHwcLayer *layer, hwc2_drm_display_t* ctx,
-                                 uint32_t frame_no);
-    void PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                        hwc2_drm_display_t* ctx, uint32_t frame_no, bool validate);
+    void PopulateDrmLayer(hwc2_layer_t layer_id,
+                          DrmHwcLayer *layer,
+                          hwc2_drm_display_t* ctx,
+                          uint32_t frame_no);
+
+    void PopulateFB(hwc2_layer_t layer_id,
+                    DrmHwcLayer *drmHwcLayer,
+                    hwc2_drm_display_t* ctx,
+                    uint32_t frame_no,
+                    bool validate);
+
     void DumpLayerInfo(String8 &output);
 
     int DumpData();
@@ -392,6 +403,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error InitDrmHwcLayer();
     HWC2::Error CreateComposition();
     void AddFenceToRetireFence(int fd);
+    int DoMirrorDisplay(int32_t *retire_fence);
 
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
@@ -522,3 +534,4 @@ class DrmHwcTwo : public hwc2_device_t {
   std::string mDumpString;
 };
 }  // namespace android
+#endif // DRM_HWC_TWO_H
