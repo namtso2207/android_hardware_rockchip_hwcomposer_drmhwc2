@@ -2262,11 +2262,11 @@ void Vop3588::UpdateResevedPlane(DrmCrtc *crtc){
 #define CLUSTER_AFBC_DECODE_MAX_RATE 2.0
 bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
   // RK356x can't overlay RGBA1010102
-  if(layer->iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102){
-    HWC2_ALOGD_IF_DEBUG("[%s]：RGBA1010102 format, not support overlay.",
-              layer->sLayerName_.c_str());
-    return true;
-  }
+  // if(layer->iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102){
+  //   HWC2_ALOGD_IF_DEBUG("[%s]：RGBA1010102 format, not support overlay.",
+  //             layer->sLayerName_.c_str());
+  //   return true;
+  // }
 
 
   int act_w = static_cast<int>(layer->source_crop.right - layer->source_crop.left);
