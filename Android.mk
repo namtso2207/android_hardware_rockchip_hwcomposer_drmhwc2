@@ -208,7 +208,7 @@ LOCAL_SHARED_LIBRARIES += \
 	libsvep \
 	librknnrt-svep \
 	libOpenCL \
-	librkvdlss
+	librksvep
 
 LOCAL_CFLAGS += \
 	-DUSE_LIBSVEP=1

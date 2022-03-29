@@ -1667,13 +1667,19 @@ int Vop3588::TrySvepPolicy(
   int enable_sharpning = 0;
   enable_sharpning = atoi(value);
 
+  property_get(SVEP_CONTRAST_MODE_OFFSET, value, "10");
+  int contrast_offset = atoi(value);
+
   static uint64_t last_buffer_id = 0;
+  static int last_contrast_offset = 0;
   for(auto &drmLayer : layers){
     if(!drmLayer->bAfbcd_ &&
        drmLayer->iWidth_ <= 2560 &&
        (drmLayer->bYuv_ || strstr(drmLayer->sLayerName_.c_str(), "SurfaceView"))){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
-        if(lastSharpningState_ != enable_sharpning || drmLayer->uBufferId_ != last_buffer_id){
+        if(lastSharpningState_ != enable_sharpning ||
+           drmLayer->uBufferId_ != last_buffer_id ||
+           contrast_offset != last_contrast_offset){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
           // 1. Init Ctx
           int ret = svep_->InitCtx(svepCtx_);
@@ -1758,6 +1764,12 @@ int Vop3588::TrySvepPolicy(
             continue;
           }
 
+          ret = svep_->SetSharpeningRate(svepCtx_, enable_sharpning);
+          if(ret){
+            printf("Svep SetSrcImage fail\n");
+            continue;
+          }
+
           hwc_frect_t source_crop;
           source_crop.left   = require.mCrop_.iLeft_;
           source_crop.top    = require.mCrop_.iTop_;
@@ -1781,8 +1793,10 @@ int Vop3588::TrySvepPolicy(
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
           if(lastSharpningState_ != enable_sharpning)
-            ALOGD("rk-debug lastSharpningState_(%d => %d), to update DLSS layer.",lastSharpningState_,enable_sharpning);
+            ALOGD("rk-debug lastSharpningState_(%d => %d) contrast_offset(%d => %d), to update DLSS layer.",
+                   lastSharpningState_, enable_sharpning, last_contrast_offset, contrast_offset);
           lastSharpningState_ = enable_sharpning;
+          last_contrast_offset = contrast_offset;
         }else{
           if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
             dst_buffer = bufferQueue360p_->BackDrmBuffer();
