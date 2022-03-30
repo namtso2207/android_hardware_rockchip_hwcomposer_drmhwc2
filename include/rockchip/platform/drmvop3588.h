@@ -285,7 +285,7 @@ typedef struct DrmVop2Context{
   std::shared_ptr<DrmBufferQueue> bufferQueue540p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue720p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue1080p_;
-  int lastSharpningState_;
+  int lastEnhancementRate_;
 #endif
   Vop2Ctx ctx;
 };

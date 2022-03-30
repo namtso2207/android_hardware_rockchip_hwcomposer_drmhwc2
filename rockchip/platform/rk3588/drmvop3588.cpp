@@ -1663,11 +1663,11 @@ int Vop3588::TrySvepPolicy(
   std::shared_ptr<DrmBuffer> dst_buffer;
 
   char value[PROPERTY_VALUE_MAX];
-  property_get("vendor.hwc.enable_sharpning", value, "1");
-  int enable_sharpning = 0;
-  enable_sharpning = atoi(value);
+  property_get("vendor.svep.enhancement_rate", value, "5");
+  int enhancement_rate = 0;
+  enhancement_rate = atoi(value);
 
-  property_get(SVEP_CONTRAST_MODE_OFFSET, value, "10");
+  property_get(SVEP_CONTRAST_MODE_OFFSET, value, "50");
   int contrast_offset = atoi(value);
 
   static uint64_t last_buffer_id = 0;
@@ -1677,7 +1677,7 @@ int Vop3588::TrySvepPolicy(
        drmLayer->iWidth_ <= 2560 &&
        (drmLayer->bYuv_ || strstr(drmLayer->sLayerName_.c_str(), "SurfaceView"))){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
-        if(lastSharpningState_ != enable_sharpning ||
+        if(lastEnhancementRate_ != enhancement_rate ||
            drmLayer->uBufferId_ != last_buffer_id ||
            contrast_offset != last_contrast_offset){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
@@ -1721,22 +1721,22 @@ int Vop3588::TrySvepPolicy(
             dst_buffer = bufferQueue360p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
-                                                           "DLSS-GPUSS-SurfaceView-360p");
+                                                           "SVEP-SurfaceView-360p");
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
             dst_buffer = bufferQueue540p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
-                                                           "DLSS-GPUSS-SurfaceView-540p");
+                                                           "SVEP-SurfaceView-540p");
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
             dst_buffer = bufferQueue720p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
-                                                           "DLSS-GPUSS-SurfaceView-720p");
+                                                           "SVEP-SurfaceView-720p");
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             dst_buffer = bufferQueue1080p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                              require.mBufferInfo_.iHeight_,
                                                              require.mBufferInfo_.iFormat_,
-                                                             "DLSS-GPUSS-SurfaceView-1440p");
+                                                             "SVEP-SurfaceView-1440p");
           }
 
           if(dst_buffer == NULL){
@@ -1764,7 +1764,7 @@ int Vop3588::TrySvepPolicy(
             continue;
           }
 
-          ret = svep_->SetSharpeningRate(svepCtx_, enable_sharpning);
+          ret = svep_->SetEnhancementRate(svepCtx_, enhancement_rate);
           if(ret){
             printf("Svep SetSrcImage fail\n");
             continue;
@@ -1792,10 +1792,12 @@ int Vop3588::TrySvepPolicy(
           rga_layer_ready = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
-          if(lastSharpningState_ != enable_sharpning)
-            ALOGD("rk-debug lastSharpningState_(%d => %d) contrast_offset(%d => %d), to update DLSS layer.",
-                   lastSharpningState_, enable_sharpning, last_contrast_offset, contrast_offset);
-          lastSharpningState_ = enable_sharpning;
+          if(lastEnhancementRate_ != enhancement_rate ||
+             last_contrast_offset != contrast_offset){
+            HWC2_ALOGD_IF_DEBUG("lastEnhancementRate_(%d => %d) contrast_offset(%d => %d), to update SVEP layer.",
+                   lastEnhancementRate_, enhancement_rate, last_contrast_offset, contrast_offset);
+          }
+          lastEnhancementRate_ = enhancement_rate;
           last_contrast_offset = contrast_offset;
         }else{
           if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
