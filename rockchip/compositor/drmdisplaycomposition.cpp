@@ -191,6 +191,12 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timel
     layer->release_fence = sp<ReleaseFence>(new ReleaseFence(sync_timeline, sync_timeline_cnt, acBuf));
     if (layer->release_fence->isValid()){
       HWC2_ALOGD_IF_DEBUG(" Create ReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
+#ifdef USE_LIBSVEP
+      if(layer->bUseSvep_){
+        layer->pSvepBuffer_->SetReleaseFence(dup(layer->release_fence->getFd()));
+        HWC2_ALOGD_IF_DEBUG(" Create SvepReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
+      }
+#endif
     }else{
       HWC2_ALOGE(" Create ReleaseFence(%s) Fail!: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
       return -1;

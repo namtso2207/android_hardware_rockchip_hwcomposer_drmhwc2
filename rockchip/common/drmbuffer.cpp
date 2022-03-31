@@ -214,12 +214,11 @@ UniqueFd DrmBuffer::GetReleaseFence(){
   return iReleaseFence_.Release();
 }
 
-OutputFd DrmBuffer::ReleaseFenceOutput(){
-  if(WaitReleaseFence()){
-    return OutputFd(NULL);
-  }
-  return OutputFd(iReleaseFence_.get_ptr());
+int DrmBuffer::SetReleaseFence(int fence){
+  iReleaseFence_.Set(fence);
+  return 0;
 }
+
 int DrmBuffer::WaitReleaseFence(){
   int ret = 0;
   if(iReleaseFence_.get() > 0){

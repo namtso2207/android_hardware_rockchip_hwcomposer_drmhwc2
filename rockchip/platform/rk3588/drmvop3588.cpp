@@ -1837,6 +1837,7 @@ int Vop3588::TrySvepPolicy(
           use_laster_rga_layer = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          drmLayer->pSvepBuffer_ = dst_buffer;
           break;
         }
       }
@@ -1862,6 +1863,7 @@ int Vop3588::TrySvepPolicy(
             drmLayer->bUseSvep_ = false;
           }
           dst_buffer->SetFinishFence(dup(output_fence));
+          drmLayer->pSvepBuffer_ = dst_buffer;
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
           if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
             bufferQueue360p_->QueueBuffer(dst_buffer);
@@ -2799,7 +2801,8 @@ int Vop3588::InitContext(
     if(iSvepMode == 1){
       DrmDevice *drm = crtc->getDrmDevice();
       DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-      if(conn && conn->state() == DRM_MODE_CONNECTED && conn->type_id() == 1){
+      if(conn && conn->state() == DRM_MODE_CONNECTED &&
+         conn->type() == DRM_MODE_CONNECTOR_HDMIA && conn->type_id() == 1){
         // Match policy first
         TrySvepOverlay();
       }

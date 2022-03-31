@@ -30,7 +30,7 @@
 #include "drmhwcgralloc.h"
 #include "rockchip/drmtype.h"
 #include "utils/drmfence.h"
-
+#include "drmbuffer.h"
 
 struct hwc_import_context;
 
@@ -245,6 +245,7 @@ struct DrmHwcLayer {
 
   bool bUseSvep_;
   DrmLayerInfoStore storeLayerInfo_;
+  std::shared_ptr<DrmBuffer> pSvepBuffer_;
 
   int ImportBuffer(Importer *importer);
   int Init();

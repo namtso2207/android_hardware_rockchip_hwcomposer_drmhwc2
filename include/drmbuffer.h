@@ -50,7 +50,7 @@ public:
   int SetFinishFence(int fence);
   int WaitFinishFence();
   UniqueFd GetReleaseFence();
-  OutputFd ReleaseFenceOutput();
+  int SetReleaseFence(int fence);
   int WaitReleaseFence();
   int DumpData();
 
