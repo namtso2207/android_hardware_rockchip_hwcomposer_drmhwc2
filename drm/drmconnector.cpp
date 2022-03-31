@@ -1045,11 +1045,6 @@ bool DrmConnector::isHorizontalSpilt() const {
 }
 
 int DrmConnector::setHorizontalSpilt(){
-  if(!bSpiltMode_){
-    bHorizontalSpilt_ = false;
-    return -1;
-  }
-
   bHorizontalSpilt_ = true;
   return 0;
 }
