@@ -26,7 +26,7 @@
 
 #include <log/log.h>
 #include <xf86drmMode.h>
-#include <drm/drm_fourcc.h>
+
 namespace android {
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -637,17 +637,9 @@ bool DrmPlane::is_support_output(int output_w, int output_h){
 
 bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
   if(isRK3588(soc_id_)){
-    if((win_type_ & PLANE_RK3588_ALL_CLUSTER_MASK) > 0){
-      if(afbcd){
-        return support_format_list.count(format);
-      }else if(format == DRM_FORMAT_ABGR8888 ||
-               format == DRM_FORMAT_BGR888 ||
-               format == DRM_FORMAT_BGR565 ){
-        return true;
-      }else{
-        return false;
-      }
-    }else if((win_type_ & PLANE_RK3588_ALL_ESMART_MASK) > 0 && !afbcd)
+    if((win_type_ & PLANE_RK3588_ALL_CLUSTER_MASK) > 0 && afbcd)
+      return support_format_list.count(format);
+    else if((win_type_ & PLANE_RK3588_ALL_ESMART_MASK) > 0 && !afbcd)
       return support_format_list.count(format);
     else
       return false;

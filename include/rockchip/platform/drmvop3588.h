@@ -136,16 +136,6 @@ typedef struct StateContext{
   int iClu2UsedDstXOffset=0;
   int iClu3UsedDstXOffset=0;
 
-  int iClu0UsedFormat=0;
-  int iClu1UsedFormat=0;
-  int iClu2UsedFormat=0;
-  int iClu3UsedFormat=0;
-
-  int iClu0UsedAfbc=0;
-  int iClu1UsedAfbc=0;
-  int iClu2UsedAfbc=0;
-  int iClu3UsedAfbc=0;
-
   // Multi area
   bool bMultiAreaEnable=false;
   bool bMultiAreaScaleEnable=false;
