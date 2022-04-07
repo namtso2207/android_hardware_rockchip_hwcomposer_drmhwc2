@@ -1641,8 +1641,7 @@ int Vop3588::TrySvepPolicy(
   static uint64_t last_buffer_id = 0;
   static int last_contrast_offset = 0;
   for(auto &drmLayer : layers){
-    if(!drmLayer->bAfbcd_ &&
-       drmLayer->iWidth_ <= 2560 &&
+    if(drmLayer->iWidth_ <= 4096 &&
        (drmLayer->bYuv_ || strstr(drmLayer->sLayerName_.c_str(), "SurfaceView"))){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
         if(lastEnhancementRate_ != enhancement_rate ||
@@ -1664,6 +1663,12 @@ int Vop3588::TrySvepPolicy(
           src.mBufferInfo_.iStride_ = drmLayer->iStride_;
           src.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
           src.mBufferInfo_.uDataSpace_ = (uint64_t)drmLayer->eDataSpace_;
+          if(drmLayer->bAfbcd_){
+            if(drmLayer->iFormat_ == HAL_PIXEL_FORMAT_YUV420_8BIT_I){
+              src.mBufferInfo_.iFormat_ = HAL_PIXEL_FORMAT_YCrCb_NV12;
+            }
+            src.mBufferInfo_.uBufferMask_ = SVEP_AFBC_FORMATE;
+          }
 
           src.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
           src.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
@@ -1705,6 +1710,11 @@ int Vop3588::TrySvepPolicy(
                                                              require.mBufferInfo_.iHeight_,
                                                              require.mBufferInfo_.iFormat_,
                                                              "SVEP-SurfaceView-1440p");
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
+            dst_buffer = bufferQueue2160p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                             require.mBufferInfo_.iHeight_,
+                                                             require.mBufferInfo_.iFormat_,
+                                                             "SVEP-SurfaceView-2160p");
           }
 
           if(dst_buffer == NULL){
@@ -1776,6 +1786,8 @@ int Vop3588::TrySvepPolicy(
             dst_buffer = bufferQueue720p_->BackDrmBuffer();
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             dst_buffer = bufferQueue1080p_->BackDrmBuffer();
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
+            dst_buffer = bufferQueue2160p_->BackDrmBuffer();
           }
 
           if(dst_buffer == NULL){
@@ -1841,6 +1853,8 @@ int Vop3588::TrySvepPolicy(
             bufferQueue720p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             bufferQueue1080p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
+            bufferQueue2160p_->QueueBuffer(dst_buffer);
           }
           last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
           return ret;
@@ -1860,6 +1874,8 @@ int Vop3588::TrySvepPolicy(
             bufferQueue720p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
             bufferQueue1080p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
+            bufferQueue2160p_->QueueBuffer(dst_buffer);
           }
           drmLayer->ResetInfoFromStore();
           drmLayer->bUseSvep_ = false;
