@@ -1920,6 +1920,19 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 }
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
+
+  char value[PROPERTY_VALUE_MAX];
+  property_get("vendor.hwc.hdr_force_disable", value, "0");
+  if(atoi(value) > 0){
+    if(ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
+      ctx_.hdr_mode = false;
+      property_set("vendor.hwc.hdr_state","NORMAL");
+    }
+    ALOGD_IF(LogLevel(DBG_DEBUG),"Fource Disable HDR mode.");
+    return 0;
+  }
+
   bool exist_hdr_layer = false;
   for(auto &drmHwcLayer : drm_hwc_layers_)
     if(drmHwcLayer.bHdr_){
