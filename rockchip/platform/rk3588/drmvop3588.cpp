@@ -648,7 +648,9 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             bNeed = true;
                           }else{
                             // FB-Target 如果匹配失败，尝试反转AFBC压缩格式再匹配
-                            if((*iter_layer)->bFbTarget_ && (*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,!(*iter_layer)->bAfbcd_)){
+                            if((*iter_layer)->bFbTarget_ &&
+                               (hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") == 0) &&
+                               (*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,!(*iter_layer)->bAfbcd_)){
                                 (*iter_layer)->bAfbcd_ = !(*iter_layer)->bAfbcd_;
                             }else{
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
