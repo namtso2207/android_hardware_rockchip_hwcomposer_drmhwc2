@@ -1709,7 +1709,9 @@ int Vop3588::TrySvepPolicy(
           src.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
           src.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
 
-          ret = svep_->SetSrcImage(svepCtx_, src);
+          ret = svep_->SetSrcImage(svepCtx_,
+                                   src,
+                                   (ctx.state.b8kMode_ ? SVEP_OUTPUT_8K_MODE : SVEP_MODE_NONE));
           if(ret){
             printf("Svep SetSrcImage fail\n");
             continue;
@@ -1749,6 +1751,11 @@ int Vop3588::TrySvepPolicy(
                                                              require.mBufferInfo_.iHeight_,
                                                              require.mBufferInfo_.iFormat_,
                                                              "SVEP-SurfaceView-2160p");
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
+            dst_buffer = bufferQueue4320p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+                                                             require.mBufferInfo_.iHeight_,
+                                                             require.mBufferInfo_.iFormat_,
+                                                             "SVEP-SurfaceView-4320p");
           }
 
           if(dst_buffer == NULL){
@@ -1822,6 +1829,8 @@ int Vop3588::TrySvepPolicy(
             dst_buffer = bufferQueue1080p_->BackDrmBuffer();
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
             dst_buffer = bufferQueue2160p_->BackDrmBuffer();
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
+            dst_buffer = bufferQueue4320p_->BackDrmBuffer();
           }
 
           if(dst_buffer == NULL){
@@ -1889,6 +1898,8 @@ int Vop3588::TrySvepPolicy(
             bufferQueue1080p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
             bufferQueue2160p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
+            bufferQueue4320p_->QueueBuffer(dst_buffer);
           }
           last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
           return ret;
@@ -1910,6 +1921,8 @@ int Vop3588::TrySvepPolicy(
             bufferQueue1080p_->QueueBuffer(dst_buffer);
           }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
             bufferQueue2160p_->QueueBuffer(dst_buffer);
+          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
+            bufferQueue4320p_->QueueBuffer(dst_buffer);
           }
           drmLayer->ResetInfoFromStore();
           drmLayer->bUseSvep_ = false;

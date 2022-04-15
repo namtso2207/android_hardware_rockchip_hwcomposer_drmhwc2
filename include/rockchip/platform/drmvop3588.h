@@ -178,7 +178,8 @@ typedef struct DrmVop2Context{
     bufferQueue540p_(std::make_shared<DrmBufferQueue>()),
     bufferQueue720p_(std::make_shared<DrmBufferQueue>()),
     bufferQueue1080p_(std::make_shared<DrmBufferQueue>()),
-    bufferQueue2160p_(std::make_shared<DrmBufferQueue>())
+    bufferQueue2160p_(std::make_shared<DrmBufferQueue>()),
+    bufferQueue4320p_((std::make_shared<DrmBufferQueue>()))
 #endif
   {
     Init();
@@ -287,6 +288,7 @@ typedef struct DrmVop2Context{
   std::shared_ptr<DrmBufferQueue> bufferQueue720p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue1080p_;
   std::shared_ptr<DrmBufferQueue> bufferQueue2160p_;
+  std::shared_ptr<DrmBufferQueue> bufferQueue4320p_;
   int lastEnhancementRate_;
 #endif
   Vop2Ctx ctx;
