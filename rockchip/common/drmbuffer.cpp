@@ -54,8 +54,8 @@ DrmBuffer::DrmBuffer(int w, int h, int format, std::string name):
 }
 
 DrmBuffer::~DrmBuffer(){
-  iFinishFence_.Close();
-  iReleaseFence_.Close();
+  WaitFinishFence();
+  WaitReleaseFence();
 
   if(ptrBuffer_ != NULL){
     ptrBuffer_ = NULL;
@@ -64,11 +64,6 @@ DrmBuffer::~DrmBuffer(){
   int ret = ptrDrmGralloc_->hwc_free_gemhandle(uBufferId_);
   if(ret){
     HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
-  }
-
-  if(iFd_ > 0){
-    close(iFd_);
-    iFd_ = -1;
   }
 }
 
@@ -138,6 +133,9 @@ int DrmBuffer::GetStride(){
 }
 int DrmBuffer::GetByteStride(){
   return iByteStride_;
+}
+int DrmBuffer::GetSize(){
+  return iSize_;
 }
 int DrmBuffer::GetUsage(){
   return iUsage_;

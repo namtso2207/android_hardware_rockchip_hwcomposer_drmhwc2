@@ -165,6 +165,7 @@ struct DrmLayerInfoStore{
   int iHeight_;
   int iStride_;
   int iByteStride_;
+  int iSize_;
   int iUsage;
   uint32_t uFourccFormat_;
   uint64_t uModifier_;
@@ -221,6 +222,7 @@ struct DrmHwcLayer {
   int iHeight_;
   int iStride_;
   int iByteStride_;
+  int iSize_;
   int iUsage;
   uint32_t uFourccFormat_;
   uint32_t uGemHandle_;
@@ -256,7 +258,7 @@ struct DrmHwcLayer {
   void SetDisplayFrame(hwc_rect_t const &frame, hwc2_drm_display_t *ctx);
   void SetDisplayFrameMirror(hwc_rect_t const &frame);
   void UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
-      int fd, int format, int w, int h, int stride,
+      int fd, int format, int w, int h, int stride, int size,
       int byte_stride, int usage, uint32_t fourcc, uint64_t modefier,
       std::string name, hwc_frect_t &intput_crop, uint64_t buffer_id,
       uint32_t gemhandle);

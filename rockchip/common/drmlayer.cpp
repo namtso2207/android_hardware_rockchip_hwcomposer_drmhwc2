@@ -536,8 +536,8 @@ supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
 }
 
 void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
-      int fd, int format, int w, int h, int stride,
-      int byte_stride, int usage, uint32_t fourcc, uint64_t modefier,
+      int fd, int format, int w, int h, int stride, int byte_stride,
+      int size, int usage, uint32_t fourcc, uint64_t modefier,
       std::string name, hwc_frect_t &intput_crop, uint64_t buffer_id,
       uint32_t gemhandle){
 
@@ -552,6 +552,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   storeLayerInfo_.iHeight_     = iHeight_;
   storeLayerInfo_.iStride_     = iStride_;
   storeLayerInfo_.iByteStride_ = iByteStride_;
+  storeLayerInfo_.iSize_       = iSize_;
   storeLayerInfo_.iUsage = iUsage;
   storeLayerInfo_.uFourccFormat_ = uFourccFormat_;
   storeLayerInfo_.uModifier_     = uModifier_;
@@ -566,6 +567,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   iHeight_       = h;
   iStride_       = stride;
   iByteStride_   = byte_stride;
+  iSize_         = size;
   iUsage         = usage;
   uFourccFormat_ = fourcc;
   uModifier_     = modefier;
@@ -583,18 +585,18 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   transform = DRM_MODE_ROTATE_0;
   Init();
   HWC2_ALOGD_IF_DEBUG(
-        "SvepTransform : LayerId[%u] Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
-        "                            Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
+        "SvepTransform : LayerId[%u] Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
+        "                            Fourcc=%c%c%c%c Buf=[%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
              uId_,
              storeLayerInfo_.uFourccFormat_,storeLayerInfo_.uFourccFormat_>>8,
              storeLayerInfo_.uFourccFormat_>>16,storeLayerInfo_.uFourccFormat_>>24,
-             storeLayerInfo_.iWidth_,storeLayerInfo_.iHeight_,storeLayerInfo_.iStride_,
+             storeLayerInfo_.iWidth_,storeLayerInfo_.iHeight_,storeLayerInfo_.iStride_,storeLayerInfo_.iSize_,
              storeLayerInfo_.source_crop.left,storeLayerInfo_.source_crop.top,
              storeLayerInfo_.source_crop.right,storeLayerInfo_.source_crop.bottom,
              storeLayerInfo_.display_frame.left,storeLayerInfo_.display_frame.top,
              storeLayerInfo_.display_frame.right,storeLayerInfo_.display_frame.bottom,
              TransformToString(storeLayerInfo_.transform).c_str(),storeLayerInfo_.transform,
-             uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,iWidth_,iHeight_,iStride_,
+             uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,iWidth_,iHeight_,iStride_,iSize_,
              source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
              display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,
              TransformToString(transform).c_str(),transform);

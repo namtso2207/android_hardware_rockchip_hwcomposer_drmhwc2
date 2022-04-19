@@ -1695,6 +1695,7 @@ int Vop3588::TrySvepPolicy(
           src.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
           src.mBufferInfo_.iFormat_ = drmLayer->iFormat_;
           src.mBufferInfo_.iStride_ = drmLayer->iStride_;
+          src.mBufferInfo_.iSize_   = drmLayer->iSize_;
           src.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
           src.mBufferInfo_.uDataSpace_ = (uint64_t)drmLayer->eDataSpace_;
           if(drmLayer->bAfbcd_){
@@ -1726,37 +1727,10 @@ int Vop3588::TrySvepPolicy(
           }
 
           // 4. Alloc dst_buffer
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
-            dst_buffer = bufferQueue360p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
+            dst_buffer = bufferQueue_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                             require.mBufferInfo_.iHeight_,
                                                             require.mBufferInfo_.iFormat_,
-                                                           "SVEP-SurfaceView-360p");
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
-            dst_buffer = bufferQueue540p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                            require.mBufferInfo_.iHeight_,
-                                                            require.mBufferInfo_.iFormat_,
-                                                           "SVEP-SurfaceView-540p");
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
-            dst_buffer = bufferQueue720p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                            require.mBufferInfo_.iHeight_,
-                                                            require.mBufferInfo_.iFormat_,
-                                                           "SVEP-SurfaceView-720p");
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
-            dst_buffer = bufferQueue1080p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                             require.mBufferInfo_.iHeight_,
-                                                             require.mBufferInfo_.iFormat_,
-                                                             "SVEP-SurfaceView-1440p");
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
-            dst_buffer = bufferQueue2160p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                             require.mBufferInfo_.iHeight_,
-                                                             require.mBufferInfo_.iFormat_,
-                                                             "SVEP-SurfaceView-2160p");
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
-            dst_buffer = bufferQueue4320p_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                             require.mBufferInfo_.iHeight_,
-                                                             require.mBufferInfo_.iFormat_,
-                                                             "SVEP-SurfaceView-4320p");
-          }
+                                                           "SVEP-SurfaceView");
 
           if(dst_buffer == NULL){
             HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
@@ -1770,6 +1744,7 @@ int Vop3588::TrySvepPolicy(
           dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
           dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
           dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+          dst.mBufferInfo_.iSize_   = dst_buffer->GetSize();
           dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
           dst.mCrop_.iLeft_  = require.mCrop_.iLeft_;
@@ -1801,6 +1776,7 @@ int Vop3588::TrySvepPolicy(
                                                     dst_buffer->GetHeight(),
                                                     dst_buffer->GetStride(),
                                                     dst_buffer->GetByteStride(),
+                                                    dst_buffer->GetSize(),
                                                     dst_buffer->GetUsage(),
                                                     dst_buffer->GetFourccFormat(),
                                                     dst_buffer->GetModifier(),
@@ -1819,19 +1795,7 @@ int Vop3588::TrySvepPolicy(
           lastEnhancementRate_ = enhancement_rate;
           last_contrast_offset = contrast_offset;
         }else{
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
-            dst_buffer = bufferQueue360p_->BackDrmBuffer();
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
-            dst_buffer = bufferQueue540p_->BackDrmBuffer();
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
-            dst_buffer = bufferQueue720p_->BackDrmBuffer();
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
-            dst_buffer = bufferQueue1080p_->BackDrmBuffer();
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
-            dst_buffer = bufferQueue2160p_->BackDrmBuffer();
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
-            dst_buffer = bufferQueue4320p_->BackDrmBuffer();
-          }
+          dst_buffer = bufferQueue_->BackDrmBuffer();
 
           if(dst_buffer == NULL){
             HWC2_ALOGD_IF_DEBUG("DequeueDrmBuffer fail!, skip this policy.");
@@ -1850,6 +1814,7 @@ int Vop3588::TrySvepPolicy(
                                                     dst_buffer->GetHeight(),
                                                     dst_buffer->GetStride(),
                                                     dst_buffer->GetByteStride(),
+                                                    dst_buffer->GetSize(),
                                                     dst_buffer->GetUsage(),
                                                     dst_buffer->GetFourccFormat(),
                                                     dst_buffer->GetModifier(),
@@ -1888,19 +1853,7 @@ int Vop3588::TrySvepPolicy(
           dst_buffer->SetFinishFence(dup(output_fence));
           drmLayer->pSvepBuffer_ = dst_buffer;
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
-            bufferQueue360p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
-            bufferQueue540p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
-            bufferQueue720p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
-            bufferQueue1080p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
-            bufferQueue2160p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
-            bufferQueue4320p_->QueueBuffer(dst_buffer);
-          }
+          bufferQueue_->QueueBuffer(dst_buffer);
           last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
           return ret;
         }
@@ -1911,19 +1864,7 @@ int Vop3588::TrySvepPolicy(
       HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
       for(auto &drmLayer : layers){
         if(drmLayer->bUseSvep_){
-          if(svepCtx_.mSvepMode_ == SvepMode::SVEP_360p){
-            bufferQueue360p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_540p){
-            bufferQueue540p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_720p){
-            bufferQueue720p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_1080p){
-            bufferQueue1080p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_2160p){
-            bufferQueue2160p_->QueueBuffer(dst_buffer);
-          }else if(svepCtx_.mSvepMode_ == SvepMode::SVEP_4320p){
-            bufferQueue4320p_->QueueBuffer(dst_buffer);
-          }
+          bufferQueue_->QueueBuffer(dst_buffer);
           drmLayer->ResetInfoFromStore();
           drmLayer->bUseSvep_ = false;
         }

@@ -133,6 +133,7 @@ class DrmHwcTwo : public hwc2_device_t {
       int iWidth_=0;
       int iHeight_=0;
       int iStride_=0;
+      int iSize_=0;
       int iByteStride_=0;
       int iUsage_=0;
       uint32_t uFourccFormat_=0;
@@ -181,6 +182,7 @@ class DrmHwcTwo : public hwc2_device_t {
           pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
           pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
           pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+          pBufferInfo_->iSize_   = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
           pBufferInfo_->iByteStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
           pBufferInfo_->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
           pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(buffer_);

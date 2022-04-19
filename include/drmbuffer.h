@@ -39,6 +39,7 @@ public:
   int GetFormat();
   int GetStride();
   int GetByteStride();
+  int GetSize();
   int GetUsage();
   uint32_t GetFourccFormat();
   uint64_t GetModifier();

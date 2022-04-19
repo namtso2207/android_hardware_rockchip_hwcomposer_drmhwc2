@@ -2216,6 +2216,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
     drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
     drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+    drmHwcLayer->iSize_   = pBufferInfo_->iSize_;
     drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
     drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
     drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
@@ -2228,6 +2229,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     drmHwcLayer->iWidth_  = -1;
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
+    drmHwcLayer->iSize_   = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
@@ -2276,6 +2278,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
     drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
     drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+    drmHwcLayer->iSize_   = pBufferInfo_->iSize_;
     drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
     drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
     drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
@@ -2289,6 +2292,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iWidth_  = -1;
     drmHwcLayer->iHeight_ = -1;
     drmHwcLayer->iStride_ = -1;
+    drmHwcLayer->iSize_   = -1;
     drmHwcLayer->iFormat_ = -1;
     drmHwcLayer->iUsage   = -1;
     drmHwcLayer->uFourccFormat_   = DRM_FORMAT_ABGR8888; // fb target default DRM_FORMAT_ABGR8888
@@ -2334,6 +2338,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         src.mBufferInfo_.iWidth_  = drmHwcLayer->iFbWidth_;
         src.mBufferInfo_.iHeight_ = drmHwcLayer->iFbHeight_;
         src.mBufferInfo_.iFormat_ = HAL_PIXEL_FORMAT_RGBA_8888;
+        src.mBufferInfo_.iSize_   = drmHwcLayer->iSize_;
         src.mBufferInfo_.iStride_ = drmHwcLayer->iFbWidth_;
         src.mBufferInfo_.uBufferId_ = 0x1;
 
@@ -2393,6 +2398,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         src.mBufferInfo_.iHeight_ = drmHwcLayer->iHeight_;
         src.mBufferInfo_.iFormat_ = drmHwcLayer->iFormat_;
         src.mBufferInfo_.iStride_ = drmHwcLayer->iStride_;
+        src.mBufferInfo_.iSize_   = drmHwcLayer->iSize_;
         src.mBufferInfo_.uBufferId_ = drmHwcLayer->uBufferId_;
         src.mBufferInfo_.uDataSpace_ = (uint64_t)drmHwcLayer->eDataSpace_;
 
@@ -2432,6 +2438,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
         dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
         dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
+        src.mBufferInfo_.iSize_   = dst_buffer->GetSize();
         dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
         dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
@@ -2459,6 +2466,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
                                                   dst_buffer->GetHeight(),
                                                   dst_buffer->GetStride(),
                                                   dst_buffer->GetByteStride(),
+                                                  dst_buffer->GetSize(),
                                                   dst_buffer->GetUsage(),
                                                   dst_buffer->GetFourccFormat(),
                                                   dst_buffer->GetModifier(),
