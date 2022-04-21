@@ -870,399 +870,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
       }
 
   }
-
-
   return -1;
 }
-
-int Vop3588::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_planes,
-                   std::vector<PlaneGroup *> &plane_groups,
-                   DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                   std::pair<int, std::vector<DrmHwcLayer*>> layers, int zpos, bool match_best=false) {
-
-  uint32_t layer_size = layers.second.size();
-  bool b_yuv=false,b_scale=false,b_alpha=false,b_hdr2sdr=false,b_afbc=false;
-  std::vector<PlaneGroup *> ::const_iterator iter;
-  uint64_t rotation = 0;
-  uint64_t alpha = 0xFF;
-  uint16_t eotf = TRADITIONAL_GAMMA_SDR;
-  bool bMulArea = layer_size > 0 ? true : false;
-
-  //loop plane groups.
-  for (iter = plane_groups.begin();
-     iter != plane_groups.end(); ++iter) {
-     uint32_t combine_layer_count = 0;
-     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
-                                   "current_crtc_=0x%x,possible_crtcs=0x%x",
-                                   __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
-                                   (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
-      //find the match zpos plane group
-      if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_crtc_) > 0))
-      {
-          ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
-
-          //find the match combine layer count with plane size.
-          if(layer_size <= (*iter)->planes.size())
-          {
-              //loop layer
-              for(std::vector<DrmHwcLayer*>::const_iterator iter_layer= layers.second.begin();
-                  iter_layer != layers.second.end();++iter_layer)
-              {
-                  //reset is_match to false
-                  (*iter_layer)->bMatch_ = false;
-
-                  if(match_best){
-                      if(!((*iter)->win_type & (*iter_layer)->iBestPlaneType)){
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d, plane_group win-type = 0x%" PRIx64 " , layer best-type = %x, not match ",
-                          __LINE__,(*iter)->win_type, (*iter_layer)->iBestPlaneType);
-                          continue;
-                      }
-                  }
-
-                  //loop plane
-                  for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
-                      !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane)
-                  {
-                      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,plane(%d) is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
-                              (*iter_plane)->id(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
-
-
-                      if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
-                      {
-                          bool bNeed = false;
-
-                          // Cluster 0, 初始化 Cluster 图层匹配参数
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
-                                ctx.state.bClu0Used = false;
-                                ctx.state.iClu0UsedZ = -1;
-                                ctx.state.bClu0TwoWinMode = true;
-                                ctx.state.iClu0UsedDstXOffset = 0;
-                          }
-                          // Cluster 1, 初始化 Cluster 图层匹配参数
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
-                                ctx.state.bClu1Used = false;
-                                ctx.state.iClu1UsedZ = -1;
-                                ctx.state.bClu1TwoWinMode = true;
-                                ctx.state.iClu1UsedDstXOffset = 0;
-                          }
-
-                          // Cluster 2, 初始化 Cluster 图层匹配参数
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
-                                ctx.state.bClu2Used = false;
-                                ctx.state.iClu2UsedZ = -1;
-                                ctx.state.bClu2TwoWinMode = true;
-                                ctx.state.iClu2UsedDstXOffset = 0;
-                          }
-                          // Cluster 3, 初始化 Cluster 图层匹配参数
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
-                                ctx.state.bClu3Used = false;
-                                ctx.state.iClu3UsedZ = -1;
-                                ctx.state.bClu3TwoWinMode = true;
-                                ctx.state.iClu3UsedDstXOffset = 0;
-                          }
-                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ))
-                            ctx.state.bClu0TwoWinMode = false;
-
-                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu1Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu1UsedZ) != 1 && !(zpos == ctx.state.iClu1UsedZ))
-                            ctx.state.bClu1TwoWinMode = false;
-
-                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu2Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu2UsedZ) != 1 && !(zpos == ctx.state.iClu2UsedZ))
-                            ctx.state.bClu2TwoWinMode = false;
-
-                          // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu3Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0 &&
-                             (zpos - ctx.state.iClu3UsedZ) != 1 && !(zpos == ctx.state.iClu3UsedZ))
-                            ctx.state.bClu3TwoWinMode = false;
-
-                          // 其他的Cluster限制条件
-                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
-                            if(!ctx.state.bClu0TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
-                              continue;
-                            }
-                            // Two-Win 模式offset需要奇偶对齐
-                            int dst_x_offset = (*iter_layer)->display_frame.left;
-                            if((ctx.state.iClu0UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
-                              ctx.state.bClu0TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu0UsedDstXOffset,dst_x_offset);
-                              continue;
-                            }
-                            // 输入输出分辨率要求小于2048
-                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
-                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                            if(src_w > 2048 || dst_w > 2048){
-                              ctx.state.bClu0TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
-                              continue;
-                            }
-                          }
-                          // 其他的Cluster限制条件
-                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN1) > 0){
-                            if(!ctx.state.bClu1TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
-                              continue;
-                            }
-                            // Two-Win 模式offset需要奇偶对齐
-                            int dst_x_offset = (*iter_layer)->display_frame.left;
-                            if((ctx.state.iClu1UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
-                              ctx.state.bClu1TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
-                              continue;
-                            }
-                            // 输入输出分辨率要求小于2048
-                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
-                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                            if(src_w > 2048 || dst_w > 2048){
-                              ctx.state.bClu1TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
-                              continue;
-                            }
-                          }
-                          // 其他的Cluster限制条件
-                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN1) > 0){
-                            if(!ctx.state.bClu2TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
-                              continue;
-                            }
-                            // Two-Win 模式offset需要奇偶对齐
-                            int dst_x_offset = (*iter_layer)->display_frame.left;
-                            if((ctx.state.iClu2UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
-                              ctx.state.bClu2TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
-                              continue;
-                            }
-                            // 输入输出分辨率要求小于2048
-                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
-                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                            if(src_w > 2048 || dst_w > 2048){
-                              ctx.state.bClu2TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
-                              continue;
-                            }
-                          }
-                          // 其他的Cluster限制条件
-                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN1) > 0){
-                            if(!ctx.state.bClu3TwoWinMode){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
-                              continue;
-                            }
-                            // Two-Win 模式offset需要奇偶对齐
-                            int dst_x_offset = (*iter_layer)->display_frame.left;
-                            if((ctx.state.iClu3UsedDstXOffset % 2) !=  (dst_x_offset % 2)){
-                              ctx.state.bClu3TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay win0-dst-x=%d,win1-dst-x=%d",(*iter_plane)->name(),ctx.state.iClu1UsedDstXOffset,dst_x_offset);
-                              continue;
-                            }
-                            // 输入输出分辨率要求小于2048
-                            int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
-                            int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                            if(src_w > 2048 || dst_w > 2048){
-                              ctx.state.bClu3TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
-                              continue;
-                            }
-                          }
-
-                          // Format
-                          if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
-                            bNeed = true;
-                          }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
-                            continue;
-                          }
-
-                          // Input info
-                          int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
-                          int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
-                          if((*iter_plane)->is_support_input(input_w,input_h)){
-                            bNeed = true;
-                          }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->name(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
-                            continue;
-
-                          }
-
-                          // Output info
-                          int output_w = (*iter_layer)->display_frame_mirror.right - (*iter_layer)->display_frame_mirror.left;
-                          int output_h = (*iter_layer)->display_frame_mirror.bottom - (*iter_layer)->display_frame_mirror.top;
-
-                          if((*iter_plane)->is_support_output(output_w,output_h)){
-                            bNeed = true;
-                          }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
-                            continue;
-
-                          }
-
-                          // Scale
-                          if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMulMirror_) &&
-                              (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMulMirror_))
-                            bNeed = true;
-                          else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
-                                    (*iter_plane)->name(), (*iter_layer)->fHScaleMulMirror_, (*iter_layer)->fVScaleMulMirror_);
-                            continue;
-
-                          }
-
-                          // Alpha
-                          if ((*iter_layer)->blending == DrmHwcBlending::kPreMult)
-                              alpha = (*iter_layer)->alpha;
-                          b_alpha = (*iter_plane)->alpha_property().id()?true:false;
-                          if(alpha != 0xFF)
-                          {
-                              if(!b_alpha)
-                              {
-                                  ALOGV("layer id=%d, plane id=%d",(*iter_layer)->uId_,(*iter_plane)->id());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support alpha,layer alpha=0x%x,alpha id=%d",
-                                          (*iter_plane)->name(),(*iter_layer)->alpha,(*iter_plane)->alpha_property().id());
-                                  continue;
-                              }
-                              else
-                                  bNeed = true;
-                          }
-
-                          // HDR
-                          bool hdr_layer = (*iter_layer)->bHdr_;
-                          b_hdr2sdr = crtc->get_hdr();
-                          if(hdr_layer){
-                              if(!b_hdr2sdr){
-                                  ALOGV("layer id=%d, %s",(*iter_layer)->uId_,(*iter_plane)->name());
-                                  ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support hdr layer,layer hdr=%d, crtc can_hdr=%d",
-                                          (*iter_plane)->name(),hdr_layer,b_hdr2sdr);
-                                  continue;
-                              }
-                              else
-                                  bNeed = true;
-                          }
-
-                          // Only YUV use Cluster rotate
-                          if((*iter_plane)->is_support_transform((*iter_layer)->transform)){
-                            if(((*iter_layer)->transform & (DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                              // Cluster rotate must 64 align
-                              if(((*iter_layer)->iStride_ % 64 != 0)){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(xmirror or 90 or 270) 0x%x and iStride_ = %d",
-                                        (*iter_plane)->name(), (*iter_layer)->transform,(*iter_layer)->iStride_);
-                                continue;
-                              }
-                            }
-
-                            if(((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                              //Cluster rotate input_h must <= 2048
-                              if(input_h > 2048){
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform(90 or 270) 0x%x and input_h = %d",
-                                        (*iter_plane)->name(), (*iter_layer)->transform,input_h);
-                                continue;
-                              }
-                            }
-                          }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support layer transform 0x%x, support 0x%x",
-                                      (*iter_plane)->name(), (*iter_layer)->transform,(*iter_plane)->get_transform());
-                              continue;
-                          }
-
-                          // RK3566 must match external display
-                          {
-                              // Output info
-                              int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                              int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
-
-                              if((*iter_plane)->is_support_output(output_w,output_h)){
-                                bNeed = true;
-                              }else{
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                        (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
-                                continue;
-
-                              }
-
-                              // Scale
-                              if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
-                                  (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_))
-                                bNeed = true;
-                              else{
-                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
-                                        (*iter_plane)->name(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
-                                continue;
-                              }
-                          }
-
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, %s ,zops = %d",(*iter_layer)->uId_,
-                              (*iter_plane)->name(),zpos);
-                          //Find the match plane for layer,it will be commit.
-                          composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_,true);
-                          (*iter_layer)->bMatch_ = true;
-                          (*iter_plane)->set_use(true);
-                          composition_planes->back().set_zpos(zpos);
-                          combine_layer_count++;
-
-                          // Cluster disable two win mode?
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
-                              ctx.state.bClu0Used = true;
-                              ctx.state.iClu0UsedZ = zpos;
-                              ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 ||  eotf != TRADITIONAL_GAMMA_SDR ||
-                                 ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                                  ctx.state.bClu0TwoWinMode = false;
-                              }else{
-                                  ctx.state.bClu0TwoWinMode = true;
-                              }
-                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER1_WIN0){
-                              ctx.state.bClu1Used = true;
-                              ctx.state.iClu1UsedZ = zpos;
-                              ctx.state.iClu1UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                                  ctx.state.bClu1TwoWinMode = false;
-                              }else{
-                                  ctx.state.bClu1TwoWinMode = true;
-                              }
-                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER2_WIN0){
-                              ctx.state.bClu2Used = true;
-                              ctx.state.iClu2UsedZ = zpos;
-                              ctx.state.iClu2UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                                  ctx.state.bClu2TwoWinMode = false;
-                              }else{
-                                  ctx.state.bClu2TwoWinMode = true;
-                              }
-                          }else if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER3_WIN0){
-                              ctx.state.bClu3Used = true;
-                              ctx.state.iClu3UsedZ = zpos;
-                              ctx.state.iClu3UsedDstXOffset = (*iter_layer)->display_frame.left;
-                              if(input_w > 2048 || output_w > 2048 || eotf != TRADITIONAL_GAMMA_SDR ||
-                                ((*iter_layer)->transform & (DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270)) != 0){
-                                  ctx.state.bClu3TwoWinMode = false;
-                              }else{
-                                  ctx.state.bClu3TwoWinMode = true;
-                              }
-                          }
-                          break;
-
-                      }
-                  }
-              }
-              if(combine_layer_count == layer_size)
-              {
-                  ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d all match",__LINE__);
-                  (*iter)->bUse = true;
-                  return 0;
-              }
-          }
-      }
-  }
-  return -1;
-}
-
 
 void Vop3588::ResetPlaneGroups(std::vector<PlaneGroup *> &plane_groups){
   for (auto &plane_group : plane_groups){
@@ -1307,18 +916,6 @@ int Vop3588::MatchBestPlanes(
       ResetPlaneGroups(plane_groups);
       return ret;
     }
-
-    if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-      ret = MatchPlaneMirror(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                    ctx.state.pCrtcMirror, std::make_pair(i->first, i->second),zpos);
-      if (ret) {
-        ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match mirror all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
-        ResetLayer(layers);
-        ResetPlaneGroups(plane_groups);
-        composition->clear();
-        return ret;
-      }
-    }
     zpos++;
   }
 
@@ -1348,18 +945,6 @@ int Vop3588::MatchPlanes(
       composition->clear();
       return ret;
     }
-
-    if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-      ret = MatchPlaneMirror(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                    ctx.state.pCrtcMirror, std::make_pair(i->first, i->second),zpos);
-      if (ret) {
-        ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match mirror all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
-        ResetLayer(layers);
-        ResetPlaneGroups(plane_groups);
-        composition->clear();
-        return ret;
-      }
-    }
     zpos++;
   }
   return 0;
@@ -1371,13 +956,6 @@ int  Vop3588::GetPlaneGroups(DrmCrtc *crtc, std::vector<PlaneGroup *>&out_plane_
   for(auto &plane_group : all_plane_groups){
     if(plane_group->acquire(1 << crtc->pipe()))
       out_plane_groups.push_back(plane_group);
-  }
-
-  if(ctx.state.bCommitMirrorMode){
-    for(auto &plane_group : all_plane_groups){
-      if(plane_group->acquire(1 << ctx.state.pCrtcMirror->pipe()))
-        out_plane_groups.push_back(plane_group);
-    }
   }
 
   return out_plane_groups.size() > 0 ? 0 : -1;
@@ -2121,26 +1699,15 @@ int Vop3588::TryGLESPolicy(
       ctx.state.bDisableFBAfbcd = false;
 
       // Check FB target property
-      ctx.state.bDisableFBAfbcd = hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") > 0;
-
-      // // If FB-target unable to meet the scaling requirements, AFBC must be disable.
-      // // CommirMirror must match two display scale limitation.
-      // if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-      //   if((fb_layer->fHScaleMulMirror_ > 4.0 || fb_layer->fHScaleMulMirror_ < 0.25) ||
-      //      (fb_layer->fVScaleMulMirror_ > 4.0 || fb_layer->fVScaleMulMirror_ < 0.25) ||
-      //      (fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
-      //      (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
-      //     ctx.state.bDisableFBAfbcd = true;
-      //     ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d CommitMirror over max scale factor, FB-target must disable AFBC(%d).",
-      //          __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-      //   }
-      // }
+      ctx.state.bDisableFBAfbcd =
+        hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") > 0;
 
       // If FB-target unable to meet the scaling requirements, AFBC must be disable.
       if((fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
          (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
         ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor, FB-target must disable AFBC(%d).",
+        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor,"
+              " FB-target must disable AFBC(%d).",
              __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
       }
       if(ctx.state.bDisableFBAfbcd){
@@ -2153,20 +1720,6 @@ int Vop3588::TryGLESPolicy(
         fb_layer->bAfbcd_ = false;
         ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
     }
-    // // RK3566 must match external display
-    // if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
-    //   if(fb_layer->bAfbcd_){
-    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK;
-    //   }else if(fb_layer->bScale_ || fb_layer->fHScaleMulMirror_ != 1.0 || fb_layer->fVScaleMulMirror_ != 1.0){
-    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_ESMART0_MASK | DRM_PLANE_TYPE_ESMART1_MASK;
-    //   }else{
-    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_SMART0_MASK | DRM_PLANE_TYPE_SMART1_MASK;
-    //   }
-    // }else{
-    //     fb_layer->iBestPlaneType = DRM_PLANE_TYPE_CLUSTER_MASK | DRM_PLANE_TYPE_ESMART0_MASK |
-    //                                DRM_PLANE_TYPE_ESMART1_MASK | DRM_PLANE_TYPE_SMART0_MASK |
-    //                                DRM_PLANE_TYPE_SMART1_MASK;
-    // }
   }
 
   int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
@@ -2502,9 +2055,6 @@ void Vop3588::InitStateContext(
   ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
             __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
 
-  // Commit mirror function
-  InitCrtcMirror(layers,plane_groups,crtc);
-
   // 8K Mode
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
@@ -2571,144 +2121,6 @@ void Vop3588::InitStateContext(
         layer->bAfbcd_ = 0;
       }
       break;
-    }
-  }
-  return;
-}
-
-void Vop3588::InitCrtcMirror(
-    std::vector<DrmHwcLayer*> &layers,
-    std::vector<PlaneGroup *> &plane_groups,
-    DrmCrtc *crtc){
-  switch(ctx.state.iSocId){
-    case 0x3566:
-    case 0x3566a:
-      ctx.state.bCommitMirrorMode = true;
-      break;
-    default:
-      ctx.state.bCommitMirrorMode = false;
-      break;
-  }
-
-  if(ctx.state.bCommitMirrorMode){
-    ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bCommitMirrorMode=%d, soc_id=%x",__FUNCTION__,__LINE__,
-             ctx.state.bCommitMirrorMode,ctx.state.iSocId);
-    DrmDevice *drm = crtc->getDrmDevice();
-    int display_id = drm->GetCommitMirrorDisplayId();
-    DrmConnector *conn = drm->GetConnectorForDisplay(display_id);
-    if(!conn || conn->state() != DRM_MODE_CONNECTED){
-      ctx.state.bCommitMirrorMode = false;
-      ctx.state.pCrtcMirror = NULL;
-      ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
-      return;
-    }
-
-    DrmCrtc *crtc_mirror = drm->GetCrtcForDisplay(conn->display());
-    if(!crtc_mirror){
-      ctx.state.bCommitMirrorMode = false;
-      ctx.state.pCrtcMirror = NULL;
-      ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
-      return;
-    }
-    ctx.state.pCrtcMirror = crtc_mirror;
-    DrmMode mode = conn->active_mode();
-    uint32_t mode_width = mode.h_display();
-    uint32_t mode_height = mode.v_display();
-
-    for(auto &layer : layers){
-      if(!layer->bFbTarget_ && (layer->bSkipLayer_ || layer->bGlesCompose_)){
-        continue;
-      }
-
-      // Mirror display frame info
-      hwc_rect_t display_frame;
-      float w_scale = mode_width / (float)layer->iFbWidth_;
-      float h_scale = mode_height / (float)layer->iFbHeight_;
-      display_frame.left   = (int)(layer->display_frame_mirror.left   * w_scale);
-      display_frame.right  = (int)(layer->display_frame_mirror.right  * w_scale);
-      display_frame.top    = (int)(layer->display_frame_mirror.top    * h_scale);
-      display_frame.bottom = (int)(layer->display_frame_mirror.bottom * h_scale);
-
-      layer->SetDisplayFrameMirror(display_frame);
-      // Mirror scale factor
-      int src_w, src_h, dst_w, dst_h;
-      src_w = (int)(layer->source_crop.right - layer->source_crop.left);
-      src_h = (int)(layer->source_crop.bottom - layer->source_crop.top);
-      dst_w = (int)(display_frame.right - display_frame.left);
-      dst_h = (int)(display_frame.bottom - display_frame.top);
-
-      layer->fHScaleMulMirror_ = (float) (src_w)/(dst_w);
-      layer->fVScaleMulMirror_ = (float) (src_h)/(dst_h);
-
-      // RK platform VOP can't display src/dst w/h < 4 layer.
-      if((dst_w < 4 || dst_h < 4) && !layer->bGlesCompose_){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"CommitMirror [%s]：[%dx%d] => [%dx%d] too small to use GLES composer.",
-              layer->sLayerName_.c_str(),src_w,src_h,dst_w,dst_h);
-        layer->bGlesCompose_ = true;
-        ctx.request.iSkipCnt++;
-      }
-
-    }
-
-    int ret = GetPlaneGroups(crtc,plane_groups);
-    if(ret){
-      ALOGE("%s,line=%d can't get plane_groups size=%zu",__FUNCTION__,__LINE__,plane_groups.size());
-      return;
-    }
-    // Resolution switch
-    static char resolution_last[PROPERTY_VALUE_MAX];
-    char resolution[PROPERTY_VALUE_MAX];
-    uint32_t width, height, flags;
-    uint32_t hsync_start, hsync_end, htotal;
-    uint32_t vsync_start, vsync_end, vtotal;
-    bool interlaced;
-    float vrefresh;
-    char val;
-    uint32_t MaxResolution = 0,temp;
-    property_get("persist.vendor.resolution.aux", resolution, "Auto");
-    if(strcmp(resolution,resolution_last)){
-      if(!strcmp(resolution,"Auto")){
-        for (const DrmMode &conn_mode : conn->modes()) {
-          if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
-            conn->set_best_mode(conn_mode);
-            break;
-          }
-        }
-      }else if(strcmp(resolution,"Auto") != 0){
-        int len = sscanf(resolution, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x",
-                         &width, &height, &vrefresh, &hsync_start,
-                         &hsync_end, &htotal, &vsync_start,&vsync_end,
-                         &vtotal, &flags);
-        if (len == 10 && width != 0 && height != 0) {
-          for (const DrmMode &conn_mode : conn->modes()) {
-            if (conn_mode.equal(width, height, vrefresh, hsync_start, hsync_end,
-                                htotal, vsync_start, vsync_end, vtotal, flags)) {
-              conn->set_best_mode(conn_mode);
-              break;
-            }
-          }
-        }else{
-          uint32_t ivrefresh;
-          len = sscanf(resolution, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
-          if (val == 'i')
-            interlaced = true;
-          else
-            interlaced = false;
-          if (len == 4 && width != 0 && height != 0) {
-            for (const DrmMode &conn_mode : conn->modes()) {
-              if (conn_mode.equal(width, height, ivrefresh, interlaced)) {
-                conn->set_best_mode(conn_mode);
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      DrmMode best_mode = conn->best_mode();
-      conn->set_current_mode(best_mode);
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Commit mirror switch resolution %s, resolution_last %s",resolution,resolution_last);
-      strncpy(resolution_last,resolution,sizeof(resolution));
     }
   }
   return;
