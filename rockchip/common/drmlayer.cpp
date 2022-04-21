@@ -161,8 +161,12 @@ int DrmHwcLayer::Init() {
   //bGlesCompose_ = IsGlesCompose();
 
   // HDR
-  bHdr_ = IsHdr(iUsage);
+  bHdr_ = IsHdr(iUsage, eDataSpace_);
+
   uColorSpace = GetColorSpace(eDataSpace_);
+  if(bHdr_){
+    uColorSpace = V4L2_COLORSPACE_BT2020;
+  }
   uEOTF = GetEOTF(eDataSpace_);
   return 0;
 }
@@ -373,8 +377,18 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
   return (fHScaleMul_ != 1.0 ) || ( fVScaleMul_ != 1.0);
 }
 
-bool DrmHwcLayer::IsHdr(int usage){
-  return ((usage & 0x0F000000) == HDR_ST2084_USAGE || (usage & 0x0F000000) == HDR_HLG_USAGE);
+bool DrmHwcLayer::IsHdr(int usage, android_dataspace_t dataspace){
+  if(((usage & 0x0F000000) == HDR_ST2084_USAGE ||
+      (usage & 0x0F000000) == HDR_HLG_USAGE)){
+    return true;
+  }
+
+  if(((dataspace & HAL_DATASPACE_TRANSFER_ST2084) == HAL_DATASPACE_TRANSFER_ST2084) ||
+     ((dataspace & HAL_DATASPACE_TRANSFER_HLG) == HAL_DATASPACE_TRANSFER_HLG)){
+    return true;
+  }
+
+  return false;
 }
 bool DrmHwcLayer::IsAfbcModifier(uint64_t modifier){
   if(bFbTarget_){

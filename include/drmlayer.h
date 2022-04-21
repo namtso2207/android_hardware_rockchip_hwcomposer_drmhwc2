@@ -278,7 +278,7 @@ struct DrmHwcLayer {
   bool IsSkipLayer();
   bool IsGlesCompose();
 
-  bool IsHdr(int usage);
+  bool IsHdr(int usage, android_dataspace_t dataspace);
   int GetSkipLine();
   v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
   supported_eotf_type GetEOTF(android_dataspace_t dataspace);
