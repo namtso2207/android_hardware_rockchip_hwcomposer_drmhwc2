@@ -233,6 +233,8 @@ int DrmBuffer::DumpData(){
   if(!buffer_)
     HWC2_ALOGI("LayerId=%" PRIu64 " Buffer is null.",uId);
 
+  WaitFinishFence();
+
   void* cpu_addr = NULL;
   static int frame_cnt =0;
   int ret = 0;

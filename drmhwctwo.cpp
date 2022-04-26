@@ -1802,7 +1802,14 @@ int DrmHwcTwo::HwcDisplay::DumpAllLayerData(){
     }
     if(client_layer_.buffer() != NULL)
       client_layer_.DumpData();
+
+    for(auto &drm_layer : drm_hwc_layers_){
+      if(drm_layer.bUseSvep_ && drm_layer.pSvepBuffer_){
+        drm_layer.pSvepBuffer_->DumpData();
+      }
+    }
   }
+
   return 0;
 }
 
