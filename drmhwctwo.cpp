@@ -1928,23 +1928,47 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
 
-  char value[PROPERTY_VALUE_MAX];
-  property_get("vendor.hwc.hdr_force_disable", value, "0");
-  if(atoi(value) > 0){
-    if(ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
-      ctx_.hdr_mode = false;
-      property_set("vendor.hwc.hdr_state","NORMAL");
+  bool exist_hdr_layer = false;
+  int  hdr_area_ratio = 0;
+
+  for(auto &drmHwcLayer : drm_hwc_layers_){
+    if(drmHwcLayer.bHdr_){
+      exist_hdr_layer = true;
+      int dis_w = drmHwcLayer.display_frame.right - drmHwcLayer.display_frame.left;
+      int dis_h = drmHwcLayer.display_frame.bottom - drmHwcLayer.display_frame.top;
+      int dis_area_size = dis_w * dis_h;
+      int screen_size = ctx_.rel_xres * ctx_.rel_yres;
+      hdr_area_ratio = dis_area_size * 10 / screen_size;
     }
-    ALOGD_IF(LogLevel(DBG_DEBUG),"Fource Disable HDR mode.");
-    return 0;
+  }
+  if(exist_hdr_layer){
+    char value[PROPERTY_VALUE_MAX];
+    property_get("vendor.hwc.hdr_force_disable", value, "0");
+    if(atoi(value) > 0){
+      if(ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
+        ctx_.hdr_mode = false;
+        property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
+      }
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Fource Disable HDR mode.");
+      return 0;
+    }
+
+    property_get("vendor.hwc.hdr_video_area", value, "10");
+    if(atoi(value) > hdr_area_ratio){
+      if(ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(HAL_DATASPACE_UNKNOWN)){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
+        ctx_.hdr_mode = false;
+        property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
+      }
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Force Disable HDR mode.");
+      return 0;
+    }
   }
 
-  bool exist_hdr_layer = false;
   for(auto &drmHwcLayer : drm_hwc_layers_)
     if(drmHwcLayer.bHdr_){
       if(connector_->is_hdmi_support_hdr()){
-        exist_hdr_layer = true;
         if(!ctx_.hdr_mode && !connector_->switch_hdmi_hdr_mode(drmHwcLayer.eDataSpace_)){
           ALOGD_IF(LogLevel(DBG_DEBUG),"Enable HDR mode success");
           ctx_.hdr_mode = true;
