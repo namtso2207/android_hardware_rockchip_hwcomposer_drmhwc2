@@ -31,7 +31,13 @@ static uint64_t getUniqueId() {
     return id;
 }
 // MALI_GRALLOC_USAGE_NO_AFBC 是 arm_gralloc 扩展的 私有的 usage_bit_flag,
+// MALI_GRALLOC_USAGE_NO_AFBC = GRALLOC_USAGE_PRIVATE_1 : 1U << 29
+// RK_GRALLOC_USAGE_WITHIN_4G = GRALLOC_USAGE_PRIVATE_11: 1ULL << 56
 // 定义在 hardware/rockchip/libgralloc/bifrost/src/mali_gralloc_usages.h 中
+
+#ifndef RK_GRALLOC_USAGE_WITHIN_4G
+#define RK_GRALLOC_USAGE_WITHIN_4G (1ULL << 56)
+#endif
 
 DrmBuffer::DrmBuffer(int w, int h, int format, std::string name):
   uId(getUniqueId()),
