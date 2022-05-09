@@ -1523,15 +1523,10 @@ int Vop356x::TryMixDownPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
 
-  if(layers.size() < 4 || layers.size() > 6 ){
-    ResetLayerFromTmp(layers,tmp_layers);
-    return -1;
-  }
-
   std::pair<int, int> layer_indices(-1, -1);
   int iPlaneSize = plane_groups.size();
   layer_indices.first = 0;
-  layer_indices.second = 2;
+  layer_indices.second = 0;
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
   OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -1540,17 +1535,16 @@ int Vop356x::TryMixDownPolicy(
   else
     ResetLayerFromTmpExceptFB(layers,tmp_layers);
 
-  if((int)layers.size() > iPlaneSize){
+  for(int i = 1; i < layers.size(); i++){
     layer_indices.first = 0;
-    layer_indices.second = layers.size() - iPlaneSize;
+    layer_indices.second = i;
     ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
     OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
     int ret = MatchPlanes(composition,layers,crtc,plane_groups);
     if(!ret)
       return ret;
     else{
-      ResetLayerFromTmp(layers,tmp_layers);
-      return -1;
+      ResetLayerFromTmpExceptFB(layers,tmp_layers);
     }
   }
 
@@ -2179,6 +2173,7 @@ bool Vop356x::TryOverlay(){
 void Vop356x::TryMix(){
   ctx.state.setHwcPolicy.insert(HWC_MIX_LOPICY);
   ctx.state.setHwcPolicy.insert(HWC_MIX_UP_LOPICY);
+  ctx.state.setHwcPolicy.insert(HWC_MIX_DOWN_LOPICY);
   if(ctx.support.iYuvCnt > 0 || ctx.support.iAfbcdYuvCnt > 0)
     ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
   if(ctx.request.iSkipCnt > 0)
