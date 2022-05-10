@@ -2391,7 +2391,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         src.mBufferInfo_.iWidth_  = drmHwcLayer->iFbWidth_;
         src.mBufferInfo_.iHeight_ = drmHwcLayer->iFbHeight_;
         src.mBufferInfo_.iFormat_ = HAL_PIXEL_FORMAT_RGBA_8888;
-        src.mBufferInfo_.iSize_   = drmHwcLayer->iSize_;
+        src.mBufferInfo_.iSize_   = drmHwcLayer->iFbWidth_ * drmHwcLayer->iFbHeight_ * 4;
         src.mBufferInfo_.iStride_ = drmHwcLayer->iFbWidth_;
         src.mBufferInfo_.uBufferId_ = 0x1;
 
@@ -2491,8 +2491,8 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
         dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
         dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
-        src.mBufferInfo_.iSize_   = dst_buffer->GetSize();
         dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+        dst.mBufferInfo_.iSize_   = dst_buffer->GetSize();
         dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
         dst.mCrop_.iLeft_  = require.mCrop_.iLeft_;
