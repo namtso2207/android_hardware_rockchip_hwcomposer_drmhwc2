@@ -53,6 +53,9 @@ void InvalidateWorker::RegisterCallback(std::shared_ptr<InvalidateCallback> call
 }
 
 void InvalidateWorker::InvalidateControl(uint64_t refresh, int refresh_cnt) {
+  if(refresh_ == refresh &&
+     refresh_cnt_ == refresh_cnt)
+    return;
   Lock();
   refresh_ = refresh;
   refresh_cnt_ = refresh_cnt;

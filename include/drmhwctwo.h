@@ -397,6 +397,8 @@ class DrmHwcTwo : public hwc2_device_t {
    // Static Screen opt function
    int UpdateTimerEnable();
    int UpdateTimerState(bool gles_comp);
+   // SelfRefresh function
+   int SelfRefreshEnable();
    int EntreStaticScreen(uint64_t refresh, int refresh_cnt);
    int InvalidateControl(uint64_t refresh, int refresh_cnt);
 

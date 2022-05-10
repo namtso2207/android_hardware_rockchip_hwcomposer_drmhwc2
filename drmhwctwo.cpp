@@ -1662,7 +1662,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   SwitchHdrMode();
   // Static screen opt
   UpdateTimerEnable();
-
+  // Enable Self-refresh mode.
+  SelfRefreshEnable();
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     DrmHwcTwo::HwcLayer &layer = l.second;
     // We can only handle layers of Device type, send everything else to SF
@@ -2019,6 +2020,27 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
   static_screen_timer_enable_ = enable_timer;
   return 0;
 }
+int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
+  bool enable_self_refresh = false;
+  for(auto &drmHwcLayer : drm_hwc_layers_){
+
+#ifdef USE_LIBSVEP
+    // Svep
+    if(drmHwcLayer.bUseSvep_){
+      HWC2_ALOGD_IF_DEBUG("Svep Enable SelfRefresh!");
+      enable_self_refresh = true;
+      break;
+    }
+#endif
+  }
+  if(enable_self_refresh){
+    InvalidateControl(10,-1);
+  }else{
+    InvalidateControl(0,0);
+  }
+  return 0 ;
+}
+
 int DrmHwcTwo::HwcDisplay::UpdateTimerState(bool gles_comp){
     struct itimerval tv = {{0,0},{0,0}};
 
