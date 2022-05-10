@@ -1263,12 +1263,6 @@ int Vop356x::TryMixSkipPolicy(
 
   int iPlaneSize = plane_groups.size();
 
-  if(ctx.request.iAfbcdCnt == 0){
-    for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & DRM_PLANE_TYPE_ALL_CLUSTER_MASK)
-        iPlaneSize--;
-    }
-  }
 
   if(iPlaneSize == 0){
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
@@ -1287,7 +1281,12 @@ int Vop356x::TryMixSkipPolicy(
   //caculate the first and last skip layer
   int i = 0;
   for (auto &layer : layers) {
-    if (!layer->bSkipLayer_ && !layer->bGlesCompose_){
+    if (!layer->bSkipLayer_){
+      i++;
+      continue;
+    }
+
+    if(!layer->bGlesCompose_){
       i++;
       continue;
     }
@@ -1306,78 +1305,41 @@ int Vop356x::TryMixSkipPolicy(
     return -1;
   }
 
-  //OPT: Adjust skip_layer_indices.first and skip_layer_indices.second to limit in iPlaneSize.
-  if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
-      int tmp_index = -1;
-      if(skip_layer_indices.first != 0){
-        tmp_index = skip_layer_indices.first;
-        //try decrease first skip index to 0.
-        skip_layer_indices.first = 0;
-        skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
-        if(((int)layers.size() - skipCnt + 1) > iPlaneSize && skip_layer_indices.second != (int)layers.size()-1){
-          skip_layer_indices.first = tmp_index;
-          tmp_index = skip_layer_indices.second;
-          //try increase second skip index to last index.
-          skip_layer_indices.second = layers.size()-1;
-          skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
-          if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
-            ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
-            ResetLayerFromTmp(layers,tmp_layers);
-            return -1;
-          }
-        }
-      }else{
-        if(skip_layer_indices.second != (int)layers.size()-1){
-          //try increase second skip index to last index-1.
-          skip_layer_indices.second = layers.size()-2;
-          skipCnt = skip_layer_indices.second + 1;
-          if(((int)layers.size() - skipCnt + 1) > iPlaneSize){
-              ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
-              ResetLayerFromTmp(layers,tmp_layers);
-              return -1;
-          }
-        }else{
-          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,skip_layer_indices.first, tmp_index);
-          ResetLayerFromTmp(layers,tmp_layers);
-          return -1;
-        }
-     }
-  }
-
   OutputMatchLayer(skip_layer_indices.first, skip_layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-  if(!ret)
+  if(!ret){
     return ret;
-  else{
+  }else{
+    //save fb into tmp_layers
+    MoveFbToTmp(layers, tmp_layers);
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
-    if(first > (layers.size() - 1 - last) && first != 0){
-      for(first--; first >= 0; first--){
-        OutputMatchLayer(first, last, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-        if(ret){
-          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
-          ResetLayerFromTmpExceptFB(layers,tmp_layers);
-          continue;
-        }else
-          return ret;
-      }
-      ResetLayerFromTmp(layers,tmp_layers);
-    }else if(last < layers.size()){
-      for(last++; last <= layers.size() - 1; last++){
-        OutputMatchLayer(first, last, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-        if(ret){
-          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
-          ResetLayerFromTmpExceptFB(layers,tmp_layers);
-          continue;
-        }else
-          return ret;
+    // 建议zpos大的图层走GPU合成
+    for(last++; last <= layers.size(); last++){
+      OutputMatchLayer(first, last, layers, tmp_layers);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(ret){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
+        ResetLayerFromTmpExceptFB(layers,tmp_layers);
+        continue;
+      }else{
+        return ret;
       }
     }
-    ResetLayerFromTmp(layers,tmp_layers);
-    return -1;
+    // 逐步建议知道zpos=0走GPU合成，即全GPU合成
+    for(first--; first >= 0; first--){
+      OutputMatchLayer(first, last, layers, tmp_layers);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(ret){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
+        ResetLayerFromTmpExceptFB(layers,tmp_layers);
+        continue;
+      }else{
+        return ret;
+      }
+    }
   }
+  ResetLayerFromTmp(layers,tmp_layers);
   return ret;
 }
 
