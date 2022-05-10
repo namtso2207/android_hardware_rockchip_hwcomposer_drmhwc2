@@ -1281,12 +1281,7 @@ int Vop356x::TryMixSkipPolicy(
   //caculate the first and last skip layer
   int i = 0;
   for (auto &layer : layers) {
-    if (!layer->bSkipLayer_){
-      i++;
-      continue;
-    }
-
-    if(!layer->bGlesCompose_){
+    if (!layer->bSkipLayer_ && !layer->bGlesCompose_){
       i++;
       continue;
     }
@@ -1302,9 +1297,11 @@ int Vop356x::TryMixSkipPolicy(
   }else{
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, can't find any skip layer, first = %d, second = %d",
               __FUNCTION__,__LINE__,skip_layer_indices.first,skip_layer_indices.second);
+    ResetLayerFromTmp(layers,tmp_layers);
     return -1;
   }
 
+  HWC2_ALOGD_IF_DEBUG("mix skip (%d,%d)",skip_layer_indices.first, skip_layer_indices.second);
   OutputMatchLayer(skip_layer_indices.first, skip_layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
   if(!ret){
@@ -1315,7 +1312,8 @@ int Vop356x::TryMixSkipPolicy(
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
     // 建议zpos大的图层走GPU合成
-    for(last++; last <= layers.size(); last++){
+    for(last++; last < layers.size() - 1; last++){
+      HWC2_ALOGD_IF_DEBUG("mix skip (%d,%d)",skip_layer_indices.first, skip_layer_indices.second);
       OutputMatchLayer(first, last, layers, tmp_layers);
       ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(ret){
@@ -1326,8 +1324,10 @@ int Vop356x::TryMixSkipPolicy(
         return ret;
       }
     }
+    last = layers.size() - 1;
     // 逐步建议知道zpos=0走GPU合成，即全GPU合成
     for(first--; first >= 0; first--){
+      HWC2_ALOGD_IF_DEBUG("mix skip (%d,%d)",skip_layer_indices.first, skip_layer_indices.second);
       OutputMatchLayer(first, last, layers, tmp_layers);
       ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(ret){
