@@ -271,7 +271,6 @@ typedef struct DrmVop2Context{
   bool bSvepReady_;
   SvepContext svepCtx_;
   std::shared_ptr<DrmBufferQueue> bufferQueue_;
-  int lastEnhancementRate_;
 #endif
   Vop2Ctx ctx;
 };

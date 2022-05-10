@@ -1203,24 +1203,33 @@ int Vop3588::TrySvepPolicy(
   bool use_laster_rga_layer = false;
   std::shared_ptr<DrmBuffer> dst_buffer;
 
+  // 以下参数更新后需要强制触发svep处理更新图像数据
   char value[PROPERTY_VALUE_MAX];
-  property_get("vendor.svep.enhancement_rate", value, "5");
-  int enhancement_rate = 0;
-  enhancement_rate = atoi(value);
-
+  property_get(SVEP_MODE_NAME, value, "0");
+  int svep_mode = atoi(value);
+  property_get(SVEP_ENHANCEMENT_RATE_NAME, value, "5");
+  int enhancement_rate = atoi(value);
+  property_get(SVEP_CONTRAST_MODE_NAME, value, "0");
+  int contrast_mode = atoi(value);
   property_get(SVEP_CONTRAST_MODE_OFFSET, value, "50");
   int contrast_offset = atoi(value);
-
   static uint64_t last_buffer_id = 0;
+  static int last_svep_mode = 0;
+  static int last_enhancement_rate = 0;
+  static int last_contrast_mode = 0;
   static int last_contrast_offset = 0;
+
   for(auto &drmLayer : layers){
     if(drmLayer->iWidth_ <= 4096 &&
        (drmLayer->bYuv_ || strstr(drmLayer->sLayerName_.c_str(), "SurfaceView"))){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
-        if(lastEnhancementRate_ != enhancement_rate ||
-           drmLayer->uBufferId_ != last_buffer_id ||
-           contrast_offset != last_contrast_offset){
-        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+        // 部分参数变化后需要强制更新
+        if(last_svep_mode != svep_mode ||
+           last_buffer_id != drmLayer->uBufferId_  ||
+           last_enhancement_rate != enhancement_rate ||
+           last_contrast_mode != contrast_mode ||
+           last_contrast_offset != contrast_offset){
+          ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
           // 1. Init Ctx
           int ret = svep_->InitCtx(svepCtx_);
           if(ret){
@@ -1326,13 +1335,6 @@ int Vop3588::TrySvepPolicy(
           rga_layer_ready = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
-          if(lastEnhancementRate_ != enhancement_rate ||
-             last_contrast_offset != contrast_offset){
-            HWC2_ALOGD_IF_DEBUG("lastEnhancementRate_(%d => %d) contrast_offset(%d => %d), to update SVEP layer.",
-                   lastEnhancementRate_, enhancement_rate, last_contrast_offset, contrast_offset);
-          }
-          lastEnhancementRate_ = enhancement_rate;
-          last_contrast_offset = contrast_offset;
         }else{
           dst_buffer = bufferQueue_->BackDrmBuffer();
 
@@ -1394,6 +1396,10 @@ int Vop3588::TrySvepPolicy(
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_fence));
           bufferQueue_->QueueBuffer(dst_buffer);
           last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
+          last_svep_mode = svep_mode;
+          last_contrast_mode = contrast_mode;
+          last_enhancement_rate = enhancement_rate;
+          last_contrast_offset = contrast_offset;
           return ret;
         }
       }
