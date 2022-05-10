@@ -2507,6 +2507,15 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
           return ret;
         }
 
+        char value[PROPERTY_VALUE_MAX];
+        property_get(SVEP_ENHANCEMENT_RATE_NAME, value, "5");
+        int enhancement_rate = atoi(value);
+        ret = svep_->SetEnhancementRate(svepCtx_, enhancement_rate);
+        if(ret){
+          printf("Svep SetSrcImage fail\n");
+          return ret;;
+        }
+
         hwc_frect_t source_crop;
         source_crop.left   = require.mCrop_.iLeft_;
         source_crop.top    = require.mCrop_.iTop_;
