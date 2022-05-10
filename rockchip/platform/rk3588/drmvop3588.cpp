@@ -1150,7 +1150,7 @@ int Vop3588::TryMixSkipPolicy(
     int first = skip_layer_indices.first;
     int last = skip_layer_indices.second;
     // 建议zpos大的图层走GPU合成
-    for(last++; last < layers.size() - 1; last++){
+    for(last++; last < layers.size(); last++){
       HWC2_ALOGD_IF_DEBUG("mix skip (%d,%d)",skip_layer_indices.first, skip_layer_indices.second);
       OutputMatchLayer(first, last, layers, tmp_layers);
       ret = MatchPlanes(composition,layers,crtc,plane_groups);
