@@ -593,13 +593,13 @@ status_t importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle)
     return static_cast<status_t>((ret.isOk()) ? error : kTransactionError);
 }
 
-void freeBuffer(buffer_handle_t handle)
-{
+status_t freeBuffer(buffer_handle_t handle){
     auto &mapper = get_service();
     auto buffer = const_cast<native_handle_t*>(handle);
     auto ret = mapper.freeBuffer(buffer);
 
     auto error = (ret.isOk()) ? static_cast<Error>(ret) : kTransactionError;
+    return static_cast<status_t>(error);
 }
 
 status_t lock(buffer_handle_t bufferHandle,

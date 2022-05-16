@@ -281,6 +281,14 @@ int DrmPlane::Init() {
       }
     }
   }
+
+  ret = drm_->GetPlaneProperty(*this, "ASYNC_COMMIT", &async_commit_property_);
+  if (ret) {
+    ALOGE("Could not get ASYNC_COMMIT property");
+    return ret;
+  }
+
+
   return 0;
 }
 
@@ -720,4 +728,9 @@ bool DrmPlane::is_support_output_8k(int output_w, int output_h){
 bool DrmPlane::is_support_transform_8k(int transform){
   return (transform & DRM_PLANE_ROTATION_0) == transform;
 }
+
+const DrmProperty &DrmPlane::async_commit_property() const{
+  return async_commit_property_;
+}
+
 }  // namespace android

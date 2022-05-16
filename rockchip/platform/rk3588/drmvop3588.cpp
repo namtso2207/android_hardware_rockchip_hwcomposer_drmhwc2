@@ -1091,6 +1091,60 @@ int Vop3588::TryOverlayPolicy(
   }
   return 0;
 }
+
+/*************************mix SidebandStream*************************
+   DisplayId=0, Connector 345, Type = HDMI-A-1, Connector state = DRM_MODE_CONNECTED , frame_no = 6611
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+    id  |  z  |  sf-type  |  hwc-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace  | name
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+   0050 | 000 |  Sideband |    Device | 000000000000000000 | None        | None       |    0.0,    0.0,   -1.0,   -1.0 |    0,    0, 1920, 1080 |          0 | allocateBuffer
+   0059 | 001 |    Device |    Client | 00b40000751ec3ec30 | None        | Premultipl | 1829.0,   20.0, 1900.0,   59.0 | 1829,   20, 1900,   59 |          0 | com.tencent.start.tv/com.tencent.start.ui.PlayActivity#0
+   0071 | 002 |    Device |    Client | 00b40000751ec403d0 | None        | Premultipl |    0.0,    0.0,  412.0, 1080.0 | 1508,    0, 1920, 1080 |          0 | PopupWindow:55de2f2#0
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+************************************************************/
+int Vop3588::TryMixSidebandPolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  std::vector<DrmHwcLayer *> tmp_layers;
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  int iPlaneSize = plane_groups.size();
+  std::pair<int, int> layer_indices(-1, -1);
+
+  if((int)layers.size() < 4)
+    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
+  else
+    layer_indices.first = 3;
+  layer_indices.second = layers.size() - 1;
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix sideband (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret)
+    return ret;
+  else{
+    ResetLayerFromTmpExceptFB(layers,tmp_layers);
+    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ResetLayerFromTmpExceptFB(layers,tmp_layers);
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix sideband (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(!ret)
+        return ret;
+      else{
+        ResetLayerFromTmp(layers,tmp_layers);
+     }
+   }
+ }
+
+  ResetLayerFromTmp(layers,tmp_layers);
+  return ret;
+}
+
 int Vop3588::TryMixSkipPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -1614,6 +1668,15 @@ int Vop3588::TryMixPolicy(
     std::vector<PlaneGroup *> &plane_groups) {
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
   int ret;
+
+  if(ctx.state.setHwcPolicy.count(HWC_SIDEBAND_LOPICY)){
+    ret = TryMixSidebandPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+    else
+      return ret;
+  }
+
   if(ctx.state.setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
     ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
@@ -1853,7 +1916,7 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
   }
 
   switch(layer->sf_composition){
-    case HWC2::Composition::Sideband:
+    //case HWC2::Composition::Sideband:
     case HWC2::Composition::SolidColor:
       HWC2_ALOGD_IF_DEBUG("[%s]：sf_composition =0x%x not support overlay.",
               layer->sLayerName_.c_str(),layer->sf_composition);
@@ -1888,6 +1951,8 @@ void Vop3588::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
   ctx.request.iRotateCnt=0;
   ctx.request.iHdrCnt=0;
 
+  ctx.request.bSidebandStreamMode=false;
+
   for(auto &layer : layers){
     if(CheckGLESLayer(layer)){
       layer->bGlesCompose_ = true;
@@ -1902,6 +1967,9 @@ void Vop3588::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
       ctx.request.iSkipCnt++;
       continue;
     }
+
+    if(layer->bSidebandStreamLayer_)
+      ctx.request.bSidebandStreamMode=true;
 
     if(layer->bAfbcd_){
       ctx.request.iAfbcdCnt++;
@@ -2105,6 +2173,9 @@ void Vop3588::TryMix(){
     ctx.state.setHwcPolicy.insert(HWC_MIX_VIDEO_LOPICY);
   if(ctx.request.iSkipCnt > 0)
     ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
+  if(ctx.request.bSidebandStreamMode)
+    ctx.state.setHwcPolicy.insert(HWC_SIDEBAND_LOPICY);
+
 }
 
 int Vop3588::InitContext(

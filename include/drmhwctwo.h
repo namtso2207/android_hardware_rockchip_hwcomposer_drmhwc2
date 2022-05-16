@@ -68,6 +68,13 @@ class DrmHwcTwo : public hwc2_device_t {
 
     void clear(){
       buffer_ = NULL;
+      if(sidebandStreamHandle_ != NULL){
+        int ret = drmGralloc_->freeBuffer(sidebandStreamHandle_);
+        if(ret){
+          ALOGE("freeBuffer sidebandStreamHandle = %p fail, ret=%d",sidebandStreamHandle_,ret);
+        }
+        sidebandStreamHandle_ = NULL;
+      }
     }
 
     HWC2::Composition sf_type() const {
@@ -203,6 +210,56 @@ class DrmHwcTwo : public hwc2_device_t {
       }
     }
 
+    void setSidebandStream(buffer_handle_t stream) {
+      if(stream != sidebandStreamHandle_){
+        if(sidebandStreamHandle_ != NULL){
+          int ret = drmGralloc_->freeBuffer(sidebandStreamHandle_);
+          if(ret){
+            ALOGE("freeBuffer sidebandStreamHandle = %p fail, ret=%d",sidebandStreamHandle_,ret);
+          }
+          sidebandStreamHandle_ = NULL;
+        }
+
+        if(stream != NULL){
+          buffer_handle_t tempHandle;
+          int ret = drmGralloc_->importBuffer(stream,&tempHandle);
+          if(ret){
+            ALOGE("importBuffer stream=%p, tempHandle=%p fail, ret=%d",stream,tempHandle,ret);
+          }
+          sidebandStreamHandle_ = tempHandle;
+        }
+      }
+      // Bufferinfo Cache
+      uint64_t buffer_id;
+      drmGralloc_->hwc_get_handle_buffer_id(sidebandStreamHandle_, &buffer_id);
+
+      bufferInfoMap_.clear();
+      auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<bufferInfo_t>(bufferInfo())));
+      if(ret.second == false){
+        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",sidebandStreamHandle_);
+      }else{
+        pBufferInfo_ = ret.first->second;
+        pBufferInfo_->uBufferId_ = buffer_id;
+        pBufferInfo_->iFd_     = drmGralloc_->hwc_get_handle_primefd(sidebandStreamHandle_);
+        pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_WIDTH);
+        pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_HEIGHT);
+        pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_STRIDE);
+        pBufferInfo_->iByteStride_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_BYTE_STRIDE_WORKROUND);
+        pBufferInfo_->iFormat_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_FORMAT);
+        pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(sidebandStreamHandle_);
+        pBufferInfo_->uFourccFormat_ = drmGralloc_->hwc_get_handle_fourcc_format(sidebandStreamHandle_);
+        pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(sidebandStreamHandle_);
+        drmGralloc_->hwc_get_handle_name(sidebandStreamHandle_,pBufferInfo_->sLayerName_);
+        layer_name_ = pBufferInfo_->sLayerName_;
+        pBufferInfo_->gemHandle_.InitGemHandle(drm_, drmGralloc_, pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->iFd_, buffer_id);
+        pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
+        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64 " Name=%s",
+                            bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
+
+      }
+    }
+
+
     void set_acquire_fence(sp<AcquireFence> af) {
       acquire_fence_ = af;
     }
@@ -270,6 +327,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::BlendMode blending_ = HWC2::BlendMode::None;
     buffer_handle_t buffer_ = NULL;
+    // Sidebande
+    buffer_handle_t sidebandStreamHandle_ = NULL;
     sp<AcquireFence> acquire_fence_ = AcquireFence::NO_FENCE;
     DeferredReleaseFence release_fence_;
     hwc_rect_t display_frame_;

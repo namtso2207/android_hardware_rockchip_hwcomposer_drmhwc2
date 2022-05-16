@@ -280,6 +280,7 @@ class DrmPlane {
   const DrmProperty &output_w_property() const;
   const DrmProperty &output_h_property() const;
   const DrmProperty &scale_rate_property() const;
+  const DrmProperty &async_commit_property() const;
   bool is_use();
   void set_use(bool b_use);
   bool get_scale();
@@ -352,6 +353,7 @@ class DrmPlane {
   DrmProperty output_w_property_;
   DrmProperty output_h_property_;
   DrmProperty scale_rate_property_;
+  DrmProperty async_commit_property_;
 
   bool bReserved_;
   bool b_use_;

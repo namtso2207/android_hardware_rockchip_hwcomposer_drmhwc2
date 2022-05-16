@@ -118,7 +118,10 @@ class DrmDisplayCompositor {
                   bool test_only,
                   DrmConnector *writeback_conn = NULL,
                   DrmHwcBuffer *writeback_buffer = NULL);
-
+  int CommitSidebandStream(drmModeAtomicReqPtr pset,
+                           DrmPlane* plane,
+                           DrmHwcLayer &layer,
+                           int zpos);
   int CommitFrame(DrmDisplayComposition *display_comp,
                   bool test_only,
                   DrmConnector *writeback_conn = NULL,

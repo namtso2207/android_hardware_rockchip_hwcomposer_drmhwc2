@@ -511,6 +511,134 @@ int DrmDisplayCompositor::SyntheticWaitVBlank() {
   return 0;
 }
 
+int DrmDisplayCompositor::CommitSidebandStream(drmModeAtomicReqPtr pset,
+                                               DrmPlane* plane,
+                                               DrmHwcLayer &layer,
+                                               int zpos){
+  uint16_t eotf       = TRADITIONAL_GAMMA_SDR;
+  uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
+  bool     afbcd      = layer.bAfbcd_;
+  bool     yuv        = layer.bYuv_;
+  uint32_t rotation   = layer.transform;
+  bool     sideband   = layer.bSidebandStreamLayer_;
+  uint64_t blend      = 0;
+  uint64_t alpha      = 0xFFFF;
+
+  int ret = -1;
+  if (layer.blending == DrmHwcBlending::kPreMult)
+    alpha             = layer.alpha << 8;
+
+  eotf                = layer.uEOTF;
+  colorspace          = layer.uColorSpace;
+
+  static char last_prop[100] = {0};
+  char prop[100] = {0};
+  sprintf(prop, "%d-%d-%d-%d-%d-%d-%d-%d", \
+      (int)layer.source_crop.left,\
+      (int)layer.source_crop.top,\
+      (int)layer.source_crop.right,\
+      (int)layer.source_crop.bottom,\
+      layer.display_frame.left,\
+      layer.display_frame.top,\
+      layer.display_frame.right,\
+      layer.display_frame.bottom);
+  if(strcmp(prop,last_prop)){
+    property_set("vendor.hwc.sideband.crop", prop);
+    strncpy(last_prop, prop, sizeof(last_prop));
+  }
+
+  if (plane->blend_property().id()) {
+    switch (layer.blending) {
+      case DrmHwcBlending::kPreMult:
+        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+            "Pre-multiplied");
+        break;
+      case DrmHwcBlending::kCoverage:
+        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+            "Coverage");
+        break;
+      case DrmHwcBlending::kNone:
+      default:
+        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
+            "None");
+        break;
+    }
+  }
+
+  ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                plane->zpos_property().id(),
+                                zpos) < 0;
+
+  if(plane->async_commit_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->async_commit_property().id(),
+                                  sideband == true ? 1 : 0) < 0;
+    if (ret) {
+      ALOGE("Failed to add async_commit_property property %d to plane %d",
+            plane->async_commit_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  if (plane->rotation_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->rotation_property().id(),
+                                  rotation) < 0;
+    if (ret) {
+      ALOGE("Failed to add rotation property %d to plane %d",
+            plane->rotation_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  if (plane->alpha_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->alpha_property().id(),
+                                  alpha) < 0;
+    if (ret) {
+      ALOGE("Failed to add alpha property %d to plane %d",
+            plane->alpha_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  if (plane->blend_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->blend_property().id(),
+                                  blend) < 0;
+    if (ret) {
+      ALOGE("Failed to add pixel blend mode property %d to plane %d",
+            plane->blend_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  if(plane->get_hdr2sdr() && plane->eotf_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->eotf_property().id(),
+                                  eotf) < 0;
+    if (ret) {
+      ALOGE("Failed to add eotf property %d to plane %d",
+            plane->eotf_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  if(plane->colorspace_property().id()) {
+    ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                  plane->colorspace_property().id(),
+                                  colorspace) < 0;
+    if (ret) {
+      ALOGE("Failed to add colorspace property %d to plane %d",
+            plane->colorspace_property().id(), plane->id());
+      return ret;
+    }
+  }
+
+  HWC2_ALOGD_IF_INFO("SidebandStreamLayer zpos=%d not to commit frame.", zpos);
+  return 0;
+}
+
 int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                                             DrmDisplayComposition *display_comp,
                                             bool test_only,
@@ -603,7 +731,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
-    bool afbcd = false, yuv = false;
+    bool afbcd = false, yuv = false, sideband = false;;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -674,6 +802,16 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
 
       rotation = layer.transform;
+
+      sideband = layer.bSidebandStreamLayer_;
+      if(sideband){
+        ret = CommitSidebandStream(pset, plane, layer, zpos);
+        if(ret){
+          HWC2_ALOGE("CommitSidebandStream fail");
+        }
+        continue;
+      }
+
     }
 
     // Disable the plane if there's no framebuffer
@@ -826,6 +964,19 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         break;
       }
       out_log << " colorspace=" << std::hex <<  colorspace;
+    }
+
+    if(plane->async_commit_property().id()) {
+      ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                    plane->async_commit_property().id(),
+                                    sideband == true ? 1 : 0) < 0;
+      if (ret) {
+        ALOGE("Failed to add async_commit_property property %d to plane %d",
+              plane->async_commit_property().id(), plane->id());
+        break;
+      }
+
+      out_log << " async_commit=" << sideband;
     }
 
     ALOGD_IF(LogLevel(DBG_INFO),"%s",out_log.str().c_str());

@@ -448,7 +448,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit() {
   // Reset HwcLayer resource
   if(handle_ != HWC_DISPLAY_PRIMARY){
     // Clear Layers
-    layers_.clear();
+    for(auto &map_layer : layers_){
+      map_layer.second.clear();
+    }
+
     // Clear Client Target Layer
     client_layer_.clear();
   }
@@ -2008,6 +2011,12 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
     }
 #endif
 
+    // Sideband
+    if(drmHwcLayer.bSidebandStreamLayer_){
+      enable_timer = false;
+      break;
+    }
+
     // Surface w/h is larger than FB
     int crop_w = static_cast<int>(drmHwcLayer.source_crop.right - drmHwcLayer.source_crop.left);
     int crop_h = static_cast<int>(drmHwcLayer.source_crop.bottom - drmHwcLayer.source_crop.top);
@@ -2158,6 +2167,10 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
   //      sf_type_ == HWC2::Composition::Sideband ||
   //      sf_type_ == HWC2::Composition::SolidColor)
   //    return HWC2::Error::None;
+  if (sf_type_ == HWC2::Composition::Sideband){
+    return HWC2::Error::None;
+  }
+
   set_buffer(buffer);
   acquire_fence_ = sp<AcquireFence>(new AcquireFence(acquire_fence));
   return HWC2::Error::None;
@@ -2196,9 +2209,10 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerPlaneAlpha(float alpha) {
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSidebandStream(
     const native_handle_t *stream) {
-  HWC2_ALOGD_IF_VERBOSE("layer-id=%d",id_);
-  // TODO: We don't support sideband
-  return unsupported(__func__, stream);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d stream=%p",id_,stream);
+
+  setSidebandStream(stream);
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSourceCrop(hwc_frect_t crop) {
@@ -2245,8 +2259,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * alpha_ + 0.5f);
   drmHwcLayer->sf_composition = sf_type();
   drmHwcLayer->iBestPlaneType = 0;
+  drmHwcLayer->bSidebandStreamLayer_ = false;
 
-  drmHwcLayer->sf_handle     = buffer_;
   drmHwcLayer->acquire_fence = acquire_fence_;
 
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
@@ -2254,41 +2268,86 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
 
   drmHwcLayer->uAclk_ = ctx->aclk;
   drmHwcLayer->uDclk_ = ctx->dclk;
-
   drmHwcLayer->SetBlend(blending_);
-  drmHwcLayer->SetDisplayFrame(display_frame_, ctx);
-  drmHwcLayer->SetSourceCrop(source_crop_);
-  drmHwcLayer->SetTransform(transform_);
 
-  // Commit mirror function
-  drmHwcLayer->SetDisplayFrameMirror(display_frame_);
+  //
+  bool sidebandStream = false;
+  if(sf_type() == HWC2::Composition::Sideband){
+    sidebandStream = true;
+    drmHwcLayer->bSidebandStreamLayer_ = true;
+    drmHwcLayer->sf_handle     = sidebandStreamHandle_;
+    drmHwcLayer->SetDisplayFrame(display_frame_, ctx);
 
-  if(buffer_){
-    drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
-    drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
-    drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
-    drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
-    drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
-    drmHwcLayer->iSize_   = pBufferInfo_->iSize_;
-    drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
-    drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
-    drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
-    drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
-    drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
-    drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
-    drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
+    hwc_frect source_crop;
+    source_crop.top = 0;
+    source_crop.left = 0;
+    source_crop.right = pBufferInfo_->iWidth_;
+    source_crop.bottom = pBufferInfo_->iHeight_;
+    drmHwcLayer->SetSourceCrop(source_crop);
+
+    drmHwcLayer->SetTransform(transform_);
+    // Commit mirror function
+    drmHwcLayer->SetDisplayFrameMirror(display_frame_);
+
+    if(sidebandStreamHandle_){
+      drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+      drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
+      drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
+      drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+      drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
+      drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
+      drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
+      drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
+      drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
+      drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+      drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
+    }else{
+      drmHwcLayer->iFd_     = -1;
+      drmHwcLayer->iWidth_  = -1;
+      drmHwcLayer->iHeight_ = -1;
+      drmHwcLayer->iStride_ = -1;
+      drmHwcLayer->iFormat_ = -1;
+      drmHwcLayer->iUsage   = -1;
+      drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
+      drmHwcLayer->uModifier_ = 0;
+      drmHwcLayer->uGemHandle_ = 0;
+      drmHwcLayer->sLayerName_.clear();
+    }
   }else{
-    drmHwcLayer->iFd_     = -1;
-    drmHwcLayer->iWidth_  = -1;
-    drmHwcLayer->iHeight_ = -1;
-    drmHwcLayer->iStride_ = -1;
-    drmHwcLayer->iSize_   = -1;
-    drmHwcLayer->iFormat_ = -1;
-    drmHwcLayer->iUsage   = -1;
-    drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
-    drmHwcLayer->uModifier_ = 0;
-    drmHwcLayer->uGemHandle_ = 0;
-    drmHwcLayer->sLayerName_.clear();
+    drmHwcLayer->sf_handle = buffer_;
+    drmHwcLayer->SetDisplayFrame(display_frame_, ctx);
+    drmHwcLayer->SetSourceCrop(source_crop_);
+    drmHwcLayer->SetTransform(transform_);
+    // Commit mirror function
+    drmHwcLayer->SetDisplayFrameMirror(display_frame_);
+
+    if(buffer_){
+      drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
+      drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+      drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
+      drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
+      drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+      drmHwcLayer->iSize_   = pBufferInfo_->iSize_;
+      drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
+      drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
+      drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
+      drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
+      drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
+      drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+      drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
+    }else{
+      drmHwcLayer->iFd_     = -1;
+      drmHwcLayer->iWidth_  = -1;
+      drmHwcLayer->iHeight_ = -1;
+      drmHwcLayer->iStride_ = -1;
+      drmHwcLayer->iSize_   = -1;
+      drmHwcLayer->iFormat_ = -1;
+      drmHwcLayer->iUsage   = -1;
+      drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
+      drmHwcLayer->uModifier_ = 0;
+      drmHwcLayer->uGemHandle_ = 0;
+      drmHwcLayer->sLayerName_.clear();
+    }
   }
 
   drmHwcLayer->Init();
@@ -2817,9 +2876,14 @@ int DrmHwcTwo::HookDevClose(hw_device_t * /*dev*/) {
 // static
 void DrmHwcTwo::HookDevGetCapabilities(hwc2_device_t * /*dev*/,
                                        uint32_t *out_count,
-                                       int32_t * /*out_capabilities*/) {
-  supported(__func__);
-  *out_count = 0;
+                                       int32_t * out_capabilities) {
+
+  if(out_capabilities == NULL){
+    *out_count = 1;
+    return;
+  }
+
+  out_capabilities[0] = static_cast<int32_t>(HWC2::Capability::SidebandStream);
 }
 
 // static

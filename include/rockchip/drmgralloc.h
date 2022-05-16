@@ -90,6 +90,9 @@ public:
     uint32_t uRefCnt_;
   };
 
+  int importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle);
+  int freeBuffer(buffer_handle_t handle);
+
   void set_drm_version(int drm_device, int version);
   int hwc_get_handle_width(buffer_handle_t hnd);
   int hwc_get_handle_height(buffer_handle_t hnd);

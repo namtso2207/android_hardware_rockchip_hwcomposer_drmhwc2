@@ -63,6 +63,38 @@ DrmGralloc::~DrmGralloc(){
 
 }
 
+int DrmGralloc::importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle)
+{
+#if USE_GRALLOC_4
+  int err = gralloc4::importBuffer(rawHandle, outHandle);
+  if (err != android::OK)
+  {
+      ALOGE("Failed to import buffer, err : %d", err);
+      return -1;
+  }
+  return err;
+#else
+  return -1;
+#endif
+}
+
+int DrmGralloc::freeBuffer(buffer_handle_t handle)
+{
+#if USE_GRALLOC_4
+
+  int err = gralloc4::freeBuffer(handle);
+  if (err != android::OK)
+  {
+      ALOGE("Failed to get buffer width, err : %d", err);
+      return -1;
+  }
+  return err;
+#else
+  return -1;
+#endif
+}
+
+
 void DrmGralloc::set_drm_version(int drm_device, int version){
 #if USE_GRALLOC_4
     gralloc4::set_drm_version(version);

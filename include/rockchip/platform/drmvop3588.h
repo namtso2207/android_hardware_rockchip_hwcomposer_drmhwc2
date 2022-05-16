@@ -63,6 +63,7 @@ typedef enum tagComposeMode{
    HWC_MIX_UP_LOPICY,
    HWC_MIX_DOWN_LOPICY,
    HWC_MIX_LOPICY,
+   HWC_SIDEBAND_LOPICY,
    HWC_GLES_POLICY,
    HWC_RGA_OVERLAY_LOPICY,
    HWC_SVEP_OVERLAY_LOPICY,
@@ -72,6 +73,7 @@ typedef enum tagComposeMode{
 
 typedef struct RequestContext{
   int iSkipCnt=0;
+  bool bSidebandStreamMode=false;
 
   // Afbcd info
   int iAfbcdCnt=0;
@@ -189,6 +191,9 @@ typedef struct DrmVop2Context{
   int TryOverlayPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
+  int TryMixSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
+                    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                    std::vector<PlaneGroup *> &plane_groups);
 #ifdef USE_LIBSVEP
   int TrySvepPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
