@@ -1153,6 +1153,50 @@ int DrmDevice::UpdateDisplayMode(int display_id){
     return 0;
   }
 
+  //  Disable all plane resource with this connetor.
+  {
+    int ret;
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return -ENOMEM;
+    }
+
+    DrmCrtc *crtc = conn->encoder()->crtc();
+    // Disable DrmPlane resource.
+    for(auto &plane_group : plane_groups_){
+      uint32_t crtc_mask = 1 << crtc->pipe();
+      if(!plane_group->acquire(crtc_mask))
+          continue;
+      for(auto &plane : plane_group->planes){
+        if(!plane)
+          continue;
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                        plane->crtc_property().id(), 0) < 0 ||
+              drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
+                                        0) < 0;
+        if (ret) {
+          ALOGE("Failed to add plane %d disable to pset", plane->id());
+          drmModeAtomicFree(pset);
+          pthread_mutex_unlock(&diplay_route_mutex);
+          return ret;
+        }
+        HWC2_ALOGI("Crtc-id = %d disable plane-id = %d", crtc->id(), plane->id());
+      }
+    }
+
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
+    if (ret < 0) {
+      ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
+      drmModeAtomicFree(pset);
+      pthread_mutex_unlock(&diplay_route_mutex);
+      return ret;
+    }
+  }
+
+  int ret;
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
@@ -1160,7 +1204,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
     return -ENOMEM;
   }
 
-  int ret;
   uint32_t blob_id[1] = {0};
 
   struct drm_mode_modeinfo drm_mode;

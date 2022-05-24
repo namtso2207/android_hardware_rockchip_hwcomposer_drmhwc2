@@ -1839,6 +1839,9 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       ctx_.rel_xres = best_mode.h_display();
       ctx_.rel_yres = best_mode.v_display();
       ctx_.dclk = best_mode.clock();
+      // will change display resolution, to clear all display.
+      if(!(connector_->current_mode() == connector_->active_mode()))
+        ClearDisplay();
     }
 
     if(isRK3566(resource_manager_->getSocId())){
