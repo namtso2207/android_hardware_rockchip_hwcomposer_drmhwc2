@@ -1362,7 +1362,13 @@ int Vop3588::TrySvepPolicy(
 
           ret = svep_->SetEnhancementRate(svepCtx_, enhancement_rate);
           if(ret){
-            printf("Svep SetSrcImage fail\n");
+            printf("Svep SetEnhancementRate fail\n");
+            continue;
+          }
+
+          ret = svep_->SetOsdMode(svepCtx_, SVEP_OSD_ENABLE_VIDEO, SVEP_OSD_VIDEO_STR);
+          if(ret){
+            printf("Svep SetOsdMode fail\n");
             continue;
           }
 

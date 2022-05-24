@@ -2572,7 +2572,13 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         ret = svep_->SetEnhancementRate(svepCtx_, enhancement_rate);
         if(ret){
           printf("Svep SetSrcImage fail\n");
-          return ret;;
+          return ret;
+        }
+
+        ret = svep_->SetOsdMode(svepCtx_, SVEP_OSD_ENABLE_GLOBAL, SVEP_OSD_GLOBAL_STR);
+        if(ret){
+          printf("Svep SetOsdMode fail\n");
+          return ret;
         }
 
         hwc_frect_t source_crop;
