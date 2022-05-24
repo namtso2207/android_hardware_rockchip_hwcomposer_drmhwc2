@@ -118,6 +118,10 @@ const static IMapper::MetadataType ArmMetadataType_PLANE_FDS
     1   // 就是上面的 'PLANE_FDS'
 };
 
+#ifndef DRM_FORMAT_NV15
+#define DRM_FORMAT_NV15 fourcc_code('N', 'V', '1', '5') /* 2x2 subsampled Cr:Cb plane */
+#endif
+
 /* ---------------------------------------------------------------------------------------------------------
  * External Function Prototypes (referenced in this file)
  * ---------------------------------------------------------------------------------------------------------
@@ -284,8 +288,6 @@ uint32_t get_fourcc_format(buffer_handle_t handle)
       return fourcc;
     else
       return convertToNV12(fourcc);
-
-
 }
 
 int get_width(buffer_handle_t handle, uint64_t* width)
@@ -400,17 +402,38 @@ int get_byte_stride(buffer_handle_t handle, int* byte_stride)
     /* 否则, 即 'format_requested' "是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
     else
     {
-        uint64_t width;
+        uint32_t fourcc_format = get_fourcc_format(handle);
+        // RK3588 mali 支持NV15格式，故 byte_stride采用正确的值
+        if(fourcc_format == DRM_FORMAT_NV15){
+            err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
+            if (err != android::OK || layouts.size() < 1)
+            {
+                E("Failed to get plane layouts. err : %d", err);
+                return err;
+            }
 
-        err = get_width(handle, &width);
-        if (err != android::OK )
-        {
-            E("err : %d", err);
-            return err;
+            if ( layouts.size() > 1 )
+            {
+                // W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
+            }
+            *byte_stride = (layouts[0].strideInBytes);
         }
+        // 对于 fourcc不为 DRM_FORMAT_NV15 的情况，认为 Mali不支持 NV15格式,采用 width 作为 byte_stride.
+        else
+        {
 
-        // .KP : from CSY : 分配 rk_video_decoder 输出 buffers 时, 要求的 byte_stride of buffer in NV12_10, 已经通过 width 传入.
-        *byte_stride = (int)width;
+            uint64_t width;
+
+            err = get_width(handle, &width);
+            if (err != android::OK )
+            {
+                E("err : %d", err);
+                return err;
+            }
+
+            // .KP : from CSY : 分配 rk_video_decoder 输出 buffers 时, 要求的 byte_stride of buffer in NV12_10, 已经通过 width 传入.
+            *byte_stride = (int)width;
+        }
     }
 
     return err;
@@ -452,8 +475,8 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
             *byte_stride = (layouts[0].strideInBytes);
         }else{
             if(format_requested == HAL_PIXEL_FORMAT_YUV420_8BIT_I
-               || format_requested == HAL_PIXEL_FORMAT_YUV420_10BIT_I
-               || format_requested == HAL_PIXEL_FORMAT_Y210){
+                || format_requested == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+                || format_requested == HAL_PIXEL_FORMAT_Y210){
                 ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %" PRIi64 " => %" PRIi64,
                           __FUNCTION__,__LINE__,(layouts[0].strideInBytes),(layouts[0].strideInBytes) * 2 / 3);
                 *byte_stride = (layouts[0].strideInBytes) * 2 / 3;
@@ -469,17 +492,38 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
     /* 否则, 即 'format_requested' "是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
     else
     {
-        uint64_t width;
+        uint32_t fourcc_format = get_fourcc_format(handle);
+        // RK3588 mali 支持NV15格式，故 byte_stride采用正确的值
+        if(fourcc_format == DRM_FORMAT_NV15){
+            err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
+            if (err != android::OK || layouts.size() < 1)
+            {
+                E("Failed to get plane layouts. err : %d", err);
+                return err;
+            }
 
-        err = get_width(handle, &width);
-        if (err != android::OK )
-        {
-            E("err : %d", err);
-            return err;
+            if ( layouts.size() > 1 )
+            {
+                // W("it's not reasonable to get global byte_stride of buffer with planes more than 1.");
+            }
+            *byte_stride = (layouts[0].strideInBytes);
         }
+        // 对于 fourcc不为 DRM_FORMAT_NV15 的情况，认为 Mali不支持 NV15格式,采用 width 作为 byte_stride.
+        else
+        {
 
-        // .KP : from CSY : 分配 rk_video_decoder 输出 buffers 时, 要求的 byte_stride of buffer in NV12_10, 已经通过 width 传入.
-        *byte_stride = (int)width;
+            uint64_t width;
+
+            err = get_width(handle, &width);
+            if (err != android::OK )
+            {
+                E("err : %d", err);
+                return err;
+            }
+
+            // .KP : from CSY : 分配 rk_video_decoder 输出 buffers 时, 要求的 byte_stride of buffer in NV12_10, 已经通过 width 传入.
+            *byte_stride = (int)width;
+        }
     }
 
     return err;

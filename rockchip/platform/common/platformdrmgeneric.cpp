@@ -171,6 +171,7 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
     case DRM_FORMAT_NV16:
     case DRM_FORMAT_NV61:
     case DRM_FORMAT_NV12_10:
+    case DRM_FORMAT_NV15:
       return 2;
     default:
       return 1;
