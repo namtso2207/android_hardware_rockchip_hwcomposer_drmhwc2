@@ -48,15 +48,6 @@ void Vop3588::Init(){
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
-
-#ifdef USE_LIBSVEP
-  bSvepReady_ = false;
-  svep_ = Svep::Get();
-  if(svep_ != NULL){
-    bSvepReady_ = true;
-    HWC2_ALOGI("Svep module ready. to enable SvepMode.");
-  }
-#endif
 }
 
 bool Vop3588::SupportPlatform(uint32_t soc_id){
@@ -1253,6 +1244,15 @@ int Vop3588::TrySvepPolicy(
   ResetPlaneGroups(plane_groups);
   //save fb into tmp_layers
 
+  // 0. SVEP模块初始化
+  if(svep_ == NULL){
+    svep_ = Svep::Get(true);
+    if(svep_ == NULL){
+      HWC2_ALOGD_IF_DEBUG("Svep is NULL, plase check License.");
+      return -1;
+    }
+  }
+
   bool rga_layer_ready = false;
   bool use_laster_rga_layer = false;
   std::shared_ptr<DrmBuffer> dst_buffer;
@@ -2218,23 +2218,21 @@ int Vop3588::InitContext(
   int iSvepMode = hwc_get_int_property(SVEP_MODE_NAME,"0");
   // Match policy first
   HWC2_ALOGD_IF_DEBUG("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, iSvepMode, bSvepReady_);
-  if(bSvepReady_){
-    if(iSvepMode == 1){
-      DrmDevice *drm = crtc->getDrmDevice();
-      DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-      if(conn && conn->state() == DRM_MODE_CONNECTED &&
-         conn->type() == DRM_MODE_CONNECTOR_HDMIA && conn->type_id() == 1){
-        // Match policy first
-        TrySvepOverlay();
-      }
-    }else if(iSvepMode == 2){
-      ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
-      HWC2_ALOGD_IF_DEBUG("Force use GLES compose, %s=%d , soc_id=%x",
-                                                                      SVEP_MODE_NAME,
-                                                                      iSvepMode,
-                                                                      ctx.state.iSocId);
-      return 0;
+  if(iSvepMode == 1){
+    DrmDevice *drm = crtc->getDrmDevice();
+    DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+    if(conn && conn->state() == DRM_MODE_CONNECTED &&
+        conn->type() == DRM_MODE_CONNECTOR_HDMIA && conn->type_id() == 1){
+      // Match policy first
+      TrySvepOverlay();
     }
+  }else if(iSvepMode == 2){
+    ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
+    HWC2_ALOGD_IF_DEBUG("Force use GLES compose, %s=%d , soc_id=%x",
+                                                                    SVEP_MODE_NAME,
+                                                                    iSvepMode,
+                                                                    ctx.state.iSocId);
+    return 0;
   }
 #endif
 

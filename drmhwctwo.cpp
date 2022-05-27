@@ -2434,7 +2434,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
       }
       if(svep_ == NULL){
         property_set("vendor.gralloc.no_afbc_for_fb_target_layer", "1");
-        svep_ = Svep::Get();
+        svep_ = Svep::Get(true);
         if(svep_ != NULL){
           bSvepReady_ = true;
           HWC2_ALOGI("Svep module ready. to enable SvepMode.");
