@@ -2425,8 +2425,8 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
   char value[PROPERTY_VALUE_MAX];
   property_get(SVEP_MODE_NAME, value, "0");
-  int new_value = 0;
-  new_value = atoi(value);
+  int new_value = atoi(value);
+  static bool use_svep_fb = false;
   if(new_value == 2){
     if(validate){
       if(bufferQueue_ == NULL){
@@ -2487,8 +2487,10 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         drmHwcLayer->iStride_ = require.mBufferInfo_.iStride_;
         drmHwcLayer->iFormat_ = require.mBufferInfo_.iFormat_;
         drmHwcLayer->SetSourceCrop(source_crop);
+        use_svep_fb = true;
       }
-    }else{
+    }else if(use_svep_fb){
+      use_svep_fb = false;
       if(bufferQueue_ == NULL){
         bufferQueue_ = std::make_shared<DrmBufferQueue>();
       }
