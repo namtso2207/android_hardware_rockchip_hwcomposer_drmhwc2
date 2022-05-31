@@ -2606,12 +2606,14 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
                                                   source_crop,
                                                   dst_buffer->GetBufferId(),
                                                   dst_buffer->GetGemHandle());
-        ret = drmHwcLayer->acquire_fence->wait(1500);
-        if(ret){
-          HWC2_ALOGE("wait Fb-Target 1500ms timeout, ret=%d",ret);
-          drmHwcLayer->bUseSvep_ = false;
-          bufferQueue_->QueueBuffer(dst_buffer);
-          return ret;
+        if(drmHwcLayer->acquire_fence->isValid()){
+          ret = drmHwcLayer->acquire_fence->wait(1500);
+          if(ret){
+            HWC2_ALOGE("wait Fb-Target 1500ms timeout, ret=%d",ret);
+            drmHwcLayer->bUseSvep_ = false;
+            bufferQueue_->QueueBuffer(dst_buffer);
+            return ret;
+          }
         }
         int output_fence = 0;
         ret = svep_->RunAsync(svepCtx_, &output_fence);

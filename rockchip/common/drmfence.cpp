@@ -235,6 +235,9 @@ int AcquireFence::getFd() const {
     return iFd_;
 }
 int AcquireFence::wait(int timeout) {
+    if(!isValid()){
+      return 0;
+    }
     return sync_wait(iFd_, timeout);
 }
 std::vector<SyncPointInfo> AcquireFence::getInfo() const {
