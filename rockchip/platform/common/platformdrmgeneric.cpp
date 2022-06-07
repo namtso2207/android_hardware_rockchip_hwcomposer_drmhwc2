@@ -32,6 +32,15 @@
 #include <hardware/gralloc.h>
 #include <log/log.h>
 
+#ifndef DRM_FORMAT_NV15
+/*
+ * 2 plane YCbCr
+ * index 0 = Y plane, [39:0] Y3:Y2:Y1:Y0 little endian
+ * index 1 = Cr:Cb plane, [39:0] Cr1:Cb1:Cr0:Cb0 little endian
+ */
+#define DRM_FORMAT_NV15		fourcc_code('N', 'V', '1', '5') /* 2x2 subsampled Cr:Cb plane */
+#endif
+
 
 #define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
 
