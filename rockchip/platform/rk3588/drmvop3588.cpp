@@ -48,6 +48,12 @@ void Vop3588::Init(){
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
+
+#ifdef USE_LIBSVEP
+  if(svep_ == NULL){
+    svep_ = Svep::Get(true);
+  }
+#endif
 }
 
 bool Vop3588::SupportPlatform(uint32_t soc_id){
