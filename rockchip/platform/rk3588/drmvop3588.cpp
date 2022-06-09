@@ -1401,6 +1401,7 @@ int Vop3588::TrySvepPolicy(
           rga_layer_ready = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          break;
         }else{
           dst_buffer = bufferQueue_->BackDrmBuffer();
 
