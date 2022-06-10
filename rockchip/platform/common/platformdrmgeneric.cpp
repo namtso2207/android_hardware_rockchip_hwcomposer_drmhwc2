@@ -177,6 +177,8 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
   switch (drm_format) {
     case DRM_FORMAT_NV12:
     case DRM_FORMAT_NV21:
+    case DRM_FORMAT_NV24:
+    case DRM_FORMAT_NV42:
     case DRM_FORMAT_NV16:
     case DRM_FORMAT_NV61:
     case DRM_FORMAT_NV12_10:
@@ -195,9 +197,16 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->offsets[0] = 0;
 
   if(DrmFormatToPlaneNum(bo->format) == 2){
-    bo->pitches[1] = bo->pitches[0];
-    bo->gem_handles[1] = gem_handle;
-    bo->offsets[1] = bo->pitches[1] * bo->height;
+    if(bo->format == DRM_FORMAT_NV24 ||
+       bo->format == DRM_FORMAT_NV42){
+      bo->pitches[1] = bo->pitches[0]*2;
+      bo->gem_handles[1] = gem_handle;
+      bo->offsets[1] = bo->pitches[0] * bo->height;
+    }else{
+      bo->pitches[1] = bo->pitches[0];
+      bo->gem_handles[1] = gem_handle;
+      bo->offsets[1] = bo->pitches[1] * bo->height;
+    }
   }
 
   uint64_t modifier[4];
