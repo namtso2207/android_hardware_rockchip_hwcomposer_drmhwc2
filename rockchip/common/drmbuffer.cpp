@@ -33,10 +33,15 @@ static uint64_t getUniqueId() {
 // MALI_GRALLOC_USAGE_NO_AFBC 是 arm_gralloc 扩展的 私有的 usage_bit_flag,
 // MALI_GRALLOC_USAGE_NO_AFBC = GRALLOC_USAGE_PRIVATE_1 : 1U << 29
 // RK_GRALLOC_USAGE_WITHIN_4G = GRALLOC_USAGE_PRIVATE_11: 1ULL << 56
+// RK_GRALLOC_USAGE_STRIDE_ALIGN_64 = GRALLOC_USAGE_PRIVATE_7 : 1ULL << 60
 // 定义在 hardware/rockchip/libgralloc/bifrost/src/mali_gralloc_usages.h 中
 
 #ifndef RK_GRALLOC_USAGE_WITHIN_4G
 #define RK_GRALLOC_USAGE_WITHIN_4G (1ULL << 56)
+#endif
+
+#ifndef RK_GRALLOC_USAGE_STRIDE_ALIGN_64
+#define RK_GRALLOC_USAGE_STRIDE_ALIGN_64 (1ULL << 60)
 #endif
 
 DrmBuffer::DrmBuffer(int w, int h, int format, std::string name):
@@ -47,7 +52,7 @@ DrmBuffer::DrmBuffer(int w, int h, int format, std::string name):
   iFormat_(format),
   iStride_(-1),
   iByteStride_(-1),
-  iUsage_(GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_PRIVATE_1 | RK_GRALLOC_USAGE_WITHIN_4G),
+  iUsage_(GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_PRIVATE_1 | RK_GRALLOC_USAGE_WITHIN_4G | RK_GRALLOC_USAGE_STRIDE_ALIGN_64),
   uFourccFormat_(0),
   uModifier_(0),
   iFinishFence_(-1),

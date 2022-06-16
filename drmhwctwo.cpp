@@ -38,11 +38,11 @@
 
 namespace android {
 
-
 #define fourcc_code(a, b, c, d) ((__u32)(a) | ((__u32)(b) << 8) | \
              ((__u32)(c) << 16) | ((__u32)(d) << 24))
 
 #define DRM_FORMAT_ABGR8888	fourcc_code('A', 'B', '2', '4')
+#define DRM_FORMAT_NV12     fourcc_code('N', 'V', '1', '2') /* 2x2 subsampled Cr:Cb plane */
 
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
@@ -2487,6 +2487,7 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
         drmHwcLayer->iStride_ = require.mBufferInfo_.iStride_;
         drmHwcLayer->iFormat_ = require.mBufferInfo_.iFormat_;
         drmHwcLayer->SetSourceCrop(source_crop);
+        drmHwcLayer->uFourccFormat_   = DRM_FORMAT_NV12;
         use_svep_fb = true;
       }
     }else if(use_svep_fb){
