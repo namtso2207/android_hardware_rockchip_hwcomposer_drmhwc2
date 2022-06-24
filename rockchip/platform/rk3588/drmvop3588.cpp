@@ -459,6 +459,8 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
   uint16_t eotf = TRADITIONAL_GAMMA_SDR;
   bool bMulArea = layer_size > 0 ? true : false;
   bool b8kMode = ctx.state.b8kMode_;
+  bool b4k120Mode = ctx.state.b4k120pMode_;
+
 
   //loop plane groups.
   for (iter = plane_groups.begin();
@@ -699,7 +701,7 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale
-                          // RK3588 源数据宽大于4096时，缩放系数需要做调整：
+                          // RK3588 源数据宽大于4096时且在8K分辨率条件下，缩放系数需要做调整：
                           //   Cluster:目前仅支持0.9-1.1的缩放;
                           //   Esmart：可以支持 0.125-8 缩放；
                           bool b8kScaleMode = false;
@@ -714,6 +716,20 @@ int Vop3588::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           else{
                             ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support scale factor(%f,%f)",
                                     (*iter_plane)->name(), (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
+                            continue;
+                          }
+
+                          // Scale
+                          // RK3588 源数据宽大于3840时，不支持缩小
+                          bool b4k120ScaleMode = false;
+                          if(b4k120Mode && (input_w >= 3840))
+                            b4k120ScaleMode = true;
+
+                          if(b4k120ScaleMode && ( ((*iter_layer)->fHScaleMul_ > 1.0)
+                                                   || ((*iter_layer)->fVScaleMul_ > 1.0) ) ){
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s 8K120p cann't support input(%dx%d) scale factor(%f,%f)",
+                                    (*iter_plane)->name(), input_w,input_h,
+                                    (*iter_layer)->fHScaleMul_, (*iter_layer)->fVScaleMul_);
                             continue;
                           }
 
@@ -2096,7 +2112,7 @@ void Vop3588::InitStateContext(
   ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
             __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
 
-  // 8K Mode
+  // 8K Mode or 4K 120 Mode
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
   if(conn && conn->state() == DRM_MODE_CONNECTED){
@@ -2104,7 +2120,11 @@ void Vop3588::InitStateContext(
     if(ctx.state.b8kMode_ != mode.is_8k_mode()){
       HWC2_ALOGD_IF_DEBUG("%s 8K Mode.", mode.is_8k_mode() ? "Enter" : "Quit");
     }
-    ctx.state.b8kMode_ = mode.is_8k_mode();
+    if(ctx.state.b4k120pMode_ != mode.is_4k120p_mode()){
+      HWC2_ALOGD_IF_DEBUG("%s 4K 120 Mode.", mode.is_4k120p_mode() ? "Enter" : "Quit");
+    }
+    ctx.state.b8kMode_     = mode.is_8k_mode();
+    ctx.state.b4k120pMode_ = mode.is_4k120p_mode();
     if(ctx.state.b8kMode_){
       // 8K mode Rreserved Cluster-1 and Esmart-1
       for(auto &plane_group : plane_groups){

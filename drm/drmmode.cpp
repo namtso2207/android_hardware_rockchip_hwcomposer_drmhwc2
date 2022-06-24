@@ -279,9 +279,24 @@ std::string DrmMode::name() const {
 }
 
 bool DrmMode::is_8k_mode() const {
+  // 8K 分辨率下缩放场景存在取数效率的性能问题
+  // 故需要特殊判断
   if( h_display_ > 4096 )
     return true;
   else
     return false;
 }
+
+bool DrmMode::is_4k120p_mode() const {
+  // 4K 120帧 AFBC图层取数/解码存在性能问题
+  // 故需要特殊判断
+  // 目前判断的边界设置为 115,主要为了覆盖119.xx刷新率
+  if(v_refresh() > 115){
+    if( h_display_ >= 2160 ){
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace android
