@@ -126,6 +126,7 @@ class DrmHwcTwo : public hwc2_device_t {
             return ret;
         };
         uint32_t GetGemHandle(){ return uGemHandle_;};
+        bool isValid(){ return uGemHandle_ != 0;};
       private:
         DrmDevice *drm_;
         DrmGralloc *drmGralloc_;
@@ -154,6 +155,7 @@ class DrmHwcTwo : public hwc2_device_t {
     buffer_handle_t buffer() {
       return buffer_;
     }
+
     void set_buffer(buffer_handle_t buffer) {
       buffer_ = buffer;
 
@@ -197,8 +199,6 @@ class DrmHwcTwo : public hwc2_device_t {
           pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
           drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
           layer_name_ = pBufferInfo_->sLayerName_;
-          pBufferInfo_->gemHandle_.InitGemHandle(drm_, drmGralloc_, pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->iFd_, buffer_id);
-          pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64 " Name=%s",
                                bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
         }
@@ -208,6 +208,37 @@ class DrmHwcTwo : public hwc2_device_t {
         HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu has cache! BufferId=%" PRIx64 " Name=%s",
                              bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
       }
+    }
+
+    int initOrGetGemhanleFromCache(DrmHwcLayer* drmHwcLayer) {
+      if(pBufferInfo_ == NULL){
+        HWC2_ALOGD_IF_VERBOSE("Id=%d pBufferInfo_ is NULL can't find BufferInfoCache!",id_);
+        return -1;
+      }
+
+      // Bufferinfo Cache
+      uint64_t buffer_id = pBufferInfo_->uBufferId_;
+      if(!pBufferInfo_->gemHandle_.isValid()){
+        pBufferInfo_->gemHandle_.InitGemHandle(drm_,
+                                                drmGralloc_,
+                                                pBufferInfo_->sLayerName_.c_str(),
+                                                pBufferInfo_->iFd_,
+                                                buffer_id);
+        pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
+        drmHwcLayer->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
+        HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ init GemHandle success! BufferId=%" PRIx64 " Name=%s GemHandle=%d ptr=%p",
+                              buffer_id,pBufferInfo_->sLayerName_.c_str(),
+                              drmHwcLayer->uGemHandle_,
+                              drmHwcLayer);
+        return 0;
+      }
+
+      drmHwcLayer->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
+      HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ GemHandle cache! BufferId=%" PRIx64 " Name=%s  GemHandle=%d ptr=%p",
+                            buffer_id,pBufferInfo_->sLayerName_.c_str(),
+                            drmHwcLayer->uGemHandle_,
+                            drmHwcLayer);
+      return 0;
     }
 
     void setSidebandStream(buffer_handle_t stream) {
@@ -465,6 +496,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error ValidatePlanes();
     HWC2::Error InitDrmHwcLayer();
     HWC2::Error CreateComposition();
+    int ImportBuffers();
     void AddFenceToRetireFence(int fd);
     int DoMirrorDisplay(int32_t *retire_fence);
 

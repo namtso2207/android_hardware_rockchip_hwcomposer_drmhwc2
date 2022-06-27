@@ -1143,15 +1143,16 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
 
   // now that they're ordered by z, add them to the composition
   for (auto &hwc2layer : layers_) {
-    DrmHwcLayer drmHwclayer;
+    drm_hwc_layers_.emplace_back();
+    DrmHwcLayer &drmHwclayer = drm_hwc_layers_.back();
     hwc2layer.second.PopulateDrmLayer(hwc2layer.first, &drmHwclayer, &ctx_, frame_no_);
-    drm_hwc_layers_.emplace_back(std::move(drmHwclayer));
   }
 
   std::sort(drm_hwc_layers_.begin(),drm_hwc_layers_.end(),SortByZpos);
 
   uint32_t client_id = 0;
-  DrmHwcLayer client_target_layer;
+  drm_hwc_layers_.emplace_back();
+  DrmHwcLayer &client_target_layer = drm_hwc_layers_.back();
   client_layer_.PopulateFB(client_id, &client_target_layer, &ctx_, frame_no_, true);
 
 #ifdef USE_LIBSVEP
@@ -1162,9 +1163,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
     }
   }
 #endif
-
-  drm_hwc_layers_.emplace_back(std::move(client_target_layer));
-
   ALOGD_HWC2_DRM_LAYER_INFO((DBG_INFO),drm_hwc_layers_);
 
   return HWC2::Error::None;
@@ -1228,43 +1226,92 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   return HWC2::Error::None;
 }
 
-HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
-  int ret;
-  std::vector<DrmCompositionDisplayLayersMap> layers_map;
-  layers_map.emplace_back();
-  DrmCompositionDisplayLayersMap &map = layers_map.back();
-
-  map.display = static_cast<int>(handle_);
-  map.geometry_changed = true;  // TODO: Fix this
+int DrmHwcTwo::HwcDisplay::ImportBuffers() {
+  int ret = 0;
+  // 匹配 DrmPlane 图层，请求获取 GemHandle
   bool use_client_layer = false;
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    if(l.second.sf_type() == HWC2::Composition::Client)
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+    if(l.second.sf_type() == HWC2::Composition::Client){
       use_client_layer = true;
+    }
+    for (auto &drm_hwc_layer : drm_hwc_layers_) {
+      // 如果图层没有采用Overlay,则不需要获取GemHandle
+      if(!drm_hwc_layer.bMatch_)
+        continue;
+#ifdef USE_LIBSVEP
+      // 如果是超分处理后的图层，已经更新了GemHandle参数，则不再获取GemHandle
+      if(drm_hwc_layer.bUseSvep_)
+        continue;
+#endif
+      if(drm_hwc_layer.uId_ == l.first){
+        int ret = l.second.initOrGetGemhanleFromCache(&drm_hwc_layer);
+        if (ret) {
+          ALOGE("Failed to get_gemhanle layer-id=%" PRIu64  ", ret=%d", l.first, ret);
+          return ret;
+        }
+      }
+    }
+  }
 
+  // 若存在 GPU 合成, 则 ClientLayer 请求获取 GemHandle
+  if(use_client_layer){
+    for (auto &drm_hwc_layer : drm_hwc_layers_) {
+      if(drm_hwc_layer.bFbTarget_){
+        uint32_t client_id = 0;
+        client_layer_.PopulateFB(client_id, &drm_hwc_layer, &ctx_, frame_no_, false);
+        ret = client_layer_.initOrGetGemhanleFromCache(&drm_hwc_layer);
+        if (ret) {
+          ALOGE("Failed to get_gemhanle client_layer, ret=%d", ret);
+          return ret;
+        }
+#ifdef USE_LIBSVEP // 超分固件需要替换 ClientLayer 为超分后的内存
+        if(handle_ == 0){
+          int ret = client_layer_.DoSvep(false, &drm_hwc_layer);
+          if(ret){
+            HWC2_ALOGE("ClientLayer DoSvep fail, ret = %d", ret);
+          }
+        }
+#endif
+      }
+    }
+  }
+
+  // 所有匹配 DrmPlane 图层，请求 Import 获取 FbId
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
     if(!use_client_layer && drm_hwc_layer.bFbTarget_)
       continue;
+    // 若不是Overlay图层则不进行ImportBuffer
     if(!drm_hwc_layer.bMatch_)
       continue;
-    if(drm_hwc_layer.bFbTarget_){
-      uint32_t client_id = 0;
-      client_layer_.PopulateFB(client_id, &drm_hwc_layer, &ctx_, frame_no_, false);
-#ifdef USE_LIBSVEP
-      if(handle_ == 0){
-        int ret = client_layer_.DoSvep(false, &drm_hwc_layer);
-        if(ret){
-          HWC2_ALOGE("ClientLayer DoSvep fail, ret = %d", ret);
-        }
-      }
-#endif
-    }
+    // 执行ImportBuffer,获取FbId
     ret = drm_hwc_layer.ImportBuffer(importer_.get());
     if (ret) {
       ALOGE("Failed to import layer, ret=%d", ret);
-      return HWC2::Error::NoResources;
+      return ret;
     }
-    map.layers.emplace_back(std::move(drm_hwc_layer));
+  }
+
+  return ret;
+}
+HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  int ret;
+
+  std::vector<DrmCompositionDisplayLayersMap> layers_map;
+  layers_map.emplace_back();
+  DrmCompositionDisplayLayersMap &map = layers_map.back();
+  map.display = static_cast<int>(handle_);
+  map.geometry_changed = true;  // TODO: Fix this
+
+  ret = ImportBuffers();
+  if(ret){
+      HWC2_ALOGE("Failed to ImportBuffers, ret=%d", ret);
+      return HWC2::Error::NoResources;
+  }
+
+  for (auto &drm_hwc_layer : drm_hwc_layers_) {
+    if(drm_hwc_layer.bMatch_)
+      map.layers.emplace_back(std::move(drm_hwc_layer));
   }
 
   std::unique_ptr<DrmDisplayComposition> composition = compositor_->CreateComposition();
@@ -2263,6 +2310,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->sf_composition = sf_type();
   drmHwcLayer->iBestPlaneType = 0;
   drmHwcLayer->bSidebandStreamLayer_ = false;
+  drmHwcLayer->bMatch_ = false;
 
   drmHwcLayer->acquire_fence = acquire_fence_;
 
@@ -2303,7 +2351,6 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
       drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
       drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
-      drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
     }else{
       drmHwcLayer->iFd_     = -1;
       drmHwcLayer->iWidth_  = -1;
@@ -2337,7 +2384,6 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
       drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
       drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
-      drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
     }else{
       drmHwcLayer->iFd_     = -1;
       drmHwcLayer->iWidth_  = -1;
@@ -2354,7 +2400,6 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   }
 
   drmHwcLayer->Init();
-
   return;
 }
 
@@ -2376,6 +2421,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   }else{
     // Commit mirror function
     drmHwcLayer->SetDisplayFrameMirror(display_frame_);
+    drmHwcLayer->bMatch_ = false;
   }
 
   drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
@@ -2400,8 +2446,6 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
     drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
     drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
-    drmHwcLayer->uGemHandle_      = pBufferInfo_->uGemHandle_;
-
   }else{
     drmHwcLayer->iFd_     = -1;
     drmHwcLayer->iWidth_  = -1;
@@ -2417,7 +2461,6 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   }
 
   drmHwcLayer->Init();
-
   return;
 }
 
@@ -2638,7 +2681,6 @@ int DrmHwcTwo::HwcLayer::DoSvep(bool validate, DrmHwcLayer *drmHwcLayer){
   }
 
   drmHwcLayer->Init();
-
   return 0;
 }
 #endif

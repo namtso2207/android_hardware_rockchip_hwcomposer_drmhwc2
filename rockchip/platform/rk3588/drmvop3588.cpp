@@ -1607,8 +1607,6 @@ int Vop3588::TryMixUpPolicy(
               __FUNCTION__,__LINE__,iPlaneSize);
   }
 
-
-
   std::pair<int, int> layer_indices(-1, -1);
 
   if((int)layers.size() < 4)
