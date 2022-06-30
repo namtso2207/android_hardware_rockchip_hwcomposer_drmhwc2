@@ -702,11 +702,12 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       DrmConnector *mirror_connector = drm->GetConnectorForDisplay(mirror_display_id);
       if (!mirror_connector) {
         ALOGE("Could not locate connector for display %d", mirror_display_id);
-      }
-      int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,mirror_connector->unique_name());
-      if(ret < 0){
-        drmModeAtomicFree(pset);
-        return ret;
+      }else{
+        int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,mirror_connector->unique_name());
+        if(ret < 0){
+          drmModeAtomicFree(pset);
+          return ret;
+        }
       }
     }
   }
