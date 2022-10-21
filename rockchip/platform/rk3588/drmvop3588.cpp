@@ -1548,7 +1548,7 @@ int Vop3588::TryRgaOverlayPolicy(
 
           IM_STATUS im_state;
           // Call Im2d 格式转换
-          im_state = imcheck_t(src, dst, pat, src_rect, dst_rect, pat_rect, usage | IM_ASYNC);
+          im_state = imcheck_composite(src, dst, pat, src_rect, dst_rect, pat_rect, usage | IM_ASYNC);
           if(im_state != IM_STATUS_NOERROR){
             HWC2_ALOGE("call im2d scale fail, %s",imStrError(im_state));
             break;
@@ -1633,7 +1633,6 @@ int Vop3588::TryRgaOverlayPolicy(
     if(!ret){ // Match sucess, to call im2d interface
       for(auto &drmLayer : layers){
         if(drmLayer->bUseRga_){
-
           im_opt_t imOpt;
           memset(&imOpt, 0x00, sizeof(im_opt_t));
           imOpt.core = IM_SCHEDULER_RGA3_CORE0 | IM_SCHEDULER_RGA3_CORE1;
