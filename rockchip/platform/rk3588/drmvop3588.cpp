@@ -186,8 +186,8 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
   if(layer->iWidth_ > 4096)
     return false;
 
-  // 如果不是视频格式，则不使用SVEP
-  if(!layer->bYuv_)
+  // 如果不是视频格式，并且不在白名单内，则不使用SVEP
+  if(!layer->bYuv_ && !SvepAllowedByWhitelist(layer))
     return false;
 
   bool yuv_10bit = false;
@@ -1957,9 +1957,8 @@ int Vop3588::TrySvepPolicy(
   static int last_contrast_offset = 0;
 
   for(auto &drmLayer : layers){
-    if(SvepAllowedByWhitelist(drmLayer) || (
-       SvepAllowedByLocalPolicy(drmLayer) &&
-       SvepAllowedByBlacklist(drmLayer))){
+    if(SvepAllowedByLocalPolicy(drmLayer) &&
+       SvepAllowedByBlacklist(drmLayer)){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
         // 部分参数变化后需要强制更新
         if(last_svep_mode != svep_mode ||
