@@ -29,8 +29,24 @@
 -->
 
   </Blacklist>
-
   <Whitelist>
+    <!-- 爱奇艺：标准、Lite、巴布版本适用如下白名单 -->
+    <WhiteKeywords>SurfaceView[com.qiyi.video</WhiteKeywords>
+    <!-- 抖音 -->
+    <WhiteKeywords>ViewRootImpl[SplashActivity]</WhiteKeywords>
+    <!-- 优酷视频 -->
+    <WhiteKeywords>SurfaceView[com.youku.phone/</WhiteKeywords>
+    <!-- 哔哩哔哩 -->
+    <WhiteKeywords>SurfaceView[tv.danmaku.bili</WhiteKeywords>
+    <!-- 虎牙直播 -->
+    <WhiteKeywords>SurfaceView[com.duowan.kiwi</WhiteKeywords>
+    <!-- 腾讯课堂 -->
+    <WhiteKeywords>ViewRootImpl[RecruitAvActivity]</WhiteKeywords>
+    <WhiteKeywords>ViewRootImpl[FCourseDetailActivity]</WhiteKeywords>
+    <WhiteKeywords>ViewRootImpl[WebOpenUrlActivity]</WhiteKeywords>
+    <!-- 掌门一对一辅导 -->
+    <WhiteKeywords>ViewRootImpl[RecordedLessonDetailActivity]</WhiteKeywords>
+
 <!--
     <WhiteKeywords>SurfaceView[android.rk.RockVideoPlayer/android.rk.RockVideoPlayer.VideoPlayActivity]</WhiteKeywords>
 -->
