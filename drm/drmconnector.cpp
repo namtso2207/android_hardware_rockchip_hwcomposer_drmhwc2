@@ -1033,10 +1033,15 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
 
   if(colorspace_property().id()){
       if((input_colorspace & HAL_DATASPACE_STANDARD_BT2020) == HAL_DATASPACE_STANDARD_BT2020){
-          if(uColorFormat_ == output_rgb){
-            colorspace = DrmColorspaceType::BT2020_RGB;
-          } else {
-            colorspace = DrmColorspaceType::BT2020_YCC;
+          // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
+          if(drm_->getDrmVersion() == 3){
+            if(uColorFormat_ == output_rgb){
+              colorspace = DrmColorspaceType::BT2020_RGB;
+            } else {
+              colorspace = DrmColorspaceType::BT2020_YCC;
+            }
+          }else{ // Kernel 4.19 only support BT2020_RGB
+              colorspace = DrmColorspaceType::BT2020_RGB;
           }
       }
 
