@@ -334,7 +334,8 @@ struct SvepXml{
   std::shared_ptr<DrmBufferQueue> bufferQueue_;
   SvepXml mSvepEnv_;
   int mLastMode_;
-  int mLastModeCnt_;
+  bool mEnableOnelineMode_;
+  uint64_t mSvepBeginTimeMs_;
 #endif
 };
 

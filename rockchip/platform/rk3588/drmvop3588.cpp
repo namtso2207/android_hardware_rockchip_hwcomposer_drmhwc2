@@ -1951,6 +1951,8 @@ int Vop3588::TrySvepPolicy(
   int contrast_offset = atoi(value);
   property_get(SVEP_OSD_VIDEO_ONELINE_MODE, value, "0");
   int osd_oneline_mode = atoi(value);
+  property_get(SVEP_OSD_VIDEO_ONELINE_WATI_SEC, value, "12");
+  int osd_oneline_wait_second = atoi(value);
   static uint64_t last_buffer_id = 0;
   static int last_enhancement_rate = 0;
   static int last_contrast_mode = 0;
@@ -2056,11 +2058,20 @@ int Vop3588::TrySvepPolicy(
           if(osd_oneline_mode > 0){
             // 视频播放SVEP若干帧后，采用oneline OSD模式
             if(mLastMode_ != svepCtx_.mSvepMode_){
+              struct timeval tp;
+              gettimeofday(&tp, NULL);
               mLastMode_ = svepCtx_.mSvepMode_;
-              mLastModeCnt_ = 0;
+              mSvepBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+              mEnableOnelineMode_ = false;
             }
-            mLastModeCnt_++;
-            if(mLastModeCnt_ > SVEP_OSD_VIDEO_ONELINE_CNT){
+            if(!mEnableOnelineMode_){
+              struct timeval tp;
+              gettimeofday(&tp, NULL);
+              uint64_t current_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+              if((current_time - mSvepBeginTimeMs_) > osd_oneline_wait_second * 1000){
+                mEnableOnelineMode_ = true;
+              }
+            }else{
               osd_mode = SVEP_OSD_ENABLE_VIDEO_ONELINE;
               osd_str = SVEP_OSD_VIDEO_ONELINE_STR;
             }
