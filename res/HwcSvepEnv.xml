@@ -46,6 +46,8 @@
     <WhiteKeywords>ViewRootImpl[WebOpenUrlActivity]</WhiteKeywords>
     <!-- 掌门一对一辅导 -->
     <WhiteKeywords>ViewRootImpl[RecordedLessonDetailActivity]</WhiteKeywords>
+    <!-- 腾讯会议 -->
+    <WhiteKeywords>ViewRootImpl[InMeetingActivity]</WhiteKeywords>
 
 <!--
     <WhiteKeywords>SurfaceView[android.rk.RockVideoPlayer/android.rk.RockVideoPlayer.VideoPlayActivity]</WhiteKeywords>
