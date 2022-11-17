@@ -3060,7 +3060,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
 #ifdef USE_LIBPQ
 int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_display_t* ctx){
   char value[PROPERTY_VALUE_MAX];
-  property_get("persist.vendor.pq.mode", value, "0");
+  property_get("persist.vendor.tvinput.rkpq.mode", value, "0");
   bool pq_mode_enable = atoi(value) > 0;
   static bool use_pq_fb = false;
   if(pq_mode_enable == 1){

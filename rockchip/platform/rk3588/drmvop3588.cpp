@@ -2953,9 +2953,9 @@ int Vop3588::InitContext(
 #endif
 
 #ifdef USE_LIBPQ
-  int iPqMode = hwc_get_int_property("persist.vendor.pq.mode","0");
+  int iPqMode = hwc_get_int_property("persist.vendor.tvinput.rkpq.mode","0");
   // Match policy first
-  HWC2_ALOGD_IF_DEBUG("%s=%d ","persist.vendor.pq.mode", iPqMode);
+  HWC2_ALOGD_IF_DEBUG("%s=%d ","persist.vendor.tvinput.rkpq.mode", iPqMode);
   if(iPqMode > 0){
   //   DrmDevice *drm = crtc->getDrmDevice();
   //   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
