@@ -1185,6 +1185,52 @@ int DrmDevice::UpdateDisplayMode(int display_id){
     return 0;
   }
 
+  // 判断是否存在Mirror模式
+  if(conn && conn->encoder() && conn->encoder()->crtc()){
+    DrmCrtc* crtc = conn->encoder()->crtc();
+    DrmConnector *conn_mirror = NULL;
+    // 检查是否存在 ConnectorMirror方式
+    // 若存在，解除 ConnectorMirrot方式，断开所有与 crtc 绑定的 Connector
+    // 若不存在，正常解绑 Connector 与 Crtc
+    bool is_mirror = false;
+    for(auto &temp_conn : connectors_){
+      if(temp_conn.get() == conn)
+        continue;
+      if(temp_conn->encoder() &&
+          temp_conn->encoder()->crtc() &&
+          temp_conn->encoder()->crtc() == crtc){
+        conn_mirror = temp_conn.get();
+        is_mirror = true;
+      }
+    }
+    if(is_mirror && conn_mirror != NULL){
+      bool mirror_exist_mode = conn_mirror->isExistMode(conn->current_mode());
+      HWC2_ALOGI("%s-%d will update display-mode=%dx%dp%f, %s-%d mirror display %s",
+                connector_type_str(conn->type()),
+                conn->type_id(),
+                conn->current_mode().h_display(),
+                conn->current_mode().v_display(),
+                conn->current_mode().v_refresh(),
+                connector_type_str(conn_mirror->type()),
+                conn_mirror->type_id(),
+                mirror_exist_mode ? "support" : "not support");
+      // 若当前 Connector 不存在 Mirror模式
+      if(!mirror_exist_mode){
+        // 若存在Mirror模式
+        int ret = ReleaseDpyResByMirror(conn_mirror->display(), conn_mirror, crtc, DmcuNone);
+        if(ret){
+          HWC2_ALOGE("display-id=%d ReleaseDpyResByMirror fail!.\n", display_id);
+          return ret;
+        }
+        ret = BindDpyRes(display_id);
+        if(ret){
+          HWC2_ALOGE("display-id=%d BindDpyRes fail!.\n", display_id);
+          return ret;
+        }
+      }
+    }
+  }
+
   //  Disable all plane resource with this connetor.
   {
     int ret;

@@ -913,6 +913,16 @@ void DrmConnector::SetDpmsMode(uint32_t dpms_mode) {
   }
 }
 
+
+bool DrmConnector::isExistMode(const DrmMode &in_mode){
+  for(auto&mode : modes_){
+    if(mode.equal_no_flag_and_type(in_mode)){
+      return true;
+    }
+  }
+  return false;
+}
+
 const DrmProperty &DrmConnector::dpms_property() const {
   return dpms_property_;
 }

@@ -98,6 +98,8 @@ class DrmConnector {
   void set_current_mode(const DrmMode &mode);
   void SetDpmsMode(uint32_t dpms_mode);
 
+  bool isExistMode(const DrmMode &in_mode);
+
   const DrmProperty &dpms_property() const;
   const DrmProperty &crtc_id_property() const;
   const DrmProperty &writeback_pixel_formats() const;
