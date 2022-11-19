@@ -2459,8 +2459,20 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
     if(!ret){
       const DrmMode best_mode = connector_->best_mode();
       connector_->set_current_mode(best_mode);
-      ctx_.rel_xres = best_mode.h_display();
-      ctx_.rel_yres = best_mode.v_display();
+      if(connector_->isHorizontalSpilt()){
+        ctx_.rel_xres = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
+        ctx_.rel_yres = best_mode.v_display();
+        if(handle_ >= DRM_CONNECTOR_SPILT_MODE_MASK){
+          ctx_.rel_xoffset = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
+          ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
+        }
+      }else if(connector_->isCropSpilt()){
+        ctx_.rel_xres = best_mode.h_display();
+        ctx_.rel_yres = best_mode.v_display();
+      }else{
+        ctx_.rel_xres = best_mode.h_display();
+        ctx_.rel_yres = best_mode.v_display();
+      }
       ctx_.dclk = best_mode.clock();
       // will change display resolution, to clear all display.
       if(!(connector_->current_mode() == connector_->active_mode()))
