@@ -1013,6 +1013,8 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
 
 #ifdef ANDROID_S
   hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type1;
+#elif ANDROID_P
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type1;
 #else
   hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type;
 #endif
@@ -1067,6 +1069,94 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
   return 0;
 
 }
+
+int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
+                                                   hdr_output_metadata *hdr_metadata){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  HWC2_ALOGD_IF_DEBUG("conn-id=%d, isSupportSt2084 = %d, isSupportHLG = %d",
+                      id(),isSupportSt2084(),isSupportHLG());
+
+  if (!pset) {
+      ALOGE("%s:line=%d Failed to allocate property set", __FUNCTION__, __LINE__);
+      return -1;
+  }
+
+  if(!memcmp(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata))){
+    HWC2_ALOGD_IF_DEBUG("hdr_output_metadata is same, skip update.");
+    return 0;
+  }
+
+  HWC2_ALOGD_IF_DEBUG("hdr_metadata: metadata_type=%d",hdr_metadata->metadata_type);
+  HWC2_ALOGD_IF_DEBUG("hdr_metadata: eotf=%d metadata_type=%d \n"
+                      "display_primaries[0][x,y]=[%d,%d][%d,%d][%d,%d]\n"
+                      "white_point[x,y]=[%d,%d]\n"
+                      "max_display_mastering_luminance=%d\n"
+                      "min_display_mastering_luminance=%d\n"
+                      "max_cll=%d\n"
+                      "max_fall=%d\n",
+                      hdr_metadata->hdmi_metadata_type1.eotf,
+                      hdr_metadata->hdmi_metadata_type1.metadata_type,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[0].x,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[0].y,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[1].x,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[1].y,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[2].x,
+                      hdr_metadata->hdmi_metadata_type1.display_primaries[2].y,
+                      hdr_metadata->hdmi_metadata_type1.white_point.x,
+                      hdr_metadata->hdmi_metadata_type1.white_point.y,
+                      hdr_metadata->hdmi_metadata_type1.max_display_mastering_luminance,
+                      hdr_metadata->hdmi_metadata_type1.min_display_mastering_luminance,
+                      hdr_metadata->hdmi_metadata_type1.max_cll,
+                      hdr_metadata->hdmi_metadata_type1.max_fall);
+
+  if(last_hdr_metadata_.hdmi_metadata_type1.eotf == hdr_metadata->hdmi_metadata_type1.eotf){
+    HWC2_ALOGD_IF_DEBUG("hdr_output_metadata.eotf is same, skip update.");
+    return 0;
+  }
+
+  // 释放上一次的 Blob
+  if (blob_id_){
+      drm_->DestroyPropertyBlob(blob_id_);
+      blob_id_ = 0;
+  }
+
+  int ret = -1;
+  if(hdr_metadata_property().id()){
+      HWC2_ALOGD_IF_DEBUG("hdr_metadata eotf=0x%x", hdr_metadata->hdmi_metadata_type1.eotf);
+      drm_->CreatePropertyBlob(hdr_metadata, sizeof(struct hdr_output_metadata), &blob_id_);
+      ret = drmModeAtomicAddProperty(pset, id(), hdr_metadata_property().id(), blob_id_);
+      if (ret < 0) {
+        HWC2_ALOGE("Failed to add prop[%d] to [%d]", hdr_metadata_property().id(), id());
+      }
+  }
+
+  DrmColorspaceType colorspace = DrmColorspaceType::DEFAULT;
+  if(colorspace_property().id()){
+    // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
+    if(hdr_metadata->hdmi_metadata_type1.eotf == SMPTE_ST2084){
+      if(drm_->getDrmVersion() == 3){
+        if(uColorFormat_ == output_rgb){
+          colorspace = DrmColorspaceType::BT2020_RGB;
+        } else {
+          colorspace = DrmColorspaceType::BT2020_YCC;
+        }
+      }else{ // Kernel 4.19 only support BT2020_RGB
+          colorspace = DrmColorspaceType::BT2020_RGB;
+      }
+    }
+
+    HWC2_ALOGD_IF_DEBUG("change bt2020 colorspace=%d", colorspace);
+    ret = drmModeAtomicAddProperty(pset, id(), colorspace_property().id(), colorspace);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add prop[%d] to [%d]", colorspace_property().id(), id());
+    }
+  }
+
+  memcpy(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata));
+  colorspace_ = colorspace;
+  return 0;
+}
+
 
 const DrmProperty &DrmConnector::brightness_id_property() const {
   return brightness_id_property_;

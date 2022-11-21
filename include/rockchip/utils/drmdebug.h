@@ -40,7 +40,7 @@
 #include <utils/CallStack.h>
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.4.16"
+#define GHWC_VERSION                    "HWC2-1.4.17"
 
 //Print call statck when you call ALOGD_CALLSTACK.
 #define ALOGD_CALLSTACK(...)                             \
@@ -63,6 +63,11 @@ namespace android {
 
 #define HWC2_ALOGD_IF_INFO(x, ...)  \
     ALOGI_IF(LogLevel(DBG_INFO),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
+#define HWC2_ALOGD_IF_ERR(x, ...)  \
+    ALOGE_IF(LogLevel(DBG_ERROR),"%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)
+
+
 
 #define HWC2_ALOGE(x, ...)  \
     ALOGE("%s,line=%d " x ,__FUNCTION__,__LINE__, ##__VA_ARGS__)

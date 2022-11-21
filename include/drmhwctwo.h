@@ -653,6 +653,9 @@ class DrmHwcTwo : public hwc2_device_t {
    int UpdateBCSH();
    int UpdateOverscan();
    int SwitchHdrMode();
+   bool IsHdrMode();
+   int EnableVividHdrMode(DrmHwcLayer& hdrLayer);
+   int EnableHdrMode(DrmHwcLayer& hdrLayer);
    void UpdateSvepState();
 
    // Static Screen opt function

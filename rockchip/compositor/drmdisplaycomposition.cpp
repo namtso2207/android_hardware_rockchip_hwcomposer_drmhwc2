@@ -58,7 +58,7 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
     return ret;
   }
 
-  hdr_mode_ = false;
+  hdr_mode_ = DRM_HWC_SDR;
   return 0;
 }
 
@@ -113,7 +113,8 @@ int DrmDisplayComposition::SetDisplayMode(const DrmMode &display_mode) {
   return 0;
 }
 
-int DrmDisplayComposition::SetDisplayHdrMode(bool hdr_mode, android_dataspace_t dataspace) {
+int DrmDisplayComposition::SetDisplayHdrMode(DrmHdrType hdr_mode,
+                                             android_dataspace_t dataspace) {
   hdr_mode_ = hdr_mode;
   dataspace_ = dataspace;
   return 0;

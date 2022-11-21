@@ -688,7 +688,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetActiveConfig(hwc2_config_t *config) {
   }else{
     *config = 0;
   }
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 "config-id=%d" ,handle_,*config);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 " config-id=%d" ,handle_,*config);
   return HWC2::Error::None;
 }
 
@@ -2568,8 +2568,7 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
   return 0;
 }
 
-int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
-
+bool DrmHwcTwo::HwcDisplay::IsHdrMode(){
   bool exist_hdr_layer = false;
   int  hdr_area_ratio = 0;
 
@@ -2591,52 +2590,206 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
         hdr_area_ratio = dis_area_size * 10 / screen_size;
     }
   }
+
   if(exist_hdr_layer){
+    // 存在 HDR图层，判断是否存在强制关闭HDR属性，若存在则关闭HDR模式
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.vendor.hwc.hdr_force_disable", value, "0");
     if(atoi(value) > 0){
-      if(ctx_.hdr_mode){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
-        ctx_.hdr_mode = false;
-        ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
+      if(ctx_.hdr_mode != DRM_HWC_SDR){
+        HWC2_ALOGD_IF_DEBUG("Exit HDR mode success");
         property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
       }
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Fource Disable HDR mode.");
-      return 0;
+      HWC2_ALOGD_IF_DEBUG("Fource Disable HDR mode.");
+      return false;
     }
 
+    // 存在 HDR图层，判断HDR视频的屏幕占比与缩放倍率，满足条件则关闭HDR模式
     property_get("persist.vendor.hwc.hdr_video_area", value, "6");
     if(atoi(value) > hdr_area_ratio){
-      if(ctx_.hdr_mode){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
-        ctx_.hdr_mode = false;
-        ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
+      if(ctx_.hdr_mode != DRM_HWC_SDR){
+        HWC2_ALOGD_IF_DEBUG("Exit HDR mode success");
         property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
       }
-      ALOGD_IF(LogLevel(DBG_DEBUG),"Force Disable HDR mode.");
-      return 0;
+      HWC2_ALOGD_IF_DEBUG("Force Disable HDR mode.");
+      return false;
     }
   }
 
-  for(auto &drmHwcLayer : drm_hwc_layers_)
+  if(!exist_hdr_layer && ctx_.hdr_mode != DRM_HWC_SDR){
+    ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
+    property_set("vendor.hwc.hdr_state","NORMAL");
+    return false;
+  }
+
+  return true;
+}
+
+int DrmHwcTwo::HwcDisplay::EnableVividHdrMode(DrmHwcLayer& hdrLayer){
+  HWC2_ALOGD_IF_INFO("Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+
+  // Next hdr zpos must be 0
+  if(hdrLayer.iZpos_ > 0){
+    HWC2_ALOGD_IF_ERR("Next hdr zpos must be 0, Id=%d Name=%s zpos=%d",
+                      hdrLayer.uId_, hdrLayer.sLayerName_.c_str(), hdrLayer.iZpos_);
+    return -1;
+  }
+
+  DrmGralloc* gralloc = DrmGralloc::getInstance();
+  if(gralloc == NULL){
+    return -1;
+  }
+
+  long t0 = __currentTime();
+  int64_t offset = gralloc->hwc_get_offset_of_dynamic_hdr_metadata(hdrLayer.sf_handle);
+  HWC2_ALOGI("rk-debug offset=%" PRIi64, offset);
+  if(offset < 0){
+    HWC2_ALOGD_IF_ERR("Fail to get hdr metadata offset, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+    return -1;
+  }
+
+  void *cpu_addr = NULL;
+  cpu_addr = gralloc->hwc_get_handle_lock(hdrLayer.sf_handle, hdrLayer.iWidth_, hdrLayer.iHeight_);
+  if(cpu_addr == NULL){
+    HWC2_ALOGD_IF_ERR("Fail to lock dma buffer, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+    return -1;
+  }
+  uint16_t *u16_cpu_metadata = (uint16_t *)((uint8_t *)cpu_addr + offset);
+
+  DrmHdrParser* dhp = DrmHdrParser::Get();
+  if(dhp != NULL){
+    int ret = 0;
+    bool hdr_enable = true;
+
+    hdrLayer.vividHdrParam_.hdr_enable = hdr_enable;
+    hdrLayer.vividHdrParam_.p_hdr_codec_meta = (RkMetaHdrHeader*)u16_cpu_metadata;
+
+    // typedef struct{
+    //   unsigned int            color_prim     ; //enum rk_hdr_color_prim: bt709, bt2020, etc.
+    //   unsigned int        	eotf		   ; //enum rk_hdr_eotf: sdr, st2084, hlg, etc.
+    //   unsigned int            red_x          ;
+    //   unsigned int            red_y          ;
+    //   unsigned int            green_x        ;
+    //   unsigned int            green_y        ;
+    //   unsigned int            blue_x         ;
+    //   unsigned int            blue_y         ;
+    //   unsigned int            white_point_x  ;
+    //   unsigned int            white_point_y  ;
+    //   unsigned int            dst_min        ; //min_display_luminance(nits) * 100
+    //   unsigned int            dst_max        ; //max_display_luminance(nits) * 100
+    // }rk_target_display_data_t;
+
+    if(connector_->is_hdmi_support_hdr() && IsHdrMode()){
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_min = 50;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_max = 100000;
+    }else{
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT709;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_GAMMA_SDR;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_min = 10;
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_max = 10000;
+    }
+    hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = 0;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_dst_gamma = 2.2;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sm_ratio = 1.0;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_scale_ratio = 1.0;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sdr_color_space = 2;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = 1;
+    hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = 7;
+
+    if(hwc_get_int_property("vendor.hwc.vivid_hdr_debug", "0") > 0){
+      hdrLayer.vividHdrParam_.hdr_enable = hwc_get_bool_property("vendor.hwc.vivid_hdr_enable", "true");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.color_prim = hwc_get_int_property("vendor.hwc.vivid_color_prim", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.eotf = hwc_get_int_property("vendor.hwc.vivid_eotf", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.red_x = hwc_get_int_property("vendor.hwc.vivid_red_x", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.red_y = hwc_get_int_property("vendor.hwc.vivid_red_y", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.green_x = hwc_get_int_property("vendor.hwc.vivid_green_x", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.green_y = hwc_get_int_property("vendor.hwc.vivid_green_y", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.white_point_x = hwc_get_int_property("vendor.hwc.vivid_white_point_x", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.white_point_y = hwc_get_int_property("vendor.hwc.vivid_white_point_y", "0");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_min = hwc_get_int_property("vendor.hwc.vivid_dst_min", "10");
+      hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("vendor.hwc.vivid_dst_max", "10000");
+
+      hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = hwc_get_int_property("vendor.hwc.vivid_hdr_pq_max_y_mode", "0");
+      hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_dst_gamma = (hwc_get_int_property("vendor.hwc.vivid_hdr_dst_gamma", "22") * 1.0 / 10);
+      hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sm_ratio = hwc_get_int_property("vendor.hwc.vivid_s2h_sm_ratio", "10") * 1.0 / 10;
+      hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_scale_ratio = hwc_get_int_property("vendor.hwc.vivid_s2h_scale_ratio", "10") * 1.0 / 10;
+      hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sdr_color_space = hwc_get_int_property("vendor.hwc.vivid_s2h_sdr_color_space", "2");
+      hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = hwc_get_int_property("vendor.hwc.vivid_print_input_meta", "1");
+      hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
+    }
+
+    HWC2_ALOGI("hdr_hdmi_meta: color_prim=%d eotf=%d red_x=%d red_y=%d green_x=%d green_y=%d white_point_x=%d white_point_y=%d dst_min=%d dst_max=%d",
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.color_prim,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.eotf,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.red_x,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.red_y,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.green_x,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.green_y,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.white_point_x,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.white_point_y,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_min,
+               hdrLayer.vividHdrParam_.hdr_hdmi_meta.dst_max);
+
+    HWC2_ALOGI("hdr_user_cfg: hdr_pq_max_y_mode=%d hdr_dst_gamma=%f s2h_sm_ratio=%f s2h_scale_ratio=%f s2h_sdr_color_space=%d print_input_meta=%d hdr_log_level=%d",
+               hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_dst_gamma,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sm_ratio,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_scale_ratio,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.s2h_sdr_color_space,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta,
+               hdrLayer.vividHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level);
+
+    dhp->VividHdrParser(&hdrLayer.vividHdrParam_);
+    hdrLayer.IsVividHdr_ = true;
+    ctx_.hdr_mode = DRM_HWC_VIVID_HDR;
+    ctx_.dataspace = hdrLayer.eDataSpace_;
+  }
+
+  gralloc->hwc_get_handle_unlock(hdrLayer.sf_handle);
+  long t1 = __currentTime();
+  ALOGD("%s:line = %d cost_time=%ld us",__FUNCTION__,__LINE__, t1 - t0);
+  return 0;
+}
+
+int DrmHwcTwo::HwcDisplay::EnableHdrMode(DrmHwcLayer& hdrLayer){
+  HWC2_ALOGD_IF_INFO("Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+  if(connector_->is_hdmi_support_hdr()){
+    if(ctx_.hdr_mode != DRM_HWC_HDR10){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Enable HDR mode success");
+      ctx_.hdr_mode = DRM_HWC_HDR10;
+      ctx_.dataspace = hdrLayer.eDataSpace_;
+      property_set("vendor.hwc.hdr_state","HDR");
+    }
+  }
+  return 0;
+}
+
+int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
+  // 需要HDR模式,找到 HDR layer,判断当前采用HDR模式
+  for(auto &drmHwcLayer : drm_hwc_layers_){
     if(drmHwcLayer.bHdr_){
-      if(connector_->is_hdmi_support_hdr()){
-        if(!ctx_.hdr_mode){
-          ALOGD_IF(LogLevel(DBG_DEBUG),"Enable HDR mode success");
-          ctx_.hdr_mode = true;
-          ctx_.dataspace = drmHwcLayer.eDataSpace_;
-          property_set("vendor.hwc.hdr_state","HDR");
+      if(drmHwcLayer.bVividHdr_){
+        if(EnableVividHdrMode(drmHwcLayer) == 0){
+          return 0;
+        }
+      }else{
+        // 判断是否需要进入HDR模式
+        if(!IsHdrMode()){
+          ctx_.hdr_mode = DRM_HWC_SDR;
+          ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
+          return 0;
+        }
+        if(EnableHdrMode(drmHwcLayer) == 0){
+          return 0;
         }
       }
+    }
   }
 
-  if(!exist_hdr_layer && ctx_.hdr_mode){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
-    ctx_.hdr_mode = false;
-    ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
-    property_set("vendor.hwc.hdr_state","NORMAL");
-  }
-
+  ctx_.hdr_mode = DRM_HWC_SDR;
+  ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
   return 0;
 }
 
@@ -2907,6 +3060,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->iBestPlaneType = 0;
   drmHwcLayer->bSidebandStreamLayer_ = false;
   drmHwcLayer->bMatch_ = false;
+  drmHwcLayer->IsVividHdr_ = false;
 
   drmHwcLayer->acquire_fence = acquire_fence_;
 
@@ -2954,7 +3108,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       drmHwcLayer->iHeight_ = -1;
       drmHwcLayer->iStride_ = -1;
       drmHwcLayer->iFormat_ = -1;
-      drmHwcLayer->iUsage   = -1;
+      drmHwcLayer->iUsage   = 0;
       drmHwcLayer->iHeightStride_ = -1;
       drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
       drmHwcLayer->uModifier_ = 0;
@@ -2990,7 +3144,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       drmHwcLayer->iStride_ = -1;
       drmHwcLayer->iSize_   = -1;
       drmHwcLayer->iFormat_ = -1;
-      drmHwcLayer->iUsage   = -1;
+      drmHwcLayer->iUsage   = 0;
       drmHwcLayer->iHeightStride_ = -1;
       drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
       drmHwcLayer->uModifier_ = 0;
@@ -3056,7 +3210,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->iSize_   = (mCurrentState.source_crop_.right - mCurrentState.source_crop_.left) *
                             (mCurrentState.source_crop_.bottom - mCurrentState.source_crop_.top) * 4;
     drmHwcLayer->iFormat_ = -1;
-    drmHwcLayer->iUsage   = -1;
+    drmHwcLayer->iUsage   = 0;
     drmHwcLayer->iHeightStride_ = -1;
     drmHwcLayer->uFourccFormat_   = DRM_FORMAT_ABGR8888; // fb target default DRM_FORMAT_ABGR8888
     drmHwcLayer->uModifier_ = 0;

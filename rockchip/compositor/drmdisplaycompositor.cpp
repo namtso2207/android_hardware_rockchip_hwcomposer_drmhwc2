@@ -703,17 +703,76 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     return -ENODEV;
   }
 
-  // 若 HDR 状态发生改变，则更新 HDR状态.
-  if(display_comp->hdr_mode() != current_mode_set_.hdr_.enable_){
-    int ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace());
-    if(ret){
-      ALOGE("display %d enable hdr fail. datespace=%x",
-              display_, display_comp->dataspace());
-    }else{
-      HWC2_ALOGD_IF_INFO("%s HDR mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
-      request_mode_set_.hdr_.enable_    = display_comp->hdr_mode();
-      request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
-      need_mode_set_ = true;
+  // 由 VividHdr 切换到其他HDR状态
+  if(display_comp->hdr_mode() != DRM_HWC_VIVID_HDR){
+    if(current_mode_set_.hdr_.mode_ == DRM_HWC_VIVID_HDR){
+      // 释放上一次的 Blob
+      if (hdr_blob_id_){
+          drm->DestroyPropertyBlob(hdr_blob_id_);
+          hdr_blob_id_ = 0;
+      }
+      ALOGI("NextHdr Exit drmModeCreatePropertyBlob hdr_blob_id_=%d success", hdr_blob_id_);
+      ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
+      if (ret < 0) {
+        HWC2_ALOGE("Failed to add metadata-Hdr crtc-id=%d hdr_ext_data-prop[%d]",
+                    crtc->id(), crtc->hdr_ext_data().id());
+      }
+    }
+    if(display_comp->hdr_mode() != current_mode_set_.hdr_.mode_){
+      // 进入HDR10/SDR的处理逻辑
+      int ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace());
+      if(ret){
+        ALOGE("display %d enable hdr fail. datespace=%x",
+                display_, display_comp->dataspace());
+      }else{
+        HWC2_ALOGD_IF_INFO("%s HDR mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+        request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+        request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
+        need_mode_set_ = true;
+      }
+    }
+  }else{ // 进入 NextHdr 状态
+    for(auto &layer : display_comp->layers()){
+      if(layer.IsVividHdr_){
+        // 进入HDR10/SDR的处理逻辑
+        hdr_output_metadata hdr_metadata;
+        memcpy(&hdr_metadata,
+                &layer.vividHdrParam_.target_display_data,
+                sizeof(struct hdr_output_metadata));
+        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset, &hdr_metadata);
+        if(ret){
+          ALOGE("display %d enable hdr fail.", display_);
+        }else{
+          HWC2_ALOGD_IF_INFO("%s HDR mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+          request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+          request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
+          need_mode_set_ = true;
+        }
+        // 释放上一次的 Blob
+        if (hdr_blob_id_){
+            drm->DestroyPropertyBlob(hdr_blob_id_);
+            hdr_blob_id_ = 0;
+        }
+        ret = drmModeCreatePropertyBlob(drm->fd(), (void *)(&layer.vividHdrParam_.hdr_reg),
+                                  sizeof(layer.vividHdrParam_.hdr_reg), &hdr_blob_id_);
+        if(ret < 0){
+          HWC2_ALOGE("Failed to drmModeCreatePropertyBlob crtci-id=%d hdr_ext_data-prop[%d]",
+                      crtc->id(), crtc->hdr_ext_data().id());
+
+        }
+        ALOGI("NextHdr Enable hdr_blob_id_=%d success", hdr_blob_id_);
+        ret = 0;
+        ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
+        if (ret < 0) {
+          HWC2_ALOGE("Failed to add metadata_hdr crtci-id=%d hdr_ext_data-prop[%d]",
+                      crtc->id(), crtc->hdr_ext_data().id());
+        }else{
+          HWC2_ALOGD_IF_INFO("%s NextHdr mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+          request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+          request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
+          need_mode_set_ = true;
+        }
+      }
     }
   }
 
@@ -728,7 +787,7 @@ int DrmDisplayCompositor::UpdateModeSetState() {
   }
 
   // Update HDR state：
-  current_mode_set_.hdr_.enable_    = request_mode_set_.hdr_.enable_;
+  current_mode_set_.hdr_.mode_    = request_mode_set_.hdr_.mode_;
   current_mode_set_.hdr_.datespace_ = request_mode_set_.hdr_.datespace_;
 
   need_mode_set_ = false;
@@ -834,7 +893,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
-    bool afbcd = false, yuv = false, sideband = false;;
+    bool afbcd = false, yuv = false, sideband = false;
+    bool is_vivid_hdr = false;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -859,9 +919,12 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       if (!test_only && layer.acquire_fence->isValid()){
         if(layer.acquire_fence->wait(1500)){
           HWC2_ALOGE("Wait AcquireFence failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
-                            display_comp->frame_no(), layer.acquire_fence->getSize(),
-                            layer.acquire_fence->getActiveCount(), layer.acquire_fence->getSignaledCount(),
-                            layer.acquire_fence->getErrorCount(),layer.sLayerName_.c_str());
+                            display_comp->frame_no(),
+                            layer.acquire_fence->getSize(),
+                            layer.acquire_fence->getActiveCount(),
+                            layer.acquire_fence->getSignaledCount(),
+                            layer.acquire_fence->getErrorCount(),
+                            layer.sLayerName_.c_str());
           break;
         }
         layer.acquire_fence->destroy();
@@ -870,6 +933,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         ALOGE("Expected a valid framebuffer for pset");
         break;
       }
+
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
       display_frame_mirror = layer.display_frame_mirror;
@@ -915,6 +979,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         continue;
       }
 
+      is_vivid_hdr = layer.IsVividHdr_;
     }
 
     // Disable the plane if there's no framebuffer
@@ -1091,6 +1156,11 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       }
 
       out_log << " async_commit=" << sideband;
+    }
+
+    // Next hdr base layer
+    if(is_vivid_hdr) {
+      out_log << " vivid_hdr=" << is_vivid_hdr;
     }
 
     HWC2_ALOGD_IF_DEBUG("%s",out_log.str().c_str());

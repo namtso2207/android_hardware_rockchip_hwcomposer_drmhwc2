@@ -20,7 +20,7 @@
 #include "drmdevice.h"
 #if USE_GRALLOC_4
 #else
-#include "gralloc_drm_handle.h"
+#include "gralloc_priv.h"
 #endif
 #include "rockchip/drmgralloc.h"
 
@@ -215,6 +215,11 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   modifier[0] = bo->modifier;
   if(DrmFormatToPlaneNum(bo->format) == 2)
     modifier[1] = bo->modifier;
+
+  if(bo->format == DRM_FORMAT_NV12_10 && bo->modifier == 0){
+    bo->width = bo->width / 1.25;
+    bo->width = ALIGN_DOWN(bo->width,2);
+  }
 
   int ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,

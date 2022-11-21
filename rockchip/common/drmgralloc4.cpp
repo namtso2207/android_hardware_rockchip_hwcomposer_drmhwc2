@@ -751,6 +751,5 @@ void unlock(buffer_handle_t bufferHandle)
 
     return;
 }
-
 } // namespace gralloc4
 

@@ -31,6 +31,7 @@
 #include "rockchip/drmtype.h"
 #include "utils/drmfence.h"
 #include "drmbuffer.h"
+#include "rockchip/hdr/drmhdrparser.h"
 
 struct hwc_import_context;
 
@@ -212,6 +213,8 @@ struct DrmHwcLayer {
   bool bYuv_;
   bool bScale_;
   bool bHdr_;
+  bool bNextHdr_;
+  bool bVividHdr_;
   bool bSkipLayer_;
   float fHScaleMul_;
   float fVScaleMul_;
@@ -263,6 +266,11 @@ struct DrmHwcLayer {
 
   DrmLayerInfoStore storeLayerInfo_;
 
+  // next hdr
+  bool IsVividHdr_;
+  rk_hdr_parser_params_t vividHdrParam_;
+
+
   int ImportBuffer(Importer *importer);
   int Init();
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
@@ -293,6 +301,7 @@ struct DrmHwcLayer {
   bool IsGlesCompose();
 
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
+  bool IsVividHdr(uint64_t usage);
   int GetSkipLine();
   v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
   supported_eotf_type GetEOTF(android_dataspace_t dataspace);

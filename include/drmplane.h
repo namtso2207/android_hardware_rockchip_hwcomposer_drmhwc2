@@ -325,8 +325,6 @@ class DrmPlane {
   const DrmProperty &scale_rate_property() const;
   const DrmProperty &async_commit_property() const;
 
-  // next hdr
-  const DrmProperty &next_hdr_layer_type_property() const;
   bool is_use();
   void set_use(bool b_use);
   bool get_scale();

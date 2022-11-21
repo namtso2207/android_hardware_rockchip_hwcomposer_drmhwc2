@@ -286,11 +286,6 @@ int DrmPlane::Init() {
     ALOGE("Could not get ASYNC_COMMIT property");
   }
 
-  ret = drm_->GetPlaneProperty(*this, "NEXT_HDR_LAYER_TYPE", &next_hdr_layer_type_property_);
-  if (ret) {
-    ALOGE("Could not get NEXT_HDR_LAYER_TYPE property");
-  }
-
   return 0;
 }
 
@@ -788,7 +783,4 @@ const DrmProperty &DrmPlane::async_commit_property() const{
   return async_commit_property_;
 }
 
-const DrmProperty &DrmPlane::next_hdr_layer_type_property() const{
-  return next_hdr_layer_type_property_;
-}
 }  // namespace android

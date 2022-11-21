@@ -51,6 +51,12 @@ endif
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
 
 include $(CLEAR_VARS)
+# only RK3528 use HDR PARSER
+USE_HDR_PARSER=false
+# RK3528 hdr parser module
+ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))),)
+USE_HDR_PARSER=true
+endif
 
 LOCAL_SHARED_LIBRARIES := \
   libcutils \
@@ -112,7 +118,8 @@ LOCAL_SRC_FILES := \
   rockchip/platform/rk3588/drmhwc3588.cpp \
   rockchip/platform/rk3528/drmhwc3528.cpp \
   rockchip/common/drmbufferqueue.cpp \
-  rockchip/common/drmbuffer.cpp
+  rockchip/common/drmbuffer.cpp \
+  rockchip/common/hdr/drmhdrparser.cpp
 
 
 LOCAL_CPPFLAGS += \
@@ -193,6 +200,14 @@ LOCAL_CPPFLAGS += -DANDROID_P
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libgralloc/ \
   system/core/liblog/include/
+
+# USE_HDR_PARSER
+ifeq ($(strip $(USE_HDR_PARSER)),true)
+LOCAL_SHARED_LIBRARIES += \
+	libhdr_params_parser
+LOCAL_CPPFLAGS += \
+	-DUSE_HDR_PARSER=1
+endif
 endif
 endif
 
@@ -268,7 +283,28 @@ LOCAL_SRC_FILES := res/HwcSvepEnv.xml
 include $(BUILD_PREBUILT)
 endif
 
+ifeq ($(strip $(USE_HDR_PARSER)),true)
+# libhdr_params_parser
+TARGET_VIVID_HDR_PARSER_LIB_PATH := rockchip/common/hdr/vivid
+include $(CLEAR_VARS)
+LOCAL_MODULE := libhdr_params_parser
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_STEM := $(LOCAL_MODULE)
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_VENDOR_MODULE := true
+LOCAL_PROPRIETARY_MODULE := true
+ifneq ($(strip $(TARGET_2ND_ARCH)), )
+LOCAL_MULTILIB := both
+LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ARCH)/libhdr_params_parser.so
+LOCAL_SRC_FILES_$(TARGET_2ND_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_2ND_ARCH)/libhdr_params_parser.so
+else
+LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ARCH)/libhdr_params_parser.so
 endif
+include $(BUILD_PREBUILT)
+endif # USE_HDR_PARSER
+
+endif # HWC2
 
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
 include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -692,4 +692,30 @@ int DrmGralloc::hwc_free_gemhandle(uint64_t buffer_id){
   HWC2_ALOGD_IF_VERBOSE("Sub GemHandle RefCnt buf_id=%" PRIx64 " success!", buffer_id);
   return 0;
 }
+
+int64_t DrmGralloc::hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd){
+  int64_t offset = -1;
+#if USE_GRALLOC_4
+  return offset;
+#else // #if USE_GRALLOC_4
+	int ret = 0;
+	int op = GRALLOC_MODULE_PERFORM_GET_OFFSET_OF_DYNAMIC_HDR_METADATA;
+
+	if(gralloc_ && gralloc_->perform)
+	{
+		ret = gralloc_->perform(gralloc_, op, hnd, &offset);
+	}
+	else
+	{
+		ret = -EINVAL;
+	}
+
+	if(ret != 0)
+	{
+		ALOGE("%s: cann't get dynamic_hdr_metadata", __FUNCTION__);
+	}
+#endif
+  return offset;
+}
+
 }

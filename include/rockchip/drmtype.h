@@ -64,10 +64,12 @@
 #define MAGIC_USAGE_FOR_AFBC_LAYER                      (0x88)
 
 typedef enum DrmHdrType{
+    DRM_HWC_SDR = 0,
     DRM_HWC_DOLBY_VISION = 1,
     DRM_HWC_HDR10 = 2,
     DRM_HWC_HLG = 3,
-    DRM_HWC_HDR10_PLUS = 4
+    DRM_HWC_HDR10_PLUS = 4,
+    DRM_HWC_VIVID_HDR    = 5,
 }DrmHdrType_t;
 
 class DrmHdr{
@@ -227,7 +229,7 @@ typedef struct hwc2_drm_display {
   int bcsh_timeline=0;
   int display_timeline=0;
   int hotplug_timeline=0;
-  bool hdr_mode=false;
+  DrmHdrType hdr_mode=DRM_HWC_SDR;
   android_dataspace_t dataspace = HAL_DATASPACE_UNKNOWN;
   char overscan_value[PROPERTY_VALUE_MAX]={0};
   const struct disp_info* baseparameter_info;

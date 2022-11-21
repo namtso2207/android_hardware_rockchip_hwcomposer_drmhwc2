@@ -117,11 +117,15 @@ public:
   int hwc_get_gemhandle_from_fd(uint64_t buffer_fd, uint64_t buffer_id, uint32_t *out_gem_handle);
   int hwc_free_gemhandle(uint64_t buffer_id);
 
+  int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
+
+
 private:
 	DrmGralloc();
 	~DrmGralloc();
 	DrmGralloc(const DrmGralloc&);
 	DrmGralloc& operator=(const DrmGralloc&);
+  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
   int drmDeviceFd_;
   int drmVersion_;
   std::map<uint64_t, std::shared_ptr<GemHandle>> mapGemHandles_;

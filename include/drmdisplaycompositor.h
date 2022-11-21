@@ -78,7 +78,7 @@ class DrmDisplayCompositor {
   };
 
   struct HdrState{
-    bool enable_;
+    DrmHdrType mode_ = DRM_HWC_SDR;
     android_dataspace_t datespace_;
   };
 
@@ -193,6 +193,8 @@ class DrmDisplayCompositor {
 
   bool bWriteBackRequestDisable_;
   bool bWriteBackEnable_;
+
+  uint32_t hdr_blob_id_ = 0;
 };
 }  // namespace android
 
