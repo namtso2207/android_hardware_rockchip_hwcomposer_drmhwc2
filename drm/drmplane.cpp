@@ -165,14 +165,13 @@ int DrmPlane::Init() {
   std::tie(ret,b_sdr2hdr_)   = feature_property_.value_bitmask("sdr2hdr");
   std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
 
-  if(isRK356x(soc_id_) || isRK3588(soc_id_)){
+  if(isRK356x(soc_id_) || isRK3588(soc_id_) || isRK3528(soc_id_)){
     b_alpha_   = true;
     b_hdr2sdr_   = true;
     b_sdr2hdr_   = true;
   }
 
   //ALOGD("rk-debug scale=%d alpha=%d hdr2sdr=%d sdr2hdr=%d afbdc=%d", b_scale_,b_alpha_,b_hdr2sdr_,b_sdr2hdr_,b_afbdc_);
-
 
   support_format_list.clear();
   for (uint32_t j = 0; j < plane_->count_formats; j++) {
@@ -285,9 +284,12 @@ int DrmPlane::Init() {
   ret = drm_->GetPlaneProperty(*this, "ASYNC_COMMIT", &async_commit_property_);
   if (ret) {
     ALOGE("Could not get ASYNC_COMMIT property");
-    return ret;
   }
 
+  ret = drm_->GetPlaneProperty(*this, "NEXT_HDR_LAYER_TYPE", &next_hdr_layer_type_property_);
+  if (ret) {
+    ALOGE("Could not get NEXT_HDR_LAYER_TYPE property");
+  }
 
   return 0;
 }
@@ -438,6 +440,48 @@ void DrmPlane::mark_type_by_name(){
       if(find_name){
         win_type_ = plane_type_names_rk3399[i].type;
         name_ = plane_type_names_rk3399[i].name;
+        break;
+      }
+    }
+  }else if(isRK3528(soc_id_)){
+    struct plane_type_name_rk3528 {
+      DrmPlaneTypeRK3528 type;
+      const char *name;
+    };
+
+    struct plane_type_name_rk3528 plane_type_names_rk3528[] = {
+      { PLANE_RK3528_CLUSTER0_WIN0, "Cluster0-win0" },
+      { PLANE_RK3528_CLUSTER0_WIN1, "Cluster0-win1" },
+
+      { PLANE_RK3528_ESMART0_WIN0, "Esmart0-win0" },
+      { PLANE_RK3528_ESMART0_WIN1, "Esmart0-win1" },
+      { PLANE_RK3528_ESMART0_WIN2, "Esmart0-win2" },
+      { PLANE_RK3528_ESMART0_WIN3, "Esmart0-win3" },
+
+      { PLANE_RK3528_ESMART1_WIN0, "Esmart1-win0" },
+      { PLANE_RK3528_ESMART1_WIN1, "Esmart1-win1" },
+      { PLANE_RK3528_ESMART1_WIN2, "Esmart1-win2" },
+      { PLANE_RK3528_ESMART1_WIN3, "Esmart1-win3" },
+
+      { PLANE_RK3528_ESMART2_WIN0, "Esmart2-win0" },
+      { PLANE_RK3528_ESMART2_WIN1, "Esmart2-win1" },
+      { PLANE_RK3528_ESMART2_WIN2, "Esmart2-win2" },
+      { PLANE_RK3528_ESMART2_WIN3, "Esmart2-win3" },
+
+      { PLANE_RK3528_ESMART3_WIN0, "Esmart3-win0" },
+      { PLANE_RK3528_ESMART3_WIN1, "Esmart3-win1" },
+      { PLANE_RK3528_ESMART3_WIN2, "Esmart3-win2" },
+      { PLANE_RK3528_ESMART3_WIN3, "Esmart3-win3" },
+
+      { PLANE_RK3528_Unknown, "unknown" },
+    };
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names_rk3528); i++){
+      int ret;
+      bool find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names_rk3528[i].name);
+      if(find_name){
+        win_type_ = plane_type_names_rk3528[i].type;
+        name_ = plane_type_names_rk3528[i].name;
         break;
       }
     }
@@ -659,6 +703,17 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
       return support_format_list.count(format);
     else
       return false;
+  }else if(isRK3528(soc_id_)){
+    if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) > 0){
+      // RK3528 Cluster 支持非AFBC的 RGBA1010102格式
+      if(format == HAL_PIXEL_FORMAT_RGBA_1010102 && !afbcd){
+        return true;
+      }
+      return support_format_list.count(format);
+    }else if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) == 0 && !afbcd)
+      return support_format_list.count(format);
+    else
+      return false;
   }else if(isRK356x(soc_id_)){
     if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) > 0 && afbcd)
       return support_format_list.count(format);
@@ -733,4 +788,7 @@ const DrmProperty &DrmPlane::async_commit_property() const{
   return async_commit_property_;
 }
 
+const DrmProperty &DrmPlane::next_hdr_layer_type_property() const{
+  return next_hdr_layer_type_property_;
+}
 }  // namespace android

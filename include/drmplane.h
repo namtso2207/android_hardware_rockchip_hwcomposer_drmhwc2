@@ -178,6 +178,43 @@ enum DrmPlaneTypeRK356x{
       DRM_PLANE_TYPE_VOP2_Unknown      = 0xffffffff,
 };
 
+// RK3528
+enum DrmPlaneTypeRK3528{
+      // Cluster 0
+      PLANE_RK3528_CLUSTER0_WIN0 = 1 << 0,
+      PLANE_RK3528_CLUSTER0_WIN1 = 1 << 1,
+      // Esmart 0
+      PLANE_RK3528_ESMART0_WIN0 = 1 << 4,
+      PLANE_RK3528_ESMART0_WIN1 = 1 << 5,
+      PLANE_RK3528_ESMART0_WIN2 = 1 << 6,
+      PLANE_RK3528_ESMART0_WIN3 = 1 << 7,
+      // Esmart 1
+      PLANE_RK3528_ESMART1_WIN0 = 1 << 8,
+      PLANE_RK3528_ESMART1_WIN1 = 1 << 9,
+      PLANE_RK3528_ESMART1_WIN2 = 1 << 10,
+      PLANE_RK3528_ESMART1_WIN3 = 1 << 11,
+      // Esmart 2
+      PLANE_RK3528_ESMART2_WIN0 = 1 << 12,
+      PLANE_RK3528_ESMART2_WIN1 = 1 << 13,
+      PLANE_RK3528_ESMART2_WIN2 = 1 << 14,
+      PLANE_RK3528_ESMART2_WIN3 = 1 << 15,
+      // Esmart 3
+      PLANE_RK3528_ESMART3_WIN0 = 1 << 16,
+      PLANE_RK3528_ESMART3_WIN1 = 1 << 17,
+      PLANE_RK3528_ESMART3_WIN2 = 1 << 18,
+      PLANE_RK3528_ESMART3_WIN3 = 1 << 19,
+      // Cluster mask
+      PLANE_RK3528_ALL_CLUSTER0_MASK= 0x3,
+      PLANE_RK3528_ALL_CLUSTER_MASK = 0x3,
+      // Esmart mask
+      PLANE_RK3528_ALL_ESMART0_MASK = 0xf0,
+      PLANE_RK3528_ALL_ESMART1_MASK = 0xf00,
+      PLANE_RK3528_ALL_ESMART2_MASK = 0xf000,
+      PLANE_RK3528_ALL_ESMART3_MASK = 0xf0000,
+      PLANE_RK3528_ALL_ESMART_MASK = 0xffff0,
+      PLANE_RK3528_Unknown      = 0xffffffff,
+};
+
 // RK3399/Rk3288/RK3328/RK3128
 enum DrmPlaneTypeRK3399{
       DRM_PLANE_TYPE_VOP0_WIN0   = 1 << 0,
@@ -236,6 +273,12 @@ enum DrmPlaneFeatureTypeBit{
       DRM_PLANE_FEARURE_BIT_AFBDC   = 1 << DRM_PLANE_FEARURE_AFBDC,
 };
 
+enum vop_next_hdr_layer_type {
+	COMMON_LAYER = 0,
+	NEXT_HDR_BASE_LAYER = 1,
+	NEXT_HDR_ENHANCE_LAYER = 2,
+};
+
 class DrmDevice;
 
 class DrmPlane {
@@ -281,6 +324,9 @@ class DrmPlane {
   const DrmProperty &output_h_property() const;
   const DrmProperty &scale_rate_property() const;
   const DrmProperty &async_commit_property() const;
+
+  // next hdr
+  const DrmProperty &next_hdr_layer_type_property() const;
   bool is_use();
   void set_use(bool b_use);
   bool get_scale();
@@ -354,6 +400,9 @@ class DrmPlane {
   DrmProperty output_h_property_;
   DrmProperty scale_rate_property_;
   DrmProperty async_commit_property_;
+
+  // next hdr
+  DrmProperty next_hdr_layer_type_property_;
 
   bool bReserved_;
   bool b_use_;

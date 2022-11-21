@@ -174,6 +174,15 @@ bool isRK3588(uint32_t soc_id){
   }
 }
 
+bool isRK3528(uint32_t soc_id){
+  switch(soc_id){
+    case 0x3528:
+      return true;
+    default:
+      return false;
+  }
+
+}
 bool isDrmVerison44(uint32_t drm_version){
   return drm_version == 1;
 }

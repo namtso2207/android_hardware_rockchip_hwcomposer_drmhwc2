@@ -47,6 +47,16 @@ struct plane_mask_name plane_mask_names_rk3588[] = {
   { PLANE_RK3588_Unknown, "unknown" },
 };
 
+// RK3528
+struct plane_mask_name plane_mask_names_rk3528[] = {
+  { PLANE_RK3528_ALL_CLUSTER0_MASK, "Cluster0" },
+  { PLANE_RK3528_ALL_ESMART0_MASK, "Esmart0" },
+  { PLANE_RK3528_ALL_ESMART1_MASK, "Esmart1" },
+  { PLANE_RK3528_ALL_ESMART2_MASK, "Esmart2" },
+  { PLANE_RK3528_ALL_ESMART3_MASK, "Esmart3" },
+  { PLANE_RK3528_Unknown, "unknown" },
+};
+
 // RK356x
 struct plane_mask_name plane_mask_names_rk356x[] = {
   { DRM_PLANE_TYPE_CLUSTER0_MASK, "Cluster0" },
@@ -176,6 +186,14 @@ int DrmCrtc::Init() {
           plane_mask_ |= plane_mask_names_rk3399[i].mask;
         }
       }
+    }else if(isRK3528(soc_id_)){
+      for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk3528); i++){
+        bool have_mask = false;
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk3528[i].name);
+        if(have_mask){
+          plane_mask_ |= plane_mask_names_rk3528[i].mask;
+        }
+      }
     }
   }
 
@@ -235,6 +253,17 @@ int DrmCrtc::Init() {
         b_can_hdr10_ = true;
       }
     }
+
+    // Workround: rk3528
+    if(isRK3528(soc_id_)){
+      b_can_alpha_scale_ = true;
+      b_can_hdr10_ = false;
+      b_can_next_hdr_ = false;
+      if(port_id_ == 0){
+        b_can_hdr10_ = true;
+      }
+    }
+
   }else if(isDrmVerison510(drm_version_)){
 
     // FEATURE: alpha_scale / HDR10 / Next_HDR
@@ -277,6 +306,13 @@ int DrmCrtc::Init() {
                                          max_refresh_rate,
                                          min_refresh_rate);
 
+  ret = drm_->GetCrtcProperty(*this, "HDR_EXT_DATA", &hdr_ext_data_);
+  if (ret)
+    ALOGE("Could not get hdr_ext_data_ property");
+
+  b_can_alpha_scale_ = true;
+  b_can_hdr10_ = true;
+  b_can_next_hdr_ = true;
   HWC2_ALOGD_IF_DEBUG("crtc-id=%d b_can_alpha_scale_=%d b_can_hdr10_=%d b_can_next_hdr_=%d",
     id_, b_can_alpha_scale_, b_can_hdr10_, b_can_next_hdr_);
   return 0;
@@ -361,6 +397,9 @@ const DrmProperty &DrmCrtc::max_refresh_rate() const{
 }
 const DrmProperty &DrmCrtc::min_refresh_rate() const{
   return min_refresh_rate_;
+}
+const DrmProperty &DrmCrtc::hdr_ext_data() const{
+  return hdr_ext_data_;
 }
 
 bool DrmCrtc::get_afbc() const {

@@ -37,10 +37,8 @@ LOCAL_PATH := $(call my-dir)
 
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
-# API 31 -> Android 12.0
-ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
 # RK356x RK3588 use DrmHwc2
-ifneq ($(filter rk356x rk3588, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk356x rk3588 rk3528, $(strip $(TARGET_BOARD_PLATFORM))), )
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
 else  # BUILD_WITH_RK_EBOOK
@@ -48,20 +46,6 @@ else  # BUILD_WITH_RK_EBOOK
 endif # BUILD_WITH_RK_EBOOK
 else
         BOARD_USES_DRM_HWCOMPOSER2=false
-endif
-endif
-
-# API 30 -> Android 11.0
-ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
-ifneq ($(filter rk356x rk3588, $(strip $(TARGET_BOARD_PLATFORM))), )
-ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
-        BOARD_USES_DRM_HWCOMPOSER2=false
-else  # BUILD_WITH_RK_EBOOK
-        BOARD_USES_DRM_HWCOMPOSER2=true
-endif # BUILD_WITH_RK_EBOOK
-else
-        BOARD_USES_DRM_HWCOMPOSER2=false
-endif
 endif
 
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
@@ -122,9 +106,11 @@ LOCAL_SRC_FILES := \
   rockchip/platform/rk3399/drmvop3399.cpp \
   rockchip/platform/rk356x/drmvop356x.cpp \
   rockchip/platform/rk3588/drmvop3588.cpp \
+  rockchip/platform/rk3528/drmvop3528.cpp \
   rockchip/platform/rk3399/drmhwc3399.cpp \
   rockchip/platform/rk356x/drmhwc356x.cpp \
   rockchip/platform/rk3588/drmhwc3588.cpp \
+  rockchip/platform/rk3528/drmhwc3528.cpp \
   rockchip/common/drmbufferqueue.cpp \
   rockchip/common/drmbuffer.cpp
 
@@ -199,6 +185,17 @@ LOCAL_C_INCLUDES += \
   system/core/libion/original-kernel-headers
 endif
 endif
+
+# API 28 -> Android 9.0
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \== 29)))
+ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))), )
+LOCAL_CPPFLAGS += -DANDROID_P
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/ \
+  system/core/liblog/include/
+endif
+endif
+
 
 # BOARD_USES_LIBSVEP=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)

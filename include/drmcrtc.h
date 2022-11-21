@@ -73,6 +73,7 @@ class DrmCrtc {
   const DrmProperty &variable_refresh_rate() const;
   const DrmProperty &max_refresh_rate() const;
   const DrmProperty &min_refresh_rate() const;
+  const DrmProperty &hdr_ext_data() const;
 
   DrmDevice *getDrmDevice(){ return drm_; }
   bool is_vrr(){ return variable_refresh_rate().id() > 0; };
@@ -114,6 +115,7 @@ class DrmCrtc {
   DrmProperty variable_refresh_rate_;
   DrmProperty max_refresh_rate_;
   DrmProperty min_refresh_rate_;
+  DrmProperty hdr_ext_data_;
 
   /* Vop2 */
   uint32_t soc_id_;

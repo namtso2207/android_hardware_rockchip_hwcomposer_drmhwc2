@@ -21,10 +21,12 @@
 #include "rockchip/platform/drmvop3399.h"
 #include "rockchip/platform/drmvop356x.h"
 #include "rockchip/platform/drmvop3588.h"
+#include "rockchip/platform/drmvop3528.h"
 
 #include "rockchip/platform/drmhwc3399.h"
 #include "rockchip/platform/drmhwc356x.h"
 #include "rockchip/platform/drmhwc3588.h"
+#include "rockchip/platform/drmhwc3528.h"
 
 #include <log/log.h>
 
@@ -46,6 +48,9 @@ std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *drm_device) {
       break;
     case 0x3588:
       planner->AddStage<Vop3588>();
+      break;
+    case 0x3528:
+      planner->AddStage<Vop3528>();
       break;
     default:
       HWC2_ALOGE("Cann't fina a suitable Planner Stage, soc_id=%x",drm_device->getSocId());
@@ -91,6 +96,9 @@ std::unique_ptr<HwcPlatform> HwcPlatform::CreateInstance(DrmDevice *drm_device) 
       break;
     case 0x3588:
       hwcPlatform->AddStage<Hwc3588>();
+      break;
+    case 0x3528:
+      hwcPlatform->AddStage<Hwc3528>();
       break;
     default:
       HWC2_ALOGE("Cann't fina a suitable Planner Stage, soc_id=%x",drm_device->getSocId());

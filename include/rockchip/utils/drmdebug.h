@@ -40,7 +40,7 @@
 #include <utils/CallStack.h>
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.4.15"
+#define GHWC_VERSION                    "HWC2-1.4.16"
 
 //Print call statck when you call ALOGD_CALLSTACK.
 #define ALOGD_CALLSTACK(...)                             \
@@ -118,6 +118,7 @@ bool isRK356x(uint32_t soc_id);
 bool isRK3566(uint32_t soc_id);
 bool isRK3399(uint32_t soc_id);
 bool isRK3588(uint32_t soc_id);
+bool isRK3528(uint32_t soc_id);
 
 bool isDrmVerison44(uint32_t drm_version);
 bool isDrmVerison419(uint32_t drm_version);
