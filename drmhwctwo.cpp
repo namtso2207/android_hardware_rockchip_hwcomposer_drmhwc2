@@ -1056,14 +1056,25 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayRequests(int32_t *display_requests,
 
   uint32_t num_request = 0;
   if(hwc_get_int_property("ro.vendor.rk_sdk","0") == 0){
-    HWC2_ALOGI("Maybe GSI SDK, to disable AFBC\n");
-  if (!layers || !layer_requests){
-    *num_elements = num_request;
-    return HWC2::Error::None;
-  }else{
-    *display_requests = 0;
-    return HWC2::Error::None;
+    HWC2_ALOGD_IF_INFO("Maybe GSI SDK, to disable AFBC\n");
+    if (!layers || !layer_requests){
+      *num_elements = num_request;
+      return HWC2::Error::None;
+    }else{
+      *display_requests = 0;
+      return HWC2::Error::None;
+    }
   }
+
+  // RK3528 Mali 不支持AFBC
+  if(gIsRK3528()){
+    if (!layers || !layer_requests){
+      *num_elements = num_request;
+      return HWC2::Error::None;
+    }else{
+      *display_requests = 0;
+      return HWC2::Error::None;
+    }
   }
 
   // TODO: I think virtual display should request

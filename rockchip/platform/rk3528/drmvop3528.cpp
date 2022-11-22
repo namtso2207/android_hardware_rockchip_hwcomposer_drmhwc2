@@ -317,7 +317,7 @@ int Vop3528::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,
             i++;
     }
 
-  // RK3588 sort layer by ypos
+  // RK3528 sort layer by ypos
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
         if(iter->second.size() > 1) {
@@ -507,7 +507,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           bool bNeed = false;
 
                           // Cluster 0, 初始化 Cluster 图层匹配参数
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
+                          if((*iter_plane)->win_type() & PLANE_RK3528_CLUSTER0_WIN0){
                                 ctx.state.bClu0Used = false;
                                 ctx.state.iClu0UsedZ = -1;
                                 ctx.state.bClu0TwoWinMode = true;
@@ -515,7 +515,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // 保证Cluster two-win-mode zpos 连续，否则关闭two-win模式
-                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
+                          if(ctx.state.bClu0Used && ((*iter_plane)->win_type() & PLANE_RK3528_CLUSTER0_WIN1) > 0){
                             if(((zpos - ctx.state.iClu0UsedZ) != 1 && !(zpos == ctx.state.iClu0UsedZ)) ||
                                (ctx.state.iClu0UsedFormat != (*iter_layer)->uFourccFormat_) ||
                                (ctx.state.iClu0UsedAfbc != (*iter_layer)->bAfbcd_)){
@@ -524,7 +524,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // 其他的Cluster限制条件
-                          if(((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN1) > 0){
+                          if(((*iter_plane)->win_type() & PLANE_RK3528_CLUSTER0_WIN1) > 0){
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -550,15 +550,8 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           if((*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_)){
                             bNeed = true;
                           }else{
-                            // FB-Target 如果匹配失败，尝试反转AFBC压缩格式再匹配
-                            if((*iter_layer)->bFbTarget_ &&
-                               (hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") == 0) &&
-                               (*iter_plane)->is_support_format((*iter_layer)->uFourccFormat_,!(*iter_layer)->bAfbcd_)){
-                               (*iter_layer)->bAfbcd_ = !(*iter_layer)->bAfbcd_;
-                            }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
-                              continue;
-                            }
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support fourcc=0x%x afbcd = %d",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
+                            continue;
                           }
 
                           // Input info
@@ -589,14 +582,14 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale
-                          // RK3588 源数据宽大于 4096 且在 8K 分辨率条件下，缩放系数需要做调整：
+                          // RK3528 源数据宽大于 4096 且在 8K 分辨率条件下，缩放系数需要做调整：
                           //   Cluster:目前仅支持 0.9-1.1 的居中缩放;
                           //   Esmart：可以支持 0.125-8 缩放；
                           bool b8kInputScaleMode = false;
                           if(b8kMode && (input_w > 4096))
                             b8kInputScaleMode = true;
 
-                          // RK3588 源数据宽大于 3840 小于 4096 且在 8K 分辨率条件下，缩小系数需要做调整：
+                          // RK3528 源数据宽大于 3840 小于 4096 且在 8K 分辨率条件下，缩小系数需要做调整：
                           //   Cluster:目前仅支持 0.9-1 的居中缩小;
                           //   Esmart：可以支持 0.125-8 缩放；
                           bool b4kInputScaleMode = false;
@@ -655,7 +648,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale 4K 120帧分辨率下
-                          // RK3588 源数据宽大于3840时，不支持缩小
+                          // RK3528 源数据宽大于3840时，不支持缩小
                           bool b4k120ScaleMode = false;
                           if(b4k120Mode && (input_w >= 3840))
                             b4k120ScaleMode = true;
@@ -703,7 +696,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           if(b8kMode ? (*iter_plane)->is_support_transform_8k((*iter_layer)->transform) : \
                                        (*iter_plane)->is_support_transform((*iter_layer)->transform)){
 
-                            if(((*iter_plane)->win_type() & PLANE_RK3588_ALL_CLUSTER_MASK) &&
+                            if(((*iter_plane)->win_type() & PLANE_RK3528_ALL_CLUSTER_MASK) &&
                                 !(*iter_layer)->bAfbcd_ && (*iter_layer)->transform != DRM_MODE_ROTATE_0){
                               // Cluster only rotate afbc format
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support noAfbc(%d) layer transform",
@@ -743,7 +736,7 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           combine_layer_count++;
 
                           // Cluster disable two win mode?
-                          if((*iter_plane)->win_type() & PLANE_RK3588_CLUSTER0_WIN0){
+                          if((*iter_plane)->win_type() & PLANE_RK3528_CLUSTER0_WIN0){
                               ctx.state.bClu0Used = true;
                               ctx.state.iClu0UsedZ = zpos;
                               ctx.state.iClu0UsedDstXOffset = (*iter_layer)->display_frame.left;
@@ -1233,7 +1226,7 @@ int Vop3528::TryRgaOverlayPolicy(
                                                     dst_buffer->GetGemHandle(),
                                                     DRM_MODE_ROTATE_0);
           rga_layer_ready = true;
-          drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          drmLayer->iBestPlaneType = PLANE_RK3528_ALL_ESMART_MASK;
           drmLayer->pRgaBuffer_ = dst_buffer;
           drmLayer->bUseRga_ = true;
           break;
@@ -1269,7 +1262,7 @@ int Vop3528::TryRgaOverlayPolicy(
                                                     DRM_MODE_ROTATE_0);
           use_laster_rga_layer = true;
           drmLayer->bUseRga_ = true;
-          drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
+          drmLayer->iBestPlaneType = PLANE_RK3528_ALL_ESMART_MASK;
           drmLayer->pRgaBuffer_ = dst_buffer;
           break;
         }
@@ -1618,7 +1611,7 @@ int Vop3528::TryMixUpPolicy(
 
   if(ctx.request.iAfbcdCnt == 0){
     for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & PLANE_RK3588_ALL_CLUSTER_MASK)
+      if(plane_group->win_type & PLANE_RK3528_ALL_CLUSTER_MASK)
         iPlaneSize--;
     }
   }
@@ -1777,36 +1770,6 @@ int Vop3528::TryGLESPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, fb_target);
 
-  if(fb_target.size()==1){
-    DrmHwcLayer* fb_layer = fb_target[0];
-    // If there is a Cluster layer, FB enables AFBC
-    if(ctx.support.iAfbcdCnt > 0){
-      ctx.state.bDisableFBAfbcd = false;
-
-      // Check FB target property
-      ctx.state.bDisableFBAfbcd =
-        hwc_get_int_property("vendor.gralloc.no_afbc_for_fb_target_layer","0") > 0;
-
-      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
-      if((fb_layer->fHScaleMul_ > 4.0 || fb_layer->fHScaleMul_ < 0.25) ||
-         (fb_layer->fVScaleMul_ > 4.0 || fb_layer->fVScaleMul_ < 0.25) ){
-        ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor,"
-              " FB-target must disable AFBC(%d).",
-             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-      }
-      if(ctx.state.bDisableFBAfbcd){
-        fb_layer->bAfbcd_ = false;
-      }else{
-        fb_layer->bAfbcd_ = true;
-        ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
-      }
-    }else{
-        fb_layer->bAfbcd_ = false;
-        ALOGD_IF(LogLevel(DBG_DEBUG),"%s,line=%d Has Cluster Plane, FB enables AFBC",__FUNCTION__,__LINE__);
-    }
-  }
-
   int ret = MatchPlanes(composition,fb_target,crtc,plane_groups);
   if(!ret)
     return ret;
@@ -1873,22 +1836,6 @@ bool Vop3528::CheckGLESLayer(DrmHwcLayer *layer){
               layer->sLayerName_.c_str(),act_w,act_h,dst_w,dst_h);
     return true;
   }
-
-  // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
-  // if(!layer->bAfbcd_){
-  //   if(act_w % 16 == 1 && layer->fHScaleMul_ < 1.0){
-  //     HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay act_w %% 16 == 1 and fHScaleMul_ < 1.0 layer.",
-  //             layer->sLayerName_.c_str());
-  //     return true;
-  //   }
-
-  //   int dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
-  //   if(dst_w % 2 == 1 && layer->fHScaleMul_ < 1.0){
-  //     HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay dst_w %% 2 == 1 and fHScaleMul_ < 1.0 layer.",
-  //             layer->sLayerName_.c_str());
-  //     return true;
-  //   }
-  // }
 
   if(layer->transform == -1){
     HWC2_ALOGD_IF_DEBUG("[%s]：layer->transform = %d is invalidate",
@@ -2083,65 +2030,10 @@ void Vop3528::InitStateContext(
 
     ctx.state.b8kMode_     = mode.is_8k_mode();
     ctx.state.b4k120pMode_ = mode.is_4k120p_mode();
-    if(ctx.state.b8kMode_){
-      // 8K mode Rreserved Cluster-1 and Esmart-1
-      for(auto &plane_group : plane_groups){
-        for(auto &p : plane_group->planes){
-          if(p->win_type() & PLANE_RK3588_ALL_CLUSTER1_MASK ||
-              p->win_type() & PLANE_RK3588_ALL_CLUSTER3_MASK||
-              p->win_type() & PLANE_RK3588_ALL_ESMART1_MASK ||
-              p->win_type() & PLANE_RK3588_ALL_ESMART3_MASK){
-            plane_group->bReserved = true;
-            HWC2_ALOGD_IF_DEBUG("Reserved 8K plane name=%s", p->name());
-
-          }
-        }
-      }
-      for(auto &layer : layers){
-        if(layer->bFbTarget_){
-            HWC2_ALOGD_IF_DEBUG("8K Mode, disable Fb-target Afbc");
-            layer->bAfbcd_ = 0;
-        }
-      }
-    }else{
-      for(auto &plane_group : plane_groups){
-        for(auto &p : plane_group->planes){
-          plane_group->bReserved = false;
-        }
-      }
-    }
   }
 
   // FB-target need disable AFBCD?
-  ctx.state.bDisableFBAfbcd = false;
-  for(auto &layer : layers){
-    if(layer->bFbTarget_){
-      if(ctx.support.iAfbcdCnt == 0){
-        ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d No Cluster must to overlay Video, FB-target must disable AFBC(%d).",
-            __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-      }
-
-      if(ctx.request.iAfcbdLargeYuvCnt > 0 && ctx.support.iAfbcdYuvCnt <= 2){
-        ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d All Cluster must to overlay Video, FB-target must disable AFBC(%d).",
-            __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-      }
-
-      // If FB-target unable to meet the scaling requirements, AFBC must be disable.
-      if((layer->fHScaleMul_ > 4.0 || layer->fHScaleMul_ < 0.25) ||
-         (layer->fVScaleMul_ > 4.0 || layer->fVScaleMul_ < 0.25) ){
-        ctx.state.bDisableFBAfbcd = true;
-        ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d FB-target over max scale factor, FB-target must disable AFBC(%d).",
-             __FUNCTION__,__LINE__,ctx.state.bDisableFBAfbcd);
-      }
-
-      if(ctx.state.bDisableFBAfbcd){
-        layer->bAfbcd_ = 0;
-      }
-      break;
-    }
-  }
+  ctx.state.bDisableFBAfbcd = true;
   return;
 }
 
