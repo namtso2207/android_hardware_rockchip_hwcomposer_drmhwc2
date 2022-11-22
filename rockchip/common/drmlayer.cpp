@@ -72,7 +72,7 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
                             uint32_t format, uint32_t hal_format,
                             uint64_t modifier,
                             uint64_t usage, uint32_t byte_stride,
-                            uint32_t gem_handle){
+                            uint32_t gem_handle, uint32_t offset[4]){
   bo_.fd = fd;
   bo_.width = width;
   bo_.height = height;
@@ -83,6 +83,10 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
   bo_.modifier = modifier;
   bo_.byte_stride = byte_stride;
   bo_.gem_handles[0] = gem_handle;
+  bo_.offsets[0] = offset[0];
+  bo_.offsets[1] = offset[1];
+  bo_.offsets[2] = offset[2];
+  bo_.offsets[3] = offset[3];
   return 0;
 }
 
@@ -133,10 +137,18 @@ void DrmHwcNativeHandle::Clear() {
 }
 
 int DrmHwcLayer::ImportBuffer(Importer *importer) {
-
+  uint32_t offsets[4] = {0};
+#ifdef RK3528
+  if(bNeedPreScale_){
+    offsets[0] = mMetadata_.offset[0];
+    offsets[1] = mMetadata_.offset[1];
+    offsets[2] = mMetadata_.offset[2];
+    offsets[3] = mMetadata_.offset[3];
+  }
+#endif
   buffer.SetBoInfo(iFd_, iWidth_, iHeight_, iHeightStride_, uFourccFormat_,
-                   iFormat_, uModifier_, iUsage, iByteStride_, uGemHandle_);
-
+                   iFormat_, uModifier_, iUsage, iByteStride_, uGemHandle_,
+                   offsets);
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)
     return ret;
@@ -162,6 +174,7 @@ int DrmHwcLayer::Init() {
   bSkipLayer_ = IsSkipLayer();
   //bGlesCompose_ = IsGlesCompose();
 
+
   // HDR
   bHdr_ = IsHdr(iUsage, eDataSpace_);
   bMetadataHdr_ = IsMetadataHdr(iUsage);
@@ -171,6 +184,9 @@ int DrmHwcLayer::Init() {
   }
   uEOTF = GetEOTF(eDataSpace_);
 
+#ifdef RK3528
+  bPreScaleVideo_ = IsSupportPreScaleVideo(iUsage);
+#endif
   return 0;
 }
 
@@ -358,6 +374,20 @@ bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fource_format){
       return false;
   }
 }
+
+#ifdef RK3528
+bool DrmHwcLayer::IsSupportPreScaleVideo(uint64_t usage){
+  // RK3528 usage 0x01000000U 认为是 MetadataHdr 图层
+  // 定义位于 Android 9.0 libhardware/../gralloc.h GRALLOC_USAGE_RKVDEC_SCALING
+  if(gIsRK3528()){
+    if(((usage & 0x01000000U) > 0)){
+      return true;
+    }
+  }
+  return false;
+}
+#endif
+
 bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform){
   int src_w, src_h, dst_w, dst_h;
   src_w = (int)(source_crop.right - source_crop.left);
@@ -716,17 +746,17 @@ std::string DrmHwcLayer::BlendingToString(DrmHwcBlending blending) const{
 
 int DrmHwcLayer::DumpInfo(String8 &out){
     if(bFbTarget_)
-      out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/bs/format]=[%4d,%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcFBtar[%4u] Buffer[w/h/s/bs/hs/format]=[%4d,%4d,%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
                     "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],afbcd=%d hdr=%d\n",
-                   uId_,iWidth_,iHeight_,iStride_,iByteStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
+                   uId_,iWidth_,iHeight_,iStride_,iHeightStride_,iByteStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
                    TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                    source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                    display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bAfbcd_,
                    bHdr_);
     else
-      out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/bs/format]=[%4d,%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
+      out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/bs/format]=[%4d,%4d,%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
                         "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d hdr=%d\n",
-                       uId_,iWidth_,iHeight_,iStride_,iByteStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
+                       uId_,iWidth_,iHeight_,iStride_,iHeightStride_,iByteStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
                        TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                        source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                        display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,

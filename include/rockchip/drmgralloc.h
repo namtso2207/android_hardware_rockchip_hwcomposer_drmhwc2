@@ -119,6 +119,11 @@ public:
 
   int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
 
+#ifdef RK3528
+  // RK3528 need
+  int lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_rkvdec_scaling_t** metadata);
+  int unlock_rkvdec_scaling_metadata(buffer_handle_t hnd);
+#endif
 
 private:
 	DrmGralloc();

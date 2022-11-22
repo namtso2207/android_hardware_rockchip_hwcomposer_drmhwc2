@@ -718,4 +718,55 @@ int64_t DrmGralloc::hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd){
   return offset;
 }
 
+#ifdef RK3528
+int DrmGralloc::lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_rkvdec_scaling_t** metadata)
+{
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_LOCK_RKVDEC_SCALING_METADATA;
+
+    if(gralloc_ && gralloc_->perform)
+    {
+        ret = gralloc_->perform(gralloc_, op, hnd, metadata);
+    }
+    else
+    {
+        ret = -EINVAL;
+    }
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't lock rkdevc_scaling_metadata from gralloc", __FUNCTION__);
+        goto exit;
+    }
+
+exit:
+    return ret;
+}
+
+int DrmGralloc::unlock_rkvdec_scaling_metadata(buffer_handle_t hnd)
+{
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_UNLOCK_RKVDEC_SCALING_METADATA;
+
+    if(gralloc_ && gralloc_->perform)
+    {
+        ret = gralloc_->perform(gralloc_, op, hnd);
+    }
+    else
+    {
+        ret = -EINVAL;
+    }
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't unlock rkdevc_scaling_metadata from gralloc", __FUNCTION__);
+        goto exit;
+    }
+
+exit:
+    return ret;
+}
+#endif
+
+
 }

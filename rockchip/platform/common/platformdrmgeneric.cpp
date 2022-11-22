@@ -194,7 +194,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   uint32_t gem_handle = bo->gem_handles[0];
   bo->pitches[0] = bo->byte_stride;
   bo->gem_handles[0] = gem_handle;
-  bo->offsets[0] = 0;
+  bo->offsets[0] = bo->offsets[0];
 
   if(DrmFormatToPlaneNum(bo->format) == 2){
     if(bo->format == DRM_FORMAT_NV24 ||
@@ -202,10 +202,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
       bo->pitches[1] = bo->pitches[0]*2;
       bo->gem_handles[1] = gem_handle;
       bo->offsets[1] = bo->pitches[0] * bo->height_stride;
+      bo->offsets[1] = bo->offsets[0] + bo->pitches[0] * bo->height;
     }else{
       bo->pitches[1] = bo->pitches[0];
       bo->gem_handles[1] = gem_handle;
-      bo->offsets[1] = bo->pitches[1] * bo->height_stride;
+      if(bo->offsets[1] == 0){
+        bo->offsets[1] = bo->offsets[0] + bo->pitches[1] * bo->height;
+      }
     }
   }
 
@@ -225,15 +228,23 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
 
-  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
+  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d %d %d %d,"
+                               "pitches[0]=%d %d %d %d , offset[0]=%d %d %d %d fb_id=%d, modifier=0x%" PRIx64 ,
       drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-      gem_handle, bo->pitches[0], bo->fb_id,bo->modifier);
+      bo->gem_handles[0], bo->gem_handles[1], bo->gem_handles[2], bo->gem_handles[3],
+      bo->pitches[0], bo->pitches[1], bo->pitches[2], bo->pitches[3],
+      bo->offsets[0], bo->offsets[1], bo->offsets[2], bo->offsets[3],
+      bo->fb_id,bo->modifier);
 
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
-    ALOGE("ImportBuffer fail fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier=%" PRIx64 ,
-    drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-    gem_handle, bo->pitches[0], bo->fb_id,bo->modifier);
+    HWC2_ALOGE("ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d %d %d %d,"
+               "pitches[0]=%d %d %d %d , offset[0]=%d %d %d %d fb_id=%d,modifier=0x%" PRIx64 ,
+      drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
+      bo->gem_handles[0], bo->gem_handles[1], bo->gem_handles[2], bo->gem_handles[3],
+      bo->pitches[0], bo->pitches[1], bo->pitches[2], bo->pitches[3],
+      bo->offsets[0], bo->offsets[1], bo->offsets[2], bo->offsets[3],
+      bo->fb_id,bo->modifier);
     return ret;
   }
 

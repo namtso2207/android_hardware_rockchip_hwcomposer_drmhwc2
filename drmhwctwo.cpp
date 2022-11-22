@@ -3210,6 +3210,117 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   }
 
   drmHwcLayer->Init();
+
+#ifdef RK3528
+  if(gIsRK3528()){
+    // 调试命令
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.hwc.enable_prescale_video", value, "0");
+    int new_value = atoi(value);
+
+    if(drmHwcLayer->bPreScaleVideo_ || (new_value > 0 && drmHwcLayer->bYuv_)){
+      metadata_for_rkvdec_scaling_t* metadata = NULL;
+      int ret = drmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
+      HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);
+      if(metadata != NULL){
+        // 本地配置参数，效果为 1/4 左下角区域图像显示到屏幕上
+        if(new_value == 1){
+          metadata->width         = pBufferInfo_->iWidth_;
+          metadata->height        = pBufferInfo_->iHeight_ / 2;
+          metadata->pixel_stride  = pBufferInfo_->iStride_;
+          metadata->format        = pBufferInfo_->iFormat_;
+          metadata->modifier      = pBufferInfo_->uModifier_;
+          metadata->usage         = pBufferInfo_->iUsage_;
+
+          metadata->srcLeft       = 0;
+          metadata->srcTop        = 0;
+          metadata->srcRight      = pBufferInfo_->iWidth_  / 2;
+          metadata->srcBottom     = pBufferInfo_->iHeight_ / 2;
+          metadata->offset[0]     = pBufferInfo_->iStride_ * pBufferInfo_->iHeight_ / 2;
+          metadata->offset[1]     = pBufferInfo_->iStride_ * pBufferInfo_->iHeight_ + metadata->offset[0] * 5 / 10;
+          metadata->byteStride[0] = pBufferInfo_->iByteStride_;
+          metadata->byteStride[1] = pBufferInfo_->iByteStride_;
+        }
+        // 打印参数
+        HWC2_ALOGD_IF_INFO("Name=%s metadata = %p", pBufferInfo_->sLayerName_.c_str(), metadata);
+        HWC2_ALOGD_IF_INFO("version=0x%" PRIx64 " requestMask=0x%" PRIx64 " replyMask=0x%" PRIx64 ,
+                                                                  metadata->version,
+                                                                  metadata->requestMask,
+                                                                  metadata->replyMask);
+        HWC2_ALOGD_IF_INFO("w=%d h=%d s=%d f=%d m=0x%" PRIx64 " usage=0x%x ",
+                                                            metadata->width,
+                                                            metadata->height,
+                                                            metadata->pixel_stride,
+                                                            metadata->format,
+                                                            metadata->modifier,
+                                                            metadata->usage);
+        HWC2_ALOGD_IF_INFO("crop=(%d,%d,%d,%d) ", metadata->srcLeft,
+                                          metadata->srcTop,
+                                          metadata->srcRight,
+                                          metadata->srcBottom);
+        HWC2_ALOGD_IF_INFO("layer_cnt=%d offset=%d,%d,%d,%d byteStride=%d,%d,%d,%d) ",
+                                          metadata->layer_cnt,
+                                          metadata->offset[0],
+                                          metadata->offset[1],
+                                          metadata->offset[2],
+                                          metadata->offset[3],
+                                          metadata->byteStride[0],
+                                          metadata->byteStride[1],
+                                          metadata->byteStride[2],
+                                          metadata->byteStride[3]);
+        // 缩小超过8倍，请求解码开启预缩小
+        if(drmHwcLayer->fVScaleMul_ > 8 || new_value == 2 || new_value == 3){
+          metadata->requestMask = 1;
+        }else{
+          metadata->requestMask = 0;
+        }
+
+        // 该 Buffer已附带预缩小图像
+        if((metadata->replyMask > 0 &&
+          drmHwcLayer->fVScaleMul_ > 8) ||
+          new_value == 1 ||
+          new_value == 2 ||
+          (new_value == 3 && metadata->replyMask > 0)){
+          memcpy(&(drmHwcLayer->mMetadata_), metadata, sizeof(metadata_for_rkvdec_scaling_t));
+          drmHwcLayer->bNeedPreScale_ = true;
+
+          hwc_frect source_crop;
+          source_crop.top    = metadata->srcTop;
+          source_crop.left   = metadata->srcLeft;
+          source_crop.right  = metadata->srcRight;
+          source_crop.bottom = metadata->srcBottom;
+          drmHwcLayer->SetSourceCrop(source_crop);
+
+          drmHwcLayer->iWidth_  = metadata->width;
+          drmHwcLayer->iHeight_ = metadata->height;
+          drmHwcLayer->iStride_ = metadata->pixel_stride;
+          drmHwcLayer->iFormat_ = metadata->format;
+          drmHwcLayer->iUsage   = metadata->usage;
+          drmHwcLayer->iByteStride_     = metadata->byteStride[0];
+          drmHwcLayer->uModifier_       = metadata->modifier;
+          switch (metadata->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_YVU420;
+              break;
+            case HAL_PIXEL_FORMAT_YCrCb_NV12:
+              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_NV12;
+              break;
+            case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_NV15;
+              break;
+            default:
+              ALOGE("Cannot convert %d hal format to drm format", metadata->format);
+              drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV12;
+              break;
+          }
+
+          drmHwcLayer->Init();
+        }
+        drmGralloc_->unlock_rkvdec_scaling_metadata(buffer_);
+      }
+    }
+  }
+#endif
   return;
 }
 

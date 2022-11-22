@@ -196,7 +196,7 @@ endif
 # API 28 -> Android 9.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \== 29)))
 ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))), )
-LOCAL_CPPFLAGS += -DANDROID_P
+LOCAL_CPPFLAGS += -DANDROID_P=1 -DRK3528=1
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libgralloc/ \
   system/core/liblog/include/

@@ -94,7 +94,7 @@ class DrmHwcBuffer {
                 uint32_t format, uint32_t hal_format,
                 uint64_t modifier,
                 uint64_t usage, uint32_t byte_stride,
-                uint32_t gem_handle);
+                uint32_t gem_handle, uint32_t offset[4]);
  private:
   hwc_drm_bo bo_;
   Importer *importer_ = NULL;
@@ -272,9 +272,16 @@ struct DrmHwcLayer {
   bool IsMetadataHdr_;
   rk_hdr_parser_params_t metadataHdrParam_;
 
+#ifdef RK3528
+  // RK3528 vpu prescale info.
+  bool bPreScaleVideo_;
+  bool bNeedPreScale_;
+  metadata_for_rkvdec_scaling_t mMetadata_;
+#endif
 
   int ImportBuffer(Importer *importer);
   int Init();
+  int InitPreScaleRkvdec();
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
   void SetBlend(HWC2::BlendMode blend);
   void SetTransform(HWC2::Transform sf_transform);
@@ -301,7 +308,9 @@ struct DrmHwcLayer {
   bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();
   bool IsGlesCompose();
-
+#ifdef RK3528
+  bool IsSupportPreScaleVideo();
+#endif
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
   bool IsMetadataHdr(uint64_t usage);
   int GetSkipLine();
