@@ -73,6 +73,7 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
                             uint64_t modifier,
                             uint64_t usage, uint32_t byte_stride,
                             uint32_t gem_handle, uint32_t offset[4]){
+  memset(&bo_,0x00,sizeof(struct hwc_drm_bo));
   bo_.fd = fd;
   bo_.width = width;
   bo_.height = height;
@@ -422,6 +423,8 @@ bool DrmHwcLayer::IsMetadataHdr(uint64_t usage){
 }
 
 bool DrmHwcLayer::IsHdr(uint64_t usage, android_dataspace_t dataspace){
+  // RK3528 usage 0x02000000 为 GRALLOC_USAGE_DYNAMIC_HDR
+  // 与其他平台存在冲突，故排除RK3528平台
   if(!gIsRK3528()){
     if(((usage & 0x0F000000) == HDR_ST2084_USAGE ||
         (usage & 0x0F000000) == HDR_HLG_USAGE)){
@@ -444,6 +447,10 @@ bool DrmHwcLayer::IsAfbcModifier(uint64_t modifier){
 }
 
 bool DrmHwcLayer::IsSkipLayer(){
+  if(bSidebandStreamLayer_){
+    return false;
+  }
+
   return (!sf_handle ? true:false);
 }
 

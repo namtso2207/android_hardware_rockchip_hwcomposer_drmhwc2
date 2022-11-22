@@ -160,7 +160,27 @@ int ResourceManager::InitProperty() {
   property_get("vendor.hwc.enable_dynamic_display_mode", property_value, "0");
   mDynamicDisplayMode_ = atoi(property_value) > 0;
 
+  property_get("vendor.hwc.enable_sideband_stream_2_mode", property_value, "0");
+  mSidebandStream2Mode_ = atoi(property_value) > 0;
+
   return 0;
+}
+
+bool ResourceManager::IsDropMode() const {
+  return mDropMode_;
+}
+
+bool ResourceManager::IsDynamicDisplayMode() const {
+  return mDynamicDisplayMode_;
+}
+
+bool ResourceManager::IsSidebandStream2Mode() const {
+  // RK3528 默认开启 Sideband2.0支持
+  if(gIsRK3528()){
+    return true;
+  }
+
+  return mSidebandStream2Mode_;
 }
 
 DrmDevice *ResourceManager::GetDrmDevice(int display) {

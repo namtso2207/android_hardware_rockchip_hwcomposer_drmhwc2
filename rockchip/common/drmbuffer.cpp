@@ -69,6 +69,60 @@ DrmBuffer::DrmBuffer(int w, int h, int format, uint64_t usage, std::string name,
   ptrDrmGralloc_(DrmGralloc::getInstance()){
 }
 
+DrmBuffer::DrmBuffer(native_handle_t* in_handle) :
+  uId(getUniqueId()),
+  iFd_(-1),
+  iWidth_(-1),
+  iHeight_(-1),
+  iFormat_(-1),
+  iStride_(-1),
+  iByteStride_(-1),
+  iUsage_(0),
+  uFourccFormat_(0),
+  uModifier_(0),
+  iFinishFence_(-1),
+  iReleaseFence_(-1),
+  bInit_(false),
+  sName_(""),
+  inBuffer_(in_handle),
+  ptrBuffer_(NULL),
+  ptrDrmGralloc_(DrmGralloc::getInstance()){
+
+  int ret = ptrDrmGralloc_->importBuffer(inBuffer_, &buffer_);
+  if(ret){
+    ALOGE("importBuffer in_handle=%p, local_handle=%p fail, ret=%d",
+          inBuffer_, buffer_, ret);
+  }
+  ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
+
+  iFd_     = ptrDrmGralloc_->hwc_get_handle_primefd(buffer_);
+  iWidth_  = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+  iHeight_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+  iStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+  iHeightStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT_STRIDE);
+  iByteStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
+  iSize_   = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
+  iFormat_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+  uFourccFormat_ = ptrDrmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+  uModifier_ = ptrDrmGralloc_->hwc_get_handle_format_modifier(buffer_);
+  ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
+  ptrDrmGralloc_->hwc_get_handle_name(buffer_, sName_);
+  ret = ptrDrmGralloc_->hwc_get_gemhandle_from_fd(iFd_, uBufferId_, &uGemHandle_);
+  if(ret){
+    HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
+    return;
+  }
+
+  HWC2_ALOGI("Import buffer fd=%d w=%d h=%d s=%d hs=%d bs=%d f=%d fcc=%c%c%c%c mdf=0x%" PRIx64 " BufferId=0x%" PRIx64 "name=%s ",
+             iFd_, iWidth_, iHeight_, iStride_, iHeightStride_, iByteStride_,iFormat_,
+             uFourccFormat_ , uFourccFormat_ >> 8 , uFourccFormat_ >> 16, uFourccFormat_ >> 24,
+             uModifier_, uBufferId_, sName_.c_str());
+
+  uFbId_ = 0;
+  bInit_ = true;
+  return;
+}
+
 DrmBuffer::~DrmBuffer(){
   WaitFinishFence();
   WaitReleaseFence();
@@ -84,7 +138,17 @@ DrmBuffer::~DrmBuffer(){
 
   int ret = ptrDrmGralloc_->hwc_free_gemhandle(uBufferId_);
   if(ret){
-    HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id=0x%" PRIx64, sName_.c_str(), uBufferId_);
+    HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
+  }
+
+  if(inBuffer_ != NULL){
+    int ret = ptrDrmGralloc_->freeBuffer(buffer_);
+    if(ret){
+      ALOGE("freeBuffer in_handle=%p, local_handle=%p fail, ret=%d",
+            inBuffer_, buffer_, ret);
+    }
+    HWC2_ALOGI("freeBuffer in_handle=%p, local_handle=%p uBufferId_=0x%" PRIu64 " Success, ret=%d",
+          inBuffer_, buffer_, uBufferId_, ret);
   }
 }
 
@@ -131,13 +195,23 @@ bool DrmBuffer::initCheck(){
   return bInit_;
 }
 buffer_handle_t DrmBuffer::GetHandle(){
-  return ptrBuffer_->handle;
+  return buffer_;
+}
+native_handle_t* DrmBuffer::GetInHandle(){
+  return inBuffer_;
 }
 std::string DrmBuffer::GetName(){
   return sName_;
 }
 uint64_t DrmBuffer::GetId(){
   return uId;
+}
+uint64_t DrmBuffer::GetExternalId(){
+  return iExternelId_;
+}
+int DrmBuffer::SetExternalId(uint64_t externel_id){
+  iExternelId_ = externel_id;
+  return 0;
 }
 int DrmBuffer::GetParentId(){
   return iParentId_;

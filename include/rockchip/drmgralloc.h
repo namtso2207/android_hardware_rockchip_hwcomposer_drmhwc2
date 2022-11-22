@@ -116,7 +116,7 @@ public:
   int hwc_get_gemhandle_from_fd(uint64_t buffer_fd, uint64_t buffer_id, uint32_t *out_gem_handle);
   int hwc_free_gemhandle(uint64_t buffer_id);
 
-  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
+  uint32_t hwc_get_fourcc_from_hal_format(int hal_format);
 
   int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
 #ifdef RK3528

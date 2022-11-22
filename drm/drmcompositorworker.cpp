@@ -41,25 +41,29 @@ int DrmCompositorWorker::Init() {
 
 void DrmCompositorWorker::Routine() {
   int ret;
-  if (!compositor_->HaveQueuedComposites()) {
-    Lock();
-    int wait_ret = WaitForSignalOrExitLocked(kWaitTimeOut_);
-    Unlock();
 
-    switch (wait_ret) {
-      case 0:
-        break;
-      case -EINTR:
-        return;
-      //close pre-comp for static screen.
-      case -ETIMEDOUT:
-        kWaitTimeOut_ = kWaitTimeOut_ * 2 > 500000000LL? 500000000LL : kWaitTimeOut_ * 2;
-        return;
-      default:
-        ALOGE("Failed to wait for signal, %d", wait_ret);
-        return;
+  if(!compositor_->IsSidebandMode()){
+    if (!compositor_->HaveQueuedComposites()) {
+      Lock();
+      int wait_ret = WaitForSignalOrExitLocked(kWaitTimeOut_);
+      Unlock();
+
+      switch (wait_ret) {
+        case 0:
+          break;
+        case -EINTR:
+          return;
+        //close pre-comp for static screen.
+        case -ETIMEDOUT:
+          kWaitTimeOut_ = kWaitTimeOut_ * 2 > 500000000LL? 500000000LL : kWaitTimeOut_ * 2;
+          return;
+        default:
+          ALOGE("Failed to wait for signal, %d", wait_ret);
+          return;
+      }
     }
   }
+
   kWaitTimeOut_ = 2000000LL;
 
   ret = compositor_->Composite();

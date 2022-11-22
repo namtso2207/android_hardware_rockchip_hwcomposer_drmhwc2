@@ -92,8 +92,9 @@ class ResourceManager {
   bool IsUniqueBufferId(int display, uint64_t buffer_id);
 
   // 系统属性开关
-  bool IsDropMode() const { return mDropMode_;}
-  bool IsDynamicDisplayMode() const { return mDynamicDisplayMode_;}
+  bool IsDropMode() const;
+  bool IsDynamicDisplayMode() const;
+  bool IsSidebandStream2Mode() const;
 
  private:
   ResourceManager();
@@ -132,6 +133,8 @@ class ResourceManager {
   bool mDropMode_;
   // 使能动态分辨率切换模式
   bool mDynamicDisplayMode_;
+  // sideband 2.0
+  bool mSidebandStream2Mode_;
 
   mutable std::mutex mtx_;
 };

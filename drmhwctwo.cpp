@@ -1424,6 +1424,10 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
       if(drm_hwc_layer.bUseRga_)
         continue;
 
+      // SidebandStream 不需要获取GemHandle
+      if(drm_hwc_layer.bSidebandStreamLayer_)
+        continue;
+
       if(drm_hwc_layer.uId_ == l.first){
         int ret = l.second.initOrGetGemhanleFromCache(&drm_hwc_layer);
         if (ret) {
@@ -1463,6 +1467,10 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
       continue;
     // 若不是Overlay图层则不进行ImportBuffer
     if(!drm_hwc_layer.bMatch_)
+      continue;
+
+    // SidebandStream 图层不需要执行 import 操作
+    if(drm_hwc_layer.bSidebandStreamLayer_)
       continue;
     // 执行ImportBuffer,获取FbId
     ret = drm_hwc_layer.ImportBuffer(importer_.get());
@@ -3078,9 +3086,49 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerPlaneAlpha(float alpha) {
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSidebandStream(
     const native_handle_t *stream) {
-  HWC2_ALOGD_IF_VERBOSE("layer-id=%d stream=%p",id_,stream);
+  HWC2_ALOGD_IF_VERBOSE("layer-id=%d stream=%p",id_, stream);
+  ResourceManager* rm = ResourceManager::getInstance();
+  if(rm->IsSidebandStream2Mode()){
+    vt_sideband_data_t *sbi = (vt_sideband_data_t *)(stream->data);
+    // 如果 Tunnel Id 有效，并且是未连接状态，则创建连接
+    if(sbi->tunnel_id != mSidebandInfo_.tunnel_id){
+      HWC2_ALOGD_IF_DEBUG("SidebandStream: layer-id=%d. version=%d numFds=%d numInts=%d",
+                  id_,
+                  stream->version,
+                  stream->numFds,
+                  stream->numInts);
+      HWC2_ALOGD_IF_DEBUG("SidebandStream: version=%d sizeof=%zu tunnel-id=%d session-id=%" PRIu64 " crop[%d,%d,%d,%d] "
+                " w=%d h=%d ws=%d hs=%d bs=%d f=%d transform=%d size=%d modifier=%d"
+                " usage=0x%" PRIx64 " dataSpace=0x%" PRIx64 " afbc=%d fps=%" PRIu64 "",
+                  stream->data[0],
+                  sizeof(vt_sideband_data_t),
+                  sbi->tunnel_id,
+                  sbi->session_id,
+                  sbi->crop.left,
+                  sbi->crop.top,
+                  sbi->crop.right,
+                  sbi->crop.bottom,
+                  sbi->width,
+                  sbi->height,
+                  sbi->hor_stride,
+                  sbi->ver_stride,
+                  sbi->byte_stride,
+                  sbi->format,
+                  sbi->transform,
+                  sbi->size,
+                  sbi->modifier,
+                  sbi->usage,
+                  sbi->data_space,
+                  sbi->is_afbc,
+                  sbi->fps);
+        bSideband2_ = true;
+        memcpy(&mSidebandInfo_, sbi, sizeof(vt_sideband_data_t));
+    }
+    sidebandStreamHandle_ = stream;
+  }else{
+    setSidebandStream(stream);
+  }
 
-  setSidebandStream(stream);
   return HWC2::Error::None;
 }
 
@@ -3116,76 +3164,89 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerZOrder(uint32_t order) {
   return HWC2::Error::None;
 }
 
-void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
-                                                 hwc2_drm_display_t* ctx, uint32_t frame_no) {
-  drmHwcLayer->uId_        = layer_id;
-  drmHwcLayer->iZpos_      = mCurrentState.z_order_;
-  drmHwcLayer->uFrameNo_   = frame_no;
-  drmHwcLayer->bFbTarget_  = false;
-  drmHwcLayer->bSkipLayer_ = false;
-  drmHwcLayer->bUse_       = true;
-  drmHwcLayer->eDataSpace_ = mCurrentState.dataspace_;
-  drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * mCurrentState.alpha_ + 0.5f);
-  drmHwcLayer->sf_composition = sf_type();
-  drmHwcLayer->iBestPlaneType = 0;
-  drmHwcLayer->bSidebandStreamLayer_ = false;
-  drmHwcLayer->bMatch_ = false;
-  drmHwcLayer->IsMetadataHdr_ = false;
 
-  drmHwcLayer->acquire_fence = acquire_fence_;
+void DrmHwcTwo::HwcLayer::PopulateSidebandLayer(DrmHwcLayer *drmHwcLayer,
+                                                 hwc2_drm_display_t* ctx) {
+    if(bSideband2_){
+      drmHwcLayer->iTunnelId_ = mSidebandInfo_.tunnel_id;
+      drmHwcLayer->bSidebandStreamLayer_ = true;
+      drmHwcLayer->sf_handle     = NULL;
+      drmHwcLayer->SetDisplayFrame(mCurrentState.display_frame_, ctx);
 
-  drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
-  drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
+      hwc_frect source_crop;
+      source_crop.left   = mSidebandInfo_.crop.left;
+      source_crop.top    = mSidebandInfo_.crop.top;
+      source_crop.right  = mSidebandInfo_.crop.right;
+      source_crop.bottom = mSidebandInfo_.crop.bottom;
+      drmHwcLayer->SetSourceCrop(source_crop);
 
-  drmHwcLayer->uAclk_ = ctx->aclk;
-  drmHwcLayer->uDclk_ = ctx->dclk;
-  drmHwcLayer->SetBlend(mCurrentState.blending_);
+      drmHwcLayer->SetTransform(mCurrentState.transform_);
+      // Commit mirror function
+      drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
 
-  //
-  bool sidebandStream = false;
-  if(sf_type() == HWC2::Composition::Sideband){
-    sidebandStream = true;
-    drmHwcLayer->bSidebandStreamLayer_ = true;
-    drmHwcLayer->sf_handle     = mCurrentState.sidebandStreamHandle_;
-    drmHwcLayer->SetDisplayFrame(mCurrentState.display_frame_, ctx);
-
-    hwc_frect source_crop;
-    source_crop.top = 0;
-    source_crop.left = 0;
-    source_crop.right = pBufferInfo_->iWidth_;
-    source_crop.bottom = pBufferInfo_->iHeight_;
-    drmHwcLayer->SetSourceCrop(source_crop);
-
-    drmHwcLayer->SetTransform(mCurrentState.transform_);
-    // Commit mirror function
-    drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
-
-    if(mCurrentState.sidebandStreamHandle_){
-      drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
-      drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
-      drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
-      drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
-      drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
-      drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
-      drmHwcLayer->iHeightStride_   = pBufferInfo_->iHeightStride_;
-      drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
-      drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
-      drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
-      drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
-    }else{
       drmHwcLayer->iFd_     = -1;
-      drmHwcLayer->iWidth_  = -1;
-      drmHwcLayer->iHeight_ = -1;
-      drmHwcLayer->iStride_ = -1;
-      drmHwcLayer->iFormat_ = -1;
-      drmHwcLayer->iUsage   = 0;
-      drmHwcLayer->iHeightStride_ = -1;
-      drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
-      drmHwcLayer->uModifier_ = 0;
+      drmHwcLayer->iWidth_  = mSidebandInfo_.crop.right - mSidebandInfo_.crop.left;
+      drmHwcLayer->iHeight_ = mSidebandInfo_.crop.bottom - mSidebandInfo_.crop.top;
+      drmHwcLayer->iStride_ = mSidebandInfo_.crop.right - mSidebandInfo_.crop.left;;
+      drmHwcLayer->iFormat_ = mSidebandInfo_.format;
+      drmHwcLayer->iUsage   = mSidebandInfo_.usage;
+      drmHwcLayer->iHeightStride_ = mSidebandInfo_.crop.bottom - mSidebandInfo_.crop.top;
+      drmHwcLayer->uFourccFormat_   = drmGralloc_->hwc_get_fourcc_from_hal_format(mSidebandInfo_.format);
+      drmHwcLayer->bSideband2_ = true;
+      // 通过 Sideband Handle is_afbc 来判断图层是否为AFBC压缩格式
+      drmHwcLayer->uModifier_ = (mSidebandInfo_.is_afbc > 0) ? AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 : 0;
       drmHwcLayer->uGemHandle_ = 0;
-      drmHwcLayer->sLayerName_.clear();
+      drmHwcLayer->sLayerName_ = std::string("SidebandStream-2.0");
+      drmHwcLayer->eDataSpace_ = (android_dataspace_t)mSidebandInfo_.data_space;
+    }else{
+      drmHwcLayer->bSidebandStreamLayer_ = true;
+      drmHwcLayer->sf_handle     = mCurrentState.sidebandStreamHandle_;
+      drmHwcLayer->SetDisplayFrame(mCurrentState.display_frame_, ctx);
+
+      hwc_frect source_crop;
+      source_crop.top = 0;
+      source_crop.left = 0;
+      source_crop.right = pBufferInfo_->iWidth_;
+      source_crop.bottom = pBufferInfo_->iHeight_;
+      drmHwcLayer->SetSourceCrop(source_crop);
+
+      drmHwcLayer->SetTransform(mCurrentState.transform_);
+      // Commit mirror function
+      drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
+
+      if(mCurrentState.sidebandStreamHandle_){
+        drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+        drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
+        drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
+        drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
+        drmHwcLayer->iFormat_ = pBufferInfo_->iFormat_;
+        drmHwcLayer->iUsage   = pBufferInfo_->iUsage_;
+        drmHwcLayer->iHeightStride_   = pBufferInfo_->iHeightStride_;
+        drmHwcLayer->iByteStride_     = pBufferInfo_->iByteStride_;
+        drmHwcLayer->uFourccFormat_   = pBufferInfo_->uFourccFormat_;
+        drmHwcLayer->uModifier_       = pBufferInfo_->uModifier_;
+        drmHwcLayer->sLayerName_      = pBufferInfo_->sLayerName_;
+      }else{
+        drmHwcLayer->iFd_     = -1;
+        drmHwcLayer->iWidth_  = -1;
+        drmHwcLayer->iHeight_ = -1;
+        drmHwcLayer->iStride_ = -1;
+        drmHwcLayer->iFormat_ = -1;
+        drmHwcLayer->iUsage   = 0;
+        drmHwcLayer->iHeightStride_ = -1;
+        drmHwcLayer->uFourccFormat_   = 0x20202020; //0x20 is space
+        drmHwcLayer->uModifier_ = 0;
+        drmHwcLayer->uGemHandle_ = 0;
+        drmHwcLayer->sLayerName_.clear();
+      }
     }
-  }else{
+
+    drmHwcLayer->Init();
+    return;
+}
+
+void DrmHwcTwo::HwcLayer::PopulateNormalLayer(DrmHwcLayer *drmHwcLayer,
+                                              hwc2_drm_display_t* ctx) {
     drmHwcLayer->sf_handle = buffer_;
     drmHwcLayer->SetDisplayFrame(mCurrentState.display_frame_, ctx);
     drmHwcLayer->SetSourceCrop(mCurrentState.source_crop_);
@@ -3221,9 +3282,41 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       drmHwcLayer->uGemHandle_ = 0;
       drmHwcLayer->sLayerName_.clear();
     }
-  }
+    drmHwcLayer->Init();
+    return;
+}
 
-  drmHwcLayer->Init();
+void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcLayer,
+                                                 hwc2_drm_display_t* ctx, uint32_t frame_no) {
+  drmHwcLayer->uId_        = layer_id;
+  drmHwcLayer->iZpos_      = mCurrentState.z_order_;
+  drmHwcLayer->uFrameNo_   = frame_no;
+  drmHwcLayer->bFbTarget_  = false;
+  drmHwcLayer->bSkipLayer_ = false;
+  drmHwcLayer->bUse_       = true;
+  drmHwcLayer->eDataSpace_ = mCurrentState.dataspace_;
+  drmHwcLayer->alpha       = static_cast<uint16_t>(255.0f * mCurrentState.alpha_ + 0.5f);
+  drmHwcLayer->sf_composition = sf_type();
+  drmHwcLayer->iBestPlaneType = 0;
+  drmHwcLayer->bSidebandStreamLayer_ = false;
+  drmHwcLayer->bMatch_ = false;
+  drmHwcLayer->IsMetadataHdr_ = false;
+  drmHwcLayer->bSideband2_ = false;
+
+  drmHwcLayer->acquire_fence = acquire_fence_;
+
+  drmHwcLayer->iFbWidth_ = ctx->framebuffer_width;
+  drmHwcLayer->iFbHeight_ = ctx->framebuffer_height;
+
+  drmHwcLayer->uAclk_ = ctx->aclk;
+  drmHwcLayer->uDclk_ = ctx->dclk;
+  drmHwcLayer->SetBlend(mCurrentState.blending_);
+  // SidebandStream layer
+  if(sidebandStreamHandle_ != NULL){
+    PopulateSidebandLayer(drmHwcLayer, ctx);
+  }else{
+    PopulateNormalLayer(drmHwcLayer, ctx);
+  }
 
 #ifdef RK3528
   if(gIsRK3528()){

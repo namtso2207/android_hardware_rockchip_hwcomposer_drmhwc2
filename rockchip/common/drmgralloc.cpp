@@ -80,7 +80,29 @@ int DrmGralloc::importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHand
   }
   return err;
 #else
-  return -1;
+  int ret = 0;
+  native_handle_t* copy_handle = native_handle_clone(rawHandle);
+  if(copy_handle == NULL){
+      ALOGE("%s : native_handle_clone fail, handle=%p", __FUNCTION__, rawHandle);
+      return -1;
+  }
+
+  if(gralloc_ && gralloc_->perform)
+      ret = gralloc_->registerBuffer(gralloc_, copy_handle);
+  else
+      ret = -EINVAL;
+
+  if(ret != 0)
+  {
+      native_handle_close(copy_handle);
+      native_handle_delete(copy_handle);
+      ALOGE("%s:cann't import handle=%p.", __FUNCTION__, rawHandle);
+      return -1;
+  }
+
+  *outHandle = copy_handle;
+
+  return 0;
 #endif
 }
 
@@ -96,7 +118,23 @@ int DrmGralloc::freeBuffer(buffer_handle_t handle)
   }
   return err;
 #else
-  return -1;
+
+  int ret = 0;
+
+  if(gralloc_ && gralloc_->perform)
+      ret = gralloc_->unregisterBuffer(gralloc_, handle);
+  else
+      ret = -EINVAL;
+
+  if(ret != 0)
+  {
+      ALOGE("%s:cann't import handle=%p.", __FUNCTION__, handle);
+      return -1;
+  }
+
+  native_handle_close(handle);
+  native_handle_delete(const_cast<native_handle_t*>(handle));
+  return 0;
 #endif
 }
 
@@ -618,43 +656,6 @@ uint64_t DrmGralloc::hwc_get_handle_format_modifier(buffer_handle_t hnd)
 #endif
 }
 
-
-uint32_t DrmGralloc::ConvertHalFormatToDrm(uint32_t hal_format) {
-  switch (hal_format) {
-    case HAL_PIXEL_FORMAT_RGBA_1010102:
-      return DRM_FORMAT_ABGR2101010;
-    case HAL_PIXEL_FORMAT_RGB_888:
-      return DRM_FORMAT_BGR888;
-    case HAL_PIXEL_FORMAT_BGRA_8888:
-      return DRM_FORMAT_ARGB8888;
-    case HAL_PIXEL_FORMAT_RGBX_8888:
-      return DRM_FORMAT_XBGR8888;
-    case HAL_PIXEL_FORMAT_RGBA_8888:
-      return DRM_FORMAT_ABGR8888;
-    //Fix color error in NenaMark2.
-    case HAL_PIXEL_FORMAT_RGB_565:
-      return DRM_FORMAT_RGB565;
-    case HAL_PIXEL_FORMAT_YV12:
-      return DRM_FORMAT_YVU420;
-    case HAL_PIXEL_FORMAT_YCrCb_NV12:
-      return DRM_FORMAT_NV12;
-    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
-      return DRM_FORMAT_NV12_10;
-    // From hardware/rockchip/libgralloc/gralloc_drm_rockchip.cpp rk_drm_gralloc_select_format()
-    case HAL_PIXEL_FORMAT_YUV420_8BIT_I:  // NV12 AFBC,  MALI_GRALLOC_FORMAT_INTERNAL_YUV420_8BIT_I
-      return DRM_FORMAT_NV12;
-    case HAL_PIXEL_FORMAT_YUV420_10BIT_I: // NV12_10bit AFBC MALI_GRALLOC_FORMAT_INTERNAL_Y210
-      return DRM_FORMAT_NV12_10;
-    case HAL_PIXEL_FORMAT_YCbCr_422_I:    // MALI_GRALLOC_FORMAT_INTERNAL_YUV422_8BIT
-      return DRM_FORMAT_NV16;
-    // case HAL_PIXEL_FORMAT_Y210:           // MALI_GRALLOC_FORMAT_INTERNAL_Y210
-    //   return DRM_FORMAT_Y210;
-    default:
-      ALOGE("Cannot convert hal format to drm format %u", hal_format);
-      return -EINVAL;
-  }
-}
-
 uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
 {
 #if USE_GRALLOC_4
@@ -676,7 +677,7 @@ uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
         ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
     }
 
-    return ConvertHalFormatToDrm(format);
+    return hwc_get_fourcc_from_hal_format(format);
 #endif
 }
 
@@ -713,6 +714,63 @@ int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
   return ret;
 }
 
+uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
+  switch (hal_format) {
+    case HAL_PIXEL_FORMAT_RGBA_1010102:
+      return DRM_FORMAT_ABGR2101010;
+    case HAL_PIXEL_FORMAT_RGB_888:
+      return DRM_FORMAT_BGR888;
+    case HAL_PIXEL_FORMAT_BGRA_8888:
+      return DRM_FORMAT_ARGB8888;
+    case HAL_PIXEL_FORMAT_RGBX_8888:
+      return DRM_FORMAT_XBGR8888;
+    case HAL_PIXEL_FORMAT_RGBA_8888:
+      return DRM_FORMAT_ABGR8888;
+    //Fix color error in NenaMark2.
+    case HAL_PIXEL_FORMAT_RGB_565:
+      return DRM_FORMAT_RGB565;
+    case HAL_PIXEL_FORMAT_YV12:
+      return DRM_FORMAT_YVU420;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12:
+      return DRM_FORMAT_NV12;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+      // DrmVersion:
+      // 3.0.0 = Kernel 5.10
+      // 2.0.0 = Kernel 4.19 Vop driver 不支持 NV15格式
+      if(drmVersion_ == 3){
+        return DRM_FORMAT_NV15;
+      }else{
+        return DRM_FORMAT_NV12_10;
+      }
+    // From hardware/rockchip/libgralloc/gralloc_drm_rockchip.cpp rk_drm_gralloc_select_format()
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_I:  // NV12 AFBC,  MALI_GRALLOC_FORMAT_INTERNAL_YUV420_8BIT_I
+      // DrmVersion:
+      // 3.0.0 = Kernel 5.10
+      // 2.0.0 = Kernel 4.19 Vop driver 不支持 YUV420_8BIT 格式
+      if(drmVersion_ == 3){
+        return DRM_FORMAT_YUV420_8BIT;
+      }else{
+        return DRM_FORMAT_NV12;
+      }
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I: // NV12_10bit AFBC MALI_GRALLOC_FORMAT_INTERNAL_Y210
+      // DrmVersion:
+      // 3.0.0 = Kernel 5.10
+      // 2.0.0 = Kernel 4.19 Vop driver 不支持 YUV420_8BIT 格式
+      if(drmVersion_ == 3){
+        return DRM_FORMAT_YUV420_10BIT;
+      }else{
+        return DRM_FORMAT_NV12_10;
+      }
+    case HAL_PIXEL_FORMAT_YCbCr_422_I:    // MALI_GRALLOC_FORMAT_INTERNAL_YUV422_8BIT
+      return DRM_FORMAT_NV16;
+    // case HAL_PIXEL_FORMAT_Y210:           // MALI_GRALLOC_FORMAT_INTERNAL_Y210
+    //   return DRM_FORMAT_Y210;
+    default:
+      ALOGE("Cannot convert hal format to drm format %u, use default format RGBA8888", hal_format);
+      return HAL_PIXEL_FORMAT_BGRA_8888;
+  }
+
+}
 int DrmGralloc::hwc_get_gemhandle_from_fd(uint64_t buffer_fd,
                                           uint64_t buffer_id,
                                           uint32_t *out_gem_handle){

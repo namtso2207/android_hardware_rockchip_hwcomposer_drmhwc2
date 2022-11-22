@@ -119,7 +119,9 @@ LOCAL_SRC_FILES := \
   rockchip/platform/rk3528/drmhwc3528.cpp \
   rockchip/common/drmbufferqueue.cpp \
   rockchip/common/drmbuffer.cpp \
-  rockchip/common/hdr/drmhdrparser.cpp
+  rockchip/common/hdr/drmhdrparser.cpp \
+  rockchip/producer/drmvideoproducer.cpp \
+  rockchip/producer/vpcontext.cpp
 
 
 LOCAL_CPPFLAGS += \

@@ -27,11 +27,15 @@ namespace android {
 class DrmBuffer{
 public:
   DrmBuffer(int w, int h, int format, uint64_t usage = 0, std::string sName_ = "unset", int parent_id = 0);
+  DrmBuffer(native_handle_t* in_handle);
   ~DrmBuffer();
   int Init();
   bool initCheck();
   buffer_handle_t GetHandle();
+  native_handle_t* GetInHandle();
   uint64_t GetId();
+  uint64_t GetExternalId();
+  int SetExternalId(uint64_t externel_id);
   int GetParentId();
   int SetParentId(int parent_id);
   int GetFd();
@@ -65,6 +69,7 @@ public:
 private:
   uint64_t uId;
   int iParentId_;
+  uint64_t iExternelId_;
   // BufferInfo
   int iFd_;
   int iWidth_;
@@ -94,6 +99,7 @@ private:
   // Init flags
   bool bInit_;
   std::string sName_;
+  native_handle_t* inBuffer_;
   buffer_handle_t buffer_;
   sp<GraphicBuffer> ptrBuffer_;
   DrmGralloc *ptrDrmGralloc_;

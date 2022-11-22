@@ -59,6 +59,8 @@ class DrmDisplayCompositor {
   int QueueComposition(std::unique_ptr<DrmDisplayComposition> composition);
   int TestComposition(DrmDisplayComposition *composition);
   int Composite();
+  int CollectSFInfo();
+  int CollectVPInfo();
   void Dump(std::ostringstream *out) const;
   void Vsync(int display, int64_t timestamp);
   void SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition);
@@ -68,6 +70,7 @@ class DrmDisplayCompositor {
   std::tuple<uint32_t, uint32_t, int> GetActiveModeResolution();
 
   bool HaveQueuedComposites() const;
+  bool IsSidebandMode() const;
 
  private:
   struct ModeState {
@@ -76,6 +79,12 @@ class DrmDisplayCompositor {
     uint32_t blob_id = 0;
     uint32_t old_blob_id = 0;
   };
+
+struct SidebandState {
+  bool enable_;
+  uint64_t tunnel_id_;
+  std::shared_ptr<DrmBuffer> buffer_;
+};
 
   struct HdrState{
     DrmHdrType mode_ = DRM_HWC_SDR;
@@ -122,6 +131,7 @@ class DrmDisplayCompositor {
   int CollectModeSetInfo(drmModeAtomicReqPtr pset,
                          DrmDisplayComposition *display_comp);
   int UpdateModeSetState();
+  int UpdateSidebandState();
   int ApplyDpms(DrmDisplayComposition *display_comp);
   int DisablePlanes(DrmDisplayComposition *display_comp);
 
@@ -195,6 +205,11 @@ class DrmDisplayCompositor {
   bool bWriteBackEnable_;
 
   uint32_t hdr_blob_id_ = 0;
+
+  // RK Support Sideband mode
+  SidebandState request_sideband2_;
+  SidebandState current_sideband2_;
+
 };
 }  // namespace android
 

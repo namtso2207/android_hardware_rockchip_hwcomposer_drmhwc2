@@ -254,6 +254,8 @@ struct DrmHwcLayer {
   uint16_t uEOTF=0;
 
   // Sideband Stream
+  int iTunnelId_ = 0;
+  bool bSideband2_ = false;
   bool bSidebandStreamLayer_;
 
   // Use Rga

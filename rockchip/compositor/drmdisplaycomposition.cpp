@@ -59,6 +59,7 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
   }
 
   hdr_mode_ = DRM_HWC_SDR;
+  has_sideband2_layer_ = false;
   return 0;
 }
 
@@ -75,9 +76,16 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
 
   geometry_changed_ = geometry_changed;
 
+  sideband_tunnel_id_ = 0;
+  has_sideband2_layer_ = false;
+
   for (size_t layer_index = 0; layer_index < num_layers; layer_index++) {
     if(layers[layer_index].bUseSvep_){
         has_svep_layer_ = true;
+    }
+    if(layers[layer_index].bSidebandStreamLayer_){
+        has_sideband2_layer_ = layers[layer_index].bSideband2_;
+        sideband_tunnel_id_ = layers[layer_index].iTunnelId_;
     }
     layers_.emplace_back(std::move(layers[layer_index]));
   }

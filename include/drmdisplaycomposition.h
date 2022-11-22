@@ -220,6 +220,14 @@ class DrmDisplayComposition {
     return has_svep_layer_;
   }
 
+  bool has_sideband2() const {
+    return has_sideband2_layer_;
+  }
+
+  uint64_t get_sideband_tunnel_id() const {
+    return sideband_tunnel_id_;
+  }
+
   DrmHdrType hdr_mode() const{ return hdr_mode_;}
   android_dataspace_t dataspace() const{ return dataspace_;}
 
@@ -247,6 +255,10 @@ class DrmDisplayComposition {
 
   bool geometry_changed_;
   bool has_svep_layer_;
+  // sideband
+  bool has_sideband2_layer_;
+  uint64_t sideband_tunnel_id_;
+
   std::vector<DrmHwcLayer> layers_;
   std::vector<DrmCompositionPlane> composition_planes_;
 

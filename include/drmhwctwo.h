@@ -24,6 +24,7 @@
 #include "rockchip/drmgralloc.h"
 #include "rockchip/invalidateworker.h"
 #include "utils/drmfence.h"
+#include "rockchip/producer/drmvideoproducer.h"
 
 #include "drmbufferqueue.h"
 #ifdef USE_LIBSVEP
@@ -70,6 +71,8 @@ class DrmHwcTwo : public hwc2_device_t {
       drmGralloc_ = DrmGralloc::getInstance();
       drm_ = drm;
       bufferInfoMap_.clear();
+      bSideband2_=false;
+      sidebandStreamHandle_ = NULL;
     };
 
     void clear(){
@@ -451,7 +454,10 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
     uint32_t id(){ return id_; }
-
+    // SidebandStream layer
+    void PopulateSidebandLayer(DrmHwcLayer *layer, hwc2_drm_display_t* ctx);
+    // Normal layer
+    void PopulateNormalLayer(DrmHwcLayer *layer, hwc2_drm_display_t* ctx);
     void PopulateDrmLayer(hwc2_layer_t layer_id,
                           DrmHwcLayer *layer,
                           hwc2_drm_display_t* ctx,
@@ -516,7 +522,9 @@ class DrmHwcTwo : public hwc2_device_t {
     // Buffer Handle
     buffer_handle_t buffer_ = NULL;
     // SidebandStream Handle
+    bool bSideband2_=false;
     buffer_handle_t sidebandStreamHandle_ = NULL;
+    vt_sideband_data_t mSidebandInfo_;
     // current frame state
     Hwc2LayerState_t mCurrentState;
     // last frame state
