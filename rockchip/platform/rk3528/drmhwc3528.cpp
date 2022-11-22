@@ -46,11 +46,11 @@ struct assign_plane_group_3528{
   bool have_assigin;
 };
 struct assign_plane_group_3528 assign_mask_default_3528[] = {
-  { -1 , PLANE_RK3528_ALL_CLUSTER0_MASK |
-         PLANE_RK3528_ALL_ESMART0_MASK  |
-         PLANE_RK3528_ALL_ESMART1_MASK  |
-         PLANE_RK3528_ALL_ESMART2_MASK, false},
-  { -1 , PLANE_RK3528_ALL_ESMART3_MASK, false},
+  { DRM_MODE_CONNECTOR_HDMIA , PLANE_RK3528_ALL_CLUSTER0_MASK |
+                               PLANE_RK3528_ALL_ESMART0_MASK  |
+                               PLANE_RK3528_ALL_ESMART1_MASK  |
+                               PLANE_RK3528_ALL_ESMART2_MASK  , false},
+  { DRM_MODE_CONNECTOR_TV , PLANE_RK3528_ALL_ESMART3_MASK, false},
 };
 
 int Hwc3528::assignPlaneByHWC(DrmDevice* drm){
@@ -71,20 +71,9 @@ int Hwc3528::assignPlaneByHWC(DrmDevice* drm){
 
     uint64_t plane_mask=0;
     for(int i = 0; i < ARRAY_SIZE(assign_mask_default_3528);i++){
-      if(display_id == assign_mask_default_3528[i].display_type){
+      if(conn->type() == assign_mask_default_3528[i].display_type){
         plane_mask = assign_mask_default_3528[i].drm_type_mask;
         break;
-      }
-    }
-
-    if(plane_mask == 0){
-      for(int i = 0; i < ARRAY_SIZE(assign_mask_default_3528);i++){
-        if(assign_mask_default_3528[i].have_assigin == false){
-          assign_mask_default_3528[i].display_type = display_id;
-          plane_mask = assign_mask_default_3528[i].drm_type_mask;
-          assign_mask_default_3528[i].have_assigin = true;
-          break;
-        }
       }
     }
 
