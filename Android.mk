@@ -258,7 +258,8 @@ LOCAL_CFLAGS += \
   -Wno-unused-function \
   -Wno-unused-variable \
   -Wno-unused-parameter \
-  -fPIC
+  -fPIC \
+  -Wno-sign-compare
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES

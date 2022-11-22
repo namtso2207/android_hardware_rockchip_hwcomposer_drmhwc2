@@ -515,10 +515,6 @@ bool DrmHwcLayer::IsGlesCompose(){
       return true;
   }
 
-  if(transform == -1){
-    return true;
-  }
-
   switch(sf_composition){
     case HWC2::Composition::Client:
     //case HWC2::Composition::Sideband:

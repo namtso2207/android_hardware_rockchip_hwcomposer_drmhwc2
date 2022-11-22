@@ -19,6 +19,7 @@
 
 #include <drmbufferqueue.h>
 #include <rockchip/utils/drmdebug.h>
+#include <inttypes.h>
 
 namespace android{
 

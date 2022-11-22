@@ -309,7 +309,7 @@ struct DrmHwcLayer {
   bool IsSkipLayer();
   bool IsGlesCompose();
 #ifdef RK3528
-  bool IsSupportPreScaleVideo();
+  bool IsSupportPreScaleVideo(uint64_t usage);
 #endif
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
   bool IsMetadataHdr(uint64_t usage);

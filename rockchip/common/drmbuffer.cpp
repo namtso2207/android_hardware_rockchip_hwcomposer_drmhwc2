@@ -23,7 +23,7 @@
 #include <sync/sync.h>
 #include <libsync/sw_sync.h>
 #include <cutils/atomic.h>
-
+#include <inttypes.h>
 namespace android{
 
 static uint64_t getUniqueId() {
@@ -84,7 +84,7 @@ DrmBuffer::~DrmBuffer(){
 
   int ret = ptrDrmGralloc_->hwc_free_gemhandle(uBufferId_);
   if(ret){
-    HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
+    HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id=0x%" PRIx64, sName_.c_str(), uBufferId_);
   }
 }
 

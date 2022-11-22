@@ -35,6 +35,8 @@
 #endif
 #include <hardware/hwcomposer2.h>
 
+#include <utils/Timers.h>
+
 #include <map>
 #include <atomic>
 
