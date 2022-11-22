@@ -62,10 +62,11 @@ int Hwc3528::assignPlaneByHWC(DrmDevice* drm){
       HWC2_ALOGE("display=%d conn state() is disconnect.", display_id);
       continue;
     }
+
     DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
     if(!crtc){
         HWC2_ALOGE("display=%d crtc is NULL.", display_id);
-        return -1;
+        continue;
     }
 
     uint64_t plane_mask=0;

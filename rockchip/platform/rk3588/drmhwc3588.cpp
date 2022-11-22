@@ -64,7 +64,7 @@ int Hwc3588::assignPlaneByHWC(DrmDevice* drm){
     DrmCrtc *crtc = drm->GetCrtcForDisplay(display_id);
     if(!crtc){
         HWC2_ALOGE("display=%d crtc is NULL.", display_id);
-        return -1;
+        continue;
     }
 
     uint64_t plane_mask=0;
