@@ -104,7 +104,6 @@ public:
   int hwc_get_handle_byte_stride_workround(buffer_handle_t hnd);
   uint64_t hwc_get_handle_usage(buffer_handle_t hnd);
   int hwc_get_handle_size(buffer_handle_t hnd);
-  int hwc_get_handle_attributes(buffer_handle_t hnd, std::vector<int> *attrs);
   int hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t flag);
   int hwc_get_handle_primefd(buffer_handle_t hnd);
   int hwc_get_handle_name(buffer_handle_t hnd, std::string &name);
@@ -117,8 +116,9 @@ public:
   int hwc_get_gemhandle_from_fd(uint64_t buffer_fd, uint64_t buffer_id, uint32_t *out_gem_handle);
   int hwc_free_gemhandle(uint64_t buffer_id);
 
-  int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
+  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
 
+  int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
 #ifdef RK3528
   // RK3528 need
   int lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_rkvdec_scaling_t** metadata);
@@ -128,9 +128,8 @@ public:
 private:
 	DrmGralloc();
 	~DrmGralloc();
-	DrmGralloc(const DrmGralloc&);
-	DrmGralloc& operator=(const DrmGralloc&);
-  uint32_t ConvertHalFormatToDrm(uint32_t hal_format);
+	DrmGralloc(const DrmGralloc&) = delete;
+	DrmGralloc& operator=(const DrmGralloc&) = delete;
   int drmDeviceFd_;
   int drmVersion_;
   std::map<uint64_t, std::shared_ptr<GemHandle>> mapGemHandles_;

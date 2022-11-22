@@ -37,14 +37,19 @@
 // #define ENABLE_DEBUG_LOG
 #define LOG_TAG "drm_hwc2_gralloc"
 
-#if USE_GRALLOC_4
-#include "rockchip/drmgralloc4.h"
-#endif
-#include "rockchip/drmgralloc.h"
-
 #include <log/log.h>
 #include <inttypes.h>
 #include <errno.h>
+
+#if USE_GRALLOC_4
+#include "rockchip/drmgralloc4.h"
+#else
+#include "gralloc_priv.h"
+#include "include/gralloc/formats.h"
+#endif
+#include "rockchip/drmgralloc.h"
+#include "drm_fourcc.h"
+
 namespace android {
 
 DrmGralloc::DrmGralloc(){
@@ -261,6 +266,21 @@ int DrmGralloc::hwc_get_handle_byte_stride_workround(buffer_handle_t hnd)
         ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
     }
 
+    // Kernel 4.19 存在需要 workaround 的逻辑
+    int format = hwc_get_handle_format(hnd);
+    if(format >= 0){
+      if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
+          || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+          || format == HAL_PIXEL_FORMAT_Y210){
+          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                    __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
+          byte_stride = byte_stride * 2 / 3;
+      }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
+          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                    __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
+          byte_stride = byte_stride / 2;
+      }
+    }
     return byte_stride;
 #endif
 }
@@ -293,6 +313,21 @@ int DrmGralloc::hwc_get_handle_byte_stride(buffer_handle_t hnd)
         ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
     }
 
+    // Kernel 4.19 存在需要 workaround 的逻辑
+    int format = hwc_get_handle_format(hnd);
+    if(format >= 0){
+      if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
+          || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+          || format == HAL_PIXEL_FORMAT_Y210){
+          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                    __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
+          byte_stride = byte_stride * 2 / 3;
+      }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
+          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                    __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
+          byte_stride = byte_stride / 2;
+      }
+    }
     return byte_stride;
 #endif
 }
@@ -394,48 +429,8 @@ int DrmGralloc::hwc_get_handle_size(buffer_handle_t hnd)
 #endif
 }
 
-/*
-@func hwc_get_handle_attributes:get attributes from handle.Before call this api,As far as now,
-    we need register the buffer first.May be the register is good for processer I think
-
-@param hnd:
-@param attrs: if size of attrs is small than 5,it will return EINVAL else
-    width  = attrs[0]
-    height = attrs[1]
-    stride = attrs[2]
-    format = attrs[3]
-    size   = attrs[4]
-*/
-int DrmGralloc::hwc_get_handle_attributes(buffer_handle_t hnd, std::vector<int> *attrs)
-{
-    int ret = 0;
-#if USE_GRALLOC_4
-#else
-    int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_ATTRIBUTES;
-
-    if (!hnd)
-        return -EINVAL;
-
-    if(gralloc_ && gralloc_->perform)
-    {
-        ret = gralloc_->perform(gralloc_, op, hnd, attrs);
-    }
-    else
-    {
-        ret = -EINVAL;
-    }
-
-
-    if(ret) {
-       ALOGE("hwc_get_handle_attributes fail %d for:%s hnd=%p",ret,strerror(ret),hnd);
-    }
-#endif
-    return ret;
-}
-
 int DrmGralloc::hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t flag)
 {
-#if USE_GRALLOC_4
     switch ( flag )
     {
         case ATT_WIDTH:
@@ -458,27 +453,6 @@ int DrmGralloc::hwc_get_handle_attibute(buffer_handle_t hnd, attribute_flag_t fl
             LOG_ALWAYS_FATAL("unexpected flag : %d", flag);
             return -1;
     }
-#else   // USE_GRALLOC_4
-    std::vector<int> attrs;
-    int ret=0;
-
-    if(!hnd)
-    {
-        ALOGE("%s handle is null",__FUNCTION__);
-        return -1;
-    }
-
-    ret = hwc_get_handle_attributes(hnd, &attrs);
-    if(ret < 0)
-    {
-        ALOGE("getHandleAttributes fail %d for:%s",ret,strerror(ret));
-        return ret;
-    }
-    else
-    {
-        return attrs.at(flag);
-    }
-#endif
 }
 
 /*
@@ -534,20 +508,26 @@ int DrmGralloc::hwc_get_handle_name(buffer_handle_t hnd, std::string &name){
     return (int)err;
 #else   // USE_GRALLOC_4
     int ret = 0;
-    int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_PRIME_FD;
-    int fd = -1;
+    int op = GRALLOC_MODULE_PERFORM_GET_RK_ASHMEM;
+
+    struct rk_ashmem_t rk_ashmem;
+    unsigned long str_size;
+
+    memset(&rk_ashmem,0x00,sizeof(struct rk_ashmem_t));
 
     if(gralloc_ && gralloc_->perform)
-        ret = gralloc_->perform(gralloc_, op, hnd, &fd);
+        ret = gralloc_->perform(gralloc_, op, hnd, &rk_ashmem);
     else
         ret = -EINVAL;
 
     if(ret != 0)
     {
-        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
+        HWC2_ALOGE("cann't get value from gralloc");
+        return ret;
     }
-
-    return fd;
+    std::string layer_name(rk_ashmem.LayerName, maxLayerNameLength);
+    name = layer_name;
+    return ret;
 #endif
 
 }
@@ -564,7 +544,23 @@ int DrmGralloc::hwc_get_handle_buffer_id(buffer_handle_t hnd, uint64_t *buffer_i
 
     return (int)err;
 #else   // USE_GRALLOC_4
-    return -1;
+  int ret = 0;
+	int op = GRALLOC_MODULE_PERFORM_GET_BUFFER_ID;
+
+	if(gralloc_ && gralloc_->perform)
+	{
+		ret = gralloc_->perform(gralloc_, op, hnd, buffer_id);
+	}
+	else
+	{
+		ret = -EINVAL;
+	}
+
+	if(ret != 0)
+	{
+		ALOGE("%s: cann't get buffer_id", __FUNCTION__);
+	}
+  return -1;
 #endif
 
 }
@@ -599,10 +595,65 @@ uint64_t DrmGralloc::hwc_get_handle_format_modifier(buffer_handle_t hnd)
     format_modifier = gralloc4::get_format_modifier(hnd);
     return format_modifier;
 #else // #if USE_GRALLOC_4
-    return 0;
+
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_GET_INTERNAL_FORMAT;
+    uint64_t internal_format = 0;
+
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &internal_format);
+    else
+        ret = -EINVAL;
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
+    }
+
+    if((internal_format & MALI_GRALLOC_INTFMT_EXT_MASK) == MALI_GRALLOC_INTFMT_AFBC_BASIC){
+      return DRM_FORMAT_MOD_ARM_AFBC(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16);
+    }
+
+    return internal_format & MALI_GRALLOC_INTFMT_EXT_MASK;
 #endif
 }
 
+
+uint32_t DrmGralloc::ConvertHalFormatToDrm(uint32_t hal_format) {
+  switch (hal_format) {
+    case HAL_PIXEL_FORMAT_RGBA_1010102:
+      return DRM_FORMAT_ABGR2101010;
+    case HAL_PIXEL_FORMAT_RGB_888:
+      return DRM_FORMAT_BGR888;
+    case HAL_PIXEL_FORMAT_BGRA_8888:
+      return DRM_FORMAT_ARGB8888;
+    case HAL_PIXEL_FORMAT_RGBX_8888:
+      return DRM_FORMAT_XBGR8888;
+    case HAL_PIXEL_FORMAT_RGBA_8888:
+      return DRM_FORMAT_ABGR8888;
+    //Fix color error in NenaMark2.
+    case HAL_PIXEL_FORMAT_RGB_565:
+      return DRM_FORMAT_RGB565;
+    case HAL_PIXEL_FORMAT_YV12:
+      return DRM_FORMAT_YVU420;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12:
+      return DRM_FORMAT_NV12;
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+      return DRM_FORMAT_NV12_10;
+    // From hardware/rockchip/libgralloc/gralloc_drm_rockchip.cpp rk_drm_gralloc_select_format()
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_I:  // NV12 AFBC,  MALI_GRALLOC_FORMAT_INTERNAL_YUV420_8BIT_I
+      return DRM_FORMAT_NV12;
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I: // NV12_10bit AFBC MALI_GRALLOC_FORMAT_INTERNAL_Y210
+      return DRM_FORMAT_NV12_10;
+    case HAL_PIXEL_FORMAT_YCbCr_422_I:    // MALI_GRALLOC_FORMAT_INTERNAL_YUV422_8BIT
+      return DRM_FORMAT_NV16;
+    // case HAL_PIXEL_FORMAT_Y210:           // MALI_GRALLOC_FORMAT_INTERNAL_Y210
+    //   return DRM_FORMAT_Y210;
+    default:
+      ALOGE("Cannot convert hal format to drm format %u", hal_format);
+      return -EINVAL;
+  }
+}
 
 uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
 {
@@ -611,7 +662,21 @@ uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
     fourcc_format = gralloc4::get_fourcc_format(hnd);
     return fourcc_format;
 #else // #if USE_GRALLOC_4
-    return 0;
+    int ret = 0;
+    int op = GRALLOC_MODULE_PERFORM_GET_HADNLE_FORMAT;
+    int format = -1;
+
+    if(gralloc_ && gralloc_->perform)
+        ret = gralloc_->perform(gralloc_, op, hnd, &format);
+    else
+        ret = -EINVAL;
+
+    if(ret != 0)
+    {
+        ALOGE("%s:cann't get value from gralloc", __FUNCTION__);
+    }
+
+    return ConvertHalFormatToDrm(format);
 #endif
 }
 
