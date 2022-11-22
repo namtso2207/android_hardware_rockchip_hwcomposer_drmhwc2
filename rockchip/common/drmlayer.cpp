@@ -164,12 +164,13 @@ int DrmHwcLayer::Init() {
 
   // HDR
   bHdr_ = IsHdr(iUsage, eDataSpace_);
-
+  bMetadataHdr_ = IsMetadataHdr(iUsage);
   uColorSpace = GetColorSpace(eDataSpace_);
   if(bHdr_){
     uColorSpace = V4L2_COLORSPACE_BT2020;
   }
   uEOTF = GetEOTF(eDataSpace_);
+
   return 0;
 }
 
@@ -379,10 +380,23 @@ bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, i
   return (fHScaleMul_ != 1.0 ) || ( fVScaleMul_ != 1.0);
 }
 
+bool DrmHwcLayer::IsMetadataHdr(uint64_t usage){
+  // RK3528 usage 0x02000000 认为是 MetadataHdr 图层
+  // 定义位于 Android 9.0 libhardware/../gralloc.h GRALLOC_USAGE_DYNAMIC_HDR
+  if(gIsRK3528()){
+    if(((usage & 0x02000000) > 0)){
+      return true;
+    }
+  }
+  return false;
+}
+
 bool DrmHwcLayer::IsHdr(uint64_t usage, android_dataspace_t dataspace){
-  if(((usage & 0x0F000000) == HDR_ST2084_USAGE ||
-      (usage & 0x0F000000) == HDR_HLG_USAGE)){
-    return true;
+  if(!gIsRK3528()){
+    if(((usage & 0x0F000000) == HDR_ST2084_USAGE ||
+        (usage & 0x0F000000) == HDR_HLG_USAGE)){
+      return true;
+    }
   }
 
   if(((dataspace & HAL_DATASPACE_TRANSFER_ST2084) == HAL_DATASPACE_TRANSFER_ST2084) ||
@@ -542,6 +556,9 @@ supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
     if((dataspace & HAL_DATASPACE_TRANSFER_MASK) == HAL_DATASPACE_TRANSFER_ST2084){
         ALOGD_IF(LogLevel(DBG_VERBOSE),"%s:line=%d has st2084",__FUNCTION__,__LINE__);
         return SMPTE_ST2084;
+    }else if((dataspace & HAL_DATASPACE_TRANSFER_MASK) == HAL_DATASPACE_TRANSFER_HLG){
+        ALOGD_IF(LogLevel(DBG_VERBOSE),"%s:line=%d has HLG",__FUNCTION__,__LINE__);
+        return HLG;
     }else{
         //ALOGE("Unknow etof %d",eotf);
         return TRADITIONAL_GAMMA_SDR;

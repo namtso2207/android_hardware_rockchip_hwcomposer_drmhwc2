@@ -654,7 +654,7 @@ class DrmHwcTwo : public hwc2_device_t {
    int UpdateOverscan();
    int SwitchHdrMode();
    bool IsHdrMode();
-   int EnableVividHdrMode(DrmHwcLayer& hdrLayer);
+   int EnableMetadataHdrMode(DrmHwcLayer& hdrLayer);
    int EnableHdrMode(DrmHwcLayer& hdrLayer);
    void UpdateSvepState();
 

@@ -69,7 +69,7 @@ typedef enum DrmHdrType{
     DRM_HWC_HDR10 = 2,
     DRM_HWC_HLG = 3,
     DRM_HWC_HDR10_PLUS = 4,
-    DRM_HWC_VIVID_HDR    = 5,
+    DRM_HWC_METADATA_HDR    = 5,
 }DrmHdrType_t;
 
 class DrmHdr{

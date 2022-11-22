@@ -704,8 +704,8 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
   }
 
   // 由 VividHdr 切换到其他HDR状态
-  if(display_comp->hdr_mode() != DRM_HWC_VIVID_HDR){
-    if(current_mode_set_.hdr_.mode_ == DRM_HWC_VIVID_HDR){
+  if(display_comp->hdr_mode() != DRM_HWC_METADATA_HDR){
+    if(current_mode_set_.hdr_.mode_ == DRM_HWC_METADATA_HDR){
       // 释放上一次的 Blob
       if (hdr_blob_id_){
           drm->DestroyPropertyBlob(hdr_blob_id_);
@@ -733,11 +733,11 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     }
   }else{ // 进入 NextHdr 状态
     for(auto &layer : display_comp->layers()){
-      if(layer.IsVividHdr_){
+      if(layer.IsMetadataHdr_){
         // 进入HDR10/SDR的处理逻辑
         hdr_output_metadata hdr_metadata;
         memcpy(&hdr_metadata,
-                &layer.vividHdrParam_.target_display_data,
+                &layer.metadataHdrParam_.target_display_data,
                 sizeof(struct hdr_output_metadata));
         int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset, &hdr_metadata);
         if(ret){
@@ -753,8 +753,8 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
             drm->DestroyPropertyBlob(hdr_blob_id_);
             hdr_blob_id_ = 0;
         }
-        ret = drmModeCreatePropertyBlob(drm->fd(), (void *)(&layer.vividHdrParam_.hdr_reg),
-                                  sizeof(layer.vividHdrParam_.hdr_reg), &hdr_blob_id_);
+        ret = drmModeCreatePropertyBlob(drm->fd(), (void *)(&layer.metadataHdrParam_.hdr_reg),
+                                  sizeof(layer.metadataHdrParam_.hdr_reg), &hdr_blob_id_);
         if(ret < 0){
           HWC2_ALOGE("Failed to drmModeCreatePropertyBlob crtci-id=%d hdr_ext_data-prop[%d]",
                       crtc->id(), crtc->hdr_ext_data().id());
@@ -894,7 +894,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
     bool afbcd = false, yuv = false, sideband = false;
-    bool is_vivid_hdr = false;
+    bool is_metadata_hdr = false;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -979,7 +979,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         continue;
       }
 
-      is_vivid_hdr = layer.IsVividHdr_;
+      is_metadata_hdr = layer.IsMetadataHdr_;
     }
 
     // Disable the plane if there's no framebuffer
@@ -1159,8 +1159,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     }
 
     // Next hdr base layer
-    if(is_vivid_hdr) {
-      out_log << " vivid_hdr=" << is_vivid_hdr;
+    if(is_metadata_hdr) {
+      out_log << " is_metadata_hdr=" << is_metadata_hdr;
     }
 
     HWC2_ALOGD_IF_DEBUG("%s",out_log.str().c_str());

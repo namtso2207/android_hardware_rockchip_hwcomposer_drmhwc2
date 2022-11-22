@@ -214,7 +214,9 @@ struct DrmHwcLayer {
   bool bScale_;
   bool bHdr_;
   bool bNextHdr_;
-  bool bVividHdr_;
+  // Only RK3528 Support
+  bool bMetadataHdr_;
+
   bool bSkipLayer_;
   float fHScaleMul_;
   float fVScaleMul_;
@@ -267,8 +269,8 @@ struct DrmHwcLayer {
   DrmLayerInfoStore storeLayerInfo_;
 
   // next hdr
-  bool IsVividHdr_;
-  rk_hdr_parser_params_t vividHdrParam_;
+  bool IsMetadataHdr_;
+  rk_hdr_parser_params_t metadataHdrParam_;
 
 
   int ImportBuffer(Importer *importer);
@@ -301,7 +303,7 @@ struct DrmHwcLayer {
   bool IsGlesCompose();
 
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
-  bool IsVividHdr(uint64_t usage);
+  bool IsMetadataHdr(uint64_t usage);
   int GetSkipLine();
   v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
   supported_eotf_type GetEOTF(android_dataspace_t dataspace);

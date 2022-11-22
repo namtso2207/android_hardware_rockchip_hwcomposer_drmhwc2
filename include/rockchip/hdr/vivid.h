@@ -299,7 +299,7 @@ typedef struct{
 }rk_hdr_reg_t;
 
 typedef struct{
-    unsigned int                    hdr_enable;         // [i] hdr enable: 0-off 1-on
+    unsigned int                    codec_meta_exist;         // [i] hdr enable: 0-off 1-on
     RkMetaHdrHeader*                p_hdr_codec_meta;   // [i] hdr metadata from codec
 	  rk_target_display_data_t  		hdr_hdmi_meta;   	// [i] target display data from hdmi edid or manual settings
     rk_hdr_user_cfg_t         		hdr_user_cfg;    	// [i] user config for debugging & modifying built-in adjustable effects
