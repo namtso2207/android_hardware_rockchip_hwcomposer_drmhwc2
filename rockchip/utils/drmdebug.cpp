@@ -183,6 +183,7 @@ bool isRK3528(uint32_t soc_id){
   }
 
 }
+
 bool isDrmVerison44(uint32_t drm_version){
   return drm_version == 1;
 }
@@ -193,6 +194,45 @@ bool isDrmVerison510(uint32_t drm_version){
   return drm_version == 3;
 }
 
+static uint32_t g_soc_id = 0;
+static uint32_t g_drm_version = 0;
+void gSetSocId(uint32_t soc_id){
+  g_soc_id = soc_id;
+}
+
+void gSetDrmVersion(uint32_t drm_version){
+  g_drm_version = drm_version;
+}
+
+bool gIsRK356x(){
+  return isRK356x(g_soc_id);
+}
+
+bool gIsRK3566(){
+  return isRK3566(g_soc_id);
+}
+
+bool gIsRK3399(){
+  return isRK3399(g_soc_id);
+}
+
+bool gIsRK3588(){
+  return isRK3588(g_soc_id);
+}
+
+bool gIsRK3528(){
+  return isRK3528(g_soc_id);
+}
+
+bool gIsDrmVerison44(){
+  return g_drm_version == 1;
+}
+bool gIsDrmVerison419(){
+  return g_drm_version == 2;
+}
+bool gIsDrmVerison510(){
+  return g_drm_version == 3;
+}
 
 }
 

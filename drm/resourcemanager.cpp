@@ -99,6 +99,11 @@ int ResourceManager::Init(DrmHwcTwo *hwc2) {
     return ret ? -EINVAL : ret;
   }
 
+  // 更新全局平台版本信息
+  gSetSocId(drm->getSocId());
+  // 更新全局 kernel drm 版本信息
+  gSetDrmVersion(drm->getDrmVersion());
+
   // 更新配置
   InitProperty();
   return 0;
