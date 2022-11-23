@@ -175,7 +175,6 @@ int DrmHwcLayer::Init() {
   bSkipLayer_ = IsSkipLayer();
   //bGlesCompose_ = IsGlesCompose();
 
-
   // HDR
   bHdr_ = IsHdr(iUsage, eDataSpace_);
   bMetadataHdr_ = IsMetadataHdr(iUsage);

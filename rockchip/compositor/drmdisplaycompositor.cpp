@@ -806,7 +806,7 @@ int DrmDisplayCompositor::UpdateSidebandState() {
 
   DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
   if(!dvp->IsValid()){
-    HWC2_ALOGE("SidebandStream: DrmVideoProducer is invalidate.");
+    HWC2_ALOGD_IF_ERR("SidebandStream: DrmVideoProducer is invalidate.");
     return -1;
   }
 
@@ -1005,7 +1005,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       }
 
       if(layer.bSidebandStreamLayer_){
-        HWC2_ALOGI("SidebandLayer continue, iTunnelId = %d", layer.iTunnelId_);
+        HWC2_ALOGD_IF_INFO("SidebandLayer continue, iTunnelId = %d", layer.iTunnelId_);
         continue;
       }
 

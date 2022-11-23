@@ -3325,7 +3325,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
     property_get("debug.hwc.enable_prescale_video", value, "0");
     int new_value = atoi(value);
 
-    if(drmHwcLayer->bPreScaleVideo_ || (new_value > 0 && drmHwcLayer->bYuv_)){
+    if((drmHwcLayer->bPreScaleVideo_ && buffer_ != NULL) || (new_value > 0 && drmHwcLayer->bYuv_)){
       metadata_for_rkvdec_scaling_t* metadata = NULL;
       int ret = drmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
       HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);

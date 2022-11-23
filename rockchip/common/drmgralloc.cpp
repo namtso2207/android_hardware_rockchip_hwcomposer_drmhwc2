@@ -858,7 +858,7 @@ int DrmGralloc::lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_r
 
     if(ret != 0)
     {
-        ALOGE("%s:cann't lock rkdevc_scaling_metadata from gralloc", __FUNCTION__);
+        HWC2_ALOGE("%s:cann't lock rkdevc_scaling_metadata from gralloc", __FUNCTION__);
         goto exit;
     }
 

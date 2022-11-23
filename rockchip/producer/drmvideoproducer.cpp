@@ -16,7 +16,7 @@
 
 
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
-#define LOG_TAG "VideoProducer"
+#define LOG_TAG "hwc-video-producer"
 
 #include "rockchip/utils/drmdebug.h"
 #include "rockchip/producer/drmvideoproducer.h"
@@ -206,7 +206,7 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, int ti
   int64_t queue_timestamp = 0;
   int ret = g_rkvt_ops.rk_vt_acquire_buffer(iTunnelFd_, ctx->GetTunnelId(), timeout_ms, &acquire_buffer, &queue_timestamp);
   if (ret != 0) {
-      HWC2_ALOGE("rk_vt_acquire_buffer fail, bInit_=%d tunnel-fd=%d tunnel-id=%d" ,
+      HWC2_ALOGD_IF_WARN("rk_vt_acquire_buffer fail, bInit_=%d tunnel-fd=%d tunnel-id=%d" ,
                           bInit_, iTunnelFd_, tunnel_id);
       return NULL;
   }
