@@ -3405,22 +3405,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
           drmHwcLayer->iUsage   = metadata->usage;
           drmHwcLayer->iByteStride_     = metadata->byteStride[0];
           drmHwcLayer->uModifier_       = metadata->modifier;
-          switch (metadata->format) {
-            case HAL_PIXEL_FORMAT_YV12:
-              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_YVU420;
-              break;
-            case HAL_PIXEL_FORMAT_YCrCb_NV12:
-              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_NV12;
-              break;
-            case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
-              drmHwcLayer->uFourccFormat_ =  DRM_FORMAT_NV15;
-              break;
-            default:
-              ALOGE("Cannot convert %d hal format to drm format", metadata->format);
-              drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV12;
-              break;
-          }
-
+          drmHwcLayer->uFourccFormat_ = drmGralloc_->hwc_get_fourcc_from_hal_format(metadata->format);
           drmHwcLayer->Init();
         }
         drmGralloc_->unlock_rkvdec_scaling_metadata(buffer_);
