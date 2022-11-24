@@ -710,7 +710,7 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     return -ENODEV;
   }
 
-  // 由 VividHdr 切换到其他HDR状态
+  // 由 VividHdr 切换到其他 HDR 状态
   if(display_comp->hdr_mode() != DRM_HWC_METADATA_HDR){
     if(current_mode_set_.hdr_.mode_ == DRM_HWC_METADATA_HDR){
       // 释放上一次的 Blob
@@ -718,7 +718,6 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
           drm->DestroyPropertyBlob(hdr_blob_id_);
           hdr_blob_id_ = 0;
       }
-      ALOGI("NextHdr Exit drmModeCreatePropertyBlob hdr_blob_id_=%d success", hdr_blob_id_);
       ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
       if (ret < 0) {
         HWC2_ALOGE("Failed to add metadata-Hdr crtc-id=%d hdr_ext_data-prop[%d]",
@@ -738,7 +737,7 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
         need_mode_set_ = true;
       }
     }
-  }else{ // 进入 NextHdr 状态
+  }else{ // 进入 Metadata Hdr 状态
     for(auto &layer : display_comp->layers()){
       if(layer.IsMetadataHdr_){
         // 进入HDR10/SDR的处理逻辑
@@ -767,7 +766,6 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
                       crtc->id(), crtc->hdr_ext_data().id());
 
         }
-        ALOGI("NextHdr Enable hdr_blob_id_=%d success", hdr_blob_id_);
         ret = 0;
         ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
         if (ret < 0) {
