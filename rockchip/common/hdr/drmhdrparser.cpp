@@ -53,7 +53,7 @@ struct vivid_ops {
                        rk_hdr_fmt_info_t* p_hdr_fmt_info);
 };
 static struct vivid_ops vivid_ops;
-#elif USE_HDR_PARSER==0
+#elif USE_HDR_PARSER==false
 int hdr_parser(rk_hdr_parser_params_t* p_hdr_parser_params){
   return -1;
 }
@@ -213,8 +213,10 @@ int DrmHdrParser::MetadataHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params)
   }
 
   return vivid_ops.parser(p_hdr_parser_params);
-#else
+#elif USE_HDR_PARSER==true
   return hdr_parser(p_hdr_parser_params);
+#else
+  return -1;
 #endif
 }
 
@@ -234,8 +236,10 @@ int DrmHdrParser::MetadataHdrparserFormat(rk_hdr_parser_params_t* p_hdr_parser_p
   }
 
   return vivid_ops.hdr_format_parser(p_hdr_parser_params, p_hdr_fmt_info);
-#else
+#elif USE_HDR_PARSER==true
   return hdr_format_parser(p_hdr_parser_params, p_hdr_fmt_info);
+#else
+  return -1;
 #endif
 }
 
