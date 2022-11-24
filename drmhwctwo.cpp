@@ -2713,18 +2713,20 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   if(is_output_hdr){
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
 
+    // 片源为 HLG，且电视支持 HLG ，则选择 HLG bypass 模式
     if(hdrLayer.uEOTF == HLG && connector_->isSupportHLG()){
       hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
+    // 片源为 HDR10，且电视支持 HDR10 ，则选择 HDR10 bypass 模式
     }else if(hdrLayer.uEOTF == SMPTE_ST2084 && connector_->isSupportSt2084()){
       hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+    // 若没有匹配的 HDR 模式，则优先使用 HDR10 输出
     }else{
-      if(connector_->isSupportHLG()){
-        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
-      }else if(connector_->isSupportSt2084()){
+      if(connector_->isSupportSt2084()){
         hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+      }else if(connector_->isSupportHLG()){
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
       }
     }
-
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = 50;
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("persist.sys.vivid.max_brightness", "1000") * 100;
   }else{
@@ -2746,6 +2748,29 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
       uint16_t *u16_cpu_metadata = (uint16_t *)((uint8_t *)cpu_addr + offset);
       hdrLayer.metadataHdrParam_.codec_meta_exist = codec_meta_exist;
       hdrLayer.metadataHdrParam_.p_hdr_codec_meta = (RkMetaHdrHeader*)u16_cpu_metadata;
+
+      // 如果当前设置 hdr 显示模式为 HLG bypass，则需要检测 HLG 片源是否为 dynamic Hdr
+      // 若为 dynamic Hdr，则需要将输出模式修改为 Hdr10,若不支持Hdr10,则输出SDR
+      // 原因是目前 VOP3 是参考 VividHdr标准实现，标准内部没有支持 dynamic hlg hdr 直出模式
+      if(hdrLayer.uEOTF == HLG &&
+         hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf == SINK_EOTF_HLG){
+        int ret = dhp->MetadataHdrparserFormat(&hdrLayer.metadataHdrParam_,
+                                               &hdrLayer.metadataHdrFmtInfo_);
+        if(ret){
+          HWC2_ALOGD_IF_ERR("MetadataHdrparserFormat, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+          hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+        }else{
+          if(hdrLayer.metadataHdrFmtInfo_.hdr_format == HDRVIVID){
+            if(connector_->isSupportSt2084()){
+              hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+              HWC2_ALOGD_IF_INFO("Id=%d Name=%s is HLG dynamic, convert to HDR10.", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+            }else{
+              hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_GAMMA_SDR;
+              HWC2_ALOGD_IF_INFO("Id=%d Name=%s is HLG dynamic, convert to SDR.", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+            }
+          }
+        }
+      }
     }
   }else{
     hdrLayer.metadataHdrParam_.codec_meta_exist = false;
@@ -2806,9 +2831,9 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
             hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta,
             hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level);
 
-  int ret = dhp->VividHdrParser(&hdrLayer.metadataHdrParam_);
+  int ret = dhp->MetadataHdrParser(&hdrLayer.metadataHdrParam_);
   if(ret){
-    HWC2_ALOGD_IF_ERR("Fail to call VividHdrParser ret=%d Id=%d Name=%s ",
+    HWC2_ALOGD_IF_ERR("Fail to call MetadataHdrParser ret=%d Id=%d Name=%s ",
                       ret,
                       hdrLayer.uId_,
                       hdrLayer.sLayerName_.c_str());

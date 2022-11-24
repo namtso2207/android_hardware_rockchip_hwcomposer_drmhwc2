@@ -131,7 +131,8 @@ LOCAL_CPPFLAGS += \
   -DUSE_HWC2 \
   -DMALI_AFBC_GRALLOC \
   -Wno-unreachable-code-loop-increment \
-  -DUSE_NO_ASPECT_RATIO
+  -DUSE_NO_ASPECT_RATIO \
+  -fPIC
 
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
 LOCAL_CFLAGS += -DANDROID_S

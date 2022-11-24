@@ -41,18 +41,28 @@ struct dovi_ops {
 static struct dovi_ops dovi_ops;
 static void * dovi_lib_handle = NULL;
 
-#ifdef VIVID_PARSER_USE_DLOPEN
+#if VIVID_PARSER_USE_DLOPEN==1
 // Vivid Hdr
+typedef int (*hdr_format_parser_func)(rk_hdr_parser_params_t* p_hdr_parser_params,
+                                 rk_hdr_fmt_info_t* p_hdr_fmt_info);
 typedef void (*vivid_parser_func)(rk_hdr_parser_params_t* p_hdr_parser_params);
 static void * vivid_lib_handle = NULL;
 struct vivid_ops {
     void (*parser)(rk_hdr_parser_params_t* p_hdr_parser_params);
+    void (*parser_hdr)(rk_hdr_parser_params_t* p_hdr_parser_params,
+                       rk_hdr_fmt_info_t* p_hdr_fmt_info);
 };
 static struct vivid_ops vivid_ops;
 #elif USE_HDR_PARSER==0
-void hdr_parser(rk_hdr_parser_params_t* p_hdr_parser_params){
-  return;
+int hdr_parser(rk_hdr_parser_params_t* p_hdr_parser_params){
+  return -1;
 }
+
+int hdr_format_parser(rk_hdr_parser_params_t* p_hdr_parser_params,
+                      rk_hdr_fmt_info_t* p_hdr_fmt_info){
+  return -1;
+}
+
 #endif
 
 DrmHdrParser::DrmHdrParser()
@@ -105,8 +115,11 @@ int DrmHdrParser::InitVividHdr(){
         return -1;
     }else{
         vivid_ops.parser = (vivid_parser_func)dlsym(vivid_lib_handle, "_Z10hdr_parserP22rk_hdr_parser_params_t");
-        if(vivid_ops.parser  == NULL){
-          HWC2_ALOGD_IF_ERR("cat not dlsym parser=%p\n", vivid_ops.parser);
+        vivid_ops.parser_hdr = (hdr_format_parser_func)dlsym(vivid_lib_handle, "_Z17hdr_format_parserP22rk_hdr_parser_params_tP17rk_hdr_fmt_info_t");
+        if(vivid_ops.parser  == NULL ||
+           vivid_ops.parser_hdr == NULL){
+          HWC2_ALOGD_IF_ERR("cat not dlsym parser=%p parser_hdr=%p\n",
+                            vivid_ops.parser, vivid_ops.parser_hdr);
           return -1;
         }
     }
@@ -185,8 +198,7 @@ void DrmHdrParser::NextHdrDestoryHandle(int display, uint32_t layer_id){
   return;
 }
 
-
-int DrmHdrParser::VividHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params){
+int DrmHdrParser::MetadataHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params){
   if(!bInitVividHdrSucess_){
     return -1;
   }
@@ -195,16 +207,36 @@ int DrmHdrParser::VividHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params){
     return -1;
   }
 
-#ifdef VIVID_PARSER_USE_DLOPEN
+#if VIVID_PARSER_USE_DLOPEN==1
   if(vivid_lib_handle == NULL){
     return -1;
   }
 
-  vivid_ops.parser(p_hdr_parser_params);
-#elif USE_HDR_PARSER
-  hdr_parser(p_hdr_parser_params);
+  return vivid_ops.parser(p_hdr_parser_params);
+#else
+  return hdr_parser(p_hdr_parser_params);
 #endif
-  return 0;
+}
+
+int DrmHdrParser::MetadataHdrparserFormat(rk_hdr_parser_params_t* p_hdr_parser_params,
+                                          rk_hdr_fmt_info_t* p_hdr_fmt_info){
+  if(!bInitVividHdrSucess_){
+    return -1;
+  }
+
+  if(!p_hdr_parser_params){
+    return -1;
+  }
+
+#if VIVID_PARSER_USE_DLOPEN==1
+  if(vivid_lib_handle == NULL){
+    return -1;
+  }
+
+  return vivid_ops.hdr_format_parser(p_hdr_parser_params, p_hdr_fmt_info);
+#else
+  return hdr_format_parser(p_hdr_parser_params, p_hdr_fmt_info);
+#endif
 }
 
 };// namespace android

@@ -18,7 +18,7 @@
 #define DRM_HDR_PARSER_H_
 #include <stdint.h>
 #include "rockchip/hdr/dovi.h"
-#include "rockchip/hdr/vivid.h"
+#include "rockchip/hdr/metadata_hdr.h"
 
 #include <mutex>
 #include <map>
@@ -36,8 +36,10 @@ public:
   int NextHdrParser(dovi_handle_t dovi_handle, dovi_parser_param_s* param);
   void NextHdrDestoryHandle(int display, uint32_t layer_id);
 
-  // VividHdr
-  int VividHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params);
+  // RK3528 Metadata hdr parser
+  int MetadataHdrParser(rk_hdr_parser_params_t* p_hdr_parser_params);
+  int MetadataHdrparserFormat(rk_hdr_parser_params_t* p_hdr_parser_params,
+                              rk_hdr_fmt_info_t* p_hdr_fmt_info);
 
 private:
   DrmHdrParser();

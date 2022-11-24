@@ -95,7 +95,11 @@ typedef struct {
 	unsigned int	reserved[4];
 }rk_hdr_static_meta_t;
 
-
+typedef struct {
+	unsigned short  hdr_format;         /* HDR protocol: HDR10, HLG, Dolby, HDRVivid ...    */
+	unsigned short  video_format;       /* video format: H.264, H.265, AVS2 ...         */
+	rk_hdr_static_meta_t static_meta;	/* static metadata from codec*/
+}rk_hdr_fmt_info_t;
 
 typedef struct{
 	unsigned int            color_prim     ; //enum rk_hdr_color_prim: bt709, bt2020, etc.
@@ -299,7 +303,7 @@ typedef struct{
 }rk_hdr_reg_t;
 
 typedef struct{
-    unsigned int                    codec_meta_exist;         // [i] hdr enable: 0-off 1-on
+    bool                    		codec_meta_exist;   // [i] hdr metadata exist: 0: hdr_meta not exist, 1: hdr_meta exist
     RkMetaHdrHeader*                p_hdr_codec_meta;   // [i] hdr metadata from codec
 	  rk_target_display_data_t  		hdr_hdmi_meta;   	// [i] target display data from hdmi edid or manual settings
     rk_hdr_user_cfg_t         		hdr_user_cfg;    	// [i] user config for debugging & modifying built-in adjustable effects
@@ -307,6 +311,8 @@ typedef struct{
     rk_hdr_output_hdmi_metadata_t   target_display_data;// [o] static metadata sent to display according to CTA 861.G spec
 }rk_hdr_parser_params_t;
 
-void hdr_parser(rk_hdr_parser_params_t* p_hdr_parser_params);
+int hdr_format_parser(rk_hdr_parser_params_t* p_hdr_parser_params, rk_hdr_fmt_info_t* p_hdr_fmt_info);
+
+int hdr_parser(rk_hdr_parser_params_t* p_hdr_parser_params);
 
 #endif

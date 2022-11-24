@@ -273,6 +273,7 @@ struct DrmHwcLayer {
   // next hdr
   bool IsMetadataHdr_;
   rk_hdr_parser_params_t metadataHdrParam_;
+  rk_hdr_fmt_info_t metadataHdrFmtInfo_;
 
 #ifdef RK3528
   // RK3528 vpu prescale info.
