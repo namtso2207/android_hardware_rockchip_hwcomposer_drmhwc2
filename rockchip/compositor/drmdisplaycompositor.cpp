@@ -1004,8 +1004,21 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         break;
       }
 
-      if(layer.bSidebandStreamLayer_){
-        HWC2_ALOGD_IF_INFO("SidebandLayer continue, iTunnelId = %d", layer.iTunnelId_);
+      zpos = comp_plane.get_zpos();
+      if(display_comp->display() > 0xf)
+        zpos=1;
+      if(zpos < 0)
+        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+
+	    // todo
+      sideband = layer.bSidebandStreamLayer_;
+      if(sideband){
+        if(!layer.bSideband2_){
+          ret = CommitSidebandStream(pset, plane, layer, zpos, crtc->id());
+          if(ret){
+            HWC2_ALOGE("CommitSidebandStream fail");
+          }
+        }
         continue;
       }
 
@@ -1037,23 +1050,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         }
       }
 
-      zpos = comp_plane.get_zpos();
-      if(display_comp->display() > 0xf)
-        zpos=1;
-      if(zpos < 0)
-        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
-
       rotation = layer.transform;
-	  // todo
-      sideband = layer.bSidebandStreamLayer_;
-      if(sideband){
-        ret = CommitSidebandStream(pset, plane, layer, zpos, crtc->id());
-        if(ret){
-          HWC2_ALOGE("CommitSidebandStream fail");
-        }
-        continue;
-      }
-
       is_metadata_hdr = layer.IsMetadataHdr_;
     }
 
