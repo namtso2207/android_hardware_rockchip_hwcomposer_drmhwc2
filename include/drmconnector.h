@@ -158,7 +158,7 @@ class DrmConnector {
   const DrmProperty &color_depth_property() const;
 
   const std::vector<DrmHdr> &get_hdr_support_list() const { return drmHdr_; }
-  struct hdr_static_metadata* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
+  struct drm_hdr_static_metadata_infoframe* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
   const struct disp_info* baseparameter_info(){ return baseparameter_ready_ ? &baseparameter_ : NULL; }
 
   void addMirrorDisplay(DrmCrtc* crtc, int display);
@@ -228,7 +228,7 @@ class DrmConnector {
   // HDR Support
   bool bSupportSt2084_;
   bool bSupportHLG_;
-  struct hdr_static_metadata hdr_metadata_;
+  struct drm_hdr_static_metadata_infoframe hdr_metadata_;
   DrmColorspaceType colorspace_ = DrmColorspaceType::DEFAULT;
   struct hdr_output_metadata last_hdr_metadata_;
   // Baseparameter Support

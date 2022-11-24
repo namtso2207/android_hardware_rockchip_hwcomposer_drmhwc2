@@ -191,16 +191,16 @@ int DrmConnector::Init() {
   drmHdr_.clear();
   if(bSupportSt2084_){
       drmHdr_.push_back(DrmHdr(DRM_HWC_HDR10,
-                        hdr_metadata_.max_mastering_display_luminance,
-                        (hdr_metadata_.max_mastering_display_luminance + hdr_metadata_.min_mastering_display_luminance) / 2,
-                        hdr_metadata_.min_mastering_display_luminance));
+                        hdr_metadata_.max_display_mastering_luminance,
+                        (hdr_metadata_.max_display_mastering_luminance + hdr_metadata_.min_display_mastering_luminance) / 2,
+                        hdr_metadata_.min_display_mastering_luminance));
   }
 
   if(bSupportHLG_){
       drmHdr_.push_back(DrmHdr(DRM_HWC_HLG,
-                        hdr_metadata_.max_mastering_display_luminance,
-                        (hdr_metadata_.max_mastering_display_luminance + hdr_metadata_.min_mastering_display_luminance) / 2,
-                        hdr_metadata_.min_mastering_display_luminance));
+                        hdr_metadata_.max_display_mastering_luminance,
+                        (hdr_metadata_.max_display_mastering_luminance + hdr_metadata_.min_display_mastering_luminance) / 2,
+                        hdr_metadata_.min_display_mastering_luminance));
   }
 
   // Update Baseparameter Info

@@ -2349,7 +2349,7 @@ int DrmDevice::DumpConnectorProperty(const DrmConnector &connector, std::ostring
    return DumpProperty(connector.id(), DRM_MODE_OBJECT_CONNECTOR, out);
 }
 
-bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct hdr_static_metadata* blob_data) {
+bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct drm_hdr_static_metadata_infoframe* blob_data) {
   drmModePropertyBlobPtr blob;
   drmModeObjectPropertiesPtr props;
   props = drmModeObjectGetProperties(fd(), conn->id(), DRM_MODE_OBJECT_CONNECTOR);
@@ -2384,7 +2384,7 @@ bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct hdr_static_metada
         return false;
       }
 
-      memcpy(blob_data,blob->data,sizeof(struct hdr_static_metadata));
+      memcpy(blob_data,blob->data,blob->length);
 
       drmModeFreePropertyBlob(blob);
 
