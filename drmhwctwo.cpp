@@ -2860,12 +2860,10 @@ int DrmHwcTwo::HwcDisplay::EnableHdrMode(DrmHwcLayer& hdrLayer){
       ctx_.hdr_mode = DRM_HWC_HDR10;
       ctx_.dataspace = hdrLayer.eDataSpace_;
       property_set("vendor.hwc.hdr_state","HDR");
-      return 0;
     }
+    return 0;
   }
-  ctx_.hdr_mode = DRM_HWC_SDR;
-  ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
-  return 0;
+  return -1;
 }
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
@@ -2884,7 +2882,7 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
           ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
           return 0;
         }
-        if(EnableHdrMode(drmHwcLayer) == 0){
+        if(!EnableHdrMode(drmHwcLayer)){
           return 0;
         }
       }
