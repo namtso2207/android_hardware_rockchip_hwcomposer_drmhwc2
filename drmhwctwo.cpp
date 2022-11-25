@@ -2869,21 +2869,23 @@ int DrmHwcTwo::HwcDisplay::EnableHdrMode(DrmHwcLayer& hdrLayer){
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
   // 需要HDR模式,找到 HDR layer,判断当前采用HDR模式
   for(auto &drmHwcLayer : drm_hwc_layers_){
-    if(drmHwcLayer.bHdr_){
-      // 目前只有 RK3528 VOP 支持 MetadataHdr 模式.
-      if(gIsRK3528() && drmHwcLayer.bMetadataHdr_){
+    if(drmHwcLayer.bYuv_){
+      // RK3528 HDR 模式特殊处理
+      if(gIsRK3528()){
         if(EnableMetadataHdrMode(drmHwcLayer) == 0){
           return 0;
         }
       }else{ // 其他平台正常走HDR判断模式
-        // 判断是否需要进入HDR模式
-        if(!IsHdrMode()){
-          ctx_.hdr_mode = DRM_HWC_SDR;
-          ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
-          return 0;
-        }
-        if(!EnableHdrMode(drmHwcLayer)){
-          return 0;
+        if(drmHwcLayer.bHdr_){
+          // 判断是否需要进入HDR模式
+          if(!IsHdrMode()){
+            ctx_.hdr_mode = DRM_HWC_SDR;
+            ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
+            return 0;
+          }
+          if(!EnableHdrMode(drmHwcLayer)){
+            return 0;
+          }
         }
       }
     }
