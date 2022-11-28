@@ -61,6 +61,7 @@ class DrmDisplayCompositor {
   int Composite();
   int CollectSFInfo();
   int CollectVPInfo();
+  int CollectVPHdrInfo(DrmHwcLayer &layer);
   void Dump(std::ostringstream *out) const;
   void Vsync(int display, int64_t timestamp);
   void SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition);
@@ -129,7 +130,8 @@ struct SidebandState {
   int DisableWritebackCommit(drmModeAtomicReqPtr pset,
                              DrmConnector *writeback_conn);
   int CollectModeSetInfo(drmModeAtomicReqPtr pset,
-                         DrmDisplayComposition *display_comp);
+                         DrmDisplayComposition *display_comp,
+                         bool is_sideband_collect);
   int UpdateModeSetState();
   int UpdateSidebandState();
   int ApplyDpms(DrmDisplayComposition *display_comp);

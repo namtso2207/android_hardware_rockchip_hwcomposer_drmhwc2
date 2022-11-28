@@ -693,9 +693,17 @@ int DrmDisplayCompositor::CommitSidebandStream(drmModeAtomicReqPtr pset,
 }
 
 int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
-                                            DrmDisplayComposition *display_comp) {
+                                             DrmDisplayComposition *display_comp,
+                                             bool is_sideband_collect) {
   ATRACE_CALL();
   int ret = 0;
+
+  // RK3528 平台 Sideband 后续流程会处理
+  if(gIsRK3528() && IsSidebandMode() && !is_sideband_collect){
+    HWC2_ALOGD_IF_INFO("SidebandMode skip normal hdr modeset");
+    return 0;
+  }
+
   DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
   //uint64_t out_fences[drm->crtcs().size()];
 
@@ -764,7 +772,6 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
         if(ret < 0){
           HWC2_ALOGE("Failed to drmModeCreatePropertyBlob crtci-id=%d hdr_ext_data-prop[%d]",
                       crtc->id(), crtc->hdr_ext_data().id());
-
         }
         ret = 0;
         ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
@@ -1267,7 +1274,7 @@ int DrmDisplayCompositor::CollectInfo(
     }
 
     // 配置 modeset 信息
-    ret = CollectModeSetInfo(pset_, composition.get());
+    ret = CollectModeSetInfo(pset_, composition.get(), false);
     if (ret) {
       ALOGE("CollectModeSetInfo failed for display %d", display_);
       // Disable the hw used by the last active composition. This allows us to
@@ -2043,7 +2050,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
         request_sideband2_.tunnel_id_ = layer.iTunnelId_;
         request_sideband2_.buffer_ = buffer;
 
-
+        // 更新 sideband Buffer 参数
         fb_id = buffer->GetFbId();
         yuv = layer.bYuv_;
         afbcd = buffer->GetModifier() > 0;
@@ -2053,6 +2060,17 @@ int DrmDisplayCompositor::CollectVPInfo() {
         source_crop.top    = (float)top;
         source_crop.right  = (float)right;
         source_crop.bottom = (float)bottom;
+
+        layer.sf_handle = buffer->GetHandle();
+        // RK3528 更新HDR信息, 若无报错，则使用 metadata Hdr模式
+        if(gIsRK3528()){
+          if(!CollectVPHdrInfo(layer)){
+            current_composition->SetDisplayHdrMode(DRM_HWC_METADATA_HDR, layer.eDataSpace_);
+          }else{
+            current_composition->SetDisplayHdrMode(DRM_HWC_SDR, HAL_DATASPACE_UNKNOWN);
+          }
+          CollectModeSetInfo(pset, current_composition, true);
+        }
       }else{
         fb_id = layer.buffer->fb_id;
         afbcd = layer.bAfbcd_;
@@ -2264,9 +2282,219 @@ int DrmDisplayCompositor::CollectVPInfo() {
     out_log.clear();
   }
 
-
   return ret;
 }
+static inline long __currentTime(){
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  return static_cast<long>(tp.tv_sec) * 1000000 + tp.tv_usec;
+}
+
+int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
+  HWC2_ALOGD_IF_INFO("Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+
+  // 算法解析库是否存在
+  DrmHdrParser* dhp = DrmHdrParser::Get();
+  if(dhp == NULL){
+    HWC2_ALOGD_IF_ERR("Fail to get DrmHdrParser, use SDR mode, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+    return -1;
+  }
+  DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+
+  DrmConnector *connector_ = drm->GetConnectorForDisplay(display_);
+  if (!connector_) {
+    ALOGE("Could not locate connector for display %d", display_);
+    return -ENODEV;
+  }
+  // 显示器是否支持HDR
+  bool is_hdr_display = connector_->is_hdmi_support_hdr();
+  // 是否为 HDR 片源
+  bool is_input_hdr = hdrLayer.bHdr_;
+  // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
+  // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
+  // 0:SDR模式: 电视强制使用SDR模式，HDR片源也采用SDR显示
+  int user_hdr_mode = hwc_get_int_property("persist.sys.vivid.hdr_mode", "2");
+  // 可能存在模式：SDR2SDR,HDR2SDR,SDR2HDR,HDR2HDR
+  bool is_output_hdr = false;
+  // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
+  // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
+  if((user_hdr_mode == 2 && is_hdr_display && is_input_hdr) ||
+     (user_hdr_mode == 1 && is_hdr_display)){
+    is_output_hdr = true;
+  }else{
+    is_output_hdr = false;
+  }
+
+  // 如果输入是 SDR 且输出为SDR,则不需要进行任何处理
+  if(is_input_hdr == false && is_output_hdr == false){
+    HWC2_ALOGD_IF_INFO("Use SDR2SDR mode.");
+    return -1;
+  }
+
+
+  DrmGralloc* gralloc = DrmGralloc::getInstance();
+  if(gralloc == NULL){
+    HWC2_ALOGD_IF_INFO("DrmGralloc is null, Use SDR2SDR mode.");
+    return -1;
+  }
+
+  // debug 打印耗时
+  long t0 = __currentTime();
+
+  // 用于判断是否存在 metadata 信息
+  bool codec_meta_exist = false;
+  // 获取存储 metadata 信息的offset
+  int64_t offset = gralloc->hwc_get_offset_of_dynamic_hdr_metadata(hdrLayer.sf_handle);
+  if(offset < 0){
+    HWC2_ALOGD_IF_ERR("Fail to get hdr metadata offset, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+  }
+  // offset > 0 则认为存在 Metadata
+  codec_meta_exist = offset > 0;
+  HWC2_ALOGD_IF_INFO("dynamic_hdr_metadata offset=%" PRIi64, offset);
+
+  // 初始化参数
+  memset(&hdrLayer.metadataHdrParam_, 0x00, sizeof(rk_hdr_parser_params_t));
+  // 如果输出模式为HDR
+  if(is_output_hdr){
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+
+    // 片源为 HLG，且电视支持 HLG ，则选择 HLG bypass 模式
+    if(hdrLayer.uEOTF == HLG && connector_->isSupportHLG()){
+      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
+    // 片源为 HDR10，且电视支持 HDR10 ，则选择 HDR10 bypass 模式
+    }else if(hdrLayer.uEOTF == SMPTE_ST2084 && connector_->isSupportSt2084()){
+      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+    // 若没有匹配的 HDR 模式，则优先使用 HDR10 输出
+    }else{
+      if(connector_->isSupportSt2084()){
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+      }else if(connector_->isSupportHLG()){
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
+      }
+    }
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = 50;
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("persist.sys.vivid.max_brightness", "1000") * 100;
+  }else{
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT709;
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_GAMMA_SDR;
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = 10;
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("persist.sys.vivid.max_brightness", "100") * 100;
+  }
+
+  void *cpu_addr = NULL;
+  if(codec_meta_exist){
+    // 获取Medata地址
+    cpu_addr = gralloc->hwc_get_handle_lock(hdrLayer.sf_handle, hdrLayer.iWidth_, hdrLayer.iHeight_);
+    if(cpu_addr == NULL){
+      HWC2_ALOGD_IF_ERR("Fail to lock dma buffer, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+      hdrLayer.metadataHdrParam_.codec_meta_exist = false;
+      hdrLayer.metadataHdrParam_.p_hdr_codec_meta = NULL;
+    }else{
+      uint16_t *u16_cpu_metadata = (uint16_t *)((uint8_t *)cpu_addr + offset);
+      hdrLayer.metadataHdrParam_.codec_meta_exist = codec_meta_exist;
+      hdrLayer.metadataHdrParam_.p_hdr_codec_meta = (RkMetaHdrHeader*)u16_cpu_metadata;
+
+      // 如果当前设置 hdr 显示模式为 HLG bypass，则需要检测 HLG 片源是否为 dynamic Hdr
+      // 若为 dynamic Hdr，则需要将输出模式修改为 Hdr10,若不支持Hdr10,则输出SDR
+      // 原因是目前 VOP3 是参考 VividHdr标准实现，标准内部没有支持 dynamic hlg hdr 直出模式
+      if(hdrLayer.uEOTF == HLG &&
+         hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf == SINK_EOTF_HLG){
+        int ret = dhp->MetadataHdrparserFormat(&hdrLayer.metadataHdrParam_,
+                                               &hdrLayer.metadataHdrFmtInfo_);
+        if(ret){
+          HWC2_ALOGD_IF_ERR("MetadataHdrparserFormat, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+          hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+        }else{
+          if(hdrLayer.metadataHdrFmtInfo_.hdr_format == HDRVIVID){
+            if(connector_->isSupportSt2084()){
+              hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_ST2084;
+              HWC2_ALOGD_IF_INFO("Id=%d Name=%s is HLG dynamic, convert to HDR10.", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+            }else{
+              hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_GAMMA_SDR;
+              HWC2_ALOGD_IF_INFO("Id=%d Name=%s is HLG dynamic, convert to SDR.", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
+            }
+          }
+        }
+      }
+    }
+  }else{
+    hdrLayer.metadataHdrParam_.codec_meta_exist = false;
+    hdrLayer.metadataHdrParam_.p_hdr_codec_meta = NULL;
+  }
+
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = 0;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_dst_gamma = 2.2;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sm_ratio = 1.0;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_scale_ratio = 1.0;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sdr_color_space = 2;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = 0;
+  hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = 0;
+
+  if(hwc_get_int_property("vendor.hwc.vivid_hdr_debug", "0") > 0){
+    hdrLayer.uEOTF = hwc_get_int_property("vendor.hwc.vivid_layer_eotf", "0");
+    hdrLayer.metadataHdrParam_.codec_meta_exist = hwc_get_bool_property("vendor.hwc.vivid_codec_meta_exist", "true");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = hwc_get_int_property("vendor.hwc.vivid_color_prim", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = hwc_get_int_property("vendor.hwc.vivid_eotf", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.red_x = hwc_get_int_property("vendor.hwc.vivid_red_x", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.red_y = hwc_get_int_property("vendor.hwc.vivid_red_y", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.green_x = hwc_get_int_property("vendor.hwc.vivid_green_x", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.green_y = hwc_get_int_property("vendor.hwc.vivid_green_y", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.white_point_x = hwc_get_int_property("vendor.hwc.vivid_white_point_x", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.white_point_y = hwc_get_int_property("vendor.hwc.vivid_white_point_y", "0");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = hwc_get_int_property("vendor.hwc.vivid_dst_min", "10");
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("vendor.hwc.vivid_dst_max", "10000");
+
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = hwc_get_int_property("vendor.hwc.vivid_hdr_pq_max_y_mode", "0");
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_dst_gamma = (hwc_get_int_property("vendor.hwc.vivid_hdr_dst_gamma", "22") * 1.0 / 10);
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sm_ratio = hwc_get_int_property("vendor.hwc.vivid_s2h_sm_ratio", "10") * 1.0 / 10;
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_scale_ratio = hwc_get_int_property("vendor.hwc.vivid_s2h_scale_ratio", "10") * 1.0 / 10;
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sdr_color_space = hwc_get_int_property("vendor.hwc.vivid_s2h_sdr_color_space", "2");
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = hwc_get_int_property("vendor.hwc.vivid_print_input_meta", "1");
+    hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
+  }
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: layer colorspace=%d eotf=%d",
+            hdrLayer.uColorSpace,
+            hdrLayer.uEOTF);
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: color_prim=%d eotf=%d red_x=%d red_y=%d green_x=%d green_y=%d white_point_x=%d white_point_y=%d dst_min=%d dst_max=%d",
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.red_x,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.red_y,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.green_x,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.green_y,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.white_point_x,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.white_point_y,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min,
+            hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max);
+
+  HWC2_ALOGD_IF_INFO("hdr_user_cfg: hdr_pq_max_y_mode=%d hdr_dst_gamma=%f s2h_sm_ratio=%f s2h_scale_ratio=%f s2h_sdr_color_space=%d print_input_meta=%d hdr_log_level=%d",
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_dst_gamma,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sm_ratio,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_scale_ratio,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sdr_color_space,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta,
+            hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level);
+
+  int ret = dhp->MetadataHdrParser(&hdrLayer.metadataHdrParam_);
+  if(ret){
+    HWC2_ALOGD_IF_ERR("Fail to call MetadataHdrParser ret=%d Id=%d Name=%s ",
+                      ret,
+                      hdrLayer.uId_,
+                      hdrLayer.sLayerName_.c_str());
+    if(cpu_addr != NULL)
+      gralloc->hwc_get_handle_unlock(hdrLayer.sf_handle);
+    return ret;
+  }
+
+  if(cpu_addr != NULL)
+    gralloc->hwc_get_handle_unlock(hdrLayer.sf_handle);
+
+  hdrLayer.IsMetadataHdr_ = true;
+  HWC2_ALOGD_IF_INFO("Use HdrParser mode.");
+  return 0;
+}
+
 
 int DrmDisplayCompositor::Composite() {
   ATRACE_CALL();

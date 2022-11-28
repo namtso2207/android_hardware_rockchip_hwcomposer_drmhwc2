@@ -472,6 +472,5 @@ int DrmBuffer::DumpData(){
 
   return ret;
 }
-
 } // namespace android
 

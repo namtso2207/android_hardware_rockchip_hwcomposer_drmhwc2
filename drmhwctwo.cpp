@@ -1483,11 +1483,10 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
   return ret;
 }
 
-static inline long __currentTime()
-{
-struct timeval tp;
-gettimeofday(&tp, NULL);
-return static_cast<long>(tp.tv_sec) * 1000000 + tp.tv_usec;
+static inline long __currentTime(){
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  return static_cast<long>(tp.tv_sec) * 1000000 + tp.tv_usec;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
