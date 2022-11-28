@@ -184,7 +184,7 @@ int DrmVideoProducer::DestoryConnection(int tunnel_id){
 }
 
 // Get Last video buffer
-std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, int timeout_ms){
+std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, vt_rect_t *dis_rect, int timeout_ms){
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
 
@@ -213,6 +213,12 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, int ti
 
   // 设置时间戳信息
   ctx->SetTimeStamp(queue_timestamp);
+
+  // 设置目标显示区域
+  acquire_buffer->dis_rect.left   = dis_rect->left;
+  acquire_buffer->dis_rect.top    = dis_rect->top;
+  acquire_buffer->dis_rect.right  = dis_rect->right;
+  acquire_buffer->dis_rect.bottom = dis_rect->bottom;
 
   // 获取 buffer cache信息
   std::shared_ptr<DrmBuffer> buffer = ctx->GetBufferCache(acquire_buffer);

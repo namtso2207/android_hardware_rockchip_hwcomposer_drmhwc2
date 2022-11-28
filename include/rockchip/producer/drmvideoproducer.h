@@ -40,7 +40,7 @@ public:
   // Destory Connection
   int DestoryConnection(int tunnel_id);
   // Get Last video buffer
-  std::shared_ptr<DrmBuffer> AcquireBuffer(int tunnel_id, int timeout_ms);
+  std::shared_ptr<DrmBuffer> AcquireBuffer(int tunnel_id, vt_rect_t *dis_rect,  int timeout_ms);
   // Release video buffer
   int ReleaseBuffer(int tunnel_id, uint64_t buffer_id);
   // Signal buffer's ReleaseFence

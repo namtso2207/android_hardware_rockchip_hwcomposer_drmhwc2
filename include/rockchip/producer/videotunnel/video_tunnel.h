@@ -98,7 +98,8 @@ typedef struct vt_buffer {
     int fence_fd;
     uint64_t buffer_id;
     vt_rect_t crop;
-    int reserve[12];
+    vt_rect_t dis_rect;
+    int reserve[8];
 } vt_buffer_t;
 
 int rk_vt_open();

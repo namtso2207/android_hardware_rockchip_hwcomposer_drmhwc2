@@ -2026,7 +2026,12 @@ int DrmDisplayCompositor::CollectVPInfo() {
           HWC2_ALOGI("SidebandStream: CreateConnection fail, iTunnelId = %d", layer.iTunnelId_);
         }
 
-        std::shared_ptr<DrmBuffer> buffer = dvp->AcquireBuffer(layer.iTunnelId_, 0);
+        vt_rect_t dis_rect = {0,0,0,0};
+        dis_rect.left   = layer.display_frame.left;
+        dis_rect.top    = layer.display_frame.top;
+        dis_rect.right  = layer.display_frame.right;
+        dis_rect.bottom = layer.display_frame.bottom;
+        std::shared_ptr<DrmBuffer> buffer = dvp->AcquireBuffer(layer.iTunnelId_, &dis_rect, 0);
         if(buffer == NULL){
           HWC2_ALOGD_IF_WARN("SidebandStream: AcquireBuffer fail, iTunnelId = %d",
                      layer.iTunnelId_);
@@ -2037,6 +2042,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
         request_sideband2_.enable_ = true;
         request_sideband2_.tunnel_id_ = layer.iTunnelId_;
         request_sideband2_.buffer_ = buffer;
+
 
         fb_id = buffer->GetFbId();
         yuv = layer.bYuv_;
