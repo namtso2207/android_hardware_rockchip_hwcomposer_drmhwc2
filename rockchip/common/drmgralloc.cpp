@@ -720,6 +720,8 @@ uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
       return DRM_FORMAT_ABGR2101010;
     case HAL_PIXEL_FORMAT_RGB_888:
       return DRM_FORMAT_BGR888;
+    case HAL_PIXEL_FORMAT_BGR_888:
+      return DRM_FORMAT_RGB888;
     case HAL_PIXEL_FORMAT_BGRA_8888:
       return DRM_FORMAT_ARGB8888;
     case HAL_PIXEL_FORMAT_RGBX_8888:
@@ -731,6 +733,10 @@ uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
       return DRM_FORMAT_RGB565;
     case HAL_PIXEL_FORMAT_YV12:
       return DRM_FORMAT_YVU420;
+    case HAL_PIXEL_FORMAT_YCbCr_444_888:
+      return DRM_FORMAT_NV24;
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+      return DRM_FORMAT_NV16;
     case HAL_PIXEL_FORMAT_YCrCb_NV12:
       return DRM_FORMAT_NV12;
     case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
