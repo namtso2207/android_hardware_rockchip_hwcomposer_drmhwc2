@@ -92,7 +92,7 @@ int Hwc3588::assignPlaneByHWC(DrmDevice* drm){
     for(auto &plane_group : all_plane_group){
       uint64_t plane_group_win_type = plane_group->win_type;
       if((plane_mask & plane_group_win_type) == plane_group_win_type){
-        plane_group->set_current_crtc(crtc_mask);
+        plane_group->set_current_crtc(crtc_mask, display_id);
       }
     }
   }
