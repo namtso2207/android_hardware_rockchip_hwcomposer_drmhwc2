@@ -50,7 +50,8 @@ struct assign_plane_group_3528 assign_mask_default_3528[] = {
                                PLANE_RK3528_ALL_ESMART0_MASK  |
                                PLANE_RK3528_ALL_ESMART1_MASK  |
                                PLANE_RK3528_ALL_ESMART2_MASK  , false},
-  { DRM_MODE_CONNECTOR_TV , PLANE_RK3528_ALL_ESMART3_MASK, false},
+  { DRM_MODE_CONNECTOR_TV , PLANE_RK3528_ALL_ESMART2_MASK |
+                            PLANE_RK3528_ALL_ESMART3_MASK, false},
 };
 
 int Hwc3528::assignPlaneByHWC(DrmDevice* drm){

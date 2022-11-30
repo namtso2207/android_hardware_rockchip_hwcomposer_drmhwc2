@@ -539,24 +539,32 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   ConfigurePossibleDisplays();
 
   DrmConnector *primary = NULL;
-  for (auto &conn : connectors_) {
-    if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
-      continue;
-    if (conn->internal())
-      continue;
-    if (conn->state() != DRM_MODE_CONNECTED)
-      continue;
-    found_primary = true;
-    if(NULL == primary){
-      primary = conn.get();
-    }else{
-      // High priority devices can become the primary
-      if(conn.get()->priority() < primary->priority()){
+  if(isRK3528(soc_id_)){
+    for (auto &conn : connectors_) {
+      if(conn->type() == DRM_MODE_CONNECTOR_HDMIA){
         primary = conn.get();
+        found_primary = true;
+      }
+    }
+  }else{
+    for (auto &conn : connectors_) {
+      if (!(conn->possible_displays() & HWC_DISPLAY_PRIMARY_BIT))
+        continue;
+      if (conn->internal())
+        continue;
+      if (conn->state() != DRM_MODE_CONNECTED)
+        continue;
+      found_primary = true;
+      if(NULL == primary){
+        primary = conn.get();
+      }else{
+        // High priority devices can become the primary
+        if(conn.get()->priority() < primary->priority()){
+          primary = conn.get();
+        }
       }
     }
   }
-
 
   if (!found_primary) {
     for (auto &conn : connectors_) {

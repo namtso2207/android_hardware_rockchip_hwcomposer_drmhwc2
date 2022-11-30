@@ -366,6 +366,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     return HWC2::Error::NoResources;
   }
 
+  // RK3528 HDMI/TV互斥模式要求，若HDMI已连接，则 TV不注册
+  if(gIsRK3528() && connector_->type() == DRM_MODE_CONNECTOR_TV){
+    DrmConnector* primary = drm_->GetConnectorForDisplay(HWC_DISPLAY_PRIMARY);
+    if(primary && primary->state() == DRM_MODE_CONNECTED){
+      int ret = drm_->ReleaseDpyRes(handle_);
+      if (ret) {
+        HWC2_ALOGE("Failed to ReleaseDpyRes for display=%d %d\n", display, ret);
+        return HWC2::Error::NoResources;
+      }
+      return HWC2::Error::None;
+    }
+  }
+
   UpdateDisplayMode();
   ret = drm_->BindDpyRes(handle_);
   if (ret) {
@@ -459,7 +472,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitVirtual() {
   frame_no_ = 0;
   return HWC2::Error::None;
 }
-
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit(bool clear_layer) {
 
@@ -2250,9 +2262,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   HWC2::Error ret;
 
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+    if(gIsRK3528()){
+      l.second.set_validated_type(HWC2::Composition::Device);
+    }else{
+      l.second.set_validated_type(HWC2::Composition::Client);
+    }
 
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-    l.second.set_validated_type(HWC2::Composition::Client);
+  }
 
   ret = CheckDisplayState();
   if(ret != HWC2::Error::None){
@@ -3812,6 +3829,17 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
 }
 
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
+    // RK3528 HDMI/TV互斥模式要求，若HDMI已连接，则 TV不注册
+    if(gIsRK3528()){
+      for (auto &conn : drmDevice->connectors()) {
+        if (conn->display() == HWC_DISPLAY_PRIMARY &&
+            conn->state() == DRM_MODE_CONNECTED){
+          ALOGI("HWC2 Init: RK3528 HDMI is connected, not to register TV display.");
+          return;
+        }
+      }
+    }
+
     for (auto &conn : drmDevice->connectors()) {
       if (conn->state() != DRM_MODE_CONNECTED)
         continue;
@@ -3839,6 +3867,7 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
             continue;
           }
         }
+
         ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d \n",
           conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id());
         HandleDisplayHotplug(conn->display(), conn->state());
@@ -3868,7 +3897,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     if (cur_state == old_state)
       continue;
 
-    // 当前状态为连接，则为插入事件
+    // 当前状态为未连接，则为拔出事件
     if(cur_state == DRM_MODE_DISCONNECTED){
       unplug_event = true;
     }
@@ -3985,7 +4014,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           if(ret != 0){
             HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                       cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
-                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+                      conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
           }else{
             HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
                       cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -3995,6 +4024,54 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           }
         }
       }
+    }
+  }
+
+  if(gIsRK3528()){
+    if(unplug_event){
+      for (auto &conn : drm_->connectors()) {
+        if(conn->type() == DRM_MODE_CONNECTOR_TV){
+          drmModeConnection cur_state = conn->state();
+          HwcConnnectorStete cur_hwc_state = conn->hwc_state();
+          if(cur_state == DRM_MODE_CONNECTED){
+            int display_id = conn->display();
+            auto &display = hwc2_->displays_.at(display_id);
+            ret |= (int32_t)display.HoplugEventTmeline();
+            ret |= (int32_t)display.UpdateDisplayMode();
+            ret |= (int32_t)display.ChosePreferredConfig();
+            ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+            if(ret != 0){
+              HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
+                        cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                        conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
+            }else{
+              HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
+                        cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
+                        conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+              hwc2_->HandleDisplayHotplug(display_id, cur_state);
+              display.SyncPowerMode();
+            }
+          }
+        }
+      }
+    }else{
+      for (auto &conn : drm_->connectors()) {
+        if(conn->type() == DRM_MODE_CONNECTOR_TV){
+          int display_id = conn->display();
+          auto &display = hwc2_->displays_.at(display_id);
+          ret |= (int32_t)display.ClearDisplay();
+          ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
+          if(ret != 0){
+            HWC2_ALOGE("hwc_hotplug: Unplug connector %u type=%s type_id=%d state is error, skip hotplug.",
+                      conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
+          }else{
+            HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
+                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+            hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+          }
+        }
+      }
+
     }
   }
 
