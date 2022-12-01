@@ -178,7 +178,7 @@ HWC2::Error DrmHwcTwo::CreateVirtualDisplay(uint32_t width, uint32_t height,
     resource_manager_->EnableWriteBackMode(write_back_id);
     HWC2_ALOGI("Support VDS: w=%u,h=%u,f=%d display-id=%d",width,height,*format,virtual_display_id);
     auto &display = resource_manager_->GetHwc2()->displays_.at(0);
-    display.InvalidateControl(60,-1);
+    display.InvalidateControl(30,-1);
     return HWC2::Error::None;
   }
 
@@ -195,7 +195,7 @@ HWC2::Error DrmHwcTwo::DestroyVirtualDisplay(hwc2_display_t display) {
     HWC2_ALOGI("VDS: display-id=%" PRIu64 , display);
     mVirtualDisplayCount_--;
     auto &display = resource_manager_->GetHwc2()->displays_.at(0);
-    display.InvalidateControl(60,0);
+    display.InvalidateControl(30,0);
     return HWC2::Error::None;
   }
 
@@ -2163,6 +2163,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
     if(LogLevel(DBG_INFO)){
       DumpDisplayLayersInfo();
     }
+    // 强制设置系统刷新为30帧
+    InvalidateControl(30,-1);
 
     bUseWriteBack_ = true;
 
