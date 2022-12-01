@@ -186,6 +186,7 @@ int DrmHwcLayer::Init() {
 
 #ifdef RK3528
   bPreScaleVideo_ = IsSupportPreScaleVideo(iUsage);
+  ModifyDisplayFrame();
 #endif
   return 0;
 }
@@ -376,6 +377,95 @@ bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fource_format){
 }
 
 #ifdef RK3528
+void DrmHwcLayer::ModifyDisplayFrame(){
+  if(gIsRK3528()){
+    if(!bYuv_){
+      return;
+    }
+    char value_yuv[PROPERTY_VALUE_MAX];
+    int scaleMode = 0;
+    property_get("persist.vendor.video.cvrs",value_yuv, "0");
+    scaleMode = atoi(value_yuv);
+    if(scaleMode > 0){
+      float s_letf, s_top, s_right, s_bottom;
+      float s_width,s_height;
+      int d_letf, d_top, d_right, d_bottom;
+      int d_width,d_height;
+
+      s_letf   = source_crop.left;
+      s_top    = source_crop.top;
+      s_right  = source_crop.right;
+      s_bottom = source_crop.bottom;
+      s_width  = s_right - s_letf;
+      s_height = s_bottom - s_top;
+
+      d_letf   = display_frame.left;
+      d_top    = display_frame.top;
+      d_right  = display_frame.right;
+      d_bottom = display_frame.bottom;
+      d_width  = d_right - d_letf;
+      d_height = d_bottom - d_top;
+
+      switch (scaleMode){
+          case VIDEO_SCALE_AUTO_SCALE :
+              if(s_width * d_height > s_height * d_width){
+                  d_top += ( d_height - s_height * d_width / s_width ) / 2;
+                  d_bottom -= ( d_height - s_height * d_width / s_width ) / 2;
+              }else{
+                  d_letf += ( d_width - s_width * d_height / s_height) / 2;
+                  d_right -= ( d_width - s_width * d_height / s_height) / 2;
+              }
+              break;
+          case VIDEO_SCALE_4_3_SCALE :
+              if(4 * d_height  < 3 * d_width){
+                  d_letf += (d_width - d_height * 4 / 3) / 2;
+                  d_right -= (d_width - d_height * 4 / 3) / 2;
+              }else if(4 * d_height  > 3 * d_width){
+                  d_top += (d_height - d_width * 3 / 4) / 2;
+                  d_bottom -= (d_height - d_width * 3 / 4) / 2;
+              }
+              break;
+          case VIDEO_SCALE_16_9_SCALE :
+              if(16 * d_height  < 9 * d_width){
+                  d_letf += (d_width - d_height * 16 / 9) / 2;
+                  d_right -= (d_width - d_height * 16 / 9) / 2;
+              }else if(16 * d_height  > 9 * d_width){
+                  d_top += (d_width - d_width * 9 / 16) / 2;
+                  d_bottom -= (d_width - d_width * 9 / 16) / 2;
+              }
+              break;
+          case VIDEO_SCALE_ORIGINAL :
+              if(s_width > d_width){
+                  d_letf = 0;
+                  //d_right = d_right;
+              }else{
+                  d_letf = (d_width - s_width) / 2;
+                  d_right -= (d_width - s_width) / 2;
+              }
+              if(s_height > d_height){
+                  d_top = 0;
+                  //d_bottom = d_bottom;
+              }else{
+                  d_top = (d_height - s_height) / 2;
+                  d_bottom -= (d_height - s_height ) / 2;
+              }
+              break;
+          default :
+              ALOGE("ScaleMode[%d] is invalid ",scaleMode);
+              return;
+      }
+      HWC2_ALOGD_IF_DEBUG("Video area change [%d,%d,%d,%d]:[%d,%d,%d,%d] => [%d,%d,%d,%d]",
+      (int)source_crop.left,(int)source_crop.top,(int)source_crop.right,(int)source_crop.bottom,
+      display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,
+      d_letf,d_top,d_right,d_bottom);
+
+      display_frame.left = d_letf;
+      display_frame.top = d_top;
+      display_frame.right = d_right;
+      display_frame.bottom = d_bottom;
+    }
+  }
+}
 bool DrmHwcLayer::IsSupportPreScaleVideo(uint64_t usage){
   // RK3528 usage 0x01000000U 认为是 MetadataHdr 图层
   // 定义位于 Android 9.0 libhardware/../gralloc.h GRALLOC_USAGE_RKVDEC_SCALING

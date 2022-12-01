@@ -57,6 +57,21 @@ bool hwc_import_bo_release(int fd, struct hwc_import_context *ctx,
 namespace android {
 class Importer;
 
+/*
+ * Base_parameter is used for 3328_8.0 , by libin end.
+ */
+enum
+{
+    VIDEO_SCALE_FULL_SCALE = 0,
+    VIDEO_SCALE_AUTO_SCALE,
+    VIDEO_SCALE_4_3_SCALE ,
+    VIDEO_SCALE_16_9_SCALE,
+    VIDEO_SCALE_ORIGINAL,
+    VIDEO_SCALE_OVERSCREEN,
+    VIDEO_SCALE_LR_BOX,
+    VIDEO_SCALE_TB_BOX,
+};
+
 class DrmHwcBuffer {
  public:
   DrmHwcBuffer() = default;
@@ -312,6 +327,7 @@ struct DrmHwcLayer {
   bool IsSkipLayer();
   bool IsGlesCompose();
 #ifdef RK3528
+  void ModifyDisplayFrame();
   bool IsSupportPreScaleVideo(uint64_t usage);
 #endif
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);

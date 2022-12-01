@@ -4022,7 +4022,6 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       for (auto &conn : drm_->connectors()) {
         if(conn->type() == DRM_MODE_CONNECTOR_TV){
           drmModeConnection cur_state = conn->state();
-          HwcConnnectorStete cur_hwc_state = conn->hwc_state();
           if(cur_state == DRM_MODE_CONNECTED){
             int display_id = conn->display();
             auto &display = hwc2_->displays_.at(display_id);
