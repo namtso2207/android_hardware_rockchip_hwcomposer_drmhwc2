@@ -1982,6 +1982,20 @@ void Vop3528::InitSupportContext(
         if(p->get_hdr2sdr())
           ctx.support.iAfbcdHdrCnt++;
 
+        ctx.support.iCnt++;
+
+        if(p->get_scale())
+          ctx.support.iScaleCnt++;
+
+        if(p->get_yuv())
+          ctx.support.iYuvCnt++;
+
+        if(p->get_rotate())
+          ctx.support.iRotateCnt++;
+
+        if(p->get_hdr2sdr())
+          ctx.support.iHdrCnt++;
+
       }else{
 
         ctx.support.iCnt++;
