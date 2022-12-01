@@ -4015,6 +4015,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   }
 
   if(gIsRK3528()){
+    // RK3528 HDMI拔出，则需要注册 TV 到 SurfaceFlinger
     if(unplug_event){
       for (auto &conn : drm_->connectors()) {
         if(conn->type() == DRM_MODE_CONNECTOR_TV){
@@ -4041,24 +4042,34 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           }
         }
       }
+    // RK3528 HDMI接入，则需要销毁 TV 到 SurfaceFlinger
     }else{
+      // 检查HDMI连接状态
+      bool hdmi_conneted = false;
       for (auto &conn : drm_->connectors()) {
-        if(conn->type() == DRM_MODE_CONNECTOR_TV){
-          int display_id = conn->display();
-          auto &display = hwc2_->displays_.at(display_id);
-          ret |= (int32_t)display.ClearDisplay();
-          ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
-          if(ret != 0){
-            HWC2_ALOGE("hwc_hotplug: Unplug connector %u type=%s type_id=%d state is error, skip hotplug.",
-                      conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
-          }else{
-            HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
-                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-            hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+        if(conn->type() == DRM_MODE_CONNECTOR_HDMIA){
+          hdmi_conneted = (conn->state() == DRM_MODE_CONNECTED);
+        }
+      }
+      // 若HDMI已连接，则需要销毁 TV display
+      if(hdmi_conneted){
+        for (auto &conn : drm_->connectors()) {
+          if(conn->type() == DRM_MODE_CONNECTOR_TV){
+            int display_id = conn->display();
+            auto &display = hwc2_->displays_.at(display_id);
+            ret |= (int32_t)display.ClearDisplay();
+            ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
+            if(ret != 0){
+              HWC2_ALOGE("hwc_hotplug: Unplug connector %u type=%s type_id=%d state is error, skip hotplug.",
+                        conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
+            }else{
+              HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
+                        conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+              hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
+            }
           }
         }
       }
-
     }
   }
 
