@@ -147,7 +147,7 @@ DrmBuffer::~DrmBuffer(){
       ALOGE("freeBuffer in_handle=%p, local_handle=%p fail, ret=%d",
             inBuffer_, buffer_, ret);
     }
-    HWC2_ALOGI("freeBuffer in_handle=%p, local_handle=%p uBufferId_=0x%" PRIu64 " Success, ret=%d",
+    HWC2_ALOGI("freeBuffer in_handle=%p, local_handle=%p uBufferId_=0x%" PRIx64 " Success, ret=%d",
           inBuffer_, buffer_, uBufferId_, ret);
   }
 }
