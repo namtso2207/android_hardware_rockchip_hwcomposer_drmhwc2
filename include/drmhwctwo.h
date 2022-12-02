@@ -305,9 +305,11 @@ class DrmHwcTwo : public hwc2_device_t {
                              bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
       }
 
-      mFrameCount_++;
-      if(mLastFpsTime_ == 0){
-        mLastFpsTime_ = systemTime();
+      if(mDrawingState.buffer_ != mCurrentState.buffer_){
+        mFrameCount_++;
+        if(mLastFpsTime_ == 0){
+          mLastFpsTime_ = systemTime();
+        }
       }
       // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
     }
@@ -546,6 +548,7 @@ class DrmHwcTwo : public hwc2_device_t {
     int mFrameCount_;
     int mLastFrameCount_ = 0;
     nsecs_t mLastFpsTime_ = 0;
+
     float mFps_;
 
 #ifdef USE_LIBSVEP
