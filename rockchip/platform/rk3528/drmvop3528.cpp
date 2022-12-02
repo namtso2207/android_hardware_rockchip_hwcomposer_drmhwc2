@@ -554,6 +554,13 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                             continue;
                           }
 
+                          if(ctx.request.iAfbcdCnt > 0 &&
+                             !(*iter_layer)->bAfbcd_ &&
+                             (*iter_plane)->win_type() & PLANE_RK3528_ALL_CLUSTER0_MASK){
+                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s  fourcc=0x%x afbcd = %d, reserved cluster.",(*iter_plane)->name(),(*iter_layer)->uFourccFormat_,(*iter_layer)->bAfbcd_);
+                            continue;
+                          }
+
                           // Input info
                           int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
                           int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
