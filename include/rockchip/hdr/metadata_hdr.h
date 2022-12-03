@@ -68,6 +68,19 @@ enum rk_hdr_color_prim
 	COLOR_PRIM_UNSPECIFIED
 };
 
+enum rk_hdr_range
+{
+	RANGE_FULL = 0,
+	RANGE_LIMITED = 1,
+	RANGE_UNSPECIFIED
+};
+
+typedef struct {
+	unsigned int color_prim; //enum rk_hdr_color_prim: bt709, bt2020, etc.
+	unsigned int eotf; //enum rk_hdr_eotf: sdr, st2084, hlg, etc.
+	unsigned int range; //enum rk_hdr_range: full, limit, etc.
+}rk_hdr_dataspace_info_t;
+
 typedef struct{
     unsigned char print_input_meta;
     unsigned char hdr_log_level;
@@ -305,7 +318,8 @@ typedef struct{
 typedef struct{
     bool                    		codec_meta_exist;   // [i] hdr metadata exist: 0: hdr_meta not exist, 1: hdr_meta exist
     RkMetaHdrHeader*                p_hdr_codec_meta;   // [i] hdr metadata from codec
-	  rk_target_display_data_t  		hdr_hdmi_meta;   	// [i] target display data from hdmi edid or manual settings
+    rk_hdr_dataspace_info_t			hdr_dataspace_info;	// [i] hdr dataspace info from Android dataspace
+    rk_target_display_data_t  		hdr_hdmi_meta;   	// [i] target display data from hdmi edid or manual settings
     rk_hdr_user_cfg_t         		hdr_user_cfg;    	// [i] user config for debugging & modifying built-in adjustable effects
     rk_hdr_reg_t                    hdr_reg;            // [o] hdr register configuration for driver
     rk_hdr_output_hdmi_metadata_t   target_display_data;// [o] static metadata sent to display according to CTA 861.G spec
