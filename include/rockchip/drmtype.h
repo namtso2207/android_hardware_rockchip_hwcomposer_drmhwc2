@@ -229,6 +229,8 @@ typedef enum attribute_flag {
 
 typedef struct hwc2_drm_display {
   uint32_t soc_id=0;
+  uint32_t display_id=0;
+  uint32_t display_type=0;
   bool bStandardSwitchResolution=false;
   int framebuffer_width=0;
   int framebuffer_height=0;

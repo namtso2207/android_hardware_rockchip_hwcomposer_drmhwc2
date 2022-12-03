@@ -436,6 +436,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
   // soc_id
   ctx_.soc_id = resource_manager_->getSocId();
+  // display_id
+  ctx_.display_id = display;
+  // display-type
+  ctx_.display_type = connector_->type();
   // vop aclk
   ctx_.aclk = crtc_->get_aclk();
   // Baseparameter Info
@@ -3418,7 +3422,8 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
       HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);
       if(metadata != NULL){
         // 缩小超过4倍，请求解码开启预缩小
-        if((drmHwcLayer->fHScaleMul_ > 6 || drmHwcLayer->fVScaleMul_ > 6)){
+        if((drmHwcLayer->fHScaleMul_ > 6 || drmHwcLayer->fVScaleMul_ > 6) ||
+            drmHwcLayer->bAfbcd_ && ctx->display_type == DRM_MODE_CONNECTOR_TV){
           metadata->requestMask = 1;
         }else{
           metadata->requestMask = 2;
@@ -3432,8 +3437,10 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
 
         // 1. 垂直或者水平方向缩小大于6倍，且存在预缩小Buffer则使用预缩小Buffer
         // 2. 若调试接口使能，则强制使用预缩小buffer
+        // 3. TV 由于不支持 afbc overlay，故afbc需要开启预缩小功能
         if((metadata->replyMask > 0 && (drmHwcLayer->fHScaleMul_ > 6 || drmHwcLayer->fVScaleMul_ > 6)) ||
-           (force_use_prescale_video > 0 && metadata->replyMask > 0)){
+           (metadata->replyMask > 0 && force_use_prescale_video > 0) ||
+            (metadata->replyMask > 0 && ctx->display_type == DRM_MODE_CONNECTOR_TV)){
           memcpy(&(drmHwcLayer->mMetadata_), metadata, sizeof(metadata_for_rkvdec_scaling_t));
           drmHwcLayer->bNeedPreScale_ = true;
 
