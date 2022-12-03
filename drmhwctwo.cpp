@@ -279,7 +279,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
       auto hotplug = reinterpret_cast<HWC2_PFN_HOTPLUG>(function);
       hotplug(data, HWC_DISPLAY_PRIMARY,
               static_cast<int32_t>(HWC2::Connection::Connected));
-      // 主屏已经像SurfaceFlinger注册
+      // 主屏已经向SurfaceFlinger注册
       mHasRegisterDisplay_.insert(HWC_DISPLAY_PRIMARY);
       auto &drmDevices = resource_manager_->GetDrmDevices();
       for (auto &device : drmDevices)
@@ -3821,10 +3821,12 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
     // RK3528 HDMI/TV互斥模式要求，若HDMI已连接，则 TV不注册
     if(gIsRK3528()){
       for (auto &conn : drmDevice->connectors()) {
-        if (conn->display() == HWC_DISPLAY_PRIMARY &&
-            conn->state() == DRM_MODE_CONNECTED){
-          ALOGI("HWC2 Init: RK3528 HDMI is connected, not to register TV display.");
-          return;
+        if(conn->type() == DRM_MODE_CONNECTOR_HDMIA){
+          conn->UpdateModes();
+          if(conn->state() == DRM_MODE_CONNECTED){
+            ALOGI("HWC2 Init: RK3528 HDMI is connected, not to register TV display.");
+            return;
+          }
         }
       }
     }
@@ -3870,10 +3872,16 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
     }
 }
 
+enum PLUG_EVENT_TYPE{
+  NONE = 0,
+  PLUG_EVENT = 1,
+  UNPLUG_EVENT = 2,
+};
+
 void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   int32_t ret = 0;
   bool primary_change = true;
-  bool unplug_event = false;
+  PLUG_EVENT_TYPE event_type = NONE;
   for (auto &conn : drm_->connectors()) {
     drmModeConnection old_state = conn->state();
     conn->ResetModesReady();
@@ -3888,7 +3896,9 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
     // 当前状态为未连接，则为拔出事件
     if(cur_state == DRM_MODE_DISCONNECTED){
-      unplug_event = true;
+      event_type = UNPLUG_EVENT;
+    }else{
+      event_type = PLUG_EVENT;
     }
 
     ALOGI("hwc_hotplug: %s event @%" PRIu64 " for connector %u type=%s, type_id=%d\n",
@@ -3988,7 +3998,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   }
 
   // 拔出事件，说明存在crtc资源释放
-  if(unplug_event){
+  if(event_type == UNPLUG_EVENT){
     for (auto &conn : drm_->connectors()) {
       drmModeConnection cur_state = conn->state();
       HwcConnnectorStete cur_hwc_state = conn->hwc_state();
@@ -4018,7 +4028,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
   if(gIsRK3528()){
     // RK3528 HDMI拔出，则需要注册 TV 到 SurfaceFlinger
-    if(unplug_event){
+    if(event_type == UNPLUG_EVENT){
       for (auto &conn : drm_->connectors()) {
         if(conn->type() == DRM_MODE_CONNECTOR_TV){
           drmModeConnection cur_state = conn->state();
@@ -4058,16 +4068,11 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           if(conn->type() == DRM_MODE_CONNECTOR_TV){
             int display_id = conn->display();
             auto &display = hwc2_->displays_.at(display_id);
-            ret |= (int32_t)display.ClearDisplay();
-            ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
-            if(ret != 0){
-              HWC2_ALOGE("hwc_hotplug: Unplug connector %u type=%s type_id=%d state is error, skip hotplug.",
-                        conn->id(),drm_->connector_type_str(conn->type()), conn->type_id());
-            }else{
-              HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
-                        conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-              hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
-            }
+            display.ClearDisplay();
+            drm_->ReleaseDpyRes(display_id);
+            HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
+                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
+            hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);
           }
         }
       }
