@@ -274,8 +274,8 @@ int DrmDisplayCompositor::QueueComposition(
   }
 
   // Enable DrmDisplayCompositor sideband2 mode
-  request_sideband2_.enable_ = composition->has_sideband2();
-  request_sideband2_.tunnel_id_ = composition->get_sideband_tunnel_id();
+  current_sideband2_.enable_ = composition->has_sideband2();
+  current_sideband2_.tunnel_id_ = composition->get_sideband_tunnel_id();
 
   while(mapDisplayHaveQeueuCnt_[composition->display()] >= max_queue_size){
     pthread_cond_wait(&composite_queue_cond_,&lock_);
@@ -816,39 +816,43 @@ int DrmDisplayCompositor::UpdateSidebandState() {
   }
 
   // 当前帧存在 Sideband Stream Buffer
-  if(request_sideband2_.enable_ &&
-     request_sideband2_.buffer_ != NULL){
-    // Release 当前帧
-    int ret = dvp->ReleaseBuffer(request_sideband2_.tunnel_id_,
-                                 request_sideband2_.buffer_->GetExternalId());
-    if(ret){
-      HWC2_ALOGE("SidebandStream: ReleaseBuffer fail, last buffer id=%" PRIu64 ,
-                 request_sideband2_.buffer_->GetId());
-    }
-
+  if(current_sideband2_.enable_ &&
+     current_sideband2_.buffer_ != NULL){
     // 释放上一帧 ReleaseFence
-    if(current_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(request_sideband2_.tunnel_id_,
-                                 current_sideband2_.buffer_->GetExternalId())){
+    if(drawing_sideband2_.buffer_ != NULL){
+      if(dvp->SignalReleaseFence(current_sideband2_.tunnel_id_,
+                                 drawing_sideband2_.buffer_->GetExternalId())){
         HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
-                    current_sideband2_.buffer_->GetId());
+                    drawing_sideband2_.buffer_->GetId());
       }
     }
     // 交换缓冲区，请求帧已切换为当前帧
-    current_sideband2_.buffer_ = request_sideband2_.buffer_;
-    request_sideband2_.buffer_ = NULL;
+    drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
+    current_sideband2_.buffer_ = NULL;
   }
 
   // sideband 前后 tunnel id 不一致
-  if(request_sideband2_.tunnel_id_ != current_sideband2_.tunnel_id_){
+  // 1. tunnel_id > 0 : sideband 切换通路
+  // 2. tunnel_id == 0 : sideband 关闭通路
+  if(current_sideband2_.tunnel_id_ != drawing_sideband2_.tunnel_id_){
     HWC2_ALOGI("SidebandStream: update sideband state=%d->%d tunnel-id=%" PRIu64"->%" PRIu64,
+                drawing_sideband2_.enable_,
                 current_sideband2_.enable_,
-                request_sideband2_.enable_,
-                current_sideband2_.tunnel_id_,
-                request_sideband2_.tunnel_id_);
+                drawing_sideband2_.tunnel_id_,
+                current_sideband2_.tunnel_id_);
     // 连接改变，断开连接前，先释放上一帧 ReleaseFence
-    if(current_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(current_sideband2_.tunnel_id_,
+    if(drawing_sideband2_.buffer_ != NULL){
+      if(dvp->SignalReleaseFence(drawing_sideband2_.tunnel_id_,
+                                  drawing_sideband2_.buffer_->GetExternalId())){
+        HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                    drawing_sideband2_.buffer_->GetId());
+      }
+      drawing_sideband2_.buffer_ = NULL;
+    }
+
+    // 若关闭Sideband，断开连接前，先释放可能存在的 request ReleaseFence
+    if(current_sideband2_.tunnel_id_ == 0 && current_sideband2_.buffer_ != NULL){
+      if(dvp->SignalReleaseFence(drawing_sideband2_.tunnel_id_,
                                   current_sideband2_.buffer_->GetExternalId())){
         HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
                     current_sideband2_.buffer_->GetId());
@@ -856,26 +860,16 @@ int DrmDisplayCompositor::UpdateSidebandState() {
       current_sideband2_.buffer_ = NULL;
     }
 
-    // 若关闭Sideband，断开连接前，先释放可能存在的 request ReleaseFence
-    if(request_sideband2_.tunnel_id_ == 0 && request_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(current_sideband2_.tunnel_id_,
-                                  request_sideband2_.buffer_->GetExternalId())){
-        HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
-                    request_sideband2_.buffer_->GetId());
-      }
-      request_sideband2_.buffer_ = NULL;
-    }
-
-    int ret = dvp->DestoryConnection(current_sideband2_.tunnel_id_);
+    int ret = dvp->DestoryConnection(drawing_sideband2_.tunnel_id_);
     if(ret){
       HWC2_ALOGE("SidebandStream: DestoryConnection old tunnel-id=%" PRIu64 " fail.",
-                  current_sideband2_.tunnel_id_);
+                  drawing_sideband2_.tunnel_id_);
     }else{
       HWC2_ALOGI("SidebandStream: DestoryConnection old tunnel-id=%" PRIu64 " Success.",
-                  current_sideband2_.tunnel_id_);
+                  drawing_sideband2_.tunnel_id_);
     }
-    current_sideband2_.enable_ = request_sideband2_.enable_;
-    current_sideband2_.tunnel_id_ = request_sideband2_.tunnel_id_;
+    drawing_sideband2_.enable_ = current_sideband2_.enable_;
+    drawing_sideband2_.tunnel_id_ = current_sideband2_.tunnel_id_;
   }
   return 0;
 }
@@ -2058,9 +2052,9 @@ int DrmDisplayCompositor::CollectVPInfo() {
         }
 
         // 更新Sideband请求状态状态
-        request_sideband2_.enable_ = true;
-        request_sideband2_.tunnel_id_ = layer.iTunnelId_;
-        request_sideband2_.buffer_ = buffer;
+        current_sideband2_.enable_ = true;
+        current_sideband2_.tunnel_id_ = layer.iTunnelId_;
+        current_sideband2_.buffer_ = buffer;
 
         // 更新 sideband Buffer 参数
         fb_id = buffer->GetFbId();
@@ -2082,6 +2076,14 @@ int DrmDisplayCompositor::CollectVPInfo() {
             current_composition->SetDisplayHdrMode(DRM_HWC_SDR, HAL_DATASPACE_UNKNOWN);
           }
           CollectModeSetInfo(pset, current_composition, true);
+        }
+
+        // Release 当前帧
+        ret = dvp->ReleaseBuffer(layer.iTunnelId_,
+                                 buffer->GetExternalId());
+        if(ret){
+          HWC2_ALOGE("SidebandStream: ReleaseBuffer fail, buffer id=%" PRIu64 ,
+                     buffer->GetId());
         }
       }else{
         fb_id = layer.buffer->fb_id;
@@ -2601,7 +2603,7 @@ bool DrmDisplayCompositor::HaveQueuedComposites() const {
 }
 
 bool DrmDisplayCompositor::IsSidebandMode() const{
-  return current_sideband2_.enable_ || request_sideband2_.enable_;
+  return drawing_sideband2_.enable_ || current_sideband2_.enable_;
 }
 
 

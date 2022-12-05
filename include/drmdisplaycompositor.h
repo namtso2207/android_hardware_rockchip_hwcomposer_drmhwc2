@@ -209,8 +209,8 @@ struct SidebandState {
   uint32_t hdr_blob_id_ = 0;
 
   // RK Support Sideband mode
-  SidebandState request_sideband2_;
   SidebandState current_sideband2_;
+  SidebandState drawing_sideband2_;
 
 };
 }  // namespace android
