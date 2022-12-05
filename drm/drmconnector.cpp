@@ -1086,6 +1086,14 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
     return 0;
   }
 
+#ifdef ANDROID_S
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata->hdmi_metadata_type1;
+#elif ANDROID_P
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata->hdmi_metadata_type1;
+#else
+  hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata->hdmi_metadata_type;
+#endif
+
   HWC2_ALOGD_IF_DEBUG("hdr_metadata: metadata_type=%d",hdr_metadata->metadata_type);
   HWC2_ALOGD_IF_DEBUG("hdr_metadata: eotf=%d metadata_type=%d \n"
                       "display_primaries[0][x,y]=[%d,%d][%d,%d][%d,%d]\n"
@@ -1094,22 +1102,30 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
                       "min_display_mastering_luminance=%d\n"
                       "max_cll=%d\n"
                       "max_fall=%d\n",
-                      hdr_metadata->hdmi_metadata_type1.eotf,
-                      hdr_metadata->hdmi_metadata_type1.metadata_type,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[0].x,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[0].y,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[1].x,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[1].y,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[2].x,
-                      hdr_metadata->hdmi_metadata_type1.display_primaries[2].y,
-                      hdr_metadata->hdmi_metadata_type1.white_point.x,
-                      hdr_metadata->hdmi_metadata_type1.white_point.y,
-                      hdr_metadata->hdmi_metadata_type1.max_display_mastering_luminance,
-                      hdr_metadata->hdmi_metadata_type1.min_display_mastering_luminance,
-                      hdr_metadata->hdmi_metadata_type1.max_cll,
-                      hdr_metadata->hdmi_metadata_type1.max_fall);
+                      hdmi_metadata_type.eotf,
+                      hdmi_metadata_type.metadata_type,
+                      hdmi_metadata_type.display_primaries[0].x,
+                      hdmi_metadata_type.display_primaries[0].y,
+                      hdmi_metadata_type.display_primaries[1].x,
+                      hdmi_metadata_type.display_primaries[1].y,
+                      hdmi_metadata_type.display_primaries[2].x,
+                      hdmi_metadata_type.display_primaries[2].y,
+                      hdmi_metadata_type.white_point.x,
+                      hdmi_metadata_type.white_point.y,
+                      hdmi_metadata_type.max_display_mastering_luminance,
+                      hdmi_metadata_type.min_display_mastering_luminance,
+                      hdmi_metadata_type.max_cll,
+                      hdmi_metadata_type.max_fall);
 
-  if(last_hdr_metadata_.hdmi_metadata_type1.eotf == hdr_metadata->hdmi_metadata_type1.eotf){
+#ifdef ANDROID_S
+  hdr_metadata_infoframe &last_hdmi_metadata_type = last_hdr_metadata_.hdmi_metadata_type1;
+#elif ANDROID_P
+  hdr_metadata_infoframe &last_hdmi_metadata_type = last_hdr_metadata_.hdmi_metadata_type1;
+#else
+  hdr_metadata_infoframe &last_hdmi_metadata_type = last_hdr_metadata_.hdmi_metadata_type;
+#endif
+
+  if(last_hdmi_metadata_type.eotf == hdmi_metadata_type.eotf){
     HWC2_ALOGD_IF_DEBUG("hdr_output_metadata.eotf is same, skip update.");
     return 0;
   }
@@ -1122,7 +1138,7 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
 
   int ret = -1;
   if(hdr_metadata_property().id()){
-      HWC2_ALOGD_IF_DEBUG("hdr_metadata eotf=0x%x", hdr_metadata->hdmi_metadata_type1.eotf);
+      HWC2_ALOGD_IF_DEBUG("hdr_metadata eotf=0x%x", hdmi_metadata_type.eotf);
       drm_->CreatePropertyBlob(hdr_metadata, sizeof(struct hdr_output_metadata), &blob_id_);
       ret = drmModeAtomicAddProperty(pset, id(), hdr_metadata_property().id(), blob_id_);
       if (ret < 0) {
@@ -1133,7 +1149,7 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
   DrmColorspaceType colorspace = DrmColorspaceType::DEFAULT;
   if(colorspace_property().id()){
     // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
-    if(hdr_metadata->hdmi_metadata_type1.eotf == SMPTE_ST2084){
+    if(hdmi_metadata_type.eotf == SMPTE_ST2084){
       if(drm_->getDrmVersion() == 3){
         if(uColorFormat_ == output_rgb){
           colorspace = DrmColorspaceType::BT2020_RGB;

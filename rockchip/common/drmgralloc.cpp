@@ -714,6 +714,13 @@ int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
   return ret;
 }
 
+// HAL_PIXEL_FORMAT_BGR_888 定义在 Android 12
+// hardware/rockchip/libhardware_rockchip/include/hardware/hardware_rockchip.h 文件
+// 其他平台可能存在缺少定义的问题
+#ifndef HAL_PIXEL_FORMAT_BGR_888
+#define HAL_PIXEL_FORMAT_BGR_888  29
+#endif
+
 uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
   switch (hal_format) {
     case HAL_PIXEL_FORMAT_RGBA_1010102:
