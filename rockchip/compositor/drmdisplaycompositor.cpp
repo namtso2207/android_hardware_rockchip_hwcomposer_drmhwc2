@@ -2430,8 +2430,46 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
       }
     }
   }else{
+    // Metadata 不存在，则使用 Android Dataspace
     hdrLayer.metadataHdrParam_.codec_meta_exist = false;
     hdrLayer.metadataHdrParam_.p_hdr_codec_meta = NULL;
+
+    // Android bt2020 or bt709
+    switch(hdrLayer.eDataSpace_ & HAL_DATASPACE_STANDARD_MASK){
+      case HAL_DATASPACE_STANDARD_BT2020:
+      case HAL_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE :
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim = COLOR_PRIM_BT2020;
+        break;
+      default:
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim = COLOR_PRIM_BT709;
+        break;
+    }
+
+    // Android st2084 / HLG / SDR
+    switch(hdrLayer.eDataSpace_ & HAL_DATASPACE_TRANSFER_MASK){
+      case HAL_DATASPACE_TRANSFER_ST2084:
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf = SINK_EOTF_ST2084;
+        break;
+      case HAL_DATASPACE_TRANSFER_HLG :
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf = SINK_EOTF_HLG;
+        break;
+      default:
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf = SINK_EOTF_GAMMA_SDR;
+        break;
+    }
+
+    // Android full / limit range
+    switch(hdrLayer.eDataSpace_ & HAL_DATASPACE_RANGE_MASK){
+      case HAL_DATASPACE_RANGE_FULL:
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.range = RANGE_FULL;
+        break;
+      case HAL_DATASPACE_RANGE_LIMITED :
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.range = RANGE_LIMITED;
+        break;
+      default:
+        hdrLayer.metadataHdrParam_.hdr_dataspace_info.range = RANGE_LIMITED;
+        break;
+    }
   }
 
   hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = 0;
@@ -2456,6 +2494,10 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = hwc_get_int_property("vendor.hwc.vivid_dst_min", "10");
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("vendor.hwc.vivid_dst_max", "10000");
 
+    hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim = hwc_get_int_property("vendor.hwc.vivid_dataspace_pri", "0");
+    hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf = hwc_get_int_property("vendor.hwc.vivid_dataspace_eotf", "0");
+    hdrLayer.metadataHdrParam_.hdr_dataspace_info.range = hwc_get_int_property("vendor.hwc.vivid_dataspace_range", "0");
+
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_pq_max_y_mode = hwc_get_int_property("vendor.hwc.vivid_hdr_pq_max_y_mode", "0");
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_dst_gamma = (hwc_get_int_property("vendor.hwc.vivid_hdr_dst_gamma", "22") * 1.0 / 10);
     hdrLayer.metadataHdrParam_.hdr_user_cfg.s2h_sm_ratio = hwc_get_int_property("vendor.hwc.vivid_s2h_sm_ratio", "10") * 1.0 / 10;
@@ -2464,9 +2506,13 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = hwc_get_int_property("vendor.hwc.vivid_print_input_meta", "1");
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
   }
-  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: layer colorspace=%d eotf=%d",
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
             hdrLayer.uColorSpace,
-            hdrLayer.uEOTF);
+            hdrLayer.uEOTF,
+            hdrLayer.metadataHdrParam_.codec_meta_exist,
+            hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim,
+            hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf,
+            hdrLayer.metadataHdrParam_.hdr_dataspace_info.range);
   HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: color_prim=%d eotf=%d red_x=%d red_y=%d green_x=%d green_y=%d white_point_x=%d white_point_y=%d dst_min=%d dst_max=%d",
             hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim,
             hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf,
