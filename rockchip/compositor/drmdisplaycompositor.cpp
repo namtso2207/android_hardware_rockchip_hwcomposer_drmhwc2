@@ -858,7 +858,7 @@ int DrmDisplayCompositor::UpdateSidebandState() {
 
     // 若关闭Sideband，断开连接前，先释放可能存在的 request ReleaseFence
     if(request_sideband2_.tunnel_id_ == 0 && request_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(request_sideband2_.tunnel_id_,
+      if(dvp->SignalReleaseFence(current_sideband2_.tunnel_id_,
                                   request_sideband2_.buffer_->GetExternalId())){
         HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
                     request_sideband2_.buffer_->GetId());
