@@ -1602,6 +1602,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
         im_rect dst_rect;
         im_rect pat_rect;
 
+        memset(&src, 0x0, sizeof(rga_buffer_t));
+        memset(&dst, 0x0, sizeof(rga_buffer_t));
+        memset(&pat, 0x0, sizeof(rga_buffer_t));
+        memset(&src_rect, 0x0, sizeof(im_rect));
+        memset(&dst_rect, 0x0, sizeof(im_rect));
+        memset(&pat_rect, 0x0, sizeof(im_rect));
+
         std::shared_ptr<DrmBuffer> resetBuffer = resource_manager_->GetResetWBBuffer();
 
         // Set src buffer info

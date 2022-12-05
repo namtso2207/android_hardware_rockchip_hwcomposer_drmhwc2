@@ -389,6 +389,9 @@ std::shared_ptr<DrmBuffer> ResourceManager::GetResetWBBuffer(){
     rga_buffer_t src;
     im_rect src_rect;
 
+    memset(&src, 0x0, sizeof(rga_buffer_t));
+    memset(&src_rect, 0x0, sizeof(im_rect));
+
     // Set src buffer info
     src.fd      = mResetBackBuffer_->GetFd();
     src.width   = mResetBackBuffer_->GetWidth();
@@ -460,6 +463,11 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   rga_buffer_t pat;
   im_rect src_rect;
   im_rect pat_rect;
+
+  memset(&src, 0x0, sizeof(rga_buffer_t));
+  memset(&pat, 0x0, sizeof(rga_buffer_t));
+  memset(&src_rect, 0x0, sizeof(im_rect));
+  memset(&src_rect, 0x0, sizeof(im_rect));
 
   // Set src buffer info
   src.fd      = mFinishWriteBackBuffer_->GetFd();

@@ -1264,7 +1264,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
         if (ret) {
           ALOGE("Failed to add plane %d disable to pset", plane->id());
           drmModeAtomicFree(pset);
-
           return ret;
         }
         HWC2_ALOGI("Crtc-id = %d disable plane-id = %d", crtc->id(), plane->id());
@@ -1278,6 +1277,8 @@ int DrmDevice::UpdateDisplayMode(int display_id){
       drmModeAtomicFree(pset);
       return ret;
     }
+    drmModeAtomicFree(pset);
+    pset = NULL;
   }
 
   int ret;
