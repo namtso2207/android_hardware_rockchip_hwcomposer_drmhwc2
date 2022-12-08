@@ -90,8 +90,14 @@ int Hwc3528::assignPlaneByHWC(DrmDevice* drm){
   }
 
   for(auto &plane_group : all_plane_group){
-    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x",__FUNCTION__,__LINE__,
-             plane_group->planes[0]->name(),plane_group->current_crtc_);
+    if((plane_group->win_type & PLANE_RK3528_ALL_ESMART2_MASK) > 0){
+      // RK3528 图层切换后需要延迟使用
+      plane_group->delay_use_cnt = 16;
+    }
+    ALOGI_IF(DBG_INFO,"%s,line=%d, name=%s cur_crtcs_mask=0x%x delay_use_cnt=%d",__FUNCTION__,__LINE__,
+             plane_group->planes[0]->name(),
+             plane_group->current_crtc_,
+             plane_group->delay_use_cnt);
   }
   return 0;
 }

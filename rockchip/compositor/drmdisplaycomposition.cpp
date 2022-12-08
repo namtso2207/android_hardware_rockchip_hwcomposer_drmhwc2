@@ -173,6 +173,10 @@ int DrmDisplayComposition::DisableUnusedPlanes() {
                       (*iter_plane)->id(),(*iter_plane)->name());
             AddPlaneDisable(*iter_plane);
             // break;
+            // 延迟使用
+            if((*iter)->delay_use_cnt > 0){
+              (*iter)->delay_use_cnt--;
+            }
         }
       }
     }

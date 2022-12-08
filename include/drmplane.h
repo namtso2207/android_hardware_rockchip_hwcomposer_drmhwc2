@@ -35,6 +35,8 @@ typedef struct tagPlaneGroup{
   uint64_t share_id;
   uint64_t win_type;
   int64_t possible_display_=-1;
+  //RK3528 延迟使用
+  uint32_t delay_use_cnt;
 	std::vector<DrmPlane*> planes;
 
   uint32_t current_crtc_ = 0;

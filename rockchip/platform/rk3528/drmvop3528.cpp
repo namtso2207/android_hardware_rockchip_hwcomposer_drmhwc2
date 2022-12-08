@@ -502,6 +502,12 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                       ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,%s is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
                               (*iter_plane)->name(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
 
+                      if((*iter)->delay_use_cnt > 0){
+                        ALOGD_IF(LogLevel(DBG_DEBUG),"%s must disable, delay_use_cnt=%d",
+                            (*iter_plane)->name(), (*iter)->delay_use_cnt);
+                        continue;
+                      }
+
                       if(!(*iter_plane)->is_use() && (*iter_plane)->GetCrtcSupported(*crtc))
                       {
                           bool bNeed = false;

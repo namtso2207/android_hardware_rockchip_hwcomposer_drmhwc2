@@ -737,11 +737,19 @@ class DrmHwcTwo : public hwc2_device_t {
     bool bUseWriteBack_;
   };
 
+
+  enum PLUG_EVENT_TYPE{
+    DRM_HOTPLUG_NONE = 0,
+    DRM_HOTPLUG_PLUG_EVENT = 1,
+    DRM_HOTPLUG_UNPLUG_EVENT = 2,
+  };
+
   class DrmHotplugHandler : public DrmEventHandler {
    public:
     DrmHotplugHandler(DrmHwcTwo *hwc2, DrmDevice *drm)
         : hwc2_(hwc2), drm_(drm) {
     }
+    void HdmiTvOnlyOne(PLUG_EVENT_TYPE hdmi_hotplug_state);
     void HandleEvent(uint64_t timestamp_us);
     void HandleResolutionSwitchEvent(int display_id);
 
