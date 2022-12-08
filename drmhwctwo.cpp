@@ -553,6 +553,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit(bool clear_layer) {
 
   // soc_id
   ctx_.soc_id = resource_manager_->getSocId();
+  // display_id
+  ctx_.display_id = display;
+  // display-type
+  ctx_.display_type = connector_->type();
   // vop aclk
   ctx_.aclk = crtc_->get_aclk();
   // Baseparameter Info
