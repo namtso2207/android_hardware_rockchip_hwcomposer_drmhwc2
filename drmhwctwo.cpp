@@ -2680,12 +2680,21 @@ bool DrmHwcTwo::HwcDisplay::IsHdrMode(){
 int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   HWC2_ALOGD_IF_INFO("Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
 
+  if(ctx_.display_type == DRM_MODE_CONNECTOR_TV){
+    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s ColorSpace=%d eotf=%d",
+                      hdrLayer.uId_, hdrLayer.sLayerName_.c_str(),
+                      hdrLayer.uColorSpace,
+                      hdrLayer.uEOTF);
+    return -1;
+  }
+
   // Next hdr zpos must be 0
   if(hdrLayer.iZpos_ > 0){
     HWC2_ALOGD_IF_ERR("Next hdr zpos must be 0, Id=%d Name=%s zpos=%d",
                       hdrLayer.uId_, hdrLayer.sLayerName_.c_str(), hdrLayer.iZpos_);
     return -1;
   }
+
 
   // 算法解析库是否存在
   DrmHdrParser* dhp = DrmHdrParser::Get();
