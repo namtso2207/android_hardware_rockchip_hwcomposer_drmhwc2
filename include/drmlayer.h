@@ -292,14 +292,17 @@ struct DrmHwcLayer {
 
 #ifdef RK3528
   // RK3528 vpu prescale info.
-  bool bPreScaleVideo_;
   bool bNeedPreScale_;
+  bool bIsPreScale_;
+  DrmLayerInfoStore storePreScaleInfo_;
   metadata_for_rkvdec_scaling_t mMetadata_;
+
+  int SwitchPreScaleBufferInfo();
+  int ResetInfoFromPreScaleStore();
 #endif
 
   int ImportBuffer(Importer *importer);
   int Init();
-  int InitPreScaleRkvdec();
   int InitFromDrmHwcLayer(DrmHwcLayer *layer, Importer *importer);
   void SetBlend(HWC2::BlendMode blend);
   void SetTransform(HWC2::Transform sf_transform);
@@ -328,7 +331,7 @@ struct DrmHwcLayer {
   bool IsGlesCompose();
 #ifdef RK3528
   void ModifyDisplayFrame();
-  bool IsSupportPreScaleVideo(uint64_t usage);
+  bool IsPreScaleVideo(uint64_t usage);
 #endif
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
   bool IsMetadataHdr(uint64_t usage);

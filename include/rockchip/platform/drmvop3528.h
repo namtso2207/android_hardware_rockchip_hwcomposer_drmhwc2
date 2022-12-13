@@ -161,6 +161,10 @@ typedef struct StateContext{
   std::set<ComposeMode> setHwcPolicy;
   int iMixRequest_;
 
+  // Display type
+  uint32_t uDisplayType_;
+  uint32_t uDisplayTypeId_;
+
   // 8k display mode
   bool b8kMode_;
   bool b4k120pMode_;
@@ -246,6 +250,7 @@ struct SvepXml{
   void TryMix();
   void UpdateResevedPlane(DrmCrtc *crtc);
   bool CheckGLESLayer(DrmHwcLayer* layers);
+  void YuvEnablePreScaleMode(std::vector<DrmHwcLayer*> &layers);
   void InitStateContext(
       std::vector<DrmHwcLayer*> &layers,
       std::vector<PlaneGroup *> &plane_groups,

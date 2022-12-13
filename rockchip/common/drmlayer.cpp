@@ -140,7 +140,7 @@ void DrmHwcNativeHandle::Clear() {
 int DrmHwcLayer::ImportBuffer(Importer *importer) {
   uint32_t offsets[4] = {0};
 #ifdef RK3528
-  if(bNeedPreScale_){
+  if(bIsPreScale_){
     offsets[0] = mMetadata_.offset[0];
     offsets[1] = mMetadata_.offset[1];
     offsets[2] = mMetadata_.offset[2];
@@ -185,7 +185,7 @@ int DrmHwcLayer::Init() {
   uEOTF = GetEOTF(eDataSpace_);
 
 #ifdef RK3528
-  bPreScaleVideo_ = IsSupportPreScaleVideo(iUsage);
+  bIsPreScale_ = IsPreScaleVideo(iUsage);
   ModifyDisplayFrame();
 #endif
   return 0;
@@ -336,10 +336,11 @@ void DrmHwcLayer::SetTransform(HWC2::Transform sf_transform) {
         ALOGE_IF(LogLevel(DBG_DEBUG),"Unknow sf transform 0x%x",sf_transform);
   }
 }
-bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fource_format){
+bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fourcc_format){
 
-  switch(fource_format){
+  switch(fourcc_format){
     case DRM_FORMAT_NV12:
+    case DRM_FORMAT_NV12_10:
     case DRM_FORMAT_NV21:
     case DRM_FORMAT_NV16:
     case DRM_FORMAT_NV61:
@@ -377,6 +378,198 @@ bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fource_format){
 }
 
 #ifdef RK3528
+int DrmHwcLayer::SwitchPreScaleBufferInfo(){
+ DrmGralloc* gralloc =  DrmGralloc::getInstance();
+  if(gralloc == NULL){
+    return -1;
+  }
+
+  // sf_handle 为 null 并且不是 SidebandHandle
+  if((sf_handle == NULL && !bSidebandStreamLayer_) || !bYuv_){
+    return -1;
+  }
+
+  storePreScaleInfo_.valid_       = true;
+  storePreScaleInfo_.sf_handle    = sf_handle;
+  storePreScaleInfo_.transform    = transform;
+  storePreScaleInfo_.source_crop  = source_crop;
+  storePreScaleInfo_.display_frame  = display_frame;
+  storePreScaleInfo_.iFd_         = iFd_;
+  storePreScaleInfo_.iFormat_     = iFormat_;
+  storePreScaleInfo_.iWidth_      = iWidth_;
+  storePreScaleInfo_.iHeight_     = iHeight_;
+  storePreScaleInfo_.iStride_     = iStride_;
+  storePreScaleInfo_.iHeightStride_ = iHeightStride_;
+  storePreScaleInfo_.iByteStride_ = iByteStride_;
+  storePreScaleInfo_.iSize_       = iSize_;
+  storePreScaleInfo_.iUsage       = iUsage;
+  storePreScaleInfo_.uFourccFormat_ = uFourccFormat_;
+  storePreScaleInfo_.uModifier_     = uModifier_;
+  storePreScaleInfo_.sLayerName_    = sLayerName_;
+  storePreScaleInfo_.uBufferId_    = uBufferId_;
+  storePreScaleInfo_.uGemHandle_   = uGemHandle_;
+
+  metadata_for_rkvdec_scaling_t* metadata = NULL;
+  int ret = gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
+  HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata sf_handle=%p metadata=%p", sf_handle, metadata);
+  if(metadata != NULL){
+    metadata->requestMask = 1;
+
+    if(metadata->replyMask > 0){
+      bIsPreScale_ = true;
+      memcpy(&mMetadata_, metadata, sizeof(metadata_for_rkvdec_scaling_t));
+
+      hwc_frect source_crop;
+      source_crop.top    = metadata->srcTop;
+      source_crop.left   = metadata->srcLeft;
+      source_crop.right  = metadata->srcRight;
+      source_crop.bottom = metadata->srcBottom;
+      SetSourceCrop(source_crop);
+
+      iWidth_  = metadata->width;
+      iHeight_ = metadata->height;
+      iStride_ = metadata->pixel_stride;
+      iFormat_ = metadata->format;
+      iUsage   = metadata->usage;
+      iByteStride_     = metadata->byteStride[0];
+      uModifier_       = metadata->modifier;
+      uFourccFormat_ = gralloc->hwc_get_fourcc_from_hal_format(metadata->format);
+      Init();
+    }
+
+    // 打印参数
+    HWC2_ALOGD_IF_INFO("Name=%s metadata = %p", sLayerName_.c_str(), metadata);
+    HWC2_ALOGD_IF_INFO("version=0x%" PRIx64 " requestMask=0x%" PRIx64" "
+                      "replyMask=0x%" PRIx64 " BufferId=0x%" PRIx64,
+                        metadata->version,
+                        metadata->requestMask,
+                        metadata->replyMask,
+                        uBufferId_);
+    HWC2_ALOGD_IF_INFO("w=%d h=%d s=%d f=%d m=0x%" PRIx64 " usage=0x%x ",
+                                                        metadata->width,
+                                                        metadata->height,
+                                                        metadata->pixel_stride,
+                                                        metadata->format,
+                                                        metadata->modifier,
+                                                        metadata->usage);
+    HWC2_ALOGD_IF_INFO("crop=(%d,%d,%d,%d) ", metadata->srcLeft,
+                                      metadata->srcTop,
+                                      metadata->srcRight,
+                                      metadata->srcBottom);
+    HWC2_ALOGD_IF_INFO("layer_cnt=%d offset=%d,%d,%d,%d byteStride=%d,%d,%d,%d) ",
+                                      metadata->layer_cnt,
+                                      metadata->offset[0],
+                                      metadata->offset[1],
+                                      metadata->offset[2],
+                                      metadata->offset[3],
+                                      metadata->byteStride[0],
+                                      metadata->byteStride[1],
+                                      metadata->byteStride[2],
+                                      metadata->byteStride[3]);
+    gralloc->unlock_rkvdec_scaling_metadata(sf_handle);
+  }
+
+  // 还未获取到预缩小Buffer
+  if(bIsPreScale_ == false){
+    iWidth_        = iWidth_ / 2;
+    iHeight_       = iHeight_ / 2;
+    iStride_       = iStride_ / 2;
+    iHeightStride_ = iHeightStride_ / 2;
+    iByteStride_   = iByteStride_ / 2;
+    iSize_         = iSize_ / 2;
+    uModifier_     = 0;
+
+    // source_crop.left   = source_crop.left;
+    // source_crop.top    = source_crop.top;
+    source_crop.right  = source_crop.right / 2;
+    source_crop.bottom = source_crop.bottom / 2;
+
+    Init();
+    HWC2_ALOGD_IF_DEBUG(
+          "PreScale : LayerId[%u] Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
+          "                       Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
+                uId_,
+                storePreScaleInfo_.uFourccFormat_,storePreScaleInfo_.uFourccFormat_>>8,
+                storePreScaleInfo_.uFourccFormat_>>16,storePreScaleInfo_.uFourccFormat_>>24,
+                storePreScaleInfo_.iWidth_,storePreScaleInfo_.iHeight_,storePreScaleInfo_.iStride_,
+                storePreScaleInfo_.iHeightStride_,storePreScaleInfo_.iSize_,
+                storePreScaleInfo_.source_crop.left,storePreScaleInfo_.source_crop.top,
+                storePreScaleInfo_.source_crop.right,storePreScaleInfo_.source_crop.bottom,
+                storePreScaleInfo_.display_frame.left,storePreScaleInfo_.display_frame.top,
+                storePreScaleInfo_.display_frame.right,storePreScaleInfo_.display_frame.bottom,
+                TransformToString(storePreScaleInfo_.transform).c_str(),storePreScaleInfo_.transform,
+                uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
+                iWidth_,iHeight_,iStride_,iHeightStride_,iSize_,
+                source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+                display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,
+                TransformToString(transform).c_str(),transform);
+  }
+
+  return 0;
+
+}
+
+int DrmHwcLayer::ResetInfoFromPreScaleStore(){
+  if(!storePreScaleInfo_.valid_){
+    HWC2_ALOGE("ResetInfoFromStore fail, There may be some errors.");
+    return -1;
+  }
+
+  // 关闭解码预缩小
+ DrmGralloc* gralloc =  DrmGralloc::getInstance();
+  if(gralloc == NULL){
+    return -1;
+  }
+  metadata_for_rkvdec_scaling_t* metadata = NULL;
+  int ret = gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
+  HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata sf_handle=%p metadata=%p", sf_handle, metadata);
+  if(metadata != NULL){
+    bIsPreScale_ = false;
+    metadata->requestMask = 2;
+    memset(&mMetadata_, 0x0, sizeof(metadata_for_rkvdec_scaling_t));
+
+    // 打印参数
+    HWC2_ALOGD_IF_INFO("Name=%s metadata = %p", sLayerName_.c_str(), metadata);
+    HWC2_ALOGD_IF_INFO("version=0x%" PRIx64 " requestMask=0x%" PRIx64" "
+                      "replyMask=0x%" PRIx64 " BufferId=0x%" PRIx64,
+                        metadata->version,
+                        metadata->requestMask,
+                        metadata->replyMask,
+                        uBufferId_);
+    gralloc->unlock_rkvdec_scaling_metadata(sf_handle);
+  }
+
+  sf_handle    = storePreScaleInfo_.sf_handle;
+  transform    = storePreScaleInfo_.transform;
+  source_crop  = storePreScaleInfo_.source_crop;
+  iFd_         = storePreScaleInfo_.iFd_;
+  iFormat_     = storePreScaleInfo_.iFormat_;
+  iWidth_      = storePreScaleInfo_.iWidth_ ;
+  iHeight_     = storePreScaleInfo_.iHeight_;
+  iStride_     = storePreScaleInfo_.iStride_;
+  iByteStride_ = storePreScaleInfo_.iByteStride_;
+  iUsage       = storePreScaleInfo_.iUsage;
+  uFourccFormat_ = storePreScaleInfo_.uFourccFormat_;
+  uModifier_     = storePreScaleInfo_.uModifier_;
+  sLayerName_    = storePreScaleInfo_.sLayerName_;
+  uBufferId_     = storePreScaleInfo_.uBufferId_;
+  uGemHandle_    = storePreScaleInfo_.uGemHandle_;
+  bIsPreScale_ = false;
+  Init();
+  HWC2_ALOGD_IF_DEBUG(
+             "PreScale reset:DrmHwcLayer[%4u] Buffer[w/h/s/format]=[%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
+             "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d,gles=%d\n",
+             uId_,iWidth_,iHeight_,iStride_,iFormat_,uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
+             TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
+             source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
+             display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,bGlesCompose_);
+
+  memset(&storePreScaleInfo_, 0x00, sizeof(storePreScaleInfo_));
+  storePreScaleInfo_.valid_ = false;
+
+  return 0;
+}
+
 void DrmHwcLayer::ModifyDisplayFrame(){
   if(gIsRK3528()){
     if(!bYuv_){
@@ -466,7 +659,8 @@ void DrmHwcLayer::ModifyDisplayFrame(){
     }
   }
 }
-bool DrmHwcLayer::IsSupportPreScaleVideo(uint64_t usage){
+
+bool DrmHwcLayer::IsPreScaleVideo(uint64_t usage){
   // RK3528 usage 0x01000000U 认为是 MetadataHdr 图层
   // 定义位于 Android 9.0 libhardware/../gralloc.h GRALLOC_USAGE_RKVDEC_SCALING
   if(gIsRK3528()){
@@ -476,6 +670,7 @@ bool DrmHwcLayer::IsSupportPreScaleVideo(uint64_t usage){
   }
   return false;
 }
+
 #endif
 
 bool DrmHwcLayer::IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform){

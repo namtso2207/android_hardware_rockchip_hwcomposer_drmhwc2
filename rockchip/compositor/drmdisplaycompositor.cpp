@@ -1033,6 +1033,18 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         continue;
       }
 
+
+#ifdef RK3528
+      if(layer.bNeedPreScale_ && !layer.bIsPreScale_){
+        HWC2_ALOGD_IF_WARN("%s bNeedPreScale_=%d bIsPreScale_=%d skip until PreScale ready.",
+                            layer.sLayerName_.c_str(),
+                            layer.bNeedPreScale_,
+                            layer.bIsPreScale_);
+        continue;
+      }
+#endif
+
+
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
       display_frame_mirror = layer.display_frame_mirror;

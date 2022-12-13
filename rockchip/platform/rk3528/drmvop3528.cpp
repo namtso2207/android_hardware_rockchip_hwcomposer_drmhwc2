@@ -849,6 +849,35 @@ int Vop3528::MatchPlanes(
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
     ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),zpos);
+#ifdef RK3528
+    // RK3528 支持预缩小，当源片源无法匹配时，需要考虑预缩小是否可以满足需求；
+    if(ret){
+      for(auto& drmlayer : i->second){
+        if(drmlayer->bYuv_){
+          if(ctx.request.iAfbcdCnt > 0 && drmlayer->bAfbcd_){
+            ctx.request.iAfbcdCnt--;
+          }
+          drmlayer->bNeedPreScale_ = true;
+          drmlayer->SwitchPreScaleBufferInfo();
+        }
+      }
+      HWC2_ALOGD_IF_DEBUG("PreScaleVideo: Try to use PreScale video mode, try MatchPlane again.");
+      ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+                        crtc, std::make_pair(i->first, i->second),zpos);
+      if(ret){
+        ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match prescale layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
+        for(auto& drmlayer : i->second){
+          if(drmlayer->bYuv_){
+            drmlayer->ResetInfoFromPreScaleStore();
+            drmlayer->bNeedPreScale_ = false;
+            if(drmlayer->bAfbcd_){
+              ctx.request.iAfbcdCnt++;
+            }
+          }
+        }
+      }
+    }
+#endif
     if (ret) {
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
       ResetLayer(layers);
@@ -2043,6 +2072,13 @@ void Vop3528::InitStateContext(
   // Check dispaly Mode : 8K Mode or 4K 120 Mode
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+
+  // Store display type
+  if(conn){
+    ctx.state.uDisplayType_   = conn->type();
+    ctx.state.uDisplayTypeId_ = conn->type_id();
+  }
+
   if(conn && conn->state() == DRM_MODE_CONNECTED){
     DrmMode mode = conn->current_mode();
     if(ctx.state.b8kMode_ != mode.is_8k_mode()){
