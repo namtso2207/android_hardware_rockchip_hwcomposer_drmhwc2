@@ -1817,8 +1817,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   }
 
   if(!init_success_){
-    HWC2_ALOGE("init_success_=%d skip.",init_success_);
-    return HWC2::Error::BadDisplay;
+    HWC2_ALOGD_IF_ERR("init_success_=%d skip.",init_success_);
+    return HWC2::Error::None;
   }
 
   DumpAllLayerData();
@@ -2257,8 +2257,11 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     DumpDisplayLayersInfo();
 
   if(!init_success_){
-    HWC2_ALOGE("init_success_=%d skip.",init_success_);
-    return HWC2::Error::BadDisplay;
+    HWC2_ALOGD_IF_ERR("init_success_=%d skip.",init_success_);
+    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+        l.second.set_validated_type(l.second.sf_type());
+    }
+    return HWC2::Error::None;
   }
   // Enable/disable debug log
   UpdateLogLevel();
@@ -2285,7 +2288,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     }else{
       l.second.set_validated_type(HWC2::Composition::Client);
     }
-
   }
 
   ret = CheckDisplayState();
