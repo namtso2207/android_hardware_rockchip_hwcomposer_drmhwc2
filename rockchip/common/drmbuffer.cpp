@@ -26,6 +26,8 @@
 #include <inttypes.h>
 namespace android{
 
+#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+
 static uint64_t getUniqueId() {
     static volatile int32_t nextId = 0;
     uint64_t id = static_cast<uint32_t>(android_atomic_inc(&nextId));
@@ -294,6 +296,14 @@ uint32_t DrmBuffer::DrmFormatToPlaneNum(uint32_t drm_format) {
 uint32_t DrmBuffer::GetFbId(){
   if(uFbId_ > 0)
     return uFbId_;
+#ifdef RK3528
+  if (uPreScaleFbId_ > 0){
+    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
+      ALOGE("Failed to rm fb %d", uPreScaleFbId_);
+    }
+    uPreScaleFbId_ = 0;
+  }
+#endif
   uint32_t pitches[4] = {0};
   uint32_t offsets[4] = {0};
   uint32_t gem_handles[4] = {0};
@@ -331,16 +341,16 @@ uint32_t DrmBuffer::GetFbId(){
 		                                   &uFbId_,
                                        DRM_MODE_FB_MODIFIERS);
 
-  HWC2_ALOGD_IF_DEBUG("ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,"
-                      "gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
+  HWC2_ALOGD_IF_DEBUG("ImportBuffer fd=%d,w=%d,h=%d,format=%c%c%c%c,"
+                      "gem_handle=%d,pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
                        ptrDrmGralloc_->get_drm_device(),iWidth_, iHeight_,
                        uFourccFormat_, uFourccFormat_ >> 8, uFourccFormat_ >> 16, uFourccFormat_ >> 24,
                        gem_handles[0], pitches[0], uFbId_, modifier[0]);
 
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
-    HWC2_ALOGE("ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,"
-               "gem_handle=%d,bo->pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
+    HWC2_ALOGE("ImportBuffer fd=%d,w=%d,h=%d,format=%c%c%c%c,"
+               "gem_handle=%d,pitches[0]=%d,fb_id=%d,modifier = %" PRIx64 ,
                 ptrDrmGralloc_->get_drm_device(),iWidth_, iHeight_,
                 uFourccFormat_, uFourccFormat_ >> 8, uFourccFormat_ >> 16, uFourccFormat_ >> 24,
                 gem_handles[0], pitches[0], uFbId_, modifier[0]);
@@ -349,6 +359,7 @@ uint32_t DrmBuffer::GetFbId(){
 
   return uFbId_;
 }
+
 void* DrmBuffer::Lock(){
   if(!buffer_){
     HWC2_ALOGI("LayerId=%" PRIu64 " Buffer is null.",uId);
@@ -472,5 +483,190 @@ int DrmBuffer::DumpData(){
 
   return ret;
 }
+
+
+#ifdef RK3528
+bool DrmBuffer::IsPreScaleBuffer(){
+  return bIsPreScale_;
+}
+
+int DrmBuffer::SwitchToPreScaleBuffer(){
+  metadata_for_rkvdec_scaling_t* metadata = NULL;
+  int ret = ptrDrmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
+  HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);
+  if(metadata != NULL){
+    metadata->requestMask = 1;
+    memcpy(&mMetadata_, metadata, sizeof(metadata_for_rkvdec_scaling_t));
+    if(metadata->replyMask > 0){
+      bIsPreScale_ = true;
+      SetCrop(metadata->srcTop,
+              metadata->srcLeft,
+              metadata->srcRight,
+              metadata->srcBottom);
+
+      iWidth_  = metadata->width;
+      iHeight_ = metadata->height;
+      iStride_ = metadata->pixel_stride;
+      iFormat_ = metadata->format;
+      iUsage_   = metadata->usage;
+      iByteStride_     = metadata->byteStride[0];
+      uModifier_       = metadata->modifier;
+      uFourccFormat_ = ptrDrmGralloc_->hwc_get_fourcc_from_hal_format(metadata->format);
+    }
+
+    // 打印参数
+    HWC2_ALOGD_IF_INFO("Name=%s metadata = %p", sName_.c_str(), metadata);
+    HWC2_ALOGD_IF_INFO("version=0x%" PRIx64 " requestMask=0x%" PRIx64" "
+                      "replyMask=0x%" PRIx64 " BufferId=0x%" PRIx64,
+                        metadata->version,
+                        metadata->requestMask,
+                        metadata->replyMask,
+                        uBufferId_);
+    HWC2_ALOGD_IF_INFO("w=%d h=%d s=%d f=%d m=0x%" PRIx64 " usage=0x%x ",
+                                                        metadata->width,
+                                                        metadata->height,
+                                                        metadata->pixel_stride,
+                                                        metadata->format,
+                                                        metadata->modifier,
+                                                        metadata->usage);
+    HWC2_ALOGD_IF_INFO("crop=(%d,%d,%d,%d) ", metadata->srcLeft,
+                                      metadata->srcTop,
+                                      metadata->srcRight,
+                                      metadata->srcBottom);
+    HWC2_ALOGD_IF_INFO("layer_cnt=%d offset=%d,%d,%d,%d byteStride=%d,%d,%d,%d) ",
+                                      metadata->layer_cnt,
+                                      metadata->offset[0],
+                                      metadata->offset[1],
+                                      metadata->offset[2],
+                                      metadata->offset[3],
+                                      metadata->byteStride[0],
+                                      metadata->byteStride[1],
+                                      metadata->byteStride[2],
+                                      metadata->byteStride[3]);
+    ptrDrmGralloc_->unlock_rkvdec_scaling_metadata(buffer_);
+  }
+
+  if(bIsPreScale_)
+    return 0;
+  else
+    return -1;
+}
+
+int DrmBuffer::ResetPreScaleBuffer(){
+  bIsPreScale_ = false;
+  iFd_     = ptrDrmGralloc_->hwc_get_handle_primefd(buffer_);
+  iWidth_  = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+  iHeight_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+  iStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+  iHeightStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT_STRIDE);
+  iByteStride_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
+  iSize_   = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
+  iFormat_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+  uFourccFormat_ = ptrDrmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+  uModifier_ = ptrDrmGralloc_->hwc_get_handle_format_modifier(buffer_);
+  ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
+  ptrDrmGralloc_->hwc_get_handle_name(buffer_, sName_);
+  int ret = ptrDrmGralloc_->hwc_get_gemhandle_from_fd(iFd_, uBufferId_, &uGemHandle_);
+  if(ret){
+    HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
+    return -1;
+  }
+
+  HWC2_ALOGI("ResetPreScale Buffer fd=%d w=%d h=%d s=%d hs=%d bs=%d f=%d fcc=%c%c%c%c mdf=0x%" PRIx64 " BufferId=0x%" PRIx64 "name=%s ",
+             iFd_, iWidth_, iHeight_, iStride_, iHeightStride_, iByteStride_,iFormat_,
+             uFourccFormat_ , uFourccFormat_ >> 8 , uFourccFormat_ >> 16, uFourccFormat_ >> 24,
+             uModifier_, uBufferId_, sName_.c_str());
+  bIsPreScale_ = false;
+  return 0;
+}
+
+uint32_t DrmBuffer::GetPreScaleFbId(){
+  if(uPreScaleFbId_ > 0)
+    return uPreScaleFbId_;
+
+  if (uFbId_ > 0){
+    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
+      ALOGE("Failed to rm fb %d", uFbId_);
+    }
+    uFbId_ = 0;
+  }
+
+  uint32_t pitches[4] = {0};
+  uint32_t offsets[4] = {0};
+  uint32_t gem_handles[4] = {0};
+  uint64_t modifier[4] = {0};
+
+  pitches[0] = iByteStride_;
+  gem_handles[0] = uGemHandle_;
+
+  if(bIsPreScale_){
+    offsets[0] = mMetadata_.offset[0];
+    offsets[1] = mMetadata_.offset[1];
+    offsets[2] = mMetadata_.offset[2];
+    offsets[3] = mMetadata_.offset[3];
+  }
+
+  if(DrmFormatToPlaneNum(uFourccFormat_) == 2){
+    if(uFourccFormat_ == DRM_FORMAT_NV24 ||
+       uFourccFormat_ == DRM_FORMAT_NV42){
+      pitches[1] = pitches[0]*2;
+      gem_handles[1] = uGemHandle_;
+      if(offsets[1] == 0){
+        offsets[1] = offsets[0] + pitches[1] * iHeight_;
+      }
+    }else{
+      pitches[1] = pitches[0];
+      gem_handles[1] = uGemHandle_;
+      if(offsets[1] == 0){
+        offsets[1] = offsets[0] + pitches[1] * iHeight_;
+      }
+    }
+  }
+
+  modifier[0] = uModifier_;
+  if(DrmFormatToPlaneNum(uFourccFormat_) == 2)
+    modifier[1] = uModifier_;
+
+
+  if(uFourccFormat_ == DRM_FORMAT_NV12_10 && uModifier_ == 0){
+    iWidth_ = iWidth_ / 1.25;
+    iWidth_ = ALIGN_DOWN(iWidth_,2);
+  }
+
+  int ret = drmModeAddFB2WithModifiers(ptrDrmGralloc_->get_drm_device(),
+                                       iWidth_,
+                                       iHeight_,
+                                       uFourccFormat_,
+                                       gem_handles,
+                                       pitches,
+                                       offsets,
+                                       modifier,
+		                                   &uPreScaleFbId_,
+                                       DRM_MODE_FB_MODIFIERS);
+
+  HWC2_ALOGD_IF_DEBUG("ImportBuffer fd=%d,w=%d,h=%d,format=%c%c%c%c,"
+               "gem_handle=%d %d %d %d, pitches[0]=%d %d %d %d, offsets[0]=%d %d %d %d fb_id=%d, modifier = %" PRIx64 ,
+                ptrDrmGralloc_->get_drm_device(),iWidth_, iHeight_,
+                uFourccFormat_, uFourccFormat_ >> 8, uFourccFormat_ >> 16, uFourccFormat_ >> 24,
+                gem_handles[0], gem_handles[1], gem_handles[2], gem_handles[3],
+                pitches[0], pitches[1], pitches[2], pitches[3],
+                offsets[0], offsets[1], offsets[2], offsets[3],
+                uPreScaleFbId_, modifier[0]);
+  if (ret) {
+    ALOGE("could not create drm fb %d", ret);
+    HWC2_ALOGE("ImportBuffer fd=%d,w=%d,h=%d,format=%c%c%c%c,"
+               "gem_handle=%d %d %d %d, pitches[0]=%d %d %d %d, offsets[0]=%d %d %d %d fb_id=%d, modifier = %" PRIx64 ,
+                ptrDrmGralloc_->get_drm_device(),iWidth_, iHeight_,
+                uFourccFormat_, uFourccFormat_ >> 8, uFourccFormat_ >> 16, uFourccFormat_ >> 24,
+                gem_handles[0], gem_handles[1], gem_handles[2], gem_handles[3],
+                pitches[0], pitches[1], pitches[2], pitches[3],
+                offsets[0], offsets[1], offsets[2], offsets[3],
+                uPreScaleFbId_, modifier[0]);
+    return ret;
+  }
+
+  return uPreScaleFbId_;
+}
+#endif
 } // namespace android
 

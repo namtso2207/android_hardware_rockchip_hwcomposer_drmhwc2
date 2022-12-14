@@ -66,6 +66,14 @@ public:
   int WaitReleaseFence();
   int DumpData();
 
+#ifdef RK3528
+  // RK3528 解码器支持预缩小功能
+  bool IsPreScaleBuffer();
+  int SwitchToPreScaleBuffer();
+  int ResetPreScaleBuffer();
+  uint32_t GetPreScaleFbId();
+#endif
+
 private:
   uint64_t uId;
   int iParentId_;
@@ -96,6 +104,11 @@ private:
   UniqueFd iFinishFence_;
   UniqueFd iReleaseFence_;
 
+#ifdef RK3528
+  bool bIsPreScale_;
+  metadata_for_rkvdec_scaling_t mMetadata_;
+  uint32_t uPreScaleFbId_;
+#endif
   // Init flags
   bool bInit_;
   std::string sName_;

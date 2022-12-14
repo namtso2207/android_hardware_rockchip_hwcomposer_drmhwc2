@@ -1033,7 +1033,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         continue;
       }
 
-
 #ifdef RK3528
       if(layer.bNeedPreScale_ && !layer.bIsPreScale_){
         HWC2_ALOGD_IF_WARN("%s bNeedPreScale_=%d bIsPreScale_=%d skip until PreScale ready.",
@@ -1043,7 +1042,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         continue;
       }
 #endif
-
 
       fb_id = layer.buffer->fb_id;
       display_frame = layer.display_frame;
@@ -2062,27 +2060,52 @@ int DrmDisplayCompositor::CollectVPInfo() {
                      layer.iTunnelId_);
           continue;
         }
+#ifdef RK3528
+        if(layer.bNeedPreScale_){
+          int ret = buffer->SwitchToPreScaleBuffer();
+          if(ret){
+            HWC2_ALOGD_IF_WARN("SidebandStream: SwitchToPreScaleBuffer fail, iTunnelId = %d",
+                        layer.iTunnelId_);
+          }else{
+            // 更新 sideband Buffer 参数
+            fb_id = buffer->GetPreScaleFbId();
+            yuv = layer.bYuv_;
+            afbcd = buffer->GetModifier() > 0;
+            int left = 0, top = 0, right = 0, bottom = 0;
+            buffer->GetCrop(&left, &top, &right, &bottom);
+            source_crop.left   = (float)left;
+            source_crop.top    = (float)top;
+            source_crop.right  = (float)right;
+            source_crop.bottom = (float)bottom;
+
+            layer.sf_handle = buffer->GetHandle();
+            layer.bIsPreScale_ = true;
+          }
+        }else
+#endif
+        {
+          // 更新 sideband Buffer 参数
+          fb_id = buffer->GetFbId();
+          yuv = layer.bYuv_;
+          afbcd = buffer->GetModifier() > 0;
+          int left = 0, top = 0, right = 0, bottom = 0;
+          buffer->GetCrop(&left, &top, &right, &bottom);
+          source_crop.left   = (float)left;
+          source_crop.top    = (float)top;
+          source_crop.right  = (float)right;
+          source_crop.bottom = (float)bottom;
+
+          layer.sf_handle = buffer->GetHandle();
+        }
 
         // 更新Sideband请求状态状态
         current_sideband2_.enable_ = true;
         current_sideband2_.tunnel_id_ = layer.iTunnelId_;
         current_sideband2_.buffer_ = buffer;
 
-        // 更新 sideband Buffer 参数
-        fb_id = buffer->GetFbId();
-        yuv = layer.bYuv_;
-        afbcd = buffer->GetModifier() > 0;
-        int left = 0, top = 0, right = 0, bottom = 0;
-        buffer->GetCrop(&left, &top, &right, &bottom);
-        source_crop.left   = (float)left;
-        source_crop.top    = (float)top;
-        source_crop.right  = (float)right;
-        source_crop.bottom = (float)bottom;
-
-        layer.sf_handle = buffer->GetHandle();
         // RK3528 更新HDR信息, 若无报错，则使用 metadata Hdr模式
         if(gIsRK3528()){
-          if(!CollectVPHdrInfo(layer)){
+          if(comp_plane.get_zpos() == 0 && !CollectVPHdrInfo(layer)){
             current_composition->SetDisplayHdrMode(DRM_HWC_METADATA_HDR, layer.eDataSpace_);
           }else{
             current_composition->SetDisplayHdrMode(DRM_HWC_SDR, HAL_DATASPACE_UNKNOWN);
@@ -2103,6 +2126,16 @@ int DrmDisplayCompositor::CollectVPInfo() {
         yuv = layer.bYuv_;
         source_crop = layer.source_crop;
       }
+
+#ifdef RK3528
+      if(layer.bNeedPreScale_ && !layer.bIsPreScale_){
+        HWC2_ALOGD_IF_WARN("%s bNeedPreScale_=%d bIsPreScale_=%d skip until PreScale ready.",
+                            layer.sLayerName_.c_str(),
+                            layer.bNeedPreScale_,
+                            layer.bIsPreScale_);
+        continue;
+      }
+#endif
 
       display_frame = layer.display_frame;
       display_frame_mirror = layer.display_frame_mirror;
