@@ -1256,6 +1256,33 @@ bool SortByZpos(const DrmHwcLayer &drmHwcLayer1, const DrmHwcLayer &drmHwcLayer2
     return drmHwcLayer1.iZpos_ < drmHwcLayer2.iZpos_;
 }
 
+HWC2::Error DrmHwcTwo::HwcDisplay::ModifyHwcLayerDisplayFrame(bool only_fb_scale) {
+
+  bool need_overscan_by_scale = false;
+  // RK3588 不支持Overscan
+  if(gIsRK3588()){
+    need_overscan_by_scale = true;
+  }
+
+  // 隔行扫描分辨率overscan效果比较差
+  if(connector_ &&
+     connector_->current_mode().id() > 0 &&
+     connector_->current_mode().interlaced() > 0){
+    need_overscan_by_scale = true;
+  }
+
+  // 使能 scale
+  if(need_overscan_by_scale){
+
+    for(auto &drmLayer : drm_hwc_layers_){
+      if(only_fb_scale && !drmLayer.bFbTarget_)
+        continue;
+      drmLayer.ModifyDisplayFrameForOverscan(&ctx_);
+    }
+  }
+  return HWC2::Error::None;
+}
+
 HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   drm_hwc_layers_.clear();
 
@@ -1286,11 +1313,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitDrmHwcLayer() {
   return HWC2::Error::None;
 }
 
+
+
 HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   int ret;
 
   InitDrmHwcLayer();
+
+  // 需要修改 HwcLayer display frame 的情况列举：
+  // 1. RK3588 不支持Overscan
+  // 2. 隔行扫描分辨率 overscan 效果较差
+  // 3. RK3528 运营商版本需要提供视频显示区域修改接口
+  ModifyHwcLayerDisplayFrame(false);
 
   std::vector<DrmHwcLayer *> layers;
   layers.reserve(drm_hwc_layers_.size());
@@ -1479,7 +1514,9 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
 #endif
       }
     }
+    ModifyHwcLayerDisplayFrame(true);
   }
+
 
   // 所有匹配 DrmPlane 图层，请求 Import 获取 FbId
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
@@ -2555,11 +2592,7 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
 }
 
 int DrmHwcTwo::HwcDisplay::UpdateOverscan(){
-  // RK3588 没有Overscan模块，所以需要用图层Scale实现Overscan效果
-  if(isRK3588(resource_manager_->getSocId()))
-    connector_->UpdateOverscan(handle_, ctx_.overscan_value);
-  else
-    ;// do notiong.
+  connector_->UpdateOverscan(handle_, ctx_.overscan_value);
   return 0;
 }
 

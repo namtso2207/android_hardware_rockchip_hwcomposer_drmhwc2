@@ -225,8 +225,6 @@ void DrmHwcLayer::SetSourceCrop(hwc_frect_t const &crop) {
   source_crop = crop;
 }
 
-#define OVERSCAN_MIN_VALUE              (80)
-#define OVERSCAN_MAX_VALUE              (100)
 void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
                                   hwc2_drm_display_t *ctx) {
   float left_scale   = 1;
@@ -244,60 +242,62 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
   display_frame.right  = (int)(frame.right  * right_scale ) + ctx->rel_xoffset;
   display_frame.top    = (int)(frame.top    * top_scale   ) + ctx->rel_yoffset;
   display_frame.bottom = (int)(frame.bottom * bottom_scale) + ctx->rel_yoffset;
+}
 
-  // RK3588 硬件未提供Overscan功能，所以需要利用Scale实现Overscan效果
-  if(isRK3588(ctx->soc_id)){
-    int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
-    sscanf(ctx->overscan_value, "overscan %d,%d,%d,%d", &left_margin,
-                                                        &top_margin,
-                                                        &right_margin,
-                                                        &bottom_margin);
+#define OVERSCAN_MIN_VALUE              (80)
+#define OVERSCAN_MAX_VALUE              (100)
+void DrmHwcLayer::ModifyDisplayFrameForOverscan(hwc2_drm_display_t *ctx){
+  int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
+  sscanf(ctx->overscan_value, "overscan %d,%d,%d,%d", &left_margin,
+                                                      &top_margin,
+                                                      &right_margin,
+                                                      &bottom_margin);
 
-    HWC2_ALOGD_IF_DEBUG("overscan(%d,%d,%d,%d)",left_margin,
-                                                top_margin,
-                                                right_margin,
-                                                bottom_margin);
+  float left_margin_f, right_margin_f, top_margin_f, bottom_margin_f;
+  float lscale = 0, tscale = 0, rscale = 0, bscale = 0;
+  int disp_old_l,disp_old_t,disp_old_r,disp_old_b;
+  int dst_w = (int)(display_frame.right - display_frame.left);
+  int dst_h = (int)(display_frame.bottom - display_frame.top);
 
+  //limit overscan to (OVERSCAN_MIN_VALUE,OVERSCAN_MAX_VALUE)
+  if (left_margin   < OVERSCAN_MIN_VALUE) left_margin   = OVERSCAN_MIN_VALUE;
+  if (top_margin    < OVERSCAN_MIN_VALUE) top_margin    = OVERSCAN_MIN_VALUE;
+  if (right_margin  < OVERSCAN_MIN_VALUE) right_margin  = OVERSCAN_MIN_VALUE;
+  if (bottom_margin < OVERSCAN_MIN_VALUE) bottom_margin = OVERSCAN_MIN_VALUE;
 
-    float left_margin_f, right_margin_f, top_margin_f, bottom_margin_f;
-    float lscale = 0, tscale = 0, rscale = 0, bscale = 0;
-    int disp_old_l,disp_old_t,disp_old_r,disp_old_b;
-    int dst_w = (int)(display_frame.right - display_frame.left);
-    int dst_h = (int)(display_frame.bottom - display_frame.top);
+  if (left_margin   > OVERSCAN_MAX_VALUE) left_margin   = OVERSCAN_MAX_VALUE;
+  if (top_margin    > OVERSCAN_MAX_VALUE) top_margin    = OVERSCAN_MAX_VALUE;
+  if (right_margin  > OVERSCAN_MAX_VALUE) right_margin  = OVERSCAN_MAX_VALUE;
+  if (bottom_margin > OVERSCAN_MAX_VALUE) bottom_margin = OVERSCAN_MAX_VALUE;
 
-    //limit overscan to (OVERSCAN_MIN_VALUE,OVERSCAN_MAX_VALUE)
-    if (left_margin   < OVERSCAN_MIN_VALUE) left_margin   = OVERSCAN_MIN_VALUE;
-    if (top_margin    < OVERSCAN_MIN_VALUE) top_margin    = OVERSCAN_MIN_VALUE;
-    if (right_margin  < OVERSCAN_MIN_VALUE) right_margin  = OVERSCAN_MIN_VALUE;
-    if (bottom_margin < OVERSCAN_MIN_VALUE) bottom_margin = OVERSCAN_MIN_VALUE;
+  left_margin_f   = (float)(100 - left_margin   ) / 2;
+  top_margin_f    = (float)(100 - top_margin    ) / 2;
+  right_margin_f  = (float)(100 - right_margin  ) / 2;
+  bottom_margin_f = (float)(100 - bottom_margin) / 2;
 
-    if (left_margin   > OVERSCAN_MAX_VALUE) left_margin   = OVERSCAN_MAX_VALUE;
-    if (top_margin    > OVERSCAN_MAX_VALUE) top_margin    = OVERSCAN_MAX_VALUE;
-    if (right_margin  > OVERSCAN_MAX_VALUE) right_margin  = OVERSCAN_MAX_VALUE;
-    if (bottom_margin > OVERSCAN_MAX_VALUE) bottom_margin = OVERSCAN_MAX_VALUE;
+  lscale = ((float)left_margin_f   / 100);
+  tscale = ((float)top_margin_f    / 100);
+  rscale = ((float)right_margin_f  / 100);
+  bscale = ((float)bottom_margin_f / 100);
 
-    left_margin_f   = (float)(100 - left_margin   ) / 2;
-    top_margin_f    = (float)(100 - top_margin    ) / 2;
-    right_margin_f  = (float)(100 - right_margin  ) / 2;
-    bottom_margin_f = (float)(100 - bottom_margin) / 2;
+  disp_old_l = display_frame.left;
+  disp_old_t = display_frame.top;
+  disp_old_r = display_frame.right;
+  disp_old_b = display_frame.bottom;
 
-    lscale = ((float)left_margin_f   / 100);
-    tscale = ((float)top_margin_f    / 100);
-    rscale = ((float)right_margin_f  / 100);
-    bscale = ((float)bottom_margin_f / 100);
+  display_frame.left = ((int)(display_frame.left  * (1.0 - lscale - rscale)) + (int)(ctx->rel_xres * lscale));
+  display_frame.top =  ((int)(display_frame.top   * (1.0 - tscale - bscale)) + (int)(ctx->rel_yres * tscale));
+  dst_w -= ((int)(dst_w * lscale) + (int)(dst_w * rscale));
+  dst_h -= ((int)(dst_h * tscale) + (int)(dst_h * bscale));
+  display_frame.right  = display_frame.left + dst_w;
+  display_frame.bottom = display_frame.top  + dst_h;
 
-    disp_old_l = display_frame.left;
-    disp_old_t = display_frame.top;
-    disp_old_r = display_frame.right;
-    disp_old_b = display_frame.bottom;
+  HWC2_ALOGD_IF_DEBUG("overscan(%d,%d,%d,%d) display_frame(%d,%d,%d,%d) => (%d,%d,%d,%d)",
+    left_margin, top_margin, right_margin, bottom_margin,
+    disp_old_l, disp_old_t, disp_old_r, disp_old_b,
+    display_frame.left, display_frame.top, display_frame.right, display_frame.bottom);
 
-    display_frame.left = ((int)(display_frame.left  * (1.0 - lscale - rscale)) + (int)(ctx->rel_xres * lscale));
-    display_frame.top =  ((int)(display_frame.top   * (1.0 - tscale - bscale)) + (int)(ctx->rel_yres * tscale));
-    dst_w -= ((int)(dst_w * lscale) + (int)(dst_w * rscale));
-    dst_h -= ((int)(dst_h * tscale) + (int)(dst_h * bscale));
-    display_frame.right  = display_frame.left + dst_w;
-    display_frame.bottom = display_frame.top  + dst_h;
-  }
+  return;
 }
 
 void DrmHwcLayer::SetDisplayFrameMirror(hwc_rect_t const &frame) {

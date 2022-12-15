@@ -308,6 +308,7 @@ struct DrmHwcLayer {
   void SetTransform(HWC2::Transform sf_transform);
   void SetSourceCrop(hwc_frect_t const &crop);
   void SetDisplayFrame(hwc_rect_t const &frame, hwc2_drm_display_t *ctx);
+  void ModifyDisplayFrameForOverscan(hwc2_drm_display_t *ctx);
   void SetDisplayFrameMirror(hwc_rect_t const &frame);
   void UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
       int fd, int format, int w, int h, int stride, int h_stride, int size,

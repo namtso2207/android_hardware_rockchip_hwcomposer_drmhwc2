@@ -920,10 +920,13 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
   }
 
   if (crtc->can_overscan()) {
-    int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
-    if(ret < 0){
-      drmModeAtomicFree(pset);
-      return ret;
+    // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
+    if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
+      int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
+      if(ret < 0){
+        drmModeAtomicFree(pset);
+        return ret;
+      }
     }
   }
 

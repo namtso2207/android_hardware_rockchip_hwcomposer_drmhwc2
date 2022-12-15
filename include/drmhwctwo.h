@@ -684,6 +684,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error ValidatePlanes();
     HWC2::Error InitDrmHwcLayer();
     HWC2::Error CreateComposition();
+    HWC2::Error ModifyHwcLayerDisplayFrame(bool only_fb_scale);
     bool IsLayerStateChange();
     int ImportBuffers();
     void AddFenceToRetireFence(int fd);

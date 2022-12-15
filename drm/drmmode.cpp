@@ -44,6 +44,7 @@ DrmMode::DrmMode(drmModeModeInfoPtr m)
       flags_(m->flags),
       type_(m->type),
       name_(m->name) {
+      interlaced_ = !!(flags_ & DRM_MODE_FLAG_INTERLACE);
 }
 
 bool DrmMode::operator==(const drmModeModeInfo &m) const {
