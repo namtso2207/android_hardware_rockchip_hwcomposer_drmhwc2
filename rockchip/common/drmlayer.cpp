@@ -244,7 +244,7 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
   display_frame.bottom = (int)(frame.bottom * bottom_scale) + ctx->rel_yoffset;
 }
 
-#define OVERSCAN_MIN_VALUE              (80)
+#define OVERSCAN_MIN_VALUE              (60)
 #define OVERSCAN_MAX_VALUE              (100)
 void DrmHwcLayer::ModifyDisplayFrameForOverscan(hwc2_drm_display_t *ctx){
   int left_margin = 100, right_margin= 100, top_margin = 100, bottom_margin = 100;
