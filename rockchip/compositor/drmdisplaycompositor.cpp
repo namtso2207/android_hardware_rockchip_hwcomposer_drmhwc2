@@ -927,6 +927,16 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         drmModeAtomicFree(pset);
         return ret;
       }
+    }else{
+      int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), 100) < 0 ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), 100) < 0   ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
+      if (ret) {
+        ALOGE("Failed to add overscan to pset");
+        drmModeAtomicFree(pset);
+        return ret;
+      }
     }
   }
 
@@ -947,10 +957,26 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       if (!mirror_connector) {
         ALOGE("Could not locate connector for display %d", mirror_display_id);
       }else{
-        int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,mirror_connector->unique_name());
-        if(ret < 0){
-          drmModeAtomicFree(pset);
-          return ret;
+        // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
+        if(mirror_connector && mirror_connector->current_mode().id() > 0 &&
+          mirror_connector->current_mode().interlaced() == 0){
+          int ret = CheckOverscan(pset, mirror_commit_crtc,
+                                  mirror_display_id,
+                                  mirror_connector->unique_name());
+          if(ret < 0){
+            drmModeAtomicFree(pset);
+            return ret;
+          }
+        }else{
+          int ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->right_margin_property().id(), 100) < 0 ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->top_margin_property().id(), 100) < 0   ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
+          if (ret) {
+            ALOGE("Failed to add overscan to pset");
+            drmModeAtomicFree(pset);
+            return ret;
+          }
         }
       }
     }
@@ -1414,10 +1440,23 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   }
 
   if (crtc->can_overscan()) {
-    int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
-    if(ret < 0){
-      drmModeAtomicFree(pset);
-      return ret;
+    // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
+    if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
+      int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
+      if(ret < 0){
+        drmModeAtomicFree(pset);
+        return ret;
+      }
+    }else{
+      int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), 100) < 0 ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), 100) < 0   ||
+                drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
+      if (ret) {
+        ALOGE("Failed to add overscan to pset");
+        drmModeAtomicFree(pset);
+        return ret;
+      }
     }
   }
 
@@ -1437,11 +1476,28 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       DrmConnector *mirror_connector = drm->GetConnectorForDisplay(mirror_display_id);
       if (!mirror_connector) {
         ALOGE("Could not locate connector for display %d", mirror_display_id);
-      }
-      int ret = CheckOverscan(pset,mirror_commit_crtc,mirror_display_id,mirror_connector->unique_name());
-      if(ret < 0){
-        drmModeAtomicFree(pset);
-        return ret;
+      }else{
+        // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
+        if(mirror_connector && mirror_connector->current_mode().id() > 0 &&
+          mirror_connector->current_mode().interlaced() == 0){
+          int ret = CheckOverscan(pset, mirror_commit_crtc,
+                                  mirror_display_id,
+                                  mirror_connector->unique_name());
+          if(ret < 0){
+            drmModeAtomicFree(pset);
+            return ret;
+          }
+        }else{
+          int ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->right_margin_property().id(), 100) < 0 ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->top_margin_property().id(), 100) < 0   ||
+                    drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
+          if (ret) {
+            ALOGE("Failed to add overscan to pset");
+            drmModeAtomicFree(pset);
+            return ret;
+          }
+        }
       }
     }
   }
