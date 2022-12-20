@@ -320,7 +320,7 @@ DrmHwcTwo::HwcDisplay::HwcDisplay(ResourceManager *resource_manager,
 
 int DrmHwcTwo::HwcDisplay::ClearDisplay() {
   if(!init_success_){
-    HWC2_ALOGE("init_success_=%d skip.",init_success_);
+    HWC2_ALOGE("display=%" PRIu64 " init_success_=%d skip.", handle_, init_success_);
     return -1;
   }
 
@@ -2072,7 +2072,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetOutputBuffer(buffer_handle_t buffer,
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SyncPowerMode() {
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 " bNeedSyncPMState_=%d",handle_, bNeedSyncPMState_);
 
   if(!init_success_){
     HWC2_ALOGE("init_success_=%d skip.",init_success_);
@@ -4034,12 +4034,18 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   bool primary_change = true;
   PLUG_EVENT_TYPE event_type = DRM_HOTPLUG_NONE;
   for (auto &conn : drm_->connectors()) {
-    drmModeConnection old_state = conn->state();
-    conn->ResetModesReady();
-    drmModeConnection cur_state = conn->UpdateModes()
-                                      ? DRM_MODE_UNKNOWNCONNECTION
-                                      : conn->state();
+    // RK3528 TV 不需要处理TV的热插拔事件
+    if(gIsRK3528() && conn->type() == DRM_MODE_CONNECTOR_TV){
+      ALOGI("hwc_hotplug: RK3528 not handle type=%s-%d hotplug event.\n",
+            drm_->connector_type_str(conn->type()), conn->type_id());
+      continue;
+    }
 
+    drmModeConnection old_state = conn->hotplug_state();
+    conn->ResetModesReady();
+    conn->UpdateModes();
+    conn->update_hotplug_state();
+    drmModeConnection cur_state = conn->hotplug_state();
     if(!conn->ModesReady())
       continue;
     if (cur_state == old_state)
@@ -4057,7 +4063,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           drm_->connector_type_str(conn->type()),conn->type_id());
 
     // RK3528 HDMI/TV 互斥功能需要提前处理 TV display
-    if(conn->type() == DRM_MODE_CONNECTOR_HDMIA)
+    if(gIsRK3528() && conn->type() == DRM_MODE_CONNECTOR_HDMIA)
       HdmiTvOnlyOne(event_type);
 
     int display_id = conn->display();

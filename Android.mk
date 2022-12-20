@@ -245,6 +245,8 @@ LOCAL_CFLAGS += \
 	-DUSE_LIBPQ=1
 endif
 
+# LOCAL_SANITIZE:=address
+
 LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_HARDWARE)
 LOCAL_REQUIRED_MODULES += \
 	HwComposerEnv.xml

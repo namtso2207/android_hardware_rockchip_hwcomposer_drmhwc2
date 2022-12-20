@@ -303,7 +303,7 @@ int DrmConnector::UpdateModes() {
     return -ENODEV;
   }
 
-  drm_->GetHdrPanelMetadata(this,&hdr_metadata_);
+  drm_->GetHdrPanelMetadata(this, &hdr_metadata_);
   //When Plug-in/Plug-out TV panel,some Property of the connector will need be updated.
   bSupportSt2084_ = drm_->is_hdr_panel_support_st2084(this);
   bSupportHLG_    = drm_->is_hdr_panel_support_HLG(this);
@@ -976,6 +976,16 @@ int DrmConnector::set_hwc_state(HwcConnnectorStete state){
   }
   hwc_state_ = state;
   return 0;
+}
+
+void DrmConnector::update_hotplug_state(){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  hotplug_state_ = state_;
+}
+
+drmModeConnection DrmConnector::hotplug_state(){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  return hotplug_state_;
 }
 
 uint32_t DrmConnector::mm_width() const {

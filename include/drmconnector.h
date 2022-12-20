@@ -116,6 +116,9 @@ class DrmConnector {
   int set_hwc_state(HwcConnnectorStete state);
   bool hwc_state_change_and_plug();
 
+  void update_hotplug_state();
+  drmModeConnection hotplug_state();
+
   uint32_t mm_width() const;
   uint32_t mm_height() const;
 
@@ -183,6 +186,7 @@ class DrmConnector {
   drmModeConnection state_;
   HwcConnnectorStete hwc_state_;
   bool plug_;
+  drmModeConnection hotplug_state_;
 
   uint32_t mm_width_;
   uint32_t mm_height_;

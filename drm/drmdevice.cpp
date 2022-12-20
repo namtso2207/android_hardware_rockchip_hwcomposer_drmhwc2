@@ -512,9 +512,9 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
           current_encoder = encoder.get();
       }
     }
-
     std::unique_ptr<DrmConnector> conn(
         new DrmConnector(this, c, current_encoder, possible_encoders));
+
 
     drmModeFreeConnector(c);
 
@@ -2393,7 +2393,9 @@ bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct drm_hdr_static_me
         return false;
       }
 
-      memcpy(blob_data,blob->data,blob->length);
+      memcpy(blob_data, blob->data, blob->length);
+      // ALOGI("rk-debug blob_data=%zu blob->length=%" PRIu32 ,sizeof(struct drm_hdr_static_metadata_infoframe),
+      //                                             blob->length);
 
       drmModeFreePropertyBlob(blob);
 
