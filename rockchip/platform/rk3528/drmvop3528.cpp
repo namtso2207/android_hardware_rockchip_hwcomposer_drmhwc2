@@ -1571,11 +1571,33 @@ int Vop3528::TryMixVideoPolicy(
   int iPlaneSize = plane_groups.size();
   std::pair<int, int> layer_indices(-1, -1);
 
-  if((int)layers.size() < 4)
-    layer_indices.first = layers.size() - 2 <= 0 ? 1 : layers.size() - 2;
-  else
-    layer_indices.first = 3;
-  layer_indices.second = layers.size() - 1;
+  // 找到视频图层所在的区间，优先保证视频区间overlay
+  std::pair<int, int> video_layer_index(-1, -1);
+  //caculate the first and last skip layer
+  int i = 0;
+  for (auto &layer : layers) {
+    if(!layer->bYuv_){
+      continue;
+    }
+
+    if (video_layer_index.first == -1)
+      video_layer_index.first = i;
+    video_layer_index.second = i;
+    i++;
+  }
+
+  bool mix_down = false;
+  // 说明视频更接近顶层
+  if((layers.size() - 1 - video_layer_index.second) > video_layer_index.first){
+    layer_indices.first = 0;
+    layer_indices.second = 0;
+    mix_down = true;
+  }else{// 说明视频更接近底层
+    layer_indices.first = layers.size() - 1;
+    layer_indices.second = layers.size() - 1;
+    mix_down = false;
+  }
+
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
   OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -1583,15 +1605,29 @@ int Vop3528::TryMixVideoPolicy(
     return ret;
   else{
     ResetLayerFromTmpExceptFB(layers,tmp_layers);
-    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
-      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
-      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-      if(!ret)
-        return ret;
-      else{
-        ResetLayerFromTmpExceptFB(layers,tmp_layers);
-        continue;
+    if(mix_down){
+      for(++layer_indices.second; layer_indices.second < (layers.size() - 1); layer_indices.second++){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+        OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        if(!ret)
+          return ret;
+        else{
+          ResetLayerFromTmpExceptFB(layers,tmp_layers);
+          continue;
+        }
+      }
+    }else{
+      for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+        ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+        OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        if(!ret)
+          return ret;
+        else{
+          ResetLayerFromTmpExceptFB(layers,tmp_layers);
+          continue;
+        }
       }
     }
   }
@@ -1621,13 +1657,6 @@ int Vop3528::TryMixUpPolicy(
   MoveFbToTmp(layers, tmp_layers);
 
   int iPlaneSize = plane_groups.size();
-
-  if(ctx.request.iAfbcdCnt == 0){
-    for(auto &plane_group : plane_groups){
-      if(plane_group->win_type & PLANE_RK3528_ALL_CLUSTER_MASK)
-        iPlaneSize--;
-    }
-  }
 
   if(iPlaneSize == 0){
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, iPlaneSize = %d, skip TryMixSkipPolicy",
