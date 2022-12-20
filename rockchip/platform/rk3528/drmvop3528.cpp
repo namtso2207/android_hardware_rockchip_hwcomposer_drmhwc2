@@ -53,6 +53,8 @@ namespace android {
 #define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
 #endif
 
+#define INPUT_4K_SCALE_MAX_RATE 4.0
+
 void Vop3528::Init(){
 
   ctx.state.bMultiAreaEnable = hwc_get_bool_property("vendor.hwc.multi_area_enable","true");
@@ -595,54 +597,23 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           }
 
                           // Scale
-                          // RK3528 源数据宽大于 4096 且在 8K 分辨率条件下，缩放系数需要做调整：
-                          //   Cluster:目前仅支持 0.9-1.1 的居中缩放;
-                          //   Esmart：可以支持 0.125-8 缩放；
-                          bool b8kInputScaleMode = false;
-                          if(b8kMode && (input_w > 4096))
-                            b8kInputScaleMode = true;
 
-                          // RK3528 源数据宽大于 3840 小于 4096 且在 8K 分辨率条件下，缩小系数需要做调整：
+                          // RK3528 源数据宽大于 3840 小于 4096 ，缩小系数需要做调整：
                           //   Cluster:目前仅支持 0.9-1 的居中缩小;
-                          //   Esmart：可以支持 0.125-8 缩放；
                           bool b4kInputScaleMode = false;
-                          if(b8kMode && (input_w >= 3840 && input_w <= 4096))
+                          if((input_w >= 2560 || input_h > 1600))
                             b4kInputScaleMode = true;
 
-                          // 居中缩放标志，容忍值设置为 2 pixel
-                          bool bCenterScale =
-                               (ctx.state.iDisplayWidth_  - (output_w + 2 * (*iter_layer)->display_frame.left)) < 2 &&
-                               (ctx.state.iDisplayHeight_ - (output_h + 2 * (*iter_layer)->display_frame.top))  < 2;
-
-                          // 8K分辨率目前仅支持居中缩放
-                          if(b8kInputScaleMode){
-                            if( bCenterScale &&
-                                (*iter_plane)->is_support_scale_8k((*iter_layer)->fHScaleMul_) &&
-                                (*iter_plane)->is_support_scale_8k((*iter_layer)->fVScaleMul_) ){
-                              bNeed = true;
-                            }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support bCenterScale(%d) factor(%f,%f)",
-                                        (*iter_plane)->name(),
-                                        bCenterScale,
-                                        (*iter_layer)->fHScaleMul_,
-                                        (*iter_layer)->fVScaleMul_);
-                              continue;
-                            }
-                          }else if(b4kInputScaleMode){
+                          if(b4kInputScaleMode){
                             if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
                                 (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_) &&
-                                // 放大无要求
-                                (( (*iter_layer)->fHScaleMul_ <= 1.0 &&
-                                  (*iter_layer)->fVScaleMul_ <= 1.0)   ||
-                                // 缩小有居中缩小要求
-                                (bCenterScale &&
-                                  (*iter_layer)->fHScaleMul_ < 1.1 &&
-                                  (*iter_layer)->fVScaleMul_ < 1.1))){
+                                  ((*iter_layer)->fHScaleMul_ < INPUT_4K_SCALE_MAX_RATE &&
+                                  (*iter_layer)->fVScaleMul_ < INPUT_4K_SCALE_MAX_RATE)){
                               bNeed = true;
                             }else{
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support bCenterScale(%d) factor(%f,%f)",
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support 4k scale(%d) factor(%f,%f)",
                                         (*iter_plane)->name(),
-                                        bCenterScale,
+                                        b4kInputScaleMode,
                                         (*iter_layer)->fHScaleMul_,
                                         (*iter_layer)->fVScaleMul_);
                               continue;
