@@ -297,6 +297,7 @@ void DrmHwcLayer::ModifyDisplayFrameForOverscan(hwc2_drm_display_t *ctx){
     disp_old_l, disp_old_t, disp_old_r, disp_old_b,
     display_frame.left, display_frame.top, display_frame.right, display_frame.bottom);
 
+  bScale_  = IsScale(source_crop, display_frame, transform);
   return;
 }
 
@@ -656,6 +657,7 @@ void DrmHwcLayer::ModifyDisplayFrame(){
       display_frame.top = d_top;
       display_frame.right = d_right;
       display_frame.bottom = d_bottom;
+      bScale_  = IsScale(source_crop, display_frame, transform);
     }
   }
 }
