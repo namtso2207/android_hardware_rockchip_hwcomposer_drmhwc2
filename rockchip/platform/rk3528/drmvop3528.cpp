@@ -823,26 +823,31 @@ int Vop3528::MatchPlanes(
 #ifdef RK3528
     // RK3528 支持预缩小，当源片源无法匹配时，需要考虑预缩小是否可以满足需求；
     if(ret){
+      bool use_prescale = false;
       for(auto& drmlayer : i->second){
-        if(drmlayer->bYuv_){
+        if(drmlayer->bYuv_ && drmlayer->bAfbcd_){
           if(ctx.request.iAfbcdCnt > 0 && drmlayer->bAfbcd_){
             ctx.request.iAfbcdCnt--;
           }
           drmlayer->bNeedPreScale_ = true;
           drmlayer->SwitchPreScaleBufferInfo();
+          use_prescale = true;
         }
       }
-      HWC2_ALOGD_IF_DEBUG("PreScaleVideo: Try to use PreScale video mode, try MatchPlane again.");
-      ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
-                        crtc, std::make_pair(i->first, i->second),zpos);
-      if(ret){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match prescale layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
-        for(auto& drmlayer : i->second){
-          if(drmlayer->bYuv_){
-            drmlayer->ResetInfoFromPreScaleStore();
-            drmlayer->bNeedPreScale_ = false;
-            if(drmlayer->bAfbcd_){
-              ctx.request.iAfbcdCnt++;
+
+      if(use_prescale){
+        HWC2_ALOGD_IF_DEBUG("PreScaleVideo: Try to use PreScale video mode, try MatchPlane again.");
+        ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+                          crtc, std::make_pair(i->first, i->second),zpos);
+        if(ret){
+          ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match prescale layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
+          for(auto& drmlayer : i->second){
+            if(drmlayer->bYuv_){
+              drmlayer->ResetInfoFromPreScaleStore();
+              drmlayer->bNeedPreScale_ = false;
+              if(drmlayer->bAfbcd_){
+                ctx.request.iAfbcdCnt++;
+              }
             }
           }
         }
