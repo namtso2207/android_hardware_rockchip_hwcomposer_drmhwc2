@@ -624,20 +624,20 @@ void DrmHwcLayer::ModifyDisplayFrame(){
                   d_letf += (d_width - d_height * 16 / 9) / 2;
                   d_right -= (d_width - d_height * 16 / 9) / 2;
               }else if(16 * d_height  > 9 * d_width){
-                  d_top += (d_width - d_width * 9 / 16) / 2;
-                  d_bottom -= (d_width - d_width * 9 / 16) / 2;
+                  d_top += (d_height - d_width * 9 / 16) / 2;
+                  d_bottom -= (d_height - d_width * 9 / 16) / 2;
               }
               break;
           case VIDEO_SCALE_ORIGINAL :
               if(s_width > d_width){
-                  d_letf = 0;
+                  // d_letf = 0;
                   //d_right = d_right;
               }else{
                   d_letf = (d_width - s_width) / 2;
                   d_right -= (d_width - s_width) / 2;
               }
               if(s_height > d_height){
-                  d_top = 0;
+                  // d_top = 0;
                   //d_bottom = d_bottom;
               }else{
                   d_top = (d_height - s_height) / 2;
