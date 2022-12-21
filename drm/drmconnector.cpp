@@ -1002,7 +1002,8 @@ bool DrmConnector::is_hdmi_support_hdr() const
 }
 
 int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
-                                       android_dataspace_t input_colorspace){
+                                       android_dataspace_t input_colorspace,
+                                       bool is_10bit){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   HWC2_ALOGD_IF_DEBUG("conn-id=%d, isSupportSt2084 = %d, isSupportHLG = %d , colorspace = %x",
                       id(),isSupportSt2084(),isSupportHLG(),input_colorspace);
@@ -1020,6 +1021,8 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
 
   struct hdr_output_metadata hdr_metadata;
   memset(&hdr_metadata, 0, sizeof(struct hdr_output_metadata));
+
+  int color_depth = is_10bit ? depth_30bit : depth_24bit;
 
 #ifdef ANDROID_S
   hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type1;
@@ -1074,17 +1077,31 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
       }
   }
 
+  HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
+  ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
+  if (ret < 0) {
+    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
+  }
+
+  HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
+  ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
+  if (ret < 0) {
+    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+  }
+
   memcpy(&last_hdr_metadata_, &hdr_metadata, sizeof(struct hdr_output_metadata));
   colorspace_ = colorspace;
+  uColorDepth_ = color_depth;
   return 0;
 
 }
 
 int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
-                                                   hdr_output_metadata *hdr_metadata){
+                                                   hdr_output_metadata *hdr_metadata,
+                                                   bool is_10bit){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
-  HWC2_ALOGD_IF_DEBUG("conn-id=%d, isSupportSt2084 = %d, isSupportHLG = %d",
-                      id(),isSupportSt2084(),isSupportHLG());
+  HWC2_ALOGD_IF_DEBUG("conn-id=%d 10bit=%d, isSupportSt2084 = %d, isSupportHLG = %d",
+                      id(), is_10bit, isSupportSt2084(), isSupportHLG());
 
   if (!pset) {
       ALOGE("%s:line=%d Failed to allocate property set", __FUNCTION__, __LINE__);
@@ -1135,8 +1152,28 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
   hdr_metadata_infoframe &last_hdmi_metadata_type = last_hdr_metadata_.hdmi_metadata_type;
 #endif
 
-  if(last_hdmi_metadata_type.eotf == hdmi_metadata_type.eotf){
-    HWC2_ALOGD_IF_DEBUG("hdr_output_metadata.eotf is same, skip update.");
+  DrmColorspaceType colorspace = DrmColorspaceType::DEFAULT;
+  // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
+  if(hdr_metadata->metadata_type == COLOR_PRIM_BT2020){
+    if(drm_->getDrmVersion() == 3){
+      if(uColorFormat_ == output_rgb){
+        colorspace = DrmColorspaceType::BT2020_RGB;
+      } else {
+        colorspace = DrmColorspaceType::BT2020_YCC;
+      }
+    }else{ // Kernel 4.19 only support BT2020_RGB
+        colorspace = DrmColorspaceType::BT2020_RGB;
+    }
+  }else{
+    colorspace = DrmColorspaceType::DEFAULT;
+  }
+
+  int color_depth = is_10bit ? depth_30bit : depth_24bit;
+
+  if(last_hdmi_metadata_type.eotf == hdmi_metadata_type.eotf &&
+    colorspace_ == colorspace &&
+    uColorDepth_ == color_depth){
+    HWC2_ALOGD_IF_DEBUG("eotf / colorspace / color_depth is same, skip update.");
     return 0;
   }
 
@@ -1156,30 +1193,30 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
       }
   }
 
-  DrmColorspaceType colorspace = DrmColorspaceType::DEFAULT;
   if(colorspace_property().id()){
-    // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
-    if(hdmi_metadata_type.eotf == SMPTE_ST2084){
-      if(drm_->getDrmVersion() == 3){
-        if(uColorFormat_ == output_rgb){
-          colorspace = DrmColorspaceType::BT2020_RGB;
-        } else {
-          colorspace = DrmColorspaceType::BT2020_YCC;
-        }
-      }else{ // Kernel 4.19 only support BT2020_RGB
-          colorspace = DrmColorspaceType::BT2020_RGB;
-      }
-    }
-
-    HWC2_ALOGD_IF_DEBUG("change bt2020 colorspace=%d", colorspace);
+    HWC2_ALOGD_IF_DEBUG("change %s colorspace=%d",
+      ((colorspace == DrmColorspaceType::DEFAULT) ? "bt709" : "bt2020"), colorspace);
     ret = drmModeAtomicAddProperty(pset, id(), colorspace_property().id(), colorspace);
     if (ret < 0) {
       HWC2_ALOGE("Failed to add prop[%d] to [%d]", colorspace_property().id(), id());
     }
   }
 
+  HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
+  ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
+  if (ret < 0) {
+    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
+  }
+
+  HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
+  ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
+  if (ret < 0) {
+    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+  }
+
   memcpy(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata));
   colorspace_ = colorspace;
+  uColorDepth_ = color_depth;
   return 0;
 }
 

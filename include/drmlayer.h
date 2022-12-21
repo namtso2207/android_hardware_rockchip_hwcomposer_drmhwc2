@@ -231,6 +231,7 @@ struct DrmHwcLayer {
   bool bNextHdr_;
   // Only RK3528 Support
   bool bMetadataHdr_;
+  bool bYuv10bit_;
 
   bool bSkipLayer_;
   float fHScaleMul_;
@@ -326,6 +327,7 @@ struct DrmHwcLayer {
            GRALLOC_USAGE_PROTECTED;
   }
   bool IsYuvFormat(int format,uint32_t fourcc_format);
+  bool Is10bitYuv(int format,uint32_t fourcc_format);
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();

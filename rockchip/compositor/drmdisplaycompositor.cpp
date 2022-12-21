@@ -718,6 +718,13 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     return -ENODEV;
   }
 
+  bool is_yuv_10bit = false;
+  for(auto &layer : display_comp->layers()){
+    if(layer.bYuv10bit_){
+      is_yuv_10bit = layer.bYuv10bit_;
+    }
+  }
+
   // 由 VividHdr 切换到其他 HDR 状态
   if(display_comp->hdr_mode() != DRM_HWC_METADATA_HDR){
     if(current_mode_set_.hdr_.mode_ == DRM_HWC_METADATA_HDR){
@@ -732,15 +739,19 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
                     crtc->id(), crtc->hdr_ext_data().id());
       }
     }
-    if(display_comp->hdr_mode() != current_mode_set_.hdr_.mode_){
+
+    if(display_comp->hdr_mode() != current_mode_set_.hdr_.mode_ ||
+       display_comp->has_10bit_Yuv() != current_mode_set_.hdr_.bHasYuv10bit_){
       // 进入HDR10/SDR的处理逻辑
-      int ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace());
+      int ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace(), display_comp->has_10bit_Yuv());
       if(ret){
         ALOGE("display %d enable hdr fail. datespace=%x",
                 display_, display_comp->dataspace());
       }else{
-        HWC2_ALOGD_IF_INFO("%s HDR mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+        HWC2_ALOGD_IF_INFO("%s HDR mode %s.", display_comp->hdr_mode() ? "Enable" : "Disable",
+                                              display_comp->has_10bit_Yuv() ? "10bit" : "8bit");
         request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+        request_mode_set_.hdr_.bHasYuv10bit_    = display_comp->has_10bit_Yuv();
         request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
         need_mode_set_ = true;
       }
@@ -753,12 +764,14 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
         memcpy(&hdr_metadata,
                 &layer.metadataHdrParam_.target_display_data,
                 sizeof(struct hdr_output_metadata));
-        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset, &hdr_metadata);
+        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset, &hdr_metadata, layer.bYuv10bit_);
         if(ret){
           ALOGE("display %d enable hdr fail.", display_);
         }else{
-          HWC2_ALOGD_IF_INFO("%s HDR mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+          HWC2_ALOGD_IF_INFO("%s HDR mode %s.", display_comp->hdr_mode() ? "Enable" : "Disable",
+                                            display_comp->has_10bit_Yuv() ? "10bit" : "8bit");
           request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+          request_mode_set_.hdr_.bHasYuv10bit_    = display_comp->has_10bit_Yuv();
           request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
           need_mode_set_ = true;
         }
@@ -779,8 +792,9 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
           HWC2_ALOGE("Failed to add metadata_hdr crtci-id=%d hdr_ext_data-prop[%d]",
                       crtc->id(), crtc->hdr_ext_data().id());
         }else{
-          HWC2_ALOGD_IF_INFO("%s NextHdr mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
+          HWC2_ALOGD_IF_INFO("%s MetadataHdr mode.", display_comp->hdr_mode() ? "Enable" : "Disable");
           request_mode_set_.hdr_.mode_    = display_comp->hdr_mode();
+          request_mode_set_.hdr_.bHasYuv10bit_  = display_comp->has_10bit_Yuv();
           request_mode_set_.hdr_.datespace_ = display_comp->dataspace();
           need_mode_set_ = true;
         }
@@ -800,6 +814,7 @@ int DrmDisplayCompositor::UpdateModeSetState() {
 
   // Update HDR state：
   current_mode_set_.hdr_.mode_    = request_mode_set_.hdr_.mode_;
+  current_mode_set_.hdr_.bHasYuv10bit_ = request_mode_set_.hdr_.bHasYuv10bit_ ;
   current_mode_set_.hdr_.datespace_ = request_mode_set_.hdr_.datespace_;
 
   need_mode_set_ = false;

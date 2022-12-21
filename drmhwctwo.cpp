@@ -2743,7 +2743,7 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   // 是否为 HDR 片源
   bool is_input_hdr = hdrLayer.bHdr_;
   // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
-  // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
+  // 1:HDR模式: 等同自动模式
   // 0:SDR模式: 电视强制使用SDR模式，HDR片源也采用SDR显示
   int user_hdr_mode = hwc_get_int_property("persist.sys.vivid.hdr_mode", "2");
   // 可能存在模式：SDR2SDR,HDR2SDR,SDR2HDR,HDR2HDR
@@ -2751,7 +2751,7 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
   // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
   if((user_hdr_mode == 2 && is_hdr_display && is_input_hdr) ||
-     (user_hdr_mode == 1 && is_hdr_display)){
+     (user_hdr_mode == 1 && is_hdr_display && is_input_hdr)){
     is_output_hdr = true;
   }else{
     is_output_hdr = false;
@@ -2788,7 +2788,16 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   memset(&hdrLayer.metadataHdrParam_, 0x00, sizeof(rk_hdr_parser_params_t));
   // 如果输出模式为HDR
   if(is_output_hdr){
-    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+    // Android bt2020 or bt709
+    switch(hdrLayer.eDataSpace_ & HAL_DATASPACE_STANDARD_MASK){
+      case HAL_DATASPACE_STANDARD_BT2020:
+      case HAL_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE :
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+        break;
+      default:
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT709;
+        break;
+    }
 
     // 片源为 HLG，且电视支持 HLG ，则选择 HLG bypass 模式
     if(hdrLayer.uEOTF == HLG && connector_->isSupportHLG()){
@@ -2927,7 +2936,8 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
   }
 
-  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+            user_hdr_mode,
             hdrLayer.uColorSpace,
             hdrLayer.uEOTF,
             hdrLayer.metadataHdrParam_.codec_meta_exist,
@@ -2968,6 +2978,23 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
 
   if(cpu_addr != NULL)
     gralloc->hwc_get_handle_unlock(hdrLayer.sf_handle);
+
+  // 更新 prim / eotf to target_display_data
+  if(hdrLayer.metadataHdrParam_.codec_meta_exist){
+    hdrLayer.metadataHdrParam_.target_display_data.metadata_type = \
+      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim;
+    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.metadata_type = \
+      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim;
+    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
+      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf;
+  }else{
+    hdrLayer.metadataHdrParam_.target_display_data.metadata_type = \
+      hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim;
+    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.metadata_type = \
+      hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim;
+    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
+      hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf;
+  }
 
   hdrLayer.IsMetadataHdr_ = true;
   ctx_.hdr_mode = DRM_HWC_METADATA_HDR;

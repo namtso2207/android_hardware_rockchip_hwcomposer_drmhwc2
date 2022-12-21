@@ -169,6 +169,7 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 }
 int DrmHwcLayer::Init() {
   bYuv_ = IsYuvFormat(iFormat_,uFourccFormat_);
+  bYuv10bit_ = Is10bitYuv(iFormat_,uFourccFormat_);
   bScale_  = IsScale(source_crop, display_frame, transform);
   iSkipLine_  = GetSkipLine();
   bAfbcd_ = IsAfbcModifier(uModifier_);
@@ -179,9 +180,6 @@ int DrmHwcLayer::Init() {
   bHdr_ = IsHdr(iUsage, eDataSpace_);
   bMetadataHdr_ = IsMetadataHdr(iUsage);
   uColorSpace = GetColorSpace(eDataSpace_);
-  if(bHdr_){
-    uColorSpace = V4L2_COLORSPACE_BT2020;
-  }
   uEOTF = GetEOTF(eDataSpace_);
 
 #ifdef RK3528
@@ -372,6 +370,26 @@ bool DrmHwcLayer::IsYuvFormat(int format, uint32_t fourcc_format){
     case HAL_PIXEL_FORMAT_YUV420_8BIT_I:
     case HAL_PIXEL_FORMAT_YUV420_10BIT_I:
     case HAL_PIXEL_FORMAT_Y210:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool DrmHwcLayer::Is10bitYuv(int format,uint32_t fourcc_format){
+  switch(fourcc_format){
+    case DRM_FORMAT_NV12_10:
+    case DRM_FORMAT_YUV420_10BIT:
+      return true;
+    default:
+      break;
+  }
+
+  switch(format){
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP_10:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP_10:
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I:
       return true;
     default:
       return false;
@@ -865,6 +883,10 @@ v4l2_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
   else if (CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SRGB, HAL_DATASPACE_TRANSFER_MASK)){
       return V4L2_COLORSPACE_SRGB;
   }
+
+
+
+
   //ALOGE("Unknow colorspace 0x%x",colorspace);
   return V4L2_COLORSPACE_DEFAULT;
 

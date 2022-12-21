@@ -89,6 +89,7 @@ struct SidebandState {
 
   struct HdrState{
     DrmHdrType mode_ = DRM_HWC_SDR;
+    bool bHasYuv10bit_ = false;
     android_dataspace_t datespace_;
   };
 

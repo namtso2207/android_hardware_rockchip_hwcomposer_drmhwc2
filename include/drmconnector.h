@@ -131,9 +131,11 @@ class DrmConnector {
   bool isSupportHLG() { return bSupportHLG_; }
   bool is_hdmi_support_hdr() const;
   int switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
-                           android_dataspace_t colorspace);
+                           android_dataspace_t colorspace,
+                           bool is_10bit);
   int switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
-                                       hdr_output_metadata *hdr_metadata);
+                                       hdr_output_metadata *hdr_metadata,
+                                       bool is_10bit);
 
   int GetSpiltModeId() const;
   bool isHorizontalSpilt() const;

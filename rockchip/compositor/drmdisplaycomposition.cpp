@@ -59,6 +59,7 @@ int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
   }
 
   hdr_mode_ = DRM_HWC_SDR;
+  bYuv10bit_ = false;
   has_sideband2_layer_ = false;
   return 0;
 }
@@ -125,6 +126,14 @@ int DrmDisplayComposition::SetDisplayHdrMode(DrmHdrType hdr_mode,
                                              android_dataspace_t dataspace) {
   hdr_mode_ = hdr_mode;
   dataspace_ = dataspace;
+
+  // 存在 10bit YUV图层
+  for(auto& layer : layers_){
+    if(layer.bYuv10bit_)
+      bYuv10bit_ = true;
+  }
+
+
   return 0;
 }
 

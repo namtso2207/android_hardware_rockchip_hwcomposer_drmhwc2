@@ -229,6 +229,7 @@ class DrmDisplayComposition {
   }
 
   DrmHdrType hdr_mode() const{ return hdr_mode_;}
+  bool has_10bit_Yuv() const{ return bYuv10bit_;}
   android_dataspace_t dataspace() const{ return dataspace_;}
 
   void Dump(std::ostringstream *out) const;
@@ -246,6 +247,7 @@ class DrmDisplayComposition {
   DrmMode display_mode_;
 
   DrmHdrType hdr_mode_;
+  bool bYuv10bit_;
   android_dataspace_t dataspace_;
 
   int timeline_ = 0;
