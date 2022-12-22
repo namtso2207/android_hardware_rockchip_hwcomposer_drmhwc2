@@ -41,6 +41,11 @@
 
 namespace android {
 
+static inline long __currentTime(){
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    return static_cast<long>(tp.tv_sec) * 1000000 + tp.tv_usec;
+}
 #define ALOGD_HWC2_DRM_LAYER_INFO(log_level, drmHwcLayers) \
     if(LogLevel(log_level)){ \
       String8 output; \
@@ -1540,11 +1545,6 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
   return ret;
 }
 
-static inline long __currentTime(){
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  return static_cast<long>(tp.tv_sec) * 1000000 + tp.tv_usec;
-}
 
 HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
@@ -3948,15 +3948,8 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
 void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
     // RK3528 HDMI/TV互斥模式要求，若HDMI已连接，则 TV不注册
     if(gIsRK3528()){
-      for (auto &conn : drmDevice->connectors()) {
-        if(conn->type() == DRM_MODE_CONNECTOR_HDMIA){
-          conn->UpdateModes();
-          if(conn->state() == DRM_MODE_CONNECTED){
-            ALOGI("HWC2 Init: RK3528 HDMI is connected, not to register TV display.");
-            return;
-          }
-        }
-      }
+      drmDevice->FlipHotplugEventForInit();
+      return;
     }
 
     for (auto &conn : drmDevice->connectors()) {

@@ -48,7 +48,7 @@ class DrmEventListener : public Worker {
   static void FlipHandler(int fd, unsigned int sequence, unsigned int tv_sec,
                           unsigned int tv_usec, void *user_data);
   void FlipResolutionSwitchHandler(int display_id);
-
+  void FlipHotplugEventForInit();
  protected:
   virtual void Routine();
 

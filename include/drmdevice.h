@@ -111,6 +111,10 @@ class DrmDevice {
     event_listener_.FlipResolutionSwitchHandler(display_id);
   }
 
+  void FlipHotplugEventForInit() {
+    event_listener_.FlipHotplugEventForInit();
+  }
+
   // RK support
   type_name_define(encoder_type);
   type_name_define(connector_status);
