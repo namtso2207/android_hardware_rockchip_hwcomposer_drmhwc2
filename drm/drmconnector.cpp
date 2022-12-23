@@ -1097,6 +1097,7 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
 }
 
 int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
+                                                   uint32_t color_prim,
                                                    hdr_output_metadata *hdr_metadata,
                                                    bool is_10bit){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
@@ -1122,13 +1123,14 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
 #endif
 
   HWC2_ALOGD_IF_DEBUG("hdr_metadata: metadata_type=%d",hdr_metadata->metadata_type);
-  HWC2_ALOGD_IF_DEBUG("hdr_metadata: eotf=%d metadata_type=%d \n"
+  HWC2_ALOGD_IF_DEBUG("hdr_metadata: color_prim=%x eotf=%d metadata_type=%d \n"
                       "display_primaries[0][x,y]=[%d,%d][%d,%d][%d,%d]\n"
                       "white_point[x,y]=[%d,%d]\n"
                       "max_display_mastering_luminance=%d\n"
                       "min_display_mastering_luminance=%d\n"
                       "max_cll=%d\n"
                       "max_fall=%d\n",
+                      color_prim,
                       hdmi_metadata_type.eotf,
                       hdmi_metadata_type.metadata_type,
                       hdmi_metadata_type.display_primaries[0].x,
@@ -1154,7 +1156,7 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
 
   DrmColorspaceType colorspace = DrmColorspaceType::DEFAULT;
   // DrmVersion=3 is Kernel 5.10 Support all DrmColorspaceType
-  if(hdr_metadata->metadata_type == COLOR_PRIM_BT2020){
+  if(color_prim == COLOR_PRIM_BT2020){
     if(drm_->getDrmVersion() == 3){
       if(uColorFormat_ == output_rgb){
         colorspace = DrmColorspaceType::BT2020_RGB;

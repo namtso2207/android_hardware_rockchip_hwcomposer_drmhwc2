@@ -2983,17 +2983,9 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
 
   // 更新 prim / eotf to target_display_data
   if(hdrLayer.metadataHdrParam_.codec_meta_exist){
-    hdrLayer.metadataHdrParam_.target_display_data.metadata_type = \
-      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim;
-    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.metadata_type = \
-      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim;
     hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
       hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf;
   }else{
-    hdrLayer.metadataHdrParam_.target_display_data.metadata_type = \
-      hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim;
-    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.metadata_type = \
-      hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim;
     hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
       hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf;
   }

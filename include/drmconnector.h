@@ -134,6 +134,7 @@ class DrmConnector {
                            android_dataspace_t colorspace,
                            bool is_10bit);
   int switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
+                                       uint32_t color_prim,
                                        hdr_output_metadata *hdr_metadata,
                                        bool is_10bit);
 

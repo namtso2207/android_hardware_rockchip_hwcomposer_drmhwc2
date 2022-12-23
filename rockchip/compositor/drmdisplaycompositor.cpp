@@ -764,7 +764,10 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
         memcpy(&hdr_metadata,
                 &layer.metadataHdrParam_.target_display_data,
                 sizeof(struct hdr_output_metadata));
-        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset, &hdr_metadata, layer.bYuv10bit_);
+        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset,
+                                                              layer.metadataHdrParam_.hdr_hdmi_meta.color_prim,
+                                                              &hdr_metadata,
+                                                              layer.bYuv10bit_);
         if(ret){
           ALOGE("display %d enable hdr fail.", display_);
         }else{
