@@ -842,6 +842,74 @@ int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
   return 0;
 }
 
+int DrmConnector::UpdateOutputFormat(drmModeAtomicReqPtr pset){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  if(!(color_format_property().id() > 0 || color_depth_property().id() > 0)){
+    return 0;
+  }
+
+  int ret = 0;
+  bool update = false;
+  int color_format = -1;
+  int color_depth = -1;
+  bool need_change_format = false,need_change_depth = false;
+  bool exist_suitable_property = false;
+  char output_format_pro[PROPERTY_VALUE_MAX]={0};
+  char output_format_value[PROPERTY_VALUE_MAX]={0};
+
+  snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s",cUniqueName_);
+  ret = property_get(output_format_pro,output_format_value,"");
+  if(!ret){
+    if(display_ == HWC_DISPLAY_PRIMARY){
+      snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s","main");
+    }else{
+      snprintf(output_format_pro,PROPERTY_VALUE_MAX,"persist.vendor.color.%s","aux");
+    }
+    ret = property_get(output_format_pro,output_format_value,"");
+    if(ret){
+      exist_suitable_property = true;
+    }
+  }else{
+    exist_suitable_property = true;
+  }
+
+  if(exist_suitable_property){
+    ret = ParseHdmiOutputFormat(output_format_value, &color_format, &color_depth);
+    if (ret == false) {
+      ALOGE("Get color fail! to use default ");
+      color_format = output_rgb;
+      color_depth = depth_24bit;
+    }
+  }else if(baseparameter_ready_){
+    ALOGI("%s,line=%d, %s can't find suitable output format Property, try to use Baseparameter.",
+          __FUNCTION__,__LINE__,cUniqueName_);
+    int ret = drm_->UpdateConnectorBaseInfo(type_,unique_id_,&baseparameter_);
+    if(ret){
+      ALOGW("%s,line=%d,%s UpdateConnectorBaseInfo fail, the device may not have a baseparameter.",
+      __FUNCTION__,__LINE__,cUniqueName_);
+    }
+    color_format = baseparameter_.screen_info[0].format;
+    color_depth   = baseparameter_.screen_info[0].depthc;
+  }
+
+  ALOGI("%s,line=%d %s change hdmi output format: %d", __FUNCTION__,__LINE__, cUniqueName_, color_format);
+  ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), color_format);
+  if (ret < 0) {
+    ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, color_format_property().id(), id());
+  }
+
+  ALOGI("%s,line=%d %s change hdmi output depth: %d", __FUNCTION__,__LINE__, cUniqueName_, color_depth);
+  ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
+  if (ret < 0) {
+    ALOGE("%s:line=%d Failed to add prop[%d] to [%d]", __FUNCTION__, __LINE__, color_depth_property().id(), id());
+  }
+
+  uColorFormat_ = color_format;
+  uColorDepth_ = color_depth;
+
+  return 0;
+}
+
 int DrmConnector::GetFramebufferInfo(int display_id, uint32_t *w, uint32_t *h, uint32_t *fps) {
   char framebuffer_value[PROPERTY_VALUE_MAX]={0};
   char framebuffer_property[PROPERTY_VALUE_MAX]={0};
@@ -1022,8 +1090,6 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
   struct hdr_output_metadata hdr_metadata;
   memset(&hdr_metadata, 0, sizeof(struct hdr_output_metadata));
 
-  int color_depth = is_10bit ? depth_30bit : depth_24bit;
-
 #ifdef ANDROID_S
   hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata.hdmi_metadata_type1;
 #elif ANDROID_P
@@ -1077,16 +1143,22 @@ int DrmConnector::switch_hdmi_hdr_mode(drmModeAtomicReqPtr pset,
       }
   }
 
-  HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
-  ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
-  if (ret < 0) {
-    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
-  }
+  int color_depth = depth_24bit;
+  if(hdmi_metadata_type.eotf == TRADITIONAL_GAMMA_SDR){
+    UpdateOutputFormat(pset);
+  }else{
+    color_depth = is_10bit ? depth_30bit : depth_24bit;
+    HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
+    ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
+    }
 
-  HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
-  ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
-  if (ret < 0) {
-    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+    HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
+    ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+    }
   }
 
   memcpy(&last_hdr_metadata_, &hdr_metadata, sizeof(struct hdr_output_metadata));

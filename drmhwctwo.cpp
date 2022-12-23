@@ -2981,15 +2981,6 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   if(cpu_addr != NULL)
     gralloc->hwc_get_handle_unlock(hdrLayer.sf_handle);
 
-  // 更新 prim / eotf to target_display_data
-  if(hdrLayer.metadataHdrParam_.codec_meta_exist){
-    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
-      hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf;
-  }else{
-    hdrLayer.metadataHdrParam_.target_display_data.hdmi_metadata_type1.eotf = \
-      hdrLayer.metadataHdrParam_.hdr_dataspace_info.eotf;
-  }
-
   hdrLayer.IsMetadataHdr_ = true;
   ctx_.hdr_mode = DRM_HWC_METADATA_HDR;
   ctx_.dataspace = hdrLayer.eDataSpace_;
