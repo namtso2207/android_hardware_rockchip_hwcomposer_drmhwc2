@@ -1272,16 +1272,24 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
     }
   }
 
-  HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
-  ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
-  if (ret < 0) {
-    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
-  }
+  // TODO: SDR 模式不去修改 color depth
+  // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
+  // 1:HDR模式: 等同自动模式
+  // 0:SDR模式: 电视强制使用SDR模式，HDR片源也采用SDR显示
+  if(hwc_get_int_property("persist.sys.vivid.hdr_mode", "2") == 0){
+    UpdateOutputFormat(pset);
+  }else{
+    HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
+    ret = drmModeAtomicAddProperty(pset, id(), color_format_property().id(), uColorFormat_);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_format_property().id(), id());
+    }
 
-  HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
-  ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
-  if (ret < 0) {
-    HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+    HWC2_ALOGD_IF_DEBUG("change hdmi output depth: %d", color_depth);
+    ret = drmModeAtomicAddProperty(pset, id(), color_depth_property().id(), color_depth);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add prop[%d] to [%d]", color_depth_property().id(), id());
+    }
   }
 
   memcpy(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata));
