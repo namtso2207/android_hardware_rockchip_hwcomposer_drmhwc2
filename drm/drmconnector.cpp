@@ -1181,11 +1181,6 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
       return -1;
   }
 
-  if(!memcmp(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata))){
-    HWC2_ALOGD_IF_DEBUG("hdr_output_metadata is same, skip update.");
-    return 0;
-  }
-
 #ifdef ANDROID_S
   hdr_metadata_infoframe &hdmi_metadata_type = hdr_metadata->hdmi_metadata_type1;
 #elif ANDROID_P
@@ -1246,8 +1241,9 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
 
   if(last_hdmi_metadata_type.eotf == hdmi_metadata_type.eotf &&
     colorspace_ == colorspace &&
-    uColorDepth_ == color_depth){
-    HWC2_ALOGD_IF_DEBUG("eotf / colorspace / color_depth is same, skip update.");
+    uColorDepth_ == color_depth &&
+    !memcmp(&last_hdr_metadata_, hdr_metadata, sizeof(struct hdr_output_metadata))){
+    HWC2_ALOGD_IF_DEBUG("eotf / colorspace / color_depth / hdr_output_metadata is same, skip update.");
     return 0;
   }
 
