@@ -1918,16 +1918,62 @@ void DrmDisplayCompositor::ClearDisplay() {
     int ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
     if (ret) {
       ALOGE("Failed to commit pset ret=%d\n", ret);
-      drmModeAtomicFree(pset);
-      pset_=NULL;
+      pset=NULL;
     }
+
+    drmModeAtomicFree(pset);
     bWriteBackEnable_ = false;
   }
 
   // 重置HDR状态
-  current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
-  current_mode_set_.hdr_.bHasYuv10bit_ = false;
-  current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
+#ifdef RK3528
+  if(current_mode_set_.hdr_.mode_ != DRM_HWC_SDR){
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      ALOGE("Failed to allocate property set");
+      return;
+    }
+
+    DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+    DrmConnector *connector = drm->GetConnectorForDisplay(display_);
+    if (!connector) {
+      ALOGE("Could not locate connector for display %d", display_);
+      return;
+    }
+    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
+    if (!crtc) {
+      ALOGE("Could not locate crtc for display %d", display_);
+      return;
+    }
+    // 释放上一次的 Blob
+    if (hdr_blob_id_){
+        drm->DestroyPropertyBlob(hdr_blob_id_);
+        hdr_blob_id_ = 0;
+    }
+    int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
+    if (ret < 0) {
+      HWC2_ALOGE("Failed to add metadata-Hdr crtc-id=%d hdr_ext_data-prop[%d]",
+                  crtc->id(), crtc->hdr_ext_data().id());
+    }
+    // 进入HDR10/SDR的处理逻辑
+    ret = connector->switch_hdmi_hdr_mode(pset, HAL_DATASPACE_UNKNOWN, false);
+    if(ret){
+      ALOGE("display %d enable hdr fail. datespace=%x",
+              display_, HAL_DATASPACE_UNKNOWN);
+    }
+
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
+    if (ret) {
+      ALOGE("Failed to commit pset ret=%d\n", ret);
+      pset=NULL;
+    }
+    drmModeAtomicFree(pset);
+    current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
+    current_mode_set_.hdr_.bHasYuv10bit_ = false;
+    current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
+  }
+#endif
   clear_ = true;
   //vsync_worker_.VSyncControl(false);
 }
