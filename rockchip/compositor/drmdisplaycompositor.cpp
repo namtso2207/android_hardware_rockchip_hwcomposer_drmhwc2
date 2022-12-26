@@ -1924,6 +1924,10 @@ void DrmDisplayCompositor::ClearDisplay() {
     bWriteBackEnable_ = false;
   }
 
+  // 重置HDR状态
+  current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
+  current_mode_set_.hdr_.bHasYuv10bit_ = false;
+  current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
   clear_ = true;
   //vsync_worker_.VSyncControl(false);
 }
