@@ -1276,7 +1276,7 @@ int DrmConnector::switch_hdmi_hdr_mode_by_medadata(drmModeAtomicReqPtr pset,
   // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
   // 1:HDR模式: 等同自动模式
   // 0:SDR模式: 电视强制使用SDR模式，HDR片源也采用SDR显示
-  if(hwc_get_int_property("persist.sys.vivid.hdr_mode", "2") == 0){
+  if(hwc_get_int_property("persist.sys.vivid.hdr_mode", "2") == 0 || hdmi_metadata_type.eotf == TRADITIONAL_GAMMA_SDR){
     UpdateOutputFormat(pset);
   }else{
     HWC2_ALOGD_IF_DEBUG("change hdmi output format: %d", uColorFormat_);
