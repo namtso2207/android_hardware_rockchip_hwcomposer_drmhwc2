@@ -1582,6 +1582,7 @@ int Vop3528::TryMixVideoPolicy(
   int i = 0;
   for (auto &layer : layers) {
     if(!layer->bYuv_){
+      i++;
       continue;
     }
 
@@ -1592,15 +1593,15 @@ int Vop3528::TryMixVideoPolicy(
   }
 
   bool mix_down = false;
-  // 说明视频更接近顶层
+  // 说明视频更接近底层
   if((layers.size() - 1 - video_layer_index.second) > video_layer_index.first){
-    layer_indices.first = 0;
-    layer_indices.second = 0;
-    mix_down = true;
-  }else{// 说明视频更接近底层
     layer_indices.first = layers.size() - 1;
     layer_indices.second = layers.size() - 1;
     mix_down = false;
+  }else{// 说明视频更接近顶层
+    layer_indices.first = 0;
+    layer_indices.second = 0;
+    mix_down = true;
   }
 
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
