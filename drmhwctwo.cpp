@@ -2732,7 +2732,11 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
     return -1;
   }
 
-
+  if(!hdrLayer.bMatch_){
+    HWC2_ALOGD_IF_ERR("Next hdr not overlay, Id=%d Name=%s zpos=%d match=%d",
+                      hdrLayer.uId_, hdrLayer.sLayerName_.c_str(), hdrLayer.iZpos_, hdrLayer.bMatch_);
+    return -1;
+  }
   // 算法解析库是否存在
   DrmHdrParser* dhp = DrmHdrParser::Get();
   if(dhp == NULL){
