@@ -38,7 +38,7 @@ LOCAL_PATH := $(call my-dir)
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
 # RK356x RK3588 use DrmHwc2
-ifneq ($(filter rk356x rk3588 rk3528, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk356x rk3588 rk3528 rk3562, $(strip $(TARGET_BOARD_PLATFORM))), )
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
 else  # BUILD_WITH_RK_EBOOK
