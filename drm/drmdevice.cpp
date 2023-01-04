@@ -135,9 +135,18 @@ bool DrmDevice::mode_verify(const DrmMode &m) {
     return true;
 
   for (const DrmMode &mode : white_modes_) {
-    if (mode.h_display() == m.h_display() && mode.v_display() == m.v_display() &&
-	mode.h_total() == m.h_total() && mode.v_total() == m.v_total() &&
-	mode.clock() == m.clock() && mode.flags() == m.flags())
+    if (mode.h_display() == m.h_display() &&
+        mode.v_display() == m.v_display() &&
+        mode.h_total() == m.h_total() &&
+        mode.v_total() == m.v_total() &&
+        mode.clock() == m.clock() &&
+        mode.flags() == m.flags() &&
+        // 以下为后续添加判断条件
+        mode.h_sync_start() == m.h_sync_start() &&
+        mode.h_sync_end() == m.h_sync_end() &&
+        mode.h_skew() == m.h_skew() &&
+        mode.v_sync_start() == m.v_sync_start() &&
+        mode.v_sync_end() == m.v_sync_end())
       return true;
   }
   return false;

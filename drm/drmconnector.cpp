@@ -534,18 +534,13 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
       ALOGI_BEST_MODE_INFO(conn_mode);
       return 0;
     }
-    else {
-      temp = conn_mode.h_display()*conn_mode.v_display();
-      if(MaxResolution <= temp)
-        MaxResolution = temp;
-    }
   }
+
+  // 20230104: 参考uboot分辨率获取逻辑，如果获取不到最佳分辨率，则直接使用白名单列表第一个分辨率
   for (const DrmMode &conn_mode : modes()) {
-    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
-      set_best_mode(conn_mode);
-      ALOGI_BEST_MODE_INFO(conn_mode);
-      return 0;
-    }
+    set_best_mode(conn_mode);
+    ALOGI_BEST_MODE_INFO(conn_mode);
+    return 0;
   }
 
   //use raw modes to get mode.
@@ -555,18 +550,13 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
       ALOGI_BEST_MODE_INFO(conn_mode);
       return 0;
     }
-    else {
-      temp = conn_mode.h_display()*conn_mode.v_display();
-      if(MaxResolution <= temp)
-        MaxResolution = temp;
-    }
   }
+
+  // 20230104: 如果白名单分辨率一个都没有，直接获取分辨率列表第一个分辨率
   for (const DrmMode &conn_mode : raw_modes()) {
-    if(MaxResolution == conn_mode.h_display()*conn_mode.v_display()) {
-      set_best_mode(conn_mode);
-      ALOGI_BEST_MODE_INFO(conn_mode);
-      return 0;
-    }
+    set_best_mode(conn_mode);
+    ALOGI_BEST_MODE_INFO(conn_mode);
+    return 0;
   }
 
   ALOGE("Error: Should not get here display=%d %s %d\n", display_id, __FUNCTION__, __LINE__);
