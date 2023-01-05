@@ -63,6 +63,11 @@ void Vop3588::Init(){
 
   ctx.state.iVopMaxOverlay4KPlane = hwc_get_int_property("vendor.hwc.vop_max_overlay_4k_plane","0");
 
+  memset(ctx.state.accelerate_app_name, 0x00, sizeof(ctx.state.accelerate_app_name));
+  hwc_get_string_property("vendor.hwc.accelerate_app_name",
+                          "rk_handwrite_sf",
+                          ctx.state.accelerate_app_name);
+
 #ifdef USE_LIBSVEP
   InitSvep();
 #endif
@@ -300,6 +305,13 @@ int Vop3588::TryHwcPolicy(
   // Try to match GLES policy
   if(ctx.state.setHwcPolicy.count(HWC_GLES_SIDEBAND_LOPICY)){
     ret = TryGlesSidebandPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
+  // Try to match GLES Accelerate policy
+  if(ctx.state.setHwcPolicy.count(HWC_ACCELERATE_LOPICY)){
+    ret = TryGlesAcceleratePolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
   }
@@ -1746,6 +1758,54 @@ int Vop3588::TryGlesSidebandPolicy(
   return ret;
 }
 
+
+/*************************mix SidebandStream*************************
+   DisplayId=0, Connector 345, Type = HDMI-A-1, Connector state = DRM_MODE_CONNECTED , frame_no = 6611
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+    id  |  z  |  sf-type  |  hwc-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace  | name
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+   0050 | 000 |  Sideband |    Device | 000000000000000000 | None        | None       |    0.0,    0.0,   -1.0,   -1.0 |    0,    0, 1920, 1080 |          0 | allocateBuffer
+   0059 | 001 |    Device |    Client | 00b40000751ec3ec30 | None        | Premultipl | 1829.0,   20.0, 1900.0,   59.0 | 1829,   20, 1900,   59 |          0 | com.tencent.start.tv/com.tencent.start.ui.PlayActivity#0
+   0071 | 002 |    Device |    Device | 00b40000751ec403d0 | None        | Premultipl |    0.0,    0.0,  412.0, 1080.0 | 1508,    0, 1920, 1080 |          0 | rk_handwrite_sf
+  ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
+************************************************************/
+int Vop3588::TryGlesAcceleratePolicy(
+    std::vector<DrmCompositionPlane> *composition,
+    std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+    std::vector<PlaneGroup *> &plane_groups) {
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
+  ResetLayer(layers);
+  ResetPlaneGroups(plane_groups);
+  std::vector<DrmHwcLayer *> tmp_layers;
+  //save fb into tmp_layers
+  MoveFbToTmp(layers, tmp_layers);
+
+  int iPlaneSize = plane_groups.size();
+  std::pair<int, int> layer_indices(-1, -1);
+
+  int accelerate_index = -1;
+  for(auto& layer : layers){
+    if(layer->bAccelerateLayer_){
+      accelerate_index = layer->iDrmZpos_;
+    }
+  }
+
+  if((layers.size() - 1) > 1){
+    layer_indices.first = 0;
+    layer_indices.second = accelerate_index - 1;
+  }
+
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:accelerate layer (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+  int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+  if(!ret){
+    return ret;
+  }
+
+  ResetLayerFromTmp(layers,tmp_layers);
+  return ret;
+}
+
 /*************************mix SidebandStream*************************
    DisplayId=0, Connector 345, Type = HDMI-A-1, Connector state = DRM_MODE_CONNECTED , frame_no = 6611
   ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
@@ -2731,6 +2791,11 @@ void Vop3588::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
       continue;
     }
 
+    if(strstr(layer->sLayerName_.c_str(), ctx.state.accelerate_app_name)){
+      ctx.request.accelerate_app_exist_ = true;
+      layer->bAccelerateLayer_ = true;
+    }
+
     if(layer->bSidebandStreamLayer_)
       ctx.request.bSidebandStreamMode=true;
 
@@ -2950,7 +3015,6 @@ void Vop3588::TryMix(){
     ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
   if(ctx.request.bSidebandStreamMode)
     ctx.state.setHwcPolicy.insert(HWC_SIDEBAND_LOPICY);
-
 }
 
 int Vop3588::InitContext(
@@ -2973,6 +3037,10 @@ int Vop3588::InitContext(
     ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
     if(ctx.request.bSidebandStreamMode){
         ctx.state.setHwcPolicy.insert(HWC_GLES_SIDEBAND_LOPICY);
+    }
+    if(ctx.request.accelerate_app_exist_){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"accelerate_app_exist_ , soc_id=%x", ctx.state.iSocId);
+      ctx.state.setHwcPolicy.insert(HWC_ACCELERATE_LOPICY);
     }
     ALOGD_IF(LogLevel(DBG_DEBUG),"Force use GLES compose, iMode=%d, gles_policy=%d, soc_id=%x",iMode,gles_policy,ctx.state.iSocId);
     return 0;

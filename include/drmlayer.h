@@ -277,6 +277,9 @@ struct DrmHwcLayer {
   bool bSideband2_ = false;
   bool bSidebandStreamLayer_;
 
+  // 手写加速图层
+  bool bAccelerateLayer_;
+
   // Use Rga
   bool bUseRga_;
   std::shared_ptr<DrmBuffer> pRgaBuffer_;

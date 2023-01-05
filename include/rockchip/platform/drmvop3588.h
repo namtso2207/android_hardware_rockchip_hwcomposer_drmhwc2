@@ -86,6 +86,7 @@ typedef enum tagComposeMode{
    HWC_GLES_POLICY,
    HWC_RGA_OVERLAY_LOPICY,
    HWC_SVEP_OVERLAY_LOPICY,
+   HWC_ACCELERATE_LOPICY,
    HWC_3D_LOPICY,
    HWC_DEBUG_POLICY
 }ComposeMode;
@@ -93,6 +94,7 @@ typedef enum tagComposeMode{
 typedef struct RequestContext{
   int iSkipCnt=0;
   bool bSidebandStreamMode=false;
+  bool accelerate_app_exist_;
 
   // Afbcd info
   int iAfbcdCnt=0;
@@ -174,6 +176,8 @@ typedef struct StateContext{
 
   int iVopMaxOverlay4KPlane=0;
 
+  char accelerate_app_name[100];
+
   // Video state
   bool bLargeVideo=false;
   bool bDisableFBAfbcd=false;
@@ -247,6 +251,9 @@ struct SvepXml{
                         std::vector<PlaneGroup *> &plane_groups);
 #endif
   int TryGlesSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+  int TryGlesAcceleratePolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
   int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,
