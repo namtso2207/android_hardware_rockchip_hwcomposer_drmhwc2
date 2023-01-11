@@ -217,6 +217,37 @@ enum DrmPlaneTypeRK3528{
       PLANE_RK3528_Unknown      = 0xffffffff,
 };
 
+// RK3562
+enum DrmPlaneTypeRK3562{
+      // Esmart 0
+      PLANE_RK3562_ESMART0_WIN0 = 1 << 0,
+      PLANE_RK3562_ESMART0_WIN1 = 1 << 1,
+      PLANE_RK3562_ESMART0_WIN2 = 1 << 2,
+      PLANE_RK3562_ESMART0_WIN3 = 1 << 3,
+      // Esmart 1
+      PLANE_RK3562_ESMART1_WIN0 = 1 << 4,
+      PLANE_RK3562_ESMART1_WIN1 = 1 << 5,
+      PLANE_RK3562_ESMART1_WIN2 = 1 << 6,
+      PLANE_RK3562_ESMART1_WIN3 = 1 << 7,
+      // Esmart 2
+      PLANE_RK3562_ESMART2_WIN0 = 1 << 8,
+      PLANE_RK3562_ESMART2_WIN1 = 1 << 9,
+      PLANE_RK3562_ESMART2_WIN2 = 1 << 10,
+      PLANE_RK3562_ESMART2_WIN3 = 1 << 11,
+      // Esmart 3
+      PLANE_RK3562_ESMART3_WIN0 = 1 << 12,
+      PLANE_RK3562_ESMART3_WIN1 = 1 << 13,
+      PLANE_RK3562_ESMART3_WIN2 = 1 << 14,
+      PLANE_RK3562_ESMART3_WIN3 = 1 << 15,
+      // Esmart mask
+      PLANE_RK3562_ALL_ESMART0_MASK = 0xf,
+      PLANE_RK3562_ALL_ESMART1_MASK = 0xf0,
+      PLANE_RK3562_ALL_ESMART2_MASK = 0xf00,
+      PLANE_RK3562_ALL_ESMART3_MASK = 0xf000,
+      PLANE_RK3562_ALL_ESMART_MASK = 0xffff,
+      PLANE_RK3562_Unknown      = 0xffffffff,
+};
+
 // RK3399/Rk3288/RK3328/RK3128
 enum DrmPlaneTypeRK3399{
       DRM_PLANE_TYPE_VOP0_WIN0   = 1 << 0,

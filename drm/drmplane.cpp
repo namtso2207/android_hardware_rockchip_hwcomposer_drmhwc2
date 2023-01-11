@@ -165,7 +165,7 @@ int DrmPlane::Init() {
   std::tie(ret,b_sdr2hdr_)   = feature_property_.value_bitmask("sdr2hdr");
   std::tie(ret,b_afbdc_)   = feature_property_.value_bitmask("afbdc");
 
-  if(isRK356x(soc_id_) || isRK3588(soc_id_) || isRK3528(soc_id_)){
+  if(isRK356x(soc_id_) || isRK3588(soc_id_) || isRK3528(soc_id_) || isRK3562(soc_id_)){
     b_alpha_   = true;
     b_hdr2sdr_   = true;
     b_sdr2hdr_   = true;
@@ -480,6 +480,45 @@ void DrmPlane::mark_type_by_name(){
         break;
       }
     }
+  }else if(isRK3562(soc_id_)){
+    struct plane_type_name_rk3562 {
+      DrmPlaneTypeRK3562 type;
+      const char *name;
+    };
+
+    struct plane_type_name_rk3562 plane_type_names_rk3562[] = {
+      { PLANE_RK3562_ESMART0_WIN0, "Esmart0-win0" },
+      { PLANE_RK3562_ESMART0_WIN1, "Esmart0-win1" },
+      { PLANE_RK3562_ESMART0_WIN2, "Esmart0-win2" },
+      { PLANE_RK3562_ESMART0_WIN3, "Esmart0-win3" },
+
+      { PLANE_RK3562_ESMART1_WIN0, "Esmart1-win0" },
+      { PLANE_RK3562_ESMART1_WIN1, "Esmart1-win1" },
+      { PLANE_RK3562_ESMART1_WIN2, "Esmart1-win2" },
+      { PLANE_RK3562_ESMART1_WIN3, "Esmart1-win3" },
+
+      { PLANE_RK3562_ESMART2_WIN0, "Esmart2-win0" },
+      { PLANE_RK3562_ESMART2_WIN1, "Esmart2-win1" },
+      { PLANE_RK3562_ESMART2_WIN2, "Esmart2-win2" },
+      { PLANE_RK3562_ESMART2_WIN3, "Esmart2-win3" },
+
+      { PLANE_RK3562_ESMART3_WIN0, "Esmart3-win0" },
+      { PLANE_RK3562_ESMART3_WIN1, "Esmart3-win1" },
+      { PLANE_RK3562_ESMART3_WIN2, "Esmart3-win2" },
+      { PLANE_RK3562_ESMART3_WIN3, "Esmart3-win3" },
+
+      { PLANE_RK3562_Unknown, "unknown" },
+    };
+    for(int i = 0; i < ARRAY_SIZE(plane_type_names_rk3562); i++){
+      int ret;
+      bool find_name = false;
+      std::tie(ret,find_name) = name_property_.bitmask(plane_type_names_rk3562[i].name);
+      if(find_name){
+        win_type_ = plane_type_names_rk3562[i].type;
+        name_ = plane_type_names_rk3562[i].name;
+        break;
+      }
+    }
   }else{
     HWC2_ALOGE("Can't find soc_id is %x",soc_id_);
   }
@@ -709,6 +748,12 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
       return support_format_list.count(format);
     else
       return false;
+  }else if(isRK3562(soc_id_)){
+    if(!afbcd){
+      return support_format_list.count(format);
+    }else{
+      return false;
+    }
   }else if(isRK356x(soc_id_)){
     if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) > 0 && afbcd)
       return support_format_list.count(format);

@@ -68,6 +68,15 @@ struct plane_mask_name plane_mask_names_rk356x[] = {
   { DRM_PLANE_TYPE_VOP2_Unknown, "unknown" },
 };
 
+// RK3528
+struct plane_mask_name plane_mask_names_rk3562[] = {
+  { PLANE_RK3562_ALL_ESMART0_MASK, "Esmart0" },
+  { PLANE_RK3562_ALL_ESMART1_MASK, "Esmart1" },
+  { PLANE_RK3562_ALL_ESMART2_MASK, "Esmart2" },
+  { PLANE_RK3562_ALL_ESMART3_MASK, "Esmart3" },
+  { PLANE_RK3562_Unknown, "unknown" },
+};
+
 // RK3399
 struct plane_mask_name plane_mask_names_rk3399[] = {
   { DRM_PLANE_TYPE_VOP0_MASK, "VOP0-win0" },
@@ -192,6 +201,14 @@ int DrmCrtc::Init() {
         std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk3528[i].name);
         if(have_mask){
           plane_mask_ |= plane_mask_names_rk3528[i].mask;
+        }
+      }
+    }else if(isRK3562(soc_id_)){
+      for(int i = 0; i < ARRAY_SIZE(plane_mask_names_rk3562); i++){
+        bool have_mask = false;
+        std::tie(ret,have_mask) = plane_mask_property_.value_bitmask(plane_mask_names_rk3562[i].name);
+        if(have_mask){
+          plane_mask_ |= plane_mask_names_rk3562[i].mask;
         }
       }
     }
