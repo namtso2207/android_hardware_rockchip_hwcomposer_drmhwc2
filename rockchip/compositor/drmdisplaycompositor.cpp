@@ -1020,7 +1020,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
-    bool afbcd = false, yuv = false, sideband = false;
+    bool afbcd = false, yuv = false, yuv10bit = false, sideband = false;
     bool is_metadata_hdr = false;
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
@@ -1099,7 +1099,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       colorspace = layer.uColorSpace;
       afbcd = layer.bAfbcd_;
       yuv = layer.bYuv_;
-
+      yuv10bit = layer.bYuv10bit_;
       if (plane->blend_property().id()) {
         switch (layer.blending) {
           case DrmHwcBlending::kPreMult:
@@ -1168,6 +1168,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       src_t = ALIGN_DOWN(src_t, 2);
     }
 
+    // 非afbc 10bit 片源 x_offset 需要8对齐
+    if(yuv10bit && !afbcd){
+      src_l = ALIGN_DOWN(src_l, 8);
+    }
 
     ret = drmModeAtomicAddProperty(pset, plane->id(),
                                    plane->crtc_property().id(), crtc->id()) < 0;
