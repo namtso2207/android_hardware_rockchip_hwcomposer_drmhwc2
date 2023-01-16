@@ -48,8 +48,7 @@ struct assign_plane_group_3562{
 struct assign_plane_group_3562 assign_mask_default_3562[] = {
   { -1 , PLANE_RK3562_ALL_ESMART0_MASK  |
          PLANE_RK3562_ALL_ESMART1_MASK  |
-         PLANE_RK3562_ALL_ESMART2_MASK  |
-         PLANE_RK3562_ALL_ESMART3_MASK, false},
+         PLANE_RK3562_ALL_ESMART2_MASK  , false},
   { -1 , PLANE_RK3562_ALL_ESMART2_MASK |
          PLANE_RK3562_ALL_ESMART3_MASK, false},
 };
@@ -101,8 +100,7 @@ int Hwc3562::assignPlaneByHWC(DrmDevice* drm){
   }
 
   for(auto &plane_group : all_plane_group){
-    if((plane_group->win_type & PLANE_RK3562_ALL_ESMART2_MASK) > 0 ||
-        (plane_group->win_type & PLANE_RK3562_ALL_ESMART3_MASK) > 0){
+    if((plane_group->win_type & PLANE_RK3562_ALL_ESMART2_MASK) > 0){
       // RK3528 图层切换后需要延迟使用
       plane_group->delay_use_cnt = 16;
     }
