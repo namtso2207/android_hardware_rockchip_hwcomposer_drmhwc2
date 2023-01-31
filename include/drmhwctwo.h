@@ -525,6 +525,7 @@ class DrmHwcTwo : public hwc2_device_t {
     buffer_handle_t buffer_ = NULL;
     // SidebandStream Handle
     bool bSideband2_=false;
+    bool bSideband2Valid_=false;
     buffer_handle_t sidebandStreamHandle_ = NULL;
     vt_sideband_data_t mSidebandInfo_;
     // current frame state
