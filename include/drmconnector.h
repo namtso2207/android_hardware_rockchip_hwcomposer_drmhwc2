@@ -169,9 +169,6 @@ class DrmConnector {
   struct drm_hdr_static_metadata_infoframe* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
   const struct disp_info* baseparameter_info(){ return baseparameter_ready_ ? &baseparameter_ : NULL; }
 
-  void addMirrorDisplay(DrmCrtc* crtc, int display);
-  std::vector<int>* getMirrorDisplayVectorForCrtc(DrmCrtc* crtc);
-
   // VRR
   const std::vector<int> &vrr_modes() const {
     return vrr_modes_;

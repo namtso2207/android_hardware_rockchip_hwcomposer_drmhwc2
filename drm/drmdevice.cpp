@@ -646,31 +646,6 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
     }
   }
 
-  // 找到并标记可能存在竞争 crtc 的 Connector
-  for(auto &conn : connectors_){
-    for(auto &conn_temp : connectors_){
-      if(conn == conn_temp)
-        continue;
-      for (DrmEncoder *enc : conn->possible_encoders()) {
-        for (DrmCrtc *crtc : enc->possible_crtcs()) {
-          for (DrmEncoder *temp_enc : conn_temp->possible_encoders()) {
-            for (DrmCrtc *temp_crtc : temp_enc->possible_crtcs()) {
-              if(crtc == temp_crtc){
-                conn->addMirrorDisplay(crtc, conn_temp->display());
-                HWC2_ALOGI("Mirror: display-id=%d %s-%d, display-id=%d %s-%d both has crtc-id=%d",
-                            conn->display(),
-                            connector_type_str(conn->type()),conn->type_id(),
-                            conn_temp->display(),
-                            connector_type_str(conn_temp->type()),conn_temp->type_id(),
-                            crtc->id());
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
   if (res)
     drmModeFreeResources(res);
 

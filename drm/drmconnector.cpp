@@ -1451,26 +1451,4 @@ int DrmConnector::getCropInfo(int32_t *srcX, int32_t *srcY, int32_t *srcW, int32
   return 0;
 }
 
-void DrmConnector::addMirrorDisplay(DrmCrtc* crtc, int display){
-  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
-  if(mMapCrtcDisplays_.count(crtc)){
-    auto search = mMapCrtcDisplays_.find(crtc);
-    if(search != mMapCrtcDisplays_.end()){
-      search->second.push_back(display);
-    }
-  }else{
-    mMapCrtcDisplays_[crtc] = {display};
-  }
-}
-std::vector<int>* DrmConnector::getMirrorDisplayVectorForCrtc(DrmCrtc* crtc){
-  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
-  if(mMapCrtcDisplays_.count(crtc)){
-    auto search = mMapCrtcDisplays_.find(crtc);
-    if(search != mMapCrtcDisplays_.end()){
-      return &(search->second);
-    }
-  }
-  return NULL;
-}
-
 }  // namespace android
