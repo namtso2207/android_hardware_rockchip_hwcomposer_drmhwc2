@@ -390,6 +390,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
     HWC2_ALOGE("Failed to BindDpyRes for display=%d %d\n", display, ret);
     return HWC2::Error::NoResources;
   }
+  UpdateDisplayInfo();
 
   ret = drm_->UpdateDisplayGamma(handle_);
   if (ret) {
@@ -506,6 +507,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CheckStateAndReinit(bool clear_layer) {
     HWC2_ALOGE("Failed to BindDpyRes for display=%d %d\n", display, ret);
     return HWC2::Error::NoResources;
   }
+
+  UpdateDisplayInfo();
 
   crtc_ = drm_->GetCrtcForDisplay(display);
   if (!crtc_) {
@@ -630,7 +633,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ChosePreferredConfig() {
   if (err != HWC2::Error::None || !num_configs)
     return err;
 
-  err = SetActiveConfig(connector_->best_mode().id());
+  err = SetActiveConfig(connector_->active_mode().id());
   return err;
 }
 
@@ -949,9 +952,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
 
     *num_configs = idx;
   }else{
-
-    UpdateDisplayMode();
-    const DrmMode best_mode = connector_->best_mode();
+    UpdateDisplayInfo();
+    const DrmMode best_mode = connector_->active_mode();
 
     char framebuffer_size[PROPERTY_VALUE_MAX];
     uint32_t width = 0, height = 0 , vrefresh = 0;
@@ -2191,6 +2193,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
     if (ret) {
       HWC2_ALOGE("Failed to BindDpyRes for display=%" PRIu64 " ret=%d\n", handle_, ret);
     }
+    UpdateDisplayInfo();
     if(isRK3566(resource_manager_->getSocId())){
       ALOGD_IF(LogLevel(DBG_DEBUG),"SetPowerMode display-id=%" PRIu64 ",soc is rk3566" ,handle_);
       int display_id = drm_->GetCommitMirrorDisplayId();
@@ -2314,6 +2317,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
       int display_id = drm_->GetCommitMirrorDisplayId();
       drm_->UpdateDisplayMode(display_id);
     }
+    UpdateDisplayInfo();
   }
 
   *num_types = 0;
@@ -2552,21 +2556,6 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
     if(!ret){
       const DrmMode best_mode = connector_->best_mode();
       connector_->set_current_mode(best_mode);
-      if(connector_->isHorizontalSpilt()){
-        ctx_.rel_xres = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
-        ctx_.rel_yres = best_mode.v_display();
-        if(handle_ >= DRM_CONNECTOR_SPILT_MODE_MASK){
-          ctx_.rel_xoffset = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
-          ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
-        }
-      }else if(connector_->isCropSpilt()){
-        ctx_.rel_xres = best_mode.h_display();
-        ctx_.rel_yres = best_mode.v_display();
-      }else{
-        ctx_.rel_xres = best_mode.h_display();
-        ctx_.rel_yres = best_mode.v_display();
-      }
-      ctx_.dclk = best_mode.clock();
       // will change display resolution, to clear all display.
       if(!(connector_->current_mode() == connector_->active_mode()))
         ClearDisplay();
@@ -2589,6 +2578,28 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
         }
       }
     }
+  }
+  return 0;
+}
+
+int DrmHwcTwo::HwcDisplay::UpdateDisplayInfo(){
+  if(!ctx_.bStandardSwitchResolution){
+    const DrmMode active_mode = connector_->active_mode();
+    if(connector_->isHorizontalSpilt()){
+      ctx_.rel_xres = active_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
+      ctx_.rel_yres = active_mode.v_display();
+      if(handle_ >= DRM_CONNECTOR_SPILT_MODE_MASK){
+        ctx_.rel_xoffset = active_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
+        ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
+      }
+    }else if(connector_->isCropSpilt()){
+      ctx_.rel_xres = active_mode.h_display();
+      ctx_.rel_yres = active_mode.v_display();
+    }else{
+      ctx_.rel_xres = active_mode.h_display();
+      ctx_.rel_yres = active_mode.v_display();
+    }
+    ctx_.dclk = active_mode.clock();
   }
   return 0;
 }
@@ -4010,8 +4021,8 @@ void DrmHwcTwo::DrmHotplugHandler::HdmiTvOnlyOne(PLUG_EVENT_TYPE hdmi_hotplug_st
           auto &display = hwc2_->displays_.at(display_id);
           int ret = (int32_t)display.HoplugEventTmeline();
           ret |= (int32_t)display.UpdateDisplayMode();
-          ret |= (int32_t)display.ChosePreferredConfig();
           ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+          ret |= (int32_t)display.ChosePreferredConfig();
           if(ret != 0){
             HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                       cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -4097,8 +4108,8 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     if (cur_state == DRM_MODE_CONNECTED) {
       ret |= (int32_t)display.HoplugEventTmeline();
       ret |= (int32_t)display.UpdateDisplayMode();
-      ret |= (int32_t)display.ChosePreferredConfig();
       ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+      ret |= (int32_t)display.ChosePreferredConfig();
       if(ret != 0){
         HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -4142,8 +4153,8 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       if (cur_state == DRM_MODE_CONNECTED) {
         ret |= (int32_t)display.HoplugEventTmeline();
         ret |= (int32_t)display.UpdateDisplayMode();
-        ret |= (int32_t)display.ChosePreferredConfig();
         ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+        ret |= (int32_t)display.ChosePreferredConfig();
         if(ret != 0){
           HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -4200,8 +4211,8 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
           auto &display = hwc2_->displays_.at(display_id);
           ret |= (int32_t)display.HoplugEventTmeline();
           ret |= (int32_t)display.UpdateDisplayMode();
-          ret |= (int32_t)display.ChosePreferredConfig();
           ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+          ret |= (int32_t)display.ChosePreferredConfig();
           if(ret != 0){
             HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                       cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",

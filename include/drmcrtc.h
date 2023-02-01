@@ -53,6 +53,8 @@ class DrmCrtc {
   uint32_t get_soc_id() const { return soc_id_; }
   uint32_t get_port_id() const { return port_id_; }
   uint32_t get_aclk() const { return aclk_; }
+  uint64_t get_output_width() const { return output_width_; }
+  uint64_t get_output_dlck() const { return output_dclk_; }
   uint64_t get_plane_mask() const { return plane_mask_; }
   void  set_hwc_plane_mask(uint64_t hwc_plane_mask) { hwc_plane_mask_ =  hwc_plane_mask; }
   uint64_t get_hwc_plane_mask() const { return hwc_plane_mask_; }
@@ -70,6 +72,8 @@ class DrmCrtc {
   const DrmProperty &gamma_lut_size_property() const;
   const DrmProperty &cubic_lut_property() const;
   const DrmProperty &cubic_lut_size_property() const;
+  const DrmProperty &output_width_property() const;
+  const DrmProperty &output_dclk_property() const;
   const DrmProperty &variable_refresh_rate() const;
   const DrmProperty &max_refresh_rate() const;
   const DrmProperty &min_refresh_rate() const;
@@ -112,6 +116,8 @@ class DrmCrtc {
   DrmProperty gamma_lut_size_property_;
   DrmProperty cubic_lut_property_;
   DrmProperty cubic_lut_size_property_;
+  DrmProperty output_width_property_;
+  DrmProperty output_dclk_property_;
   DrmProperty variable_refresh_rate_;
   DrmProperty max_refresh_rate_;
   DrmProperty min_refresh_rate_;
@@ -121,6 +127,8 @@ class DrmCrtc {
   uint32_t soc_id_;
   uint32_t port_id_;
   uint32_t aclk_=0;
+  uint64_t output_width_=0;
+  uint64_t output_dclk_=0;
   // Plane_mask must limit crtc and plane binding relationship
   // If the Plane mask is specified, only the mask plane is allowed to be bound for crtc
   uint64_t plane_mask_=0;
@@ -130,3 +138,4 @@ class DrmCrtc {
 }  // namespace android
 
 #endif  // ANDROID_DRM_CRTC_H_
+

@@ -461,6 +461,7 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
         if (conn_mode.equal(width, height, hsync_start, hsync_end,
                             htotal, vsync_start, vsync_end, vtotal, flags, clock)) {
           set_best_mode(conn_mode);
+          ALOGI_BEST_MODE_INFO(conn_mode);
           return 0;
         }
       }
@@ -556,6 +557,87 @@ int DrmConnector::UpdateDisplayMode(int display_id, int update_base_timeline){
   for (const DrmMode &conn_mode : raw_modes()) {
     set_best_mode(conn_mode);
     ALOGI_BEST_MODE_INFO(conn_mode);
+    return 0;
+  }
+
+  ALOGE("Error: Should not get here display=%d %s %d\n", display_id, __FUNCTION__, __LINE__);
+  DrmMode mode;
+  set_best_mode(mode);
+
+  return 0;
+}
+
+int DrmConnector::GetSuitableMode(int display_id, uint64_t max_width, uint64_t dlck){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  uint32_t flags = 0;
+  for (const DrmMode &conn_mode : modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      if(conn_mode.h_display() >  max_width){
+        continue;
+      }
+
+      if(conn_mode.h_display() *
+        conn_mode.v_display() *
+        (uint64_t)conn_mode.v_refresh() >  dlck){
+        continue;
+      }
+      set_best_mode(conn_mode);
+      set_current_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+  }
+
+  // 20230104: 参考uboot分辨率获取逻辑，如果获取不到最佳分辨率，则直接使用白名单列表第一个分辨率
+  for (const DrmMode &conn_mode : modes()) {
+    if(conn_mode.h_display() >  max_width){
+      continue;
+    }
+
+    if(conn_mode.h_display() *
+      conn_mode.v_display() *
+      (uint64_t)conn_mode.v_refresh() >  dlck){
+      continue;
+    }
+    set_best_mode(conn_mode);
+    set_current_mode(conn_mode);
+    ALOGI_BEST_MODE_INFO(conn_mode);
+    return 0;
+  }
+
+  //use raw modes to get mode.
+  for (const DrmMode &conn_mode : raw_modes()) {
+    if (conn_mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      if(conn_mode.h_display() >  max_width){
+        continue;
+      }
+
+      if(conn_mode.h_display() *
+        conn_mode.v_display() *
+        (uint64_t)conn_mode.v_refresh() >  dlck){
+        continue;
+      }
+      set_best_mode(conn_mode);
+      set_current_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
+      return 0;
+    }
+  }
+
+  // 20230104: 如果白名单分辨率一个都没有，直接获取分辨率列表第一个分辨率
+  for (const DrmMode &conn_mode : raw_modes()) {
+      if(conn_mode.h_display() >  max_width){
+        continue;
+      }
+
+      if(conn_mode.h_display() *
+        conn_mode.v_display() *
+        (uint64_t)conn_mode.v_refresh() >  dlck){
+        continue;
+      }
+      set_best_mode(conn_mode);
+      set_current_mode(conn_mode);
+      ALOGI_BEST_MODE_INFO(conn_mode);
     return 0;
   }
 

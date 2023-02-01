@@ -663,6 +663,7 @@ class DrmHwcTwo : public hwc2_device_t {
    bool PresentFinish(void) { return present_finish_; };
    int HoplugEventTmeline();
    int UpdateDisplayMode();
+   int UpdateDisplayInfo();
    int UpdateHdmiOutputFormat();
    int UpdateBCSH();
    int UpdateOverscan();

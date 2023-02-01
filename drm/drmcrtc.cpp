@@ -236,6 +236,30 @@ int DrmCrtc::Init() {
     ALOGE("Failed to get CUBIC_LUT_SIZE property");
   }
 
+  // OUTPUT_WIDTH / OUTPUT_DCLK 用来计算VP的输出能力，计算公式为：
+  // 1. 输出分辨率宽度限制： drmModeModeInfo.htotal <= OUTPUT_WIDTH
+  // 2. 输出分辨率高度与刷新率限制：
+  //   drmModeModeInfo.htotal * drmModeModeInfo.vtotal * drmModeModeInfo.vrefresh <= OUTPUT_DCLK
+  ret = drm_->GetCrtcProperty(*this, "OUTPUT_WIDTH", &output_width_property_);
+  if (ret) {
+    ALOGE("Failed to get OUTPUT_WIDTH property");
+  }else{
+    std::tie(ret, output_width_) = output_width_property_.range_max();
+    if(ret){
+      ALOGE("Failed to get OUTPUT_WIDTH value");
+    }
+  }
+
+  ret = drm_->GetCrtcProperty(*this, "OUTPUT_DCLK", &output_dclk_property_);
+  if (ret) {
+    ALOGE("Failed to get OUTPUT_DCLK property");
+  }else{
+    std::tie(ret, output_dclk_) = output_dclk_property_.range_max();
+    if(ret){
+      ALOGE("Failed to get OUTPUT_DCLK value");
+    }
+  }
+
   if(isDrmVerison44(drm_version_)){
     // Nothing.
   }else if(isDrmVerison419(drm_version_)){
@@ -406,9 +430,18 @@ const DrmProperty &DrmCrtc::cubic_lut_size_property() const{
   return cubic_lut_size_property_;
 }
 
+const DrmProperty &DrmCrtc::output_width_property() const{
+  return output_width_property_;
+}
+
+const DrmProperty &DrmCrtc::output_dclk_property() const{
+  return output_dclk_property_;
+}
+
 const DrmProperty &DrmCrtc::variable_refresh_rate() const{
   return variable_refresh_rate_;
 }
+
 const DrmProperty &DrmCrtc::max_refresh_rate() const{
   return max_refresh_rate_;
 }

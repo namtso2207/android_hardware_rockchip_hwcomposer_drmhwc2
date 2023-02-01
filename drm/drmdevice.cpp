@@ -1618,6 +1618,37 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
     }
   }
 
+  if(crtc->output_width_property().id() > 0){
+    // 检查 crtc 的输出能力是否可以支持输出当前设置的分辨率，若不支持，则需要切换到支持的分辨率
+    bool crtc_support_current_mode = true;
+    uint64_t crtc_output_width_max = crtc->get_output_width();
+    uint64_t crtc_output_dclk = crtc->get_output_dlck();
+    // OUTPUT_WIDTH / OUTPUT_DCLK 用来计算VP的输出能力，计算公式为：
+    // 1. 输出分辨率宽度限制： drmModeModeInfo.htotal <= OUTPUT_WIDTH
+    // 2. 输出分辨率高度与刷新率限制：
+    //   drmModeModeInfo.htotal * drmModeModeInfo.vtotal * drmModeModeInfo.vrefresh <= OUTPUT_DCLK
+    if(current_mode.h_display() >=  crtc_output_width_max){
+      crtc_support_current_mode = false;
+    }
+
+    if(current_mode.h_display() *
+      current_mode.v_display() *
+      (uint64_t)current_mode.v_refresh() >=  crtc_output_dclk){
+      crtc_support_current_mode = false;
+    }
+
+    if(!crtc_support_current_mode){
+      HWC2_ALOGW("current_mode=%dx%d@%f not support, vp-w=%" PRIu64 " vp-dclk=%" PRIu64  " must to change other mode.",
+                current_mode.h_display(),
+                current_mode.v_display(),
+                current_mode.v_refresh(),
+                crtc_output_width_max,
+                crtc_output_dclk);
+      conn->GetSuitableMode(display_id, crtc_output_width_max, crtc_output_dclk);
+      current_mode = conn->current_mode();
+    }
+  }
+
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
