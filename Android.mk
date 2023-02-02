@@ -37,7 +37,7 @@ LOCAL_PATH := $(call my-dir)
 
 BOARD_USES_DRM_HWCOMPOSER2=false
 BOARD_USES_DRM_HWCOMPOSER=false
-# RK356x RK3588 use DrmHwc2
+# rk356x rk3588 rk3528 rk3562 use DrmHwc2
 ifneq ($(filter rk356x rk3588 rk3528 rk3562, $(strip $(TARGET_BOARD_PLATFORM))), )
 ifeq ($(strip $(BUILD_WITH_RK_EBOOK)),true)
         BOARD_USES_DRM_HWCOMPOSER2=false
@@ -51,12 +51,6 @@ endif
 ifeq ($(strip $(BOARD_USES_DRM_HWCOMPOSER2)),true)
 
 include $(CLEAR_VARS)
-# only RK3528 use HDR PARSER
-USE_HDR_PARSER=false
-# RK3528 hdr parser module
-ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))),)
-USE_HDR_PARSER=true
-endif
 
 LOCAL_SHARED_LIBRARIES := \
   libcutils \
@@ -142,37 +136,35 @@ LOCAL_HEADER_LIBRARIES += \
   libhardware_rockchip_headers
 endif
 
+
 # API 30 -> Android 11.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
-
 LOCAL_C_INCLUDES += \
     hardware/rockchip/hwcomposer/drmhwc2/include
-
 LOCAL_CPPFLAGS += -DANDROID_R
 
+# Gralloc config:
 ifeq ($(TARGET_RK_GRALLOC_VERSION),4) # Gralloc 4.0
-
 LOCAL_CPPFLAGS += -DUSE_GRALLOC_4=1
-
 LOCAL_SHARED_LIBRARIES += \
     libhidlbase \
     libgralloctypes \
     android.hardware.graphics.mapper@4.0
-
 LOCAL_SRC_FILES += \
     rockchip/common/drmgralloc4.cpp
-
 LOCAL_HEADER_LIBRARIES += \
     libgralloc_headers
-
+else
+  LOCAL_CPPFLAGS += -DUSE_GRALLOC_0=1
 endif # Gralloc 4.0
-else  # Android 11
 
+else  # Android 11
 LOCAL_C_INCLUDES += \
   hardware/rockchip/hwcomposer/include
-
 endif
 
+
+# Mali config:
 # API 29 -> Android 10.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
 LOCAL_CPPFLAGS += -DANDROID_Q
@@ -198,24 +190,24 @@ LOCAL_C_INCLUDES += \
 endif
 endif
 
-# API 28 -> Android 9.0
-ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \== 29)))
-ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))), )
-LOCAL_CPPFLAGS += -DANDROID_P=1 -DRK3528=1
+# RK3528 config:
+USE_HDR_PARSER=false
+ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))),)
+LOCAL_CPPFLAGS += -DRK3528=1
+# API 28/29 -> Android 9.0
+ifeq (0,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \> 29)))
+USE_HDR_PARSER=true
+LOCAL_CPPFLAGS += -DANDROID_P=1
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libgralloc/ \
   system/core/liblog/include/
-
-# USE_HDR_PARSER
-ifeq ($(strip $(USE_HDR_PARSER)),true)
+# Android 启用 HDR 功能
 LOCAL_SHARED_LIBRARIES += \
 	libhdr_params_parser
 LOCAL_CPPFLAGS += \
 	-DUSE_HDR_PARSER=1
 endif
 endif
-endif
-
 
 # BOARD_USES_LIBSVEP=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
