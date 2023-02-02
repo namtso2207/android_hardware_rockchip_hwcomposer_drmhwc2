@@ -224,6 +224,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     bo->width = ALIGN_DOWN(bo->width,2);
   }
 
+#ifdef RK3528 // RK3528 kernel 5.10 也需要遵循此逻辑
+  if(bo->format == DRM_FORMAT_NV15 && bo->modifier == 0){
+    bo->width = bo->width / 1.25;
+    bo->width = ALIGN_DOWN(bo->width,2);
+  }
+#endif
+
   int ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
