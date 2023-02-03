@@ -191,21 +191,20 @@ endif
 endif
 
 # RK3528 config:
-USE_HDR_PARSER=false
 ifneq ($(filter rk3528, $(strip $(TARGET_BOARD_PLATFORM))),)
 LOCAL_CPPFLAGS += -DRK3528=1
-# API 28/29 -> Android 9.0
-ifeq (0,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \> 29)))
 USE_HDR_PARSER=true
-LOCAL_CPPFLAGS += -DANDROID_P=1
-LOCAL_C_INCLUDES += \
-  hardware/rockchip/libgralloc/ \
-  system/core/liblog/include/
 # Android 启用 HDR 功能
 LOCAL_SHARED_LIBRARIES += \
 	libhdr_params_parser
 LOCAL_CPPFLAGS += \
 	-DUSE_HDR_PARSER=1
+# API 28/29 -> Android 9.0
+ifeq (0,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \> 29)))
+LOCAL_CPPFLAGS += -DANDROID_P=1
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libgralloc/ \
+  system/core/liblog/include/
 endif
 endif
 
@@ -286,6 +285,11 @@ endif
 ifeq ($(strip $(USE_HDR_PARSER)),true)
 # libhdr_params_parser
 TARGET_VIVID_HDR_PARSER_LIB_PATH := rockchip/common/hdr/vivid
+ifeq (0,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \> 29)))
+TARGET_ANDROID_VERSION := 9
+else
+TARGET_ANDROID_VERSION := 13
+endif
 include $(CLEAR_VARS)
 LOCAL_MODULE := libhdr_params_parser
 LOCAL_MODULE_TAGS := optional
@@ -296,10 +300,10 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_PROPRIETARY_MODULE := true
 ifneq ($(strip $(TARGET_2ND_ARCH)), )
 LOCAL_MULTILIB := both
-LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ARCH)/libhdr_params_parser.so
-LOCAL_SRC_FILES_$(TARGET_2ND_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_2ND_ARCH)/libhdr_params_parser.so
+LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ANDROID_VERSION)/$(TARGET_ARCH)/libhdr_params_parser.so
+LOCAL_SRC_FILES_$(TARGET_2ND_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ANDROID_VERSION)/$(TARGET_2ND_ARCH)/libhdr_params_parser.so
 else
-LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ARCH)/libhdr_params_parser.so
+LOCAL_SRC_FILES_$(TARGET_ARCH) := $(TARGET_VIVID_HDR_PARSER_LIB_PATH)/$(TARGET_ANDROID_VERSION)/$(TARGET_ARCH)/libhdr_params_parser.so
 endif
 include $(BUILD_PREBUILT)
 endif # USE_HDR_PARSER
