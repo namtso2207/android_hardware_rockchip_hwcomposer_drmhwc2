@@ -305,18 +305,20 @@ int DrmGralloc::hwc_get_handle_byte_stride_workround(buffer_handle_t hnd)
     }
 
     // Kernel 4.19 存在需要 workaround 的逻辑
-    int format = hwc_get_handle_format(hnd);
-    if(format >= 0){
-      if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
-          || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
-          || format == HAL_PIXEL_FORMAT_Y210){
-          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
-                    __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
-          byte_stride = byte_stride * 2 / 3;
-      }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
-          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
-                    __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
-          byte_stride = byte_stride / 2;
+    if(gIsDrmVerison419()){
+      int format = hwc_get_handle_format(hnd);
+      if(format >= 0){
+        if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
+            || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+            || format == HAL_PIXEL_FORMAT_Y210){
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                      __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
+            byte_stride = byte_stride * 2 / 3;
+        }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                      __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
+            byte_stride = byte_stride / 2;
+        }
       }
     }
     return byte_stride;
@@ -352,18 +354,20 @@ int DrmGralloc::hwc_get_handle_byte_stride(buffer_handle_t hnd)
     }
 
     // Kernel 4.19 存在需要 workaround 的逻辑
-    int format = hwc_get_handle_format(hnd);
-    if(format >= 0){
-      if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
-          || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
-          || format == HAL_PIXEL_FORMAT_Y210){
-          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
-                    __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
-          byte_stride = byte_stride * 2 / 3;
-      }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
-          ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
-                    __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
-          byte_stride = byte_stride / 2;
+    if(gIsDrmVerison419()){
+      int format = hwc_get_handle_format(hnd);
+      if(format >= 0){
+        if(format == HAL_PIXEL_FORMAT_YUV420_8BIT_I
+            || format == HAL_PIXEL_FORMAT_YUV420_10BIT_I
+            || format == HAL_PIXEL_FORMAT_Y210){
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                      __FUNCTION__,__LINE__,byte_stride,byte_stride * 2 / 3);
+            byte_stride = byte_stride * 2 / 3;
+        }else if(format == HAL_PIXEL_FORMAT_YCBCR_422_I){
+            ALOGW_IF(LogLevel(android::DBG_DEBUG),"%s,line=%d ,vop driver workround: byte stride %d => %d",
+                      __FUNCTION__,__LINE__,byte_stride, byte_stride / 2);
+            byte_stride = byte_stride / 2;
+        }
       }
     }
     return byte_stride;
