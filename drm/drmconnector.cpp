@@ -862,6 +862,9 @@ int DrmConnector::UpdateOutputFormat(int display_id, int update_base_timeline){
     }
     color_format = baseparameter_.screen_info[0].format;
     color_depth   = baseparameter_.screen_info[0].depthc;
+  }else{
+    color_format = output_ycbcr_high_subsampling;
+    color_depth = depth_24bit;
   }
 
 
@@ -949,7 +952,7 @@ int DrmConnector::UpdateOutputFormat(drmModeAtomicReqPtr pset){
     ret = ParseHdmiOutputFormat(output_format_value, &color_format, &color_depth);
     if (ret == false) {
       ALOGE("Get color fail! to use default ");
-      color_format = output_rgb;
+      color_format = output_ycbcr_high_subsampling;
       color_depth = depth_24bit;
     }
   }else if(baseparameter_ready_){
@@ -962,6 +965,9 @@ int DrmConnector::UpdateOutputFormat(drmModeAtomicReqPtr pset){
     }
     color_format = baseparameter_.screen_info[0].format;
     color_depth   = baseparameter_.screen_info[0].depthc;
+  }else{
+    color_format = output_ycbcr_high_subsampling;
+    color_depth = depth_24bit;
   }
 
   ALOGI("%s,line=%d %s change hdmi output format: %d", __FUNCTION__,__LINE__, cUniqueName_, color_format);
