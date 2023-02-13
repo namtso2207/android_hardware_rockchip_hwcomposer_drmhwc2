@@ -53,7 +53,9 @@ namespace android {
 #define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
 #endif
 
-#define INPUT_4K_SCALE_MAX_RATE 4.0
+// RK3528 vop要求4K视频缩小3倍以后开启解码的预缩小功能
+// 降低vop端的带宽负载
+#define INPUT_4K_SCALE_MAX_RATE 3.0
 
 void Vop3528::Init(){
 
