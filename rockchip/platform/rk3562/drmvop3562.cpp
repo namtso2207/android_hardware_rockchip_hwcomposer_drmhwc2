@@ -61,7 +61,8 @@ void Vop3562::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
-  ctx.state.bRgaPolicyEnable = hwc_get_int_property("vendor.hwc.enable_rga_policy","0") > 0;
+  // RK3562 默认开启rga policy
+  ctx.state.bRgaPolicyEnable = true;//hwc_get_int_property("vendor.hwc.enable_rga_policy","0") > 0;
 
   ctx.state.iVopMaxOverlay4KPlane = hwc_get_int_property("vendor.hwc.vop_max_overlay_4k_plane","0");
 
@@ -1180,7 +1181,7 @@ int Vop3562::TryRgaOverlayPolicy(
                                                     dst_buffer->GetGemHandle(),
                                                     DRM_MODE_ROTATE_0);
           rga_layer_ready = true;
-          drmLayer->iBestPlaneType = PLANE_RK3528_ALL_ESMART_MASK;
+          drmLayer->iBestPlaneType = PLANE_RK3562_ALL_ESMART_MASK;
           drmLayer->pRgaBuffer_ = dst_buffer;
           drmLayer->bUseRga_ = true;
           break;
@@ -1216,7 +1217,7 @@ int Vop3562::TryRgaOverlayPolicy(
                                                     DRM_MODE_ROTATE_0);
           use_laster_rga_layer = true;
           drmLayer->bUseRga_ = true;
-          drmLayer->iBestPlaneType = PLANE_RK3528_ALL_ESMART_MASK;
+          drmLayer->iBestPlaneType = PLANE_RK3562_ALL_ESMART_MASK;
           drmLayer->pRgaBuffer_ = dst_buffer;
           break;
         }
