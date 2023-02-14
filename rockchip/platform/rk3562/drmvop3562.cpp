@@ -1703,6 +1703,12 @@ int Vop3562::TryMixPolicy(
       return ret;
   }
 
+  if(ctx.state.setHwcPolicy.count(HWC_RGA_OVERLAY_LOPICY)){
+    ret = TryRgaOverlayPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
   if(ctx.state.setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
     ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
@@ -1717,18 +1723,12 @@ int Vop3562::TryMixPolicy(
       return 0;
   }
 
-  if(ctx.state.setHwcPolicy.count(HWC_RGA_OVERLAY_LOPICY)){
-    ret = TryRgaOverlayPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-  }
-
   if(ctx.state.setHwcPolicy.count(HWC_MIX_UP_LOPICY)){
     ret = TryMixUpPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
       return 0;
-
   }
+
   if(ctx.state.setHwcPolicy.count(HWC_MIX_DOWN_LOPICY)){
     ret = TryMixDownPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
