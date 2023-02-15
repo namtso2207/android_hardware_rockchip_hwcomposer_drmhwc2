@@ -2109,8 +2109,7 @@ void Vop3528::InitStateContext(
 }
 
 bool Vop3528::TryOverlay(){
-  if(ctx.request.iAfbcdCnt <= ctx.support.iAfbcdCnt &&
-     ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
+  if(ctx.request.iScaleCnt <= ctx.support.iScaleCnt &&
      ctx.request.iYuvCnt <= ctx.support.iYuvCnt &&
      ctx.request.iRotateCnt <= ctx.support.iRotateCnt &&
      ctx.request.iSkipCnt == 0){
