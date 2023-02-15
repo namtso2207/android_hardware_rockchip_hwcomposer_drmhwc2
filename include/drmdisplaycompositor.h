@@ -82,9 +82,9 @@ class DrmDisplayCompositor {
   };
 
 struct SidebandState {
-  bool enable_;
-  uint64_t tunnel_id_;
-  std::shared_ptr<DrmBuffer> buffer_;
+  bool enable_ = false;
+  uint64_t tunnel_id_ = 0;
+  std::shared_ptr<DrmBuffer> buffer_ = NULL;
 };
 
   struct HdrState{
@@ -154,6 +154,7 @@ struct SidebandState {
   ResourceManager *resource_manager_;
   int display_;
   DrmCompositorWorker worker_;
+  drmModeAtomicReqPtr pset_;
 
   // Store the display request from SF.
   std::queue<std::unique_ptr<DrmDisplayComposition>> composite_queue_;
@@ -198,7 +199,6 @@ struct SidebandState {
   // Multi Thread function.
   int64_t last_timestamp_;
   struct timespec vsync_;
-  drmModeAtomicReqPtr pset_ = NULL;
 
   std::map<int, uint64_t> mapDisplayHaveQeueuCnt_;
 

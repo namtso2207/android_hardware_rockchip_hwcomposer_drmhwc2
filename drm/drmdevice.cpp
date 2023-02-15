@@ -1250,6 +1250,7 @@ int DrmDevice::UpdateDisplayMode(int display_id){
           drmModeAtomicFree(pset);
           return ret;
         }
+        drmModeAtomicFree(pset);
         HWC2_ALOGI("Crtc-id = %d disable plane-id = %d", crtc->id(), plane->id());
       }
     }
@@ -1269,7 +1270,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
-
     return -ENOMEM;
   }
 
@@ -1295,7 +1295,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
   if (ret < 0) {
     ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
     drmModeAtomicFree(pset);
-
     return ret;
   }
 
@@ -1627,7 +1626,6 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
   drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
-
     return -ENOMEM;
   }
 
@@ -1661,7 +1659,6 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
   if (ret < 0) {
     ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
     drmModeAtomicFree(pset);
-
     return ret;
   }
 
@@ -1790,8 +1787,14 @@ int DrmDevice::DisableAllPlaneForCrtc(int display_id,
                                       bool commit,
                                       drmModeAtomicReqPtr pset){
   int ret;
-  if(commit)
+
+
+  if(commit){
+    if(pset != NULL){
+      drmModeAtomicFree(pset);
+    }
     pset = drmModeAtomicAlloc();
+  }
 
   if (!pset) {
     ALOGE("%s:line=%d Failed to allocate property set",__FUNCTION__, __LINE__);
@@ -1826,6 +1829,7 @@ int DrmDevice::DisableAllPlaneForCrtc(int display_id,
       drmModeAtomicFree(pset);
       return ret;
     }
+    drmModeAtomicFree(pset);
   }
   return 0;
 }
@@ -1964,6 +1968,7 @@ int DrmDevice::ReleaseDpyResByMirror(int display_id,
     HWC2_ALOGE("Add display-id=%d %s-%d Crtc-id=%d Release req Fail!.",
                 display_id, connector_type_str(conn->type()),
                 conn->type_id(), crtc->id());
+    drmModeAtomicFree(pset);
     return ret;
   }
 
@@ -1982,6 +1987,7 @@ int DrmDevice::ReleaseDpyResByMirror(int display_id,
         HWC2_ALOGE("Add display-id=%d %s-%d Crtc-id=%d Release req Fail!.",
                     temp_display_id, connector_type_str(temp_conn->type()),
                     temp_conn->type_id(), temp_crtc->id());
+        drmModeAtomicFree(pset);
         return ret;
       }
       store_mirror_conn.push_back(temp_conn.get());
@@ -1996,7 +2002,7 @@ int DrmDevice::ReleaseDpyResByMirror(int display_id,
     drmModeAtomicFree(pset);
     return ret;
   }
-
+  drmModeAtomicFree(pset);
   HWC2_ALOGI("display-id=%d %s-%d Crtc-id=%d Release Mirror Mode Success!.",
               display_id, connector_type_str(conn->type()),
               conn->type_id(), crtc->id());
@@ -2089,7 +2095,6 @@ int DrmDevice::ReleaseDpyResByNormal(int display_id,
   if (ret < 0) {
     ALOGE("%s:line=%d Failed to commit pset ret=%d\n", __FUNCTION__, __LINE__, ret);
     drmModeAtomicFree(pset);
-
     return ret;
   }
 

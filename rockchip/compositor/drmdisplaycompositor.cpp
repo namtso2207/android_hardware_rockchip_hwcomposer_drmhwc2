@@ -362,7 +362,6 @@ int DrmDisplayCompositor::DisablePlanes(DrmDisplayComposition *display_comp) {
     drmModeAtomicFree(pset);
     return ret;
   }
-
   drmModeAtomicFree(pset);
   return 0;
 }
@@ -1451,12 +1450,14 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   if (writeback_buffer != NULL) {
     if (writeback_conn == NULL) {
       ALOGE("Invalid arguments requested writeback without writeback conn");
+      drmModeAtomicFree(pset);
       return -EINVAL;
     }
     ret = SetupWritebackCommit(pset, crtc->id(), writeback_conn,
                                writeback_buffer);
     if (ret < 0) {
       ALOGE("Failed to Setup Writeback Commit ret = %d", ret);
+      drmModeAtomicFree(pset);
       return ret;
     }
   }
@@ -1942,11 +1943,13 @@ void DrmDisplayCompositor::ClearDisplay() {
     DrmConnector *connector = drm->GetConnectorForDisplay(display_);
     if (!connector) {
       ALOGE("Could not locate connector for display %d", display_);
+      drmModeAtomicFree(pset);
       return;
     }
     DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
     if (!crtc) {
       ALOGE("Could not locate crtc for display %d", display_);
+      drmModeAtomicFree(pset);
       return;
     }
     // 释放上一次的 Blob
@@ -2935,19 +2938,25 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
   DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
   if (!crtc) {
     ALOGE("Failed to find crtc for display %d", display_);
+    drmModeAtomicFree(pset);
     return -EINVAL;
   }
   ret = SetupWritebackCommit(pset, crtc->id(), writeback_conn,
                              &writeback_layer.buffer);
   if (ret < 0) {
     ALOGE("Failed to Setup Writeback Commit");
+    drmModeAtomicFree(pset);
     return ret;
   }
   ret = drmModeAtomicCommit(drm->fd(), pset, 0, drm);
   if (ret) {
     ALOGE("Failed to enable writeback %d", ret);
+    drmModeAtomicFree(pset);
     return ret;
   }
+  drmModeAtomicFree(pset);
+  pset=NULL;
+
   ret = sync_wait(writeback_fence_, kWaitWritebackFence);
   writeback_layer.acquire_fence = sp<AcquireFence>(new AcquireFence(writeback_fence_));
   writeback_fence_ = -1;
