@@ -742,9 +742,11 @@ int DrmConnector::UpdateBCSH(int display_id, int update_base_timeline){
     if (ret < 0) {
       ALOGE("Failed to commit pset ret=%d\n", ret);
       drmModeAtomicFree(pset);
+      pset=NULL;
       return ret;
     }
     drmModeAtomicFree(pset);
+    pset=NULL;
     uBrightness_ = brightness;
     uContrast_ = contrast;
     uSaturation_ = saturation;

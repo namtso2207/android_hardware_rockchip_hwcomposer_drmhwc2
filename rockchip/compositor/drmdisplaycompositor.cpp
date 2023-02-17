@@ -352,6 +352,7 @@ int DrmDisplayCompositor::DisablePlanes(DrmDisplayComposition *display_comp) {
     if (ret) {
       ALOGE("Failed to add plane %d disable to pset", plane->id());
       drmModeAtomicFree(pset);
+      pset=NULL;
       return ret;
     }
   }
@@ -360,9 +361,11 @@ int DrmDisplayCompositor::DisablePlanes(DrmDisplayComposition *display_comp) {
   if (ret) {
     ALOGE("Failed to commit pset ret=%d\n", ret);
     drmModeAtomicFree(pset);
+    pset=NULL;
     return ret;
   }
   drmModeAtomicFree(pset);
+  pset=NULL;
   return 0;
 }
 
@@ -1944,12 +1947,14 @@ void DrmDisplayCompositor::ClearDisplay() {
     if (!connector) {
       ALOGE("Could not locate connector for display %d", display_);
       drmModeAtomicFree(pset);
+      pset=NULL;
       return;
     }
     DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
     if (!crtc) {
       ALOGE("Could not locate crtc for display %d", display_);
       drmModeAtomicFree(pset);
+      pset=NULL;
       return;
     }
     // 释放上一次的 Blob
@@ -1973,9 +1978,12 @@ void DrmDisplayCompositor::ClearDisplay() {
     ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
     if (ret) {
       ALOGE("Failed to commit pset ret=%d\n", ret);
+      drmModeAtomicFree(pset);
       pset=NULL;
+      return;
     }
     drmModeAtomicFree(pset);
+    pset=NULL;
     current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
     current_mode_set_.hdr_.bHasYuv10bit_ = false;
     current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
@@ -2939,6 +2947,7 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
   if (!crtc) {
     ALOGE("Failed to find crtc for display %d", display_);
     drmModeAtomicFree(pset);
+    pset=NULL;
     return -EINVAL;
   }
   ret = SetupWritebackCommit(pset, crtc->id(), writeback_conn,
@@ -2946,12 +2955,14 @@ int DrmDisplayCompositor::FlattenSerial(DrmConnector *writeback_conn) {
   if (ret < 0) {
     ALOGE("Failed to Setup Writeback Commit");
     drmModeAtomicFree(pset);
+    pset=NULL;
     return ret;
   }
   ret = drmModeAtomicCommit(drm->fd(), pset, 0, drm);
   if (ret) {
     ALOGE("Failed to enable writeback %d", ret);
     drmModeAtomicFree(pset);
+    pset=NULL;
     return ret;
   }
   drmModeAtomicFree(pset);
