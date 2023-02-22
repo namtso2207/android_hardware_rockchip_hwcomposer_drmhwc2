@@ -632,6 +632,11 @@ uint32_t DrmBuffer::GetPreScaleFbId(){
     iWidth_ = ALIGN_DOWN(iWidth_,2);
   }
 
+  if(uFourccFormat_ == DRM_FORMAT_NV15 && uModifier_ == 0){
+    iWidth_ = iWidth_ / 1.25;
+    iWidth_ = ALIGN_DOWN(iWidth_,2);
+  }
+
   int ret = drmModeAddFB2WithModifiers(ptrDrmGralloc_->get_drm_device(),
                                        iWidth_,
                                        iHeight_,
