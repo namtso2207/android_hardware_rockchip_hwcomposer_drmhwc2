@@ -58,7 +58,6 @@ DrmBuffer::DrmBuffer(int w, int h, int format, uint64_t usage, std::string name,
   iByteStride_(-1),
   iUsage_(GRALLOC_USAGE_HW_COMPOSER        |
           GRALLOC_USAGE_PRIVATE_1          |
-          RK_GRALLOC_USAGE_WITHIN_4G       |
           usage),
   uFourccFormat_(0),
   uModifier_(0),

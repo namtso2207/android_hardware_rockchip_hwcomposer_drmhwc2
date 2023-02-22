@@ -218,6 +218,13 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timel
     if (!layer){
       continue;
     }
+
+    if(layer->bSideband2_){
+      HWC2_ALOGD_IF_DEBUG("Sideband-2.0 no need to create ReleaseFence.");
+      continue;
+    }
+
+
     int sync_timeline_cnt = sync_timeline.IncTimeline();
     sprintf(acBuf,"RFD%" PRIu64 "-FN%" PRIu64 "-TC%d" ,display_id_, frame_no_, sync_timeline_cnt);
     layer->release_fence = sp<ReleaseFence>(new ReleaseFence(sync_timeline, sync_timeline_cnt, acBuf));

@@ -77,10 +77,10 @@ class DrmHwcTwo : public hwc2_device_t {
 
     void clear(){
       buffer_ = NULL;
-      if(sidebandStreamHandle_ != NULL){
+      if(!bSideband2_ && sidebandStreamHandle_ != NULL){
         int ret = drmGralloc_->freeBuffer(sidebandStreamHandle_);
         if(ret){
-          ALOGE("freeBuffer sidebandStreamHandle = %p fail, ret=%d",sidebandStreamHandle_,ret);
+          HWC2_ALOGE("freeBuffer sidebandStreamHandle = %p fail, ret=%d",sidebandStreamHandle_,ret);
         }
         sidebandStreamHandle_ = NULL;
       }

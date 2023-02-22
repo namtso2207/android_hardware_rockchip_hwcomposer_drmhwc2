@@ -835,62 +835,76 @@ int DrmDisplayCompositor::UpdateSidebandState() {
     return -1;
   }
 
-  // 当前帧存在 Sideband Stream Buffer
-  if(current_sideband2_.enable_ &&
-     current_sideband2_.buffer_ != NULL){
+  // 1. ct != dt, 进入切换逻辑
+  if(current_sideband2_.tunnel_id_ != drawing_sideband2_.tunnel_id_){
+    if(current_sideband2_.tunnel_id_ > 0){
+      //  1-1. 如果 ct > 0, dt == 0 : 开启 sideband
+      if(drawing_sideband2_.tunnel_id_ == 0){
+        // swap
+        drawing_sideband2_.enable_ = current_sideband2_.enable_;
+        drawing_sideband2_.tunnel_id_ = current_sideband2_.tunnel_id_;
+        drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
+      }else{ //  1-2. 如果 ct > 0, dt > 0 : 切换 sideband
+        // 连接改变，断开连接前，先释放上一帧 ReleaseFence
+        if(drawing_sideband2_.buffer_ != NULL){
+          if(dvp->SignalReleaseFence(display_,
+                                    drawing_sideband2_.tunnel_id_,
+                                    drawing_sideband2_.buffer_->GetExternalId())){
+            HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                        display_, drawing_sideband2_.buffer_->GetId());
+          }
+        }
+        // 断开旧连接
+        int ret = dvp->DestoryConnection(display_, drawing_sideband2_.tunnel_id_);
+        if(ret){
+          HWC2_ALOGE("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " fail.",
+                      display_, drawing_sideband2_.tunnel_id_);
+        }else{
+          HWC2_ALOGI("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " Success.",
+                      display_, drawing_sideband2_.tunnel_id_);
+        }
+        drawing_sideband2_.enable_ = current_sideband2_.enable_;
+        drawing_sideband2_.tunnel_id_ = current_sideband2_.tunnel_id_;
+        drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
+      }
+    }else{ //  1-3. 如果 ct == 0 , dt > 0 : 关闭 sideband
+        if(drawing_sideband2_.buffer_ != NULL){
+          if(dvp->SignalReleaseFence(display_,
+                                    drawing_sideband2_.tunnel_id_,
+                                    drawing_sideband2_.buffer_->GetExternalId())){
+            HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                        display_, drawing_sideband2_.buffer_->GetId());
+          }
+        }
+        // 断开旧连接
+        int ret = dvp->DestoryConnection(display_, drawing_sideband2_.tunnel_id_);
+        if(ret){
+          HWC2_ALOGE("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " fail.",
+                      display_, drawing_sideband2_.tunnel_id_);
+        }else{
+          HWC2_ALOGI("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " Success.",
+                      display_, drawing_sideband2_.tunnel_id_);
+        }
+        drawing_sideband2_.enable_ = current_sideband2_.enable_;
+        drawing_sideband2_.tunnel_id_ = current_sideband2_.tunnel_id_;
+        drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
+    }
+  }else if(current_sideband2_.tunnel_id_ > 0){  // 2. ct == dt, 进入送显逻辑
     // 释放上一帧 ReleaseFence
     if(drawing_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(current_sideband2_.tunnel_id_,
-                                 drawing_sideband2_.buffer_->GetExternalId())){
+      if(dvp->SignalReleaseFence(display_,
+                                drawing_sideband2_.tunnel_id_,
+                                drawing_sideband2_.buffer_->GetExternalId())){
         HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
                     drawing_sideband2_.buffer_->GetId());
       }
-    }
-    // 交换缓冲区，请求帧已切换为当前帧
-    drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
-    current_sideband2_.buffer_ = NULL;
-  }
-
-  // sideband 前后 tunnel id 不一致
-  // 1. tunnel_id > 0 : sideband 切换通路
-  // 2. tunnel_id == 0 : sideband 关闭通路
-  if(current_sideband2_.tunnel_id_ != drawing_sideband2_.tunnel_id_){
-    HWC2_ALOGI("SidebandStream: update sideband state=%d->%d tunnel-id=%" PRIu64"->%" PRIu64,
-                drawing_sideband2_.enable_,
-                current_sideband2_.enable_,
-                drawing_sideband2_.tunnel_id_,
-                current_sideband2_.tunnel_id_);
-    // 连接改变，断开连接前，先释放上一帧 ReleaseFence
-    if(drawing_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(drawing_sideband2_.tunnel_id_,
-                                  drawing_sideband2_.buffer_->GetExternalId())){
-        HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
-                    drawing_sideband2_.buffer_->GetId());
-      }
-      drawing_sideband2_.buffer_ = NULL;
-    }
-
-    // 若关闭Sideband，断开连接前，先释放可能存在的 request ReleaseFence
-    if(current_sideband2_.tunnel_id_ == 0 && current_sideband2_.buffer_ != NULL){
-      if(dvp->SignalReleaseFence(drawing_sideband2_.tunnel_id_,
-                                  current_sideband2_.buffer_->GetExternalId())){
-        HWC2_ALOGE("SidebandStream: SignalReleaseFence fail, last buffer id=%" PRIu64 ,
-                    current_sideband2_.buffer_->GetId());
-      }
-      current_sideband2_.buffer_ = NULL;
-    }
-
-    int ret = dvp->DestoryConnection(drawing_sideband2_.tunnel_id_);
-    if(ret){
-      HWC2_ALOGE("SidebandStream: DestoryConnection old tunnel-id=%" PRIu64 " fail.",
-                  drawing_sideband2_.tunnel_id_);
-    }else{
-      HWC2_ALOGI("SidebandStream: DestoryConnection old tunnel-id=%" PRIu64 " Success.",
-                  drawing_sideband2_.tunnel_id_);
     }
     drawing_sideband2_.enable_ = current_sideband2_.enable_;
-    drawing_sideband2_.tunnel_id_ = current_sideband2_.tunnel_id_;
+    drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
   }
+  // current_sideband2_.enable_ = false;
+  // current_sideband2_.tunnel_id_ = 0;
+  // current_sideband2_.buffer_ = NULL;
   return 0;
 }
 
@@ -1989,6 +2003,53 @@ void DrmDisplayCompositor::ClearDisplay() {
     current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
   }
 #endif
+
+  DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
+  if(!dvp->IsValid()){
+    HWC2_ALOGD_IF_ERR("SidebandStream: DrmVideoProducer is invalidate.");
+  }else{
+    if(current_sideband2_.enable_ || drawing_sideband2_.enable_){
+      if(drawing_sideband2_.buffer_ != NULL){
+        // 释放上一帧 ReleaseFence
+        if(dvp->SignalReleaseFence(display_,
+                                  drawing_sideband2_.tunnel_id_,
+                                  drawing_sideband2_.buffer_->GetExternalId())){
+          HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                      display_, drawing_sideband2_.buffer_->GetId());
+        }
+      }
+
+      // 当前帧存在 Sideband Stream Buffer
+      if(current_sideband2_.enable_ &&
+        current_sideband2_.buffer_ != NULL){
+        // 释放上一帧 ReleaseFence
+        if(current_sideband2_.buffer_ != NULL){
+          if(dvp->SignalReleaseFence(display_,
+                                    current_sideband2_.tunnel_id_,
+                                    current_sideband2_.buffer_->GetExternalId())){
+            HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                        display_, current_sideband2_.buffer_->GetId());
+          }
+        }
+      }
+
+      int ret = dvp->DestoryConnection(display_, current_sideband2_.tunnel_id_);
+      if(ret){
+        HWC2_ALOGE("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " fail.",
+                    display_, current_sideband2_.tunnel_id_);
+      }else{
+        HWC2_ALOGI("SidebandStream: display-id=%d DestoryConnection old tunnel-id=%" PRIu64 " Success.",
+                    display_, current_sideband2_.tunnel_id_);
+      }
+      current_sideband2_.enable_ = false;
+      current_sideband2_.buffer_ = NULL;
+      current_sideband2_.tunnel_id_ = 0;
+      drawing_sideband2_.enable_ = false;
+      drawing_sideband2_.buffer_ = NULL;
+      drawing_sideband2_.tunnel_id_ = 0;
+    }
+  }
+
   clear_ = true;
   //vsync_worker_.VSyncControl(false);
 }
@@ -2186,9 +2247,10 @@ int DrmDisplayCompositor::CollectVPInfo() {
       if(layer.bSidebandStreamLayer_){
         DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
 
-        int ret = dvp->CreateConnection(layer.iTunnelId_);
+        int ret = dvp->CreateConnection(display_, layer.iTunnelId_);
         if(ret < 0){
-          HWC2_ALOGI("SidebandStream: CreateConnection fail, iTunnelId = %d", layer.iTunnelId_);
+          HWC2_ALOGI("SidebandStream: display-id=%d CreateConnection fail, iTunnelId = %d",
+                     display_, layer.iTunnelId_);
         }
 
         vt_rect_t dis_rect = {0,0,0,0};
@@ -2196,10 +2258,10 @@ int DrmDisplayCompositor::CollectVPInfo() {
         dis_rect.top    = layer.display_frame.top;
         dis_rect.right  = layer.display_frame.right;
         dis_rect.bottom = layer.display_frame.bottom;
-        std::shared_ptr<DrmBuffer> buffer = dvp->AcquireBuffer(layer.iTunnelId_, &dis_rect, 0);
+        std::shared_ptr<DrmBuffer> buffer = dvp->AcquireBuffer(display_, layer.iTunnelId_, &dis_rect, 0);
         if(buffer == NULL){
-          HWC2_ALOGD_IF_WARN("SidebandStream: AcquireBuffer fail, iTunnelId = %d",
-                     layer.iTunnelId_);
+          HWC2_ALOGD_IF_WARN("SidebandStream: display-id=%d AcquireBuffer fail, iTunnelId = %d",
+                     display_, layer.iTunnelId_);
           continue;
         }
 #ifdef RK3528
@@ -2256,11 +2318,12 @@ int DrmDisplayCompositor::CollectVPInfo() {
         }
 
         // Release 当前帧
-        ret = dvp->ReleaseBuffer(layer.iTunnelId_,
+        ret = dvp->ReleaseBuffer(display_,
+                                 layer.iTunnelId_,
                                  buffer->GetExternalId());
         if(ret){
-          HWC2_ALOGE("SidebandStream: ReleaseBuffer fail, buffer id=%" PRIu64 ,
-                     buffer->GetId());
+          HWC2_ALOGE("SidebandStream: display-id=%d ReleaseBuffer fail, buffer id=%" PRIu64 ,
+                     display_, buffer->GetId());
         }
       }else{
         fb_id = layer.buffer->fb_id;
@@ -2544,7 +2607,7 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
 
   // 用于判断是否存在 metadata 信息
   bool codec_meta_exist = false;
-  // 获取存储 metadata 信息的offset
+  // 获取存储 metadata 信息的 offset
   int64_t offset = gralloc->hwc_get_offset_of_dynamic_hdr_metadata(hdrLayer.sf_handle);
   if(offset < 0){
     HWC2_ALOGD_IF_ERR("Fail to get hdr metadata offset, Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());

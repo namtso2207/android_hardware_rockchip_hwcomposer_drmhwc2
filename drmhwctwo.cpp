@@ -367,7 +367,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
   if(connector_->state() != DRM_MODE_CONNECTED){
     ALOGI("Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init.\n",
-          connector_->id(),drm_->connector_type_str(connector_->type()),connector_->type_id());
+          connector_->id(),
+          drm_->connector_type_str(connector_->type()),
+          connector_->type_id());
     return HWC2::Error::NoResources;
   }
 

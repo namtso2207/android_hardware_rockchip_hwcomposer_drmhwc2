@@ -137,14 +137,17 @@ bool DrmVideoProducer::IsValid(){
 }
 
 // Create tunnel connection.
-int DrmVideoProducer::CreateConnection(int tunnel_id){
+int DrmVideoProducer::CreateConnection(int display_id, int tunnel_id){
   std::lock_guard<std::mutex> lock(mtx_);
   if(!bInit_){
-    HWC2_ALOGE(" fail, bInit_=%d tunnel-fd=%d", bInit_, iTunnelFd_);
+    HWC2_ALOGE(" fail, display-id=%d bInit_=%d tunnel-fd=%d", display_id, bInit_, iTunnelFd_);
     return -1;
   }
 
   if(mMapCtx_.count(tunnel_id)){
+    std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
+    ctx->AddConnRef(display_id);
+    HWC2_ALOGI("display-id=%d tunnel_id=%d success", display_id, tunnel_id);
     return 0;
   }
 
@@ -153,29 +156,38 @@ int DrmVideoProducer::CreateConnection(int tunnel_id){
       return ret;
   }
 
-  HWC2_ALOGI("tunnel_id=%d success", tunnel_id);
+  HWC2_ALOGI("display-id=%d tunnel_id=%d success", display_id, tunnel_id);
   mMapCtx_[tunnel_id] = std::make_shared<VpContext>(tunnel_id);
+  std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
+  ctx->AddConnRef(display_id);
   return 0;
 }
 
 // Destory Connection
-int DrmVideoProducer::DestoryConnection(int tunnel_id){
+int DrmVideoProducer::DestoryConnection(int display_id, int tunnel_id){
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(!bInit_){
-    HWC2_ALOGE(" fail, bInit_=%d tunnel-fd=%d", bInit_, iTunnelFd_);
+    HWC2_ALOGE("fail, display=%d bInit_=%d tunnel-fd=%d", display_id, bInit_, iTunnelFd_);
     return -1;
   }
 
   if(mMapCtx_.count(tunnel_id) == 0){
-    HWC2_ALOGE("mMapCtx_ can't find tunnel_id=%d", tunnel_id);
+    HWC2_ALOGE("display_id=%d mMapCtx_ can't find tunnel_id=%d", display_id, tunnel_id);
     return -1;
   }
 
   std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
+  ctx->ReleaseConnRef(display_id);
+  if(ctx->ConnectionCnt() > 0){
+    HWC2_ALOGD_IF_DEBUG("display=%d tunnel_id=%d connection cnt=%d, no need to destory. ",
+                         display_id, tunnel_id, ctx->ConnectionCnt());
+    return 0;
+  }
+
   int ret = g_rkvt_ops.rk_vt_disconnect(iTunnelFd_, ctx->GetTunnelId(), RKVT_ROLE_CONSUMER);
   if (ret < 0) {
-      HWC2_ALOGE("rk_vt_disconnect fail TunnelId=%d" , ctx->GetTunnelId());
+      HWC2_ALOGE("display_id=%d rk_vt_disconnect fail TunnelId=%d", display_id,  ctx->GetTunnelId());
       return ret;
   }
 
@@ -184,30 +196,47 @@ int DrmVideoProducer::DestoryConnection(int tunnel_id){
 }
 
 // Get Last video buffer
-std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, vt_rect_t *dis_rect, int timeout_ms){
+std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int display_id,
+                                                           int tunnel_id,
+                                                           vt_rect_t *dis_rect,
+                                                           int timeout_ms){
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(!bInit_){
-    HWC2_ALOGE("fail, bInit_=%d tunnel-fd=%d", bInit_, iTunnelFd_);
+    HWC2_ALOGE("fail, display-id=%d bInit_=%d tunnel-fd=%d", display_id, bInit_, iTunnelFd_);
     return NULL;
   }
 
   if(!mMapCtx_.count(tunnel_id)){
-    HWC2_ALOGE("mMapCtx_ can't find tunnel_id=%d", tunnel_id);
+    HWC2_ALOGE("display=%d mMapCtx_ can't find tunnel_id=%d", display_id, tunnel_id);
     return NULL;
   }
 
   // 获取 VideoProducer 上下文
   std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
 
+  if(display_id > 0){
+    uint64_t last_handle_buffer_id = ctx->GetLastHandleBufferId();
+    if(last_handle_buffer_id > 0){
+      std::shared_ptr<DrmBuffer> buffer = ctx->GetLastBufferCache(last_handle_buffer_id);
+      int ret = ctx->AddReleaseFenceRefCnt(display_id, last_handle_buffer_id);
+      if(ret){
+        HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFenceRefCnt fail.", display_id, buffer->GetExternalId());
+        return NULL;
+      }
+      HWC2_ALOGI("display=%d BufferId=%" PRIu64"", display_id, buffer->GetExternalId());
+      return buffer;
+    }
+  }
+
   // 请求最新帧
   vt_buffer_t *acquire_buffer = NULL;
   int64_t queue_timestamp = 0;
   int ret = g_rkvt_ops.rk_vt_acquire_buffer(iTunnelFd_, ctx->GetTunnelId(), timeout_ms, &acquire_buffer, &queue_timestamp);
-  if (ret != 0) {
-      HWC2_ALOGD_IF_WARN("rk_vt_acquire_buffer fail, bInit_=%d tunnel-fd=%d tunnel-id=%d" ,
-                          bInit_, iTunnelFd_, tunnel_id);
+  if (ret != 0) { // 若当前请求无法获得新 buffer, 则判断是否需要获取上一帧 Buffer
+      HWC2_ALOGD_IF_WARN("display=%d rk_vt_acquire_buffer fail, bInit_=%d tunnel-fd=%d tunnel-id=%d" ,
+                          display_id, bInit_, iTunnelFd_, tunnel_id);
       return NULL;
   }
 
@@ -223,19 +252,27 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, vt_rec
   // 获取 buffer cache信息
   std::shared_ptr<DrmBuffer> buffer = ctx->GetBufferCache(acquire_buffer);
   if(!buffer->initCheck()){
-    HWC2_ALOGI("DrmBuffer import fail, acquire_buffer=%p present_time=%" PRIi64 ,
-            acquire_buffer, queue_timestamp);
+    HWC2_ALOGI("display=%d DrmBuffer import fail, acquire_buffer=%p present_time=%" PRIi64 ,
+             display_id, acquire_buffer, queue_timestamp);
+    // ctx->GetLastBufferCache();
     return NULL;
   }
 
   // 创建 ReleaseFence
   ret = ctx->AddReleaseFence(acquire_buffer->buffer_id);
   if(ret){
-    HWC2_ALOGE("BufferId=%" PRIu64" AddReleaseFence fail.", acquire_buffer->buffer_id);
-    return buffer;
+    HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFence fail.", display_id, acquire_buffer->buffer_id);
+    return NULL;
   }
 
-  HWC2_ALOGD_IF_INFO(" tunnel-id=%d success, acquire_buffer=%p crop=[%d,%d,%d,%d] BufferId=%" PRIu64 " present_time=%" PRIi64 ,
+  ret = ctx->AddReleaseFenceRefCnt(display_id, acquire_buffer->buffer_id);
+  if(ret){
+    HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFenceRefCnt fail.", display_id, acquire_buffer->buffer_id);
+    return NULL;
+  }
+
+  HWC2_ALOGD_IF_INFO("display=%d tunnel-id=%d success, acquire_buffer=%p crop=[%d,%d,%d,%d] BufferId=%" PRIu64 " present_time=%" PRIi64 ,
+             display_id,
              ctx->GetTunnelId(), acquire_buffer,
              acquire_buffer->crop.left,
              acquire_buffer->crop.top,
@@ -246,18 +283,18 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int tunnel_id, vt_rec
 }
 
 // Release video buffer
-int DrmVideoProducer::ReleaseBuffer(int tunnel_id, uint64_t buffer_id){
+int DrmVideoProducer::ReleaseBuffer(int display_id, int tunnel_id, uint64_t buffer_id){
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(!bInit_){
-    HWC2_ALOGE(" fail, bInit_=%d tunnel_id=%d",
-               bInit_, tunnel_id);
+    HWC2_ALOGE(" fail, display=%d bInit_=%d tunnel_id=%d",
+              display_id, bInit_, tunnel_id);
     return -1;
   }
 
   if(!mMapCtx_.count(tunnel_id)){
-    HWC2_ALOGE("mMapCtx_ can't find tunnel_id=%d", tunnel_id);
+    HWC2_ALOGE("display=%d mMapCtx_ can't find tunnel_id=%d", display_id, tunnel_id);
     return -1;
   }
 
@@ -267,7 +304,7 @@ int DrmVideoProducer::ReleaseBuffer(int tunnel_id, uint64_t buffer_id){
   // 获取
   vt_buffer_t* vt_buffer_info = ctx->GetVpBufferInfo(buffer_id);
   if(vt_buffer_info == NULL){
-    HWC2_ALOGE("vt_buffer_info is null tunnel_id=%d", tunnel_id);
+    HWC2_ALOGE("display=%d vt_buffer_info is null tunnel_id=%d", display_id, tunnel_id);
     return -1;
   }
 
@@ -278,32 +315,34 @@ int DrmVideoProducer::ReleaseBuffer(int tunnel_id, uint64_t buffer_id){
   }
   int ret = g_rkvt_ops.rk_vt_release_buffer(iTunnelFd_, ctx->GetTunnelId(), vt_buffer_info);
   if(ret){
-    HWC2_ALOGE("BufferId=%" PRIu64 " release fail.", buffer_id);
+    HWC2_ALOGE("display=%d BufferId=%" PRIu64 " release fail.", display_id, buffer_id);
     return -1;
   }
 
-  HWC2_ALOGD_IF_INFO("tunnel-id=%d BufferId=%" PRIu64 " ReleaseBuffer success", tunnel_id, buffer_id);
+  ctx->ReleaseBufferInfo(buffer_id);
+
+  HWC2_ALOGD_IF_INFO("display=%d tunnel-id=%d BufferId=%" PRIu64 " ReleaseBuffer success", display_id, tunnel_id, buffer_id);
   return 0;
 }
 
 // Release video buffer
-int DrmVideoProducer::SignalReleaseFence(int tunnel_id, uint64_t buffer_id){
+int DrmVideoProducer::SignalReleaseFence(int display_id, int tunnel_id, uint64_t buffer_id){
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(!bInit_){
-    HWC2_ALOGE(" fail, bInit_=%d tunnel_id=%d",
-               bInit_, tunnel_id);
+    HWC2_ALOGE(" fail, display=%d bInit_=%d tunnel_id=%d",
+              display_id, bInit_, tunnel_id);
     return -1;
   }
 
   if(!mMapCtx_.count(tunnel_id)){
-    HWC2_ALOGE("mMapCtx_ can't find tunnel_id=%d", tunnel_id);
+    HWC2_ALOGE("display=%d mMapCtx_ can't find tunnel_id=%d", display_id, tunnel_id);
     return -1;
   }
 
   std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
-  return ctx->SignalReleaseFence(buffer_id);;
+  return ctx->SignalReleaseFence(display_id, buffer_id);;
 }
 
 };

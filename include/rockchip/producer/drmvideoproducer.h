@@ -36,15 +36,18 @@ public:
   // Is invalid.
   bool IsValid();
   // Create tunnel connection.
-  int CreateConnection(int tunnel_id);
+  int CreateConnection(int display_id, int tunnel_id);
   // Destory Connection
-  int DestoryConnection(int tunnel_id);
+  int DestoryConnection(int display_id, int tunnel_id);
   // Get Last video buffer
-  std::shared_ptr<DrmBuffer> AcquireBuffer(int tunnel_id, vt_rect_t *dis_rect,  int timeout_ms);
+  std::shared_ptr<DrmBuffer> AcquireBuffer(int display_id,
+                                           int tunnel_id,
+                                           vt_rect_t *dis_rect,
+                                           int timeout_ms);
   // Release video buffer
-  int ReleaseBuffer(int tunnel_id, uint64_t buffer_id);
+  int ReleaseBuffer(int display_id, int tunnel_id, uint64_t buffer_id);
   // Signal buffer's ReleaseFence
-  int SignalReleaseFence(int tunnel_id, uint64_t buffer_id);
+  int SignalReleaseFence(int display_id, int tunnel_id, uint64_t buffer_id);
 
  private:
   DrmVideoProducer();

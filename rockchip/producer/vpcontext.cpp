@@ -38,6 +38,25 @@ int VpContext::GetTunnelId(){
   return iTunnelId_;
 }
 
+// ConnectionCnt
+int VpContext::ConnectionCnt(){
+  std::lock_guard<std::mutex> lock(mtx_);
+  return refDpyConnection_.size();
+}
+// AddConnectionRef
+int VpContext::AddConnRef(int display_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  refDpyConnection_.insert(display_id);
+  return 0;
+}
+
+// ReleaseConnRef
+int VpContext::ReleaseConnRef(int display_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  refDpyConnection_.erase(display_id);
+  return 0;
+}
+
 // Get Buffer cache
 std::shared_ptr<DrmBuffer> VpContext::GetBufferCache(vt_buffer_t* vp_buffer){
   std::lock_guard<std::mutex> lock(mtx_);
@@ -79,17 +98,41 @@ std::shared_ptr<DrmBuffer> VpContext::GetBufferCache(vt_buffer_t* vp_buffer){
     HWC2_ALOGD_IF_DEBUG("Get new cache buffer-id=0x%" PRIx64 " vp_buffer->buffer_id=0x%" PRIx64 ,
                         out_buffer->GetBufferId(), vp_buffer->buffer_id);
   }
+  mLastHandleBufferId_ = buffer_id;
   return out_buffer;
 }
 
-
-// Get Buffer cache
 vt_buffer_t* VpContext::GetVpBufferInfo(uint64_t buffer_id){
   std::lock_guard<std::mutex> lock(mtx_);
   // 获取 BufferId
   vt_buffer_t* out_buffer = NULL;
   if(mMapBuffer_.count(buffer_id)){
     out_buffer = mMapBuffer_[buffer_id]->GetVpBuffer();
+  }
+  return out_buffer;
+}
+
+int VpContext::ReleaseBufferInfo(uint64_t buffer_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  if(mMapBuffer_.count(buffer_id)){
+    mMapBuffer_[buffer_id]->SetVpBuffer(NULL);
+  }
+  return 0;
+}
+
+// Get Last VpBuffer Info
+uint64_t VpContext::GetLastHandleBufferId(){
+  std::lock_guard<std::mutex> lock(mtx_);
+  return mLastHandleBufferId_;
+}
+
+// Get Buffer cache
+std::shared_ptr<DrmBuffer> VpContext::GetLastBufferCache(uint64_t buffer_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  // 获取 BufferId
+  std::shared_ptr<DrmBuffer> out_buffer = NULL;
+  if(mMapBuffer_.count(buffer_id)){
+    out_buffer = mMapBuffer_[buffer_id]->GetDrmBuffer();
   }
   return out_buffer;
 }
@@ -122,6 +165,16 @@ int VpContext::AddReleaseFence(uint64_t buffer_id){
   return -1;
 }
 
+
+int VpContext::AddReleaseFenceRefCnt(int display_id, uint64_t buffer_id){
+  // 获取 BufferId
+  if(mMapBuffer_.count(buffer_id)){
+    auto &buffer_info = mMapBuffer_[buffer_id];
+    buffer_info->AddReleaseRefCnt(display_id);
+  }
+  return 0;
+}
+
 // Get ReleaseFence
 sp<ReleaseFence> VpContext::GetReleaseFence(uint64_t buffer_id){
   std::lock_guard<std::mutex> lock(mtx_);
@@ -143,7 +196,7 @@ sp<ReleaseFence> VpContext::GetReleaseFence(uint64_t buffer_id){
 }
 
 // Signal ReleaseFence
-int VpContext::SignalReleaseFence(uint64_t buffer_id){
+int VpContext::SignalReleaseFence(int display_id, uint64_t buffer_id){
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(!mTimeLine_.isValid()){
@@ -155,7 +208,7 @@ int VpContext::SignalReleaseFence(uint64_t buffer_id){
   // 获取 BufferId
   if(mMapBuffer_.count(buffer_id)){
     auto &buffer_info = mMapBuffer_[buffer_id];
-    buffer_info->SignalReleaseFence();
+    buffer_info->SignalReleaseFence(display_id);
     return 0;
   }
 
