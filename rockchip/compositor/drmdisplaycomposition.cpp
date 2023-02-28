@@ -84,7 +84,7 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
     if(layers[layer_index].bUseSvep_){
         has_svep_layer_ = true;
     }
-    if(layers[layer_index].bSidebandStreamLayer_){
+    if(layers[layer_index].bSidebandStreamLayer_ && layers[layer_index].iTunnelId_ > 0){
         has_sideband2_layer_ = layers[layer_index].bSideband2_;
         sideband_tunnel_id_ = layers[layer_index].iTunnelId_;
     }

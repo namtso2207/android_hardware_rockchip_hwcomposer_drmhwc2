@@ -3226,6 +3226,11 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
     return HWC2::Error::None;
   }
 
+  // 应用端可能会不销毁 Surface ，直接将Sideband图层修改为一般图层，故需要重置Sideband相关配置
+  bSideband2_ = false;
+  bSideband2Valid_ = false;
+  sidebandStreamHandle_ = NULL;
+
   CacheBufferInfo(buffer);
   acquire_fence_ = sp<AcquireFence>(new AcquireFence(acquire_fence));
   return HWC2::Error::None;
@@ -3267,40 +3272,42 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSidebandStream(
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d stream=%p",id_, stream);
   ResourceManager* rm = ResourceManager::getInstance();
   if(rm->IsSidebandStream2Mode()){
-    vt_sideband_data_t *sbi = (vt_sideband_data_t *)(stream->data);
-    // 如果 Tunnel Id 有效，并且是未连接状态，则创建连接
-    if(sbi->tunnel_id != mSidebandInfo_.tunnel_id){
-      HWC2_ALOGD_IF_DEBUG("SidebandStream: layer-id=%d. version=%d numFds=%d numInts=%d",
-                  id_,
-                  stream->version,
-                  stream->numFds,
-                  stream->numInts);
-      HWC2_ALOGD_IF_DEBUG("SidebandStream: version=%d sizeof=%zu tunnel-id=%d session-id=%" PRIu64 " crop[%d,%d,%d,%d] "
-                " w=%d h=%d ws=%d hs=%d bs=%d f=%d transform=%d size=%d modifier=%d"
-                " usage=0x%" PRIx64 " dataSpace=0x%" PRIx64 " afbc=%d fps=%" PRIu64 "",
-                  stream->data[0],
-                  sizeof(vt_sideband_data_t),
-                  sbi->tunnel_id,
-                  sbi->session_id,
-                  sbi->crop.left,
-                  sbi->crop.top,
-                  sbi->crop.right,
-                  sbi->crop.bottom,
-                  sbi->width,
-                  sbi->height,
-                  sbi->hor_stride,
-                  sbi->ver_stride,
-                  sbi->byte_stride,
-                  sbi->format,
-                  sbi->transform,
-                  sbi->size,
-                  sbi->modifier,
-                  sbi->usage,
-                  sbi->data_space,
-                  sbi->is_afbc,
-                  sbi->fps);
-        bSideband2Valid_=true;
-        memcpy(&mSidebandInfo_, sbi, sizeof(vt_sideband_data_t));
+    if(stream != NULL){
+      vt_sideband_data_t *sbi = (vt_sideband_data_t *)(stream->data);
+      // 如果 Tunnel Id 有效，并且是未连接状态，则创建连接
+      if(sbi->tunnel_id != mSidebandInfo_.tunnel_id){
+        HWC2_ALOGD_IF_DEBUG("SidebandStream: layer-id=%d. version=%d numFds=%d numInts=%d",
+                    id_,
+                    stream->version,
+                    stream->numFds,
+                    stream->numInts);
+        HWC2_ALOGD_IF_DEBUG("SidebandStream: version=%d sizeof=%zu tunnel-id=%d session-id=%" PRIu64 " crop[%d,%d,%d,%d] "
+                  " w=%d h=%d ws=%d hs=%d bs=%d f=%d transform=%d size=%d modifier=%d"
+                  " usage=0x%" PRIx64 " dataSpace=0x%" PRIx64 " afbc=%d fps=%" PRIu64 "",
+                    stream->data[0],
+                    sizeof(vt_sideband_data_t),
+                    sbi->tunnel_id,
+                    sbi->session_id,
+                    sbi->crop.left,
+                    sbi->crop.top,
+                    sbi->crop.right,
+                    sbi->crop.bottom,
+                    sbi->width,
+                    sbi->height,
+                    sbi->hor_stride,
+                    sbi->ver_stride,
+                    sbi->byte_stride,
+                    sbi->format,
+                    sbi->transform,
+                    sbi->size,
+                    sbi->modifier,
+                    sbi->usage,
+                    sbi->data_space,
+                    sbi->is_afbc,
+                    sbi->fps);
+          bSideband2Valid_=true;
+          memcpy(&mSidebandInfo_, sbi, sizeof(vt_sideband_data_t));
+      }
     }
     bSideband2_ = true;
     sidebandStreamHandle_ = stream;
