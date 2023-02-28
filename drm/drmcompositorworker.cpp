@@ -36,11 +36,27 @@ DrmCompositorWorker::~DrmCompositorWorker() {
 }
 
 int DrmCompositorWorker::Init() {
+  bSchedFifoEnable_ = false;
   return InitWorker();
 }
 
 void DrmCompositorWorker::Routine() {
   int ret;
+
+  // 需要将此线程设置为实时线程，为了让底层调用CPU计时器可以获得更准确的计时
+  if(gIsRK3588() && bSchedFifoEnable_ == false){
+    static constexpr int kFifoPriority = 2;
+    struct sched_param param = {0};
+    int sched_policy;
+    sched_policy = SCHED_FIFO;
+    param.sched_priority = kFifoPriority;
+
+    if (sched_setscheduler(0, sched_policy, &param) != 0) {
+        return;
+    }
+    bSchedFifoEnable_ = true;
+  }
+
 
   if(!compositor_->IsSidebandMode()){
     if (!compositor_->HaveQueuedComposites()) {
