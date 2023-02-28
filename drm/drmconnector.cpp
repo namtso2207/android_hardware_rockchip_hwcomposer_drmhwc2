@@ -381,6 +381,7 @@ int DrmConnector::UpdateModes() {
   HWC2_ALOGD_IF_DEBUG("conn=%d state=%d count_modes.size=%d modes_.size=%zu new_raw_modes.size=%zu",
         id_, state_,c->count_modes, modes_.size(),raw_modes_.size());
 
+
   drmModeFreeConnector(c);
 
   // VRR

@@ -781,12 +781,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   if(ctx_.bStandardSwitchResolution){
-    auto mode = std::find_if(connector_->modes().begin(),
-                             connector_->modes().end(),
+    auto mode = std::find_if(sf_modes_.begin(),
+                             sf_modes_.end(),
                              [config](DrmMode const &m) {
                                return m.id() == config;
                              });
-    if (mode == connector_->modes().end()) {
+    if (mode == sf_modes_.end()) {
       ALOGE("Could not find active mode for %d", config);
       return HWC2::Error::BadConfig;
     }
@@ -952,7 +952,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
 
     sf_modes_.swap(sel_modes);
 
-    *num_configs = idx;
+    *num_configs = connector_->modes().size();
   }else{
     UpdateDisplayInfo();
     const DrmMode best_mode = connector_->active_mode();
@@ -1916,12 +1916,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 " config=%d",handle_,config);
   if(ctx_.bStandardSwitchResolution){
-    auto mode = std::find_if(connector_->modes().begin(),
-                             connector_->modes().end(),
+    auto mode = std::find_if(sf_modes_.begin(),
+                             sf_modes_.end(),
                              [config](DrmMode const &m) {
                                return m.id() == config;
                              });
-    if (mode == connector_->modes().end()) {
+    if (mode == sf_modes_.end()) {
       ALOGE("Could not find active mode for %d", config);
       return HWC2::Error::BadConfig;
     }
