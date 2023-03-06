@@ -248,8 +248,8 @@ class DrmConnector {
   uint32_t uSaturation_=50;
   uint32_t uHue_=50;
   // output format
-  int uColorFormat_ = -1;
-  int uColorDepth_ = -1;
+  int uColorFormat_ = output_ycbcr_high_subsampling;;
+  int uColorDepth_ = Automatic;
   // Spilt mode
   bool bSpiltMode_=false;
   // Horizontal mode
