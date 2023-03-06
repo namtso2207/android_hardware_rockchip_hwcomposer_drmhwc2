@@ -1607,13 +1607,13 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
     // 1. 输出分辨率宽度限制： drmModeModeInfo.htotal <= OUTPUT_WIDTH
     // 2. 输出分辨率高度与刷新率限制：
     //   drmModeModeInfo.htotal * drmModeModeInfo.vtotal * drmModeModeInfo.vrefresh <= OUTPUT_DCLK
-    if(current_mode.h_display() >=  crtc_output_width_max){
+    if(current_mode.h_display() >  crtc_output_width_max){
       crtc_support_current_mode = false;
     }
 
     if(current_mode.h_display() *
       current_mode.v_display() *
-      (uint64_t)current_mode.v_refresh() >=  crtc_output_dclk){
+      (uint64_t)current_mode.v_refresh() >  crtc_output_dclk){
       crtc_support_current_mode = false;
     }
 
