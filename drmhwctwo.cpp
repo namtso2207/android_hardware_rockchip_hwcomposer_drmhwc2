@@ -418,6 +418,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   }
   bVrrDisplay_ = crtc_->is_vrr();
 
+  // 更新 hotplug 状态
+  connector_->update_hotplug_state();
+
   planner_ = Planner::CreateInstance(drm_);
   if (!planner_) {
     ALOGE("Failed to create planner instance for composition");
