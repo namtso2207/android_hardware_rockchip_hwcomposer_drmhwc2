@@ -59,20 +59,9 @@ ResourceManager::ResourceManager() :
 
 int ResourceManager::Init(DrmHwcTwo *hwc2) {
   hwc2_ = hwc2;
-  char path_pattern[PROPERTY_VALUE_MAX];
-  // Could be a valid path or it can have at the end of it the wildcard %
-  // which means that it will try open all devices until an error is met.
-  int path_len = property_get("vendor.hwc.drm.device", path_pattern, "/dev/dri/card0");
-  int ret = 0;
-  if (path_pattern[path_len - 1] != '%') {
-    ret = AddDrmDevice(std::string(path_pattern));
-  } else {
-    path_pattern[path_len - 1] = '\0';
-    for (int idx = 0; !ret; ++idx) {
-      std::ostringstream path;
-      path << path_pattern << idx;
-      ret = AddDrmDevice(path.str());
-    }
+  int ret = AddDrmDevice();
+  if(ret){
+    ALOGE("Failed to AddDrmDevice ");
   }
 
   if (!num_displays_) {
@@ -109,10 +98,10 @@ int ResourceManager::Init(DrmHwcTwo *hwc2) {
   return 0;
 }
 
-int ResourceManager::AddDrmDevice(std::string path) {
+int ResourceManager::AddDrmDevice() {
   std::unique_ptr<DrmDevice> drm = std::make_unique<DrmDevice>();
   int displays_added, ret;
-  std::tie(ret, displays_added) = drm->Init(path.c_str(), num_displays_);
+  std::tie(ret, displays_added) = drm->Init(num_displays_);
   if (ret)
     return ret;
 

@@ -369,7 +369,7 @@ void DrmDevice::InitResevedPlane(){
   return;
 }
 
-std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
+std::tuple<int, int> DrmDevice::Init(int num_displays) {
   init_white_modes();
   int ret = InitEnvFromXml();
   if(ret){
@@ -378,10 +378,13 @@ std::tuple<int, int> DrmDevice::Init(const char *path, int num_displays) {
   // Baseparameter init.
   baseparameter_.Init();
 
-  /* TODO: Use drmOpenControl here instead */
-  fd_.Set(open(path, O_RDWR));
+  /* 避免错误打开 npu deviecs 而导致问题
+   *  GKI版本原来的 /dev/dri/card0 设备可能会是NPU设备
+   *  故需要修改成 drmOpen("rockchip", NULL)，避免出错
+   */
+  fd_.Set(drmOpen("rockchip", NULL));
   if (fd() < 0) {
-    ALOGE("Failed to open dri- %s", strerror(-errno));
+    ALOGE("Failed to open drm rockchip devices %s", strerror(-errno));
     return std::make_tuple(-ENODEV, 0);
   }
 

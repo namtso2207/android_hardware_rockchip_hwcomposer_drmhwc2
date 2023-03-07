@@ -100,7 +100,7 @@ class ResourceManager {
   ResourceManager();
   ResourceManager(const ResourceManager &) = delete;
   ResourceManager &operator=(const ResourceManager &) = delete;
-  int AddDrmDevice(std::string path);
+  int AddDrmDevice();
 
   int num_displays_;
   std::set<int> active_display_;
