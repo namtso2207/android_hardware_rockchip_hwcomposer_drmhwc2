@@ -132,15 +132,28 @@ DrmBuffer::~DrmBuffer(){
     ptrBuffer_ = NULL;
   }
 
-  if (uFbId_ > 0)
+  if (uFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
       ALOGE("Failed to rm fb %d", uFbId_);
     }
+    uFbId_ = 0;
+  }
+
+#ifdef RK3528
+  if (uPreScaleFbId_ > 0){
+    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
+      ALOGE("Failed to rm fb %d", uPreScaleFbId_);
+    }
+    uPreScaleFbId_ = 0;
+  }
+#endif
 
   int ret = ptrDrmGralloc_->hwc_free_gemhandle(uBufferId_);
   if(ret){
     HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
   }
+
+
 
   if(inBuffer_ != NULL){
     int ret = ptrDrmGralloc_->freeBuffer(buffer_);
