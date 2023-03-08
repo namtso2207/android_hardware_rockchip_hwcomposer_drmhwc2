@@ -3311,9 +3311,14 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerSidebandStream(
           bSideband2Valid_=true;
           memcpy(&mSidebandInfo_, sbi, sizeof(vt_sideband_data_t));
       }
+      // sbi->tunnel_id 不等于0才认为是有效的Sideband 2.0 handle
+      if(sbi->tunnel_id != 0){
+        sidebandStreamHandle_ = stream;
+      }else{// 否则设置为NULL
+        sidebandStreamHandle_ = NULL;
+      }
     }
     bSideband2_ = true;
-    sidebandStreamHandle_ = stream;
   }else{
     setSidebandStream(stream);
   }
