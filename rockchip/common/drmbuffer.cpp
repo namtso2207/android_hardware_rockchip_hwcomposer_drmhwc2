@@ -330,11 +330,11 @@ uint32_t DrmBuffer::GetFbId(){
        uFourccFormat_ == DRM_FORMAT_NV42){
       pitches[1] = pitches[0]*2;
       gem_handles[1] = uGemHandle_;
-      offsets[1] = pitches[0] * iHeight_;
+      offsets[1] = pitches[0] * iHeightStride_;
     }else{
       pitches[1] = pitches[0];
       gem_handles[1] = uGemHandle_;
-      offsets[1] = pitches[1] * iHeight_;
+      offsets[1] = pitches[1] * iHeightStride_;
     }
   }
 
@@ -624,13 +624,13 @@ uint32_t DrmBuffer::GetPreScaleFbId(){
       pitches[1] = pitches[0]*2;
       gem_handles[1] = uGemHandle_;
       if(offsets[1] == 0){
-        offsets[1] = offsets[0] + pitches[1] * iHeight_;
+        offsets[1] = offsets[0] + pitches[1] * iHeightStride_;
       }
     }else{
       pitches[1] = pitches[0];
       gem_handles[1] = uGemHandle_;
       if(offsets[1] == 0){
-        offsets[1] = offsets[0] + pitches[1] * iHeight_;
+        offsets[1] = offsets[0] + pitches[1] * iHeightStride_;
       }
     }
   }

@@ -201,13 +201,14 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
        bo->format == DRM_FORMAT_NV42){
       bo->pitches[1] = bo->pitches[0]*2;
       bo->gem_handles[1] = gem_handle;
-      bo->offsets[1] = bo->pitches[0] * bo->height_stride;
-      bo->offsets[1] = bo->offsets[0] + bo->pitches[0] * bo->height;
+      if(bo->offsets[1] == 0){
+        bo->offsets[1] = bo->offsets[0] + bo->pitches[0] * bo->height_stride;
+      }
     }else{
       bo->pitches[1] = bo->pitches[0];
       bo->gem_handles[1] = gem_handle;
       if(bo->offsets[1] == 0){
-        bo->offsets[1] = bo->offsets[0] + bo->pitches[1] * bo->height;
+        bo->offsets[1] = bo->offsets[0] + bo->pitches[1] * bo->height_stride;
       }
     }
   }
