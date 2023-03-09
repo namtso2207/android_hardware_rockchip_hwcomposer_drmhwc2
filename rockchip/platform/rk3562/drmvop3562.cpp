@@ -1838,6 +1838,8 @@ bool Vop3562::CheckGLESLayer(DrmHwcLayer *layer){
       if(layer->bYuv_ && layer->sf_handle != NULL){
         return false;
       }else{
+        HWC2_ALOGD_IF_DEBUG("[%s]：sf_composition =0x%x not support overlay.",
+              layer->sLayerName_.c_str(),layer->sf_composition);
         return true;
       }
       break;
