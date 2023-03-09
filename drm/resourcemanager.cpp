@@ -168,10 +168,33 @@ bool ResourceManager::IsSidebandStream2Mode() const {
   if(gIsRK3528()){
     return true;
   }
-
   return mSidebandStream2Mode_;
 }
 
+int ResourceManager::GetCropSpiltConnectedId() const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  return mCropSpiltConnectedId_;
+}
+
+int ResourceManager::AddCropSpiltConnectedId(int display_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  if(mCropSpiltConnectedId_ == -1){
+    mCropSpiltConnectedId_ = display_id;
+  }
+  mCropSpiltHasConnectedId_.insert(display_id);
+  return 0;
+}
+
+int ResourceManager::RemoveCropSpiltConnectedId(int display_id){
+  std::lock_guard<std::mutex> lock(mtx_);
+  if(mCropSpiltHasConnectedId_.count(display_id)){
+    mCropSpiltHasConnectedId_.erase(display_id);
+    if(mCropSpiltHasConnectedId_.size() == 0){
+      mCropSpiltConnectedId_ = -1;
+    }
+  }
+  return 0;
+}
 DrmDevice *ResourceManager::GetDrmDevice(int display) {
   for (auto &drm : drms_) {
     if (drm->HandlesDisplay(display & ~DRM_CONNECTOR_SPILT_MODE_MASK))
