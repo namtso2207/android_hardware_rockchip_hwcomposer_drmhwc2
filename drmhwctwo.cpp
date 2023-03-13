@@ -3237,7 +3237,27 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
   bSideband2Valid_ = false;
   sidebandStreamHandle_ = NULL;
 
-  CacheBufferInfo(buffer);
+  // 部分video不希望使用cache逻辑，因为可能会导致oom问题
+  bool need_cache = true;
+  ResourceManager* rm = ResourceManager::getInstance();
+  int buffer_limit_size = rm->GetCacheBufferLimitSize();
+  if(buffer_limit_size > 0){
+    int format = drmGralloc_->hwc_get_handle_attibute(buffer,ATT_FORMAT);
+    uint32_t fourcc = drmGralloc_->hwc_get_handle_fourcc_format(buffer);
+    if(drmGralloc_->is_yuv_format(format, fourcc)){
+      int width = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+      int height = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+      if( width * height > buffer_limit_size){
+        need_cache = false;
+      }
+    }
+  }
+
+  if(need_cache){
+    CacheBufferInfo(buffer);
+  }else{
+    NoCacheBufferInfo(buffer);
+  }
   acquire_fence_ = sp<AcquireFence>(new AcquireFence(acquire_fence));
   return HWC2::Error::None;
 }

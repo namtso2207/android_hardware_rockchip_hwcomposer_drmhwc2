@@ -95,6 +95,7 @@ class ResourceManager {
   bool IsDropMode() const;
   bool IsDynamicDisplayMode() const;
   bool IsSidebandStream2Mode() const;
+  int GetCacheBufferLimitSize() const;
 
   // 拼接模式相关信息记录
   int GetCropSpiltConnectedId() const;
@@ -140,6 +141,8 @@ class ResourceManager {
   bool mDynamicDisplayMode_;
   // sideband 2.0
   bool mSidebandStream2Mode_;
+  // cache buffer max size limit enable
+  int mCacheBufferLimitSize_ = 0;
   // 拼接模式热插拔注册id信息
   int mCropSpiltConnectedId_ = -1;
   std::set<int> mCropSpiltHasConnectedId_;

@@ -909,4 +909,46 @@ exit:
 #endif
 
 
+bool DrmGralloc::is_yuv_format(int hal_format, uint32_t fourcc_format){
+  switch(fourcc_format){
+    case DRM_FORMAT_NV12:
+    case DRM_FORMAT_NV12_10:
+    case DRM_FORMAT_NV21:
+    case DRM_FORMAT_NV16:
+    case DRM_FORMAT_NV61:
+    case DRM_FORMAT_YUV420:
+    case DRM_FORMAT_YVU420:
+    case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YVU422:
+    case DRM_FORMAT_YUV444:
+    case DRM_FORMAT_YVU444:
+    case DRM_FORMAT_UYVY:
+    case DRM_FORMAT_VYUY:
+    case DRM_FORMAT_YUYV:
+    case DRM_FORMAT_YVYU:
+    case DRM_FORMAT_YUV420_8BIT:
+    case DRM_FORMAT_YUV420_10BIT:
+      return true;
+    default:
+      break;
+  }
+
+  switch(hal_format){
+    case HAL_PIXEL_FORMAT_YCrCb_NV12:
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_VIDEO:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP_10:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP_10:
+    case HAL_PIXEL_FORMAT_YCBCR_422_I:
+    case HAL_PIXEL_FORMAT_YUV420_8BIT_I:
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I:
+    case HAL_PIXEL_FORMAT_Y210:
+      return true;
+    default:
+      return false;
+  }
+
+  return false;
+}
+
 }

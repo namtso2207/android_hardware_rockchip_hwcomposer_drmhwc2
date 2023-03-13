@@ -119,6 +119,9 @@ public:
   uint32_t hwc_get_fourcc_from_hal_format(int hal_format);
 
   int64_t hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd);
+
+  bool is_yuv_format(int hal_format, uint32_t fourcc_format);
+
 #ifdef RK3528
   // RK3528 need
   int lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_rkvdec_scaling_t** metadata);

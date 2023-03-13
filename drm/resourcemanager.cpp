@@ -152,6 +152,9 @@ int ResourceManager::InitProperty() {
   property_get("vendor.hwc.enable_sideband_stream_2_mode", property_value, "0");
   mSidebandStream2Mode_ = atoi(property_value) > 0;
 
+  property_get("vendor.hwc.enable_cache_buffer_limit_size", property_value, "0");
+  mCacheBufferLimitSize_ = atoi(property_value);
+
   return 0;
 }
 
@@ -169,6 +172,10 @@ bool ResourceManager::IsSidebandStream2Mode() const {
     return true;
   }
   return mSidebandStream2Mode_;
+}
+
+int ResourceManager::GetCacheBufferLimitSize() const{
+  return mCacheBufferLimitSize_ > 0;
 }
 
 int ResourceManager::GetCropSpiltConnectedId() const {

@@ -314,6 +314,56 @@ class DrmHwcTwo : public hwc2_device_t {
       // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
     }
 
+    void NoCacheBufferInfo(buffer_handle_t buffer) {
+      // clear cache
+      bufferInfoMap_.clear();
+      bHasCache_  = false;
+
+      buffer_ = buffer;
+      mCurrentState.buffer_ = buffer;
+
+      // Bufferinfo Cache
+      uint64_t buffer_id;
+      drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
+      pBufferInfo_ = std::make_shared<bufferInfo_t>(bufferInfo());
+      pBufferInfo_->uBufferId_ = buffer_id;
+      pBufferInfo_->iFd_     = drmGralloc_->hwc_get_handle_primefd(buffer_);
+      pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+      pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+      pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+      pBufferInfo_->iSize_   = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
+      pBufferInfo_->iHeightStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT_STRIDE);
+      pBufferInfo_->iByteStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
+      pBufferInfo_->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+      pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(buffer_);
+      pBufferInfo_->uFourccFormat_ = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+      pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
+      drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
+      layer_name_ = pBufferInfo_->sLayerName_;
+      HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64
+                            " fd=%d w=%d h=%d format=%d fourcc=%c%c%c%c usage=%" PRIx64 " modifier=%" PRIx64 " Name=%s",
+                            bufferInfoMap_.size(),buffer_id,
+                            pBufferInfo_->iFd_,
+                            pBufferInfo_->iWidth_,
+                            pBufferInfo_->iHeight_,
+                            pBufferInfo_->iFormat_,
+                            pBufferInfo_->uFourccFormat_,
+                            pBufferInfo_->uFourccFormat_ >> 8,
+                            pBufferInfo_->uFourccFormat_ >> 16,
+                            pBufferInfo_->uFourccFormat_ >> 24,
+                            pBufferInfo_->iUsage_,
+                            pBufferInfo_->uModifier_,
+                            pBufferInfo_->sLayerName_.c_str());
+
+      if(mDrawingState.buffer_ != mCurrentState.buffer_){
+        mFrameCount_++;
+        if(mLastFpsTime_ == 0){
+          mLastFpsTime_ = systemTime();
+        }
+      }
+    }
+
+
     void set_output_buffer(buffer_handle_t buffer) {
       buffer_ = buffer;
       mCurrentState.buffer_ = buffer;
