@@ -152,7 +152,7 @@ int ResourceManager::InitProperty() {
   property_get("vendor.hwc.enable_sideband_stream_2_mode", property_value, "0");
   mSidebandStream2Mode_ = atoi(property_value) > 0;
 
-  property_get("vendor.hwc.enable_cache_buffer_limit_size", property_value, "0");
+  property_get("vendor.hwc.video_buf_cache_max_size", property_value, "0");
   mCacheBufferLimitSize_ = atoi(property_value);
 
   return 0;
