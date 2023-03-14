@@ -41,6 +41,7 @@
 #include "rockchip/drmgralloc4.h"
 #endif
 
+#include "3rd/drm/dw2_fourcc.h"
 
 #include <hardware/gralloc.h>
 #include <map>
