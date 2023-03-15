@@ -549,7 +549,7 @@ int DrmDisplayCompositor::SyntheticWaitVBlank() {
       refresh = conn->active_mode().v_refresh();
   }
 
-  float percentage = 0.3f; // 30% Remaining Time to the drm driver。
+  float percentage = 0.1f; // 30% Remaining Time to the drm driver。
   int64_t phased_timestamp = GetPhasedVSync(kOneSecondNs / refresh * percentage,
                                             vsync_.tv_sec * kOneSecondNs +
                                                 vsync_.tv_nsec);
