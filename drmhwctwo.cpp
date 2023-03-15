@@ -1636,6 +1636,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
 
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
+  *retire_fence = -1;
   if(bUseWriteBack_ && resource_manager_->isWBMode()){
     if(resource_manager_->GetFinishWBBuffer() != NULL){
       const std::shared_ptr<HwcLayer::bufferInfo_t>
@@ -1830,7 +1831,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
         dst.rd_mode = IM_FBC_MODE;
       }
 
-      int ret = resource_manager_->OutputWBBuffer(dst, dst_rect);
+      int ret = resource_manager_->OutputWBBuffer(dst, dst_rect, retire_fence);
       if(ret){
         HWC2_ALOGE("OutputWBBuffer fail!");
       }
@@ -1850,7 +1851,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
   }
 
   ++frame_no_;
-  *retire_fence = -1;
   return HWC2::Error::None;
 }
 HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {

@@ -81,7 +81,9 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> GetNextWBBuffer();
   std::shared_ptr<DrmBuffer> GetDrawingWBBuffer();
   std::shared_ptr<DrmBuffer> GetFinishWBBuffer();
-  int OutputWBBuffer(rga_buffer_t &dst, im_rect &src_rect);
+  int OutputWBBuffer(rga_buffer_t &dst,
+                     im_rect &src_rect,
+                     int32_t *retire_fence);
   int SwapWBBuffer();
   // WriteBack interface.
 

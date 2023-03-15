@@ -28,6 +28,8 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include <utils/Trace.h>
+
 #include <rga.h>
 
 //XML prase
@@ -462,7 +464,10 @@ std::shared_ptr<DrmBuffer> ResourceManager::GetFinishWBBuffer(){
 }
 
 int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
-                                    im_rect &dst_rect){
+                                    im_rect &dst_rect,
+                                    int32_t *retire_fence){
+
+  ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
 
   if(mFinishWriteBackBuffer_ == NULL){
@@ -524,13 +529,17 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   memset(&imOpt, 0x00, sizeof(im_opt_t));
   imOpt.core = IM_SCHEDULER_RGA3_CORE0 | IM_SCHEDULER_RGA3_CORE1;
 
+  int releaseFence = -1;
   // Call Im2d 格式转换
-  im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0, NULL, &imOpt, 0);
+  im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0, &releaseFence, &imOpt, IM_ASYNC);
 
   if(im_state == IM_STATUS_SUCCESS){
     HWC2_ALOGD_IF_VERBOSE("call im2d convert to rgb888 Success");
+    *retire_fence = dup(releaseFence);
+    mFinishWriteBackBuffer_->SetReleaseFence(releaseFence);
   }else{
     HWC2_ALOGD_IF_DEBUG("call im2d fail, ret=%d Error=%s", im_state, imStrError(im_state));
+    *retire_fence = -1;
     return -1;
   }
 
@@ -538,6 +547,8 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
 }
 
 int ResourceManager::SwapWBBuffer(){
+
+  ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
   if(bEnableWriteBack_ <= 0){
     HWC2_ALOGE("");
