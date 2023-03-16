@@ -209,6 +209,7 @@ struct SidebandState {
 
   uint32_t hdr_blob_id_ = 0;
 
+  uint64_t frame_no_;
   // RK Support Sideband mode
   SidebandState current_sideband2_;
   SidebandState drawing_sideband2_;

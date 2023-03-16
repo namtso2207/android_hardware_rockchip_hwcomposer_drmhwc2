@@ -31,6 +31,12 @@ DrmBufferQueue::DrmBufferQueue():
   currentBuffer_(NULL){
 }
 
+DrmBufferQueue::DrmBufferQueue(int size):
+  sName_(""),
+  iMaxBufferSize_(size),
+  currentBuffer_(NULL){
+}
+
 DrmBufferQueue::~DrmBufferQueue(){
   while(bufferQueue_.size() > 0){
     bufferQueue_.pop();

@@ -934,6 +934,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     return -ENODEV;
   }
 
+
+  frame_no_ = display_comp->frame_no();
   // WriteBack Mode
   if(!test_only){
     if(resource_manager_->isWBMode()){
@@ -1398,7 +1400,7 @@ void DrmDisplayCompositor::Commit() {
         std::shared_ptr<DrmBuffer> wbBuffer = resource_manager_->GetNextWBBuffer();
         wbBuffer->SetFinishFence(writeback_fence_);
         writeback_fence_ = -1;
-        resource_manager_->SwapWBBuffer();
+        resource_manager_->SwapWBBuffer(frame_no_);
       }
     }else{
       close(writeback_fence_);

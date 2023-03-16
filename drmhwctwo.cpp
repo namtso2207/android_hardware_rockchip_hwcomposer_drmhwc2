@@ -1638,7 +1638,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
 
   *retire_fence = -1;
   if(bUseWriteBack_ && resource_manager_->isWBMode()){
-    if(resource_manager_->GetFinishWBBuffer() != NULL){
+    if(resource_manager_->isWBMode()){
       const std::shared_ptr<HwcLayer::bufferInfo_t>
         bufferinfo = output_layer_.GetBufferInfo();
 
@@ -1835,6 +1835,17 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
       if(ret){
         HWC2_ALOGE("OutputWBBuffer fail!");
       }
+
+      // 如果没有使能 WriteBack 异步模式
+      if(resource_manager_->IsWriteBackAsyncMode() == 0){
+        if(*retire_fence > 0){
+          ret = sync_wait(*retire_fence, 1500);
+          if(ret){
+            HWC2_ALOGD_IF_DEBUG("OutputWBBuffer sync_wait retire_fence fail.");
+          }
+        }
+      }
+
       // 添加调试接口，抓打印传递给SurfaceFlinger的 Buffer
       char value[PROPERTY_VALUE_MAX];
       property_get("debug.wb.dump", value, "0");

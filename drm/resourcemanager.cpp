@@ -54,6 +54,8 @@ namespace android {
 #define MALI_GRALLOC_USAGE_NO_AFBC (1ULL << 29)
 #endif
 
+#define WB_BUFFERQUEUE_MAX_SIZE 4
+
 ResourceManager::ResourceManager() :
   num_displays_(0) {
   drmGralloc_ = DrmGralloc::getInstance();
@@ -157,6 +159,9 @@ int ResourceManager::InitProperty() {
   property_get("vendor.hwc.video_buf_cache_max_size", property_value, "0");
   mCacheBufferLimitSize_ = atoi(property_value);
 
+  property_get("vendor.hwc.enable_wb_async_mode", property_value, "0");
+  mWriteBackAsyncMode_ = atoi(property_value);
+
   return 0;
 }
 
@@ -174,6 +179,10 @@ bool ResourceManager::IsSidebandStream2Mode() const {
     return true;
   }
   return mSidebandStream2Mode_;
+}
+
+bool ResourceManager::IsWriteBackAsyncMode() const{
+  return mWriteBackAsyncMode_;
 }
 
 int ResourceManager::GetCacheBufferLimitSize() const{
@@ -245,6 +254,7 @@ bool ResourceManager::isWBMode() const {
   return bEnableWriteBack_ > 0;
 }
 
+
 const DrmMode& ResourceManager::GetWBMode() const {
   std::lock_guard<std::mutex> lock(mtx_);
   return mWBMode_;
@@ -290,7 +300,7 @@ int ResourceManager::EnableWriteBackMode(int display){
 
   // 5. 创建 WriteBackBuffer BufferQueue，并且申请 WB Buffer.
   if(mWriteBackBQ_ == NULL){
-    mWriteBackBQ_ = std::make_shared<DrmBufferQueue>();
+    mWriteBackBQ_ = std::make_shared<DrmBufferQueue>(WB_BUFFERQUEUE_MAX_SIZE);
 
     mNextWriteBackBuffer_
       = mWriteBackBQ_->DequeueDrmBuffer(iWBWidth_,
@@ -361,7 +371,7 @@ int ResourceManager::UpdateWriteBackResolution(int display){
 
   // 4. 创建 WriteBackBuffer BufferQueue，并且申请 WB Buffer.
   if(mWriteBackBQ_ == NULL){
-    mWriteBackBQ_ = std::make_shared<DrmBufferQueue>();
+    mWriteBackBQ_ = std::make_shared<DrmBufferQueue>(WB_BUFFERQUEUE_MAX_SIZE);
   }
 
   mNextWriteBackBuffer_
@@ -387,6 +397,10 @@ int ResourceManager::DisableWriteBackMode(int display){
   bEnableWriteBack_--;
   if(bEnableWriteBack_ <= 0){
     iWriteBackDisplayId_ = -1;
+    while(mFinishBufferQueue_.size() > 0){
+      mFinishBufferQueue_.pop();
+    }
+    bWriteBackRunning_ = 0;
   }
   return 0;
 }
@@ -458,9 +472,9 @@ std::shared_ptr<DrmBuffer> ResourceManager::GetDrawingWBBuffer(){
   return mDrawingWriteBackBuffer_;;
 }
 
-std::shared_ptr<DrmBuffer> ResourceManager::GetFinishWBBuffer(){
+int ResourceManager::GetFinishWBBufferSize(){
   std::lock_guard<std::mutex> lock(mtx_);
-  return mFinishWriteBackBuffer_;;
+  return mFinishBufferQueue_.size();
 }
 
 int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
@@ -469,18 +483,29 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
 
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
-
-  if(mFinishWriteBackBuffer_ == NULL){
-    HWC2_ALOGE("mFinishWriteBackBuffer_ is NULL");
+  if(mFinishBufferQueue_.size() == 0){
+    HWC2_ALOGE("mFinishBufferQueue_ size is 0");
     return -1;
   }
 
-  mFinishWriteBackBuffer_->WaitFinishFence();
+  PAIR_ID_BUFFER FinishBufferPair = mFinishBufferQueue_.front();
+  uint64_t frame_no = FinishBufferPair.first;
+  std::shared_ptr<DrmBuffer> finish_buffer = FinishBufferPair.second;
+  mFinishBufferQueue_.pop();
+
+  if(finish_buffer == NULL){
+    HWC2_ALOGE("finish_buffer is NULL");
+    return -1;
+  }
+
+  HWC2_ALOGD_IF_VERBOSE("WB: frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,frame_no, finish_buffer->GetId(),mFinishBufferQueue_.size());
+
+  finish_buffer->WaitFinishFence();
   // 添加调试接口，抓打印WriteBack Buffer
   char value[PROPERTY_VALUE_MAX];
   property_get("debug.wb.dump", value, "0");
   if(atoi(value) > 0){
-    mFinishWriteBackBuffer_->DumpData();
+    finish_buffer->DumpData();
   }
 
   rga_buffer_t src;
@@ -494,12 +519,12 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   memset(&src_rect, 0x0, sizeof(im_rect));
 
   // Set src buffer info
-  src.fd      = mFinishWriteBackBuffer_->GetFd();
-  src.width   = mFinishWriteBackBuffer_->GetWidth();
-  src.height  = mFinishWriteBackBuffer_->GetHeight();
-  src.wstride = mFinishWriteBackBuffer_->GetStride();
-  src.hstride = mFinishWriteBackBuffer_->GetHeightStride();
-  src.format  = mFinishWriteBackBuffer_->GetFormat();
+  src.fd      = finish_buffer->GetFd();
+  src.width   = finish_buffer->GetWidth();
+  src.height  = finish_buffer->GetHeight();
+  src.wstride = finish_buffer->GetStride();
+  src.hstride = finish_buffer->GetHeightStride();
+  src.format  = finish_buffer->GetFormat();
 
   // 由于WriteBack仅支持BGR888(B:G:R little endian)，故需要使用RGA做格式转换
   if(src.format == HAL_PIXEL_FORMAT_RGB_888)
@@ -512,8 +537,8 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   // Set src rect info
   src_rect.x = 0;
   src_rect.y = 0;
-  src_rect.width  = mFinishWriteBackBuffer_->GetWidth();
-  src_rect.height = mFinishWriteBackBuffer_->GetHeight();
+  src_rect.width  = finish_buffer->GetWidth();
+  src_rect.height = finish_buffer->GetHeight();
 
   // Set Dataspace
   // if((srcBuffer.mBufferInfo_.uDataSpace_ & HAL_DATASPACE_STANDARD_BT709) == HAL_DATASPACE_STANDARD_BT709){
@@ -536,7 +561,7 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   if(im_state == IM_STATUS_SUCCESS){
     HWC2_ALOGD_IF_VERBOSE("call im2d convert to rgb888 Success");
     *retire_fence = dup(releaseFence);
-    mFinishWriteBackBuffer_->SetReleaseFence(releaseFence);
+    finish_buffer->SetReleaseFence(releaseFence);
   }else{
     HWC2_ALOGD_IF_DEBUG("call im2d fail, ret=%d Error=%s", im_state, imStrError(im_state));
     *retire_fence = -1;
@@ -546,7 +571,7 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   return 0;
 }
 
-int ResourceManager::SwapWBBuffer(){
+int ResourceManager::SwapWBBuffer(uint64_t frame_no){
 
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(mtx_);
@@ -555,12 +580,24 @@ int ResourceManager::SwapWBBuffer(){
     return -1;
   }
 
-  // 1. Drawing 切换为 Finish 状态
-  mFinishWriteBackBuffer_ = mDrawingWriteBackBuffer_;
+  // 1. Drawing 切换为 Finish 状态, 并 push 进队列
+  if(mDrawingWriteBackBuffer_ != NULL){
+    mFinishBufferQueue_.push(PAIR_ID_BUFFER{frame_no, mDrawingWriteBackBuffer_});
+    HWC2_ALOGD_IF_VERBOSE("WB: frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,frame_no, mDrawingWriteBackBuffer_->GetId(),mFinishBufferQueue_.size());
+    // 环形缓冲区，若达到环形缓冲区最大尺寸，则需要丢掉最旧的一帧缓存
+    if(mFinishBufferQueue_.size() > (WB_BUFFERQUEUE_MAX_SIZE - 1)){
+      auto last_buffer_pair = mFinishBufferQueue_.front();
+      mFinishBufferQueue_.pop();
+      HWC2_ALOGD_IF_WARN("WB: lost frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,
+                 last_buffer_pair.first,
+                 ((last_buffer_pair.second != NULL) ? last_buffer_pair.second->GetId() : -1),
+                 mFinishBufferQueue_.size());
 
+    }
+  }
   // 2. Next 切换为 Drawing 状态
   mDrawingWriteBackBuffer_ = mNextWriteBackBuffer_;
-  if(mWriteBackBQ_->QueueBuffer(mDrawingWriteBackBuffer_)){
+  if(mWriteBackBQ_->QueueBuffer(mNextWriteBackBuffer_)){
     HWC2_ALOGE("display=%d WBBuffer Queue fail, w=%d h=%d format=%d",
                                       iWriteBackDisplayId_,
                                       iWBWidth_,

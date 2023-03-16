@@ -27,6 +27,8 @@ namespace android {
 class DrmBufferQueue{
 public:
   DrmBufferQueue();
+  DrmBufferQueue(int size);
+
   ~DrmBufferQueue();
   bool NeedsReallocation(int w, int h, int format);
   std::shared_ptr<DrmBuffer> FrontDrmBuffer();

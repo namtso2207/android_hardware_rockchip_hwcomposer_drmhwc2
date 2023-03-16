@@ -36,6 +36,8 @@ namespace android {
 class DrmDisplayCompositor;
 class DrmHwcTwo;
 
+typedef std::pair<uint64_t, std::shared_ptr<DrmBuffer>> PAIR_ID_BUFFER;
+
 class ResourceManager {
  public:
   static ResourceManager* getInstance(){
@@ -80,11 +82,11 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> GetResetWBBuffer();
   std::shared_ptr<DrmBuffer> GetNextWBBuffer();
   std::shared_ptr<DrmBuffer> GetDrawingWBBuffer();
-  std::shared_ptr<DrmBuffer> GetFinishWBBuffer();
+  int GetFinishWBBufferSize();
   int OutputWBBuffer(rga_buffer_t &dst,
                      im_rect &src_rect,
                      int32_t *retire_fence);
-  int SwapWBBuffer();
+  int SwapWBBuffer(uint64_t frame_no);
   // WriteBack interface.
 
   // 判断同显与异显的方法
@@ -98,6 +100,7 @@ class ResourceManager {
   bool IsDynamicDisplayMode() const;
   bool IsSidebandStream2Mode() const;
   int GetCacheBufferLimitSize() const;
+  bool IsWriteBackAsyncMode() const;
 
   // 拼接模式相关信息记录
   int GetCropSpiltConnectedId() const;
@@ -124,6 +127,7 @@ class ResourceManager {
   bool dynamic_assigin_enable_;
 
   int bEnableWriteBack_=0;
+  int bWriteBackRunning_=0;
   int iWriteBackDisplayId_=-1;
   int iWBWidth_;
   int iWBHeight_;
@@ -133,7 +137,7 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> mResetBackBuffer_;
   std::shared_ptr<DrmBuffer> mNextWriteBackBuffer_;
   std::shared_ptr<DrmBuffer> mDrawingWriteBackBuffer_;
-  std::shared_ptr<DrmBuffer> mFinishWriteBackBuffer_;
+  std::queue<PAIR_ID_BUFFER> mFinishBufferQueue_;
 
   std::map<int, std::set<uint64_t>> mMapDisplayBufferSet_;
 
@@ -147,6 +151,8 @@ class ResourceManager {
   int mCacheBufferLimitSize_ = 0;
   // 拼接模式热插拔注册id信息
   int mCropSpiltConnectedId_ = -1;
+  // WriteBack 异步模式
+  int mWriteBackAsyncMode_ = 0;
   std::set<int> mCropSpiltHasConnectedId_;
 
   mutable std::mutex mtx_;
