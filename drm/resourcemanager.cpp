@@ -186,7 +186,7 @@ bool ResourceManager::IsWriteBackAsyncMode() const{
 }
 
 int ResourceManager::GetCacheBufferLimitSize() const{
-  return mCacheBufferLimitSize_ > 0;
+  return mCacheBufferLimitSize_;
 }
 
 int ResourceManager::GetCropSpiltConnectedId() const {
