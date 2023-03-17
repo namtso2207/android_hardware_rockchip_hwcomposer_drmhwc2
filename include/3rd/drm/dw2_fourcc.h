@@ -16,7 +16,7 @@
 
 #ifndef DW2_FOURCC_H
 #define DW2_FOURCC_H
-#include "drm/drm_fourcc.h"
+#include "drm_fourcc.h"
 
 
 #ifndef DRM_FORMAT_NV15
@@ -32,5 +32,6 @@
 #ifndef DRM_FORMAT_NV12_10
 #define DRM_FORMAT_NV12_10		fourcc_code('N', 'A', '1', '2') /* 2x2 subsampled Cr:Cb plane */
 #endif
+
 
 #endif
