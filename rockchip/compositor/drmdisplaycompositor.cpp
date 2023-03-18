@@ -1391,7 +1391,6 @@ void DrmDisplayCompositor::Commit() {
     UpdateSidebandState();
   }
 
-
   // WriteBack Fence handle.
   if(writeback_fence_ > 0){
     if(resource_manager_->isWBMode()){
@@ -2855,9 +2854,8 @@ bool DrmDisplayCompositor::HaveQueuedComposites() const {
 }
 
 bool DrmDisplayCompositor::IsSidebandMode() const{
-  return drawing_sideband2_.enable_ || current_sideband2_.enable_;
+  return current_sideband2_.enable_;
 }
-
 
 int DrmDisplayCompositor::TestComposition(DrmDisplayComposition *composition) {
   return CommitFrame(composition, true);
