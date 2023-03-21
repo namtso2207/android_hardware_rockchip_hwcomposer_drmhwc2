@@ -90,7 +90,7 @@ class ResourceManager {
   // WriteBack interface.
 
   // 系统属性开关
-  bool IsDropMode() const;
+  bool IsCompositionDropMode() const;
   bool IsDynamicDisplayMode() const;
   bool IsSidebandStream2Mode() const;
   int GetCacheBufferLimitSize() const;
@@ -135,8 +135,8 @@ class ResourceManager {
 
   std::map<int, std::set<uint64_t>> mMapDisplayBufferSet_;
 
-  // 关闭丢帧模式
-  bool mDropMode_;
+  // Composition丢帧模式
+  bool mCompositionDropMode_;
   // 使能动态分辨率切换模式
   bool mDynamicDisplayMode_;
   // sideband 2.0

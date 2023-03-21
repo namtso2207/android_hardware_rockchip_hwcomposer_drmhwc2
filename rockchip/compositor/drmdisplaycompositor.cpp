@@ -206,16 +206,13 @@ int DrmDisplayCompositor::QueueComposition(
   display_ = composition->display();
   // Block the queue if it gets too large. Otherwise, SurfaceFlinger will start
   // to eat our buffer handles when we get about 1 second behind.
-  int max_queue_size = 1;
-  if(composition->has_svep()){
-      max_queue_size = 3;
-  }
 
   // Enable DrmDisplayCompositor sideband2 mode
   current_sideband2_.enable_ = composition->has_sideband2();
   current_sideband2_.tunnel_id_ = composition->get_sideband_tunnel_id();
 
-  while(mapDisplayHaveQeueuCnt_[composition->display()] >= max_queue_size){
+  while(mapDisplayHaveQeueuCnt_[composition->display()]
+        >= GetCompositeQueueMaxSize(composition.get())){
     pthread_cond_wait(&composite_queue_cond_,&lock_);
   }
 
@@ -1000,8 +997,9 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       DrmHwcLayer &layer = layers[source_layers.front()];
 
       if (!test_only && layer.acquire_fence->isValid()){
-        if(layer.acquire_fence->wait(1500)){
-          HWC2_ALOGE("Wait AcquireFence failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+        if(layer.acquire_fence->wait(100)){
+          HWC2_ALOGE("display=%d Wait AcquireFence 100ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+                            display_,
                             display_comp->frame_no(),
                             layer.acquire_fence->getSize(),
                             layer.acquire_fence->getActiveCount(),
@@ -1360,6 +1358,34 @@ void DrmDisplayCompositor::Commit() {
   for(auto &collect_composition : collect_composition_map_){
     auto active_composition = active_composition_map_.find(collect_composition.first);
     if(active_composition != active_composition_map_.end()){
+
+      auto &useless_queue = active_composition->second->useless_composition_queue();
+      if(useless_queue.size() > 0){
+        uint64_t useless_size = useless_queue.size();
+        uint64_t useless_frame_no_start = UINT64_MAX;
+        uint64_t useless_frame_no_end = 0;
+        while(useless_queue.size() > 0){
+          std::unique_ptr<DrmDisplayComposition>  composition =
+              std::move(useless_queue.front());
+          if(composition->frame_no() <  useless_frame_no_start){
+            useless_frame_no_start = composition->frame_no();
+          }
+
+          if(composition->frame_no() >  useless_frame_no_end){
+            useless_frame_no_end = composition->frame_no();
+          }
+
+          useless_queue.pop();
+          composition->SignalCompositionDone();
+        }
+        HWC2_ALOGD_IF_DEBUG("signal useless compositions: display=%d "
+                            "size=%" PRIu64 " frame_no=%" PRIu64"->%" PRIu64 ,
+                            display_,
+                            useless_size,
+                            useless_frame_no_start,
+                            useless_frame_no_end);
+      }
+
       active_composition->second->SignalCompositionDone();
       active_composition_map_.erase(active_composition);
     }
@@ -1524,8 +1550,8 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       DrmHwcLayer &layer = layers[source_layers.front()];
 
       if (!test_only && layer.acquire_fence->isValid()){
-        if(layer.acquire_fence->wait(1500)){
-          HWC2_ALOGE("Wait AcquireFence failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+        if(layer.acquire_fence->wait(100)){
+          HWC2_ALOGE("Wait AcquireFence 100ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
                             display_comp->frame_no(), layer.acquire_fence->getSize(),
                             layer.acquire_fence->getActiveCount(), layer.acquire_fence->getSignaledCount(),
                             layer.acquire_fence->getErrorCount(),layer.sLayerName_.c_str());
@@ -1820,8 +1846,8 @@ void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayCompositio
           }
           DrmHwcLayer &layer = layers[source_layers.front()];
           if (layer.acquire_fence->isValid()) {
-            if(layer.acquire_fence->wait(1500)){
-              ALOGE("Failed to wait for acquire %d 1500ms", layer.acquire_fence->getFd());
+            if(layer.acquire_fence->wait(100)){
+              ALOGE("Failed to wait for acquire %d 100ms", layer.acquire_fence->getFd());
               break;
             }
             layer.acquire_fence->destroy();
@@ -2033,26 +2059,12 @@ void DrmDisplayCompositor::ApplyFrame(
   //flatten_countdown_ = FLATTEN_COUNTDOWN_INIT;
   //vsync_worker_.VSyncControl(!writeback);
 }
-// 处理来自SurfaceFlinger的请求
-int DrmDisplayCompositor::CollectSFInfo() {
+
+// 顺序获取待送显的 DrmDisplayComposition
+int DrmDisplayCompositor::CollectSFInfoBySequence() {
   ATRACE_CALL();
-
-  int ret = pthread_mutex_lock(&lock_);
-  if (ret) {
-    ALOGE("Failed to acquire compositor lock %d", ret);
-    return ret;
-  }
-
-  if (composite_queue_.empty()) {
-    ret = pthread_mutex_unlock(&lock_);
-    if (ret){
-      ALOGE("Failed to release compositor lock %d", ret);
-    }
-    return ret;
-  }
-
+  int ret = 0;
   std::unique_ptr<DrmDisplayComposition> composition;
-
   std::set<int> exist_display;
   exist_display.clear();
   if (!composite_queue_.empty()) {
@@ -2070,6 +2082,82 @@ int DrmDisplayCompositor::CollectSFInfo() {
     while(composite_queue_temp_.size()){
       composite_queue_.push(std::move(composite_queue_temp_.front()));
       composite_queue_temp_.pop();
+    }
+  }
+
+  return ret;
+}
+
+// 处理来自SurfaceFlinger的请求
+int DrmDisplayCompositor::CollectSFInfoByDrop() {
+  ATRACE_CALL();
+  int ret = 0;
+  std::set<int> exist_display;
+  exist_display.clear();
+  if (!composite_queue_.empty()) {
+    std::map<int, std::unique_ptr<DrmDisplayComposition>>  latest_composition_map;
+    // 找到最新的 composition,并且把不需要送显的composition存放在composite_queue_temp_队列中
+    while(composite_queue_.size() > 0){
+      std::unique_ptr<DrmDisplayComposition> composition = std::move(composite_queue_.front());
+      mapDisplayHaveQeueuCnt_[composition->display()]--;
+      composite_queue_.pop();
+      if(latest_composition_map[composition->display()] == NULL){
+        latest_composition_map[composition->display()] = std::move(composition);
+        composition = NULL;
+      }else if(composition->frame_no() > latest_composition_map[composition->display()]->frame_no()){
+        composite_queue_temp_.push(std::move(latest_composition_map[composition->display()]));
+        latest_composition_map[composition->display()] = std::move(composition);
+      }else{
+        composite_queue_temp_.push(std::move(composition));
+      }
+    }
+
+    // 将存放在composite_queue_temp_队列中的composition移动到最新的DrmDisplayComposition中
+    // 待 DrmDisplayComposition 显示完成以后，进行 Signal ReleaseFence.
+    if(latest_composition_map.size() > 0){
+      while(composite_queue_temp_.size() > 0){
+        std::unique_ptr<DrmDisplayComposition>  composition =
+            std::move(composite_queue_temp_.front());
+        composite_queue_temp_.pop();
+        for(auto &last_composition_pair : latest_composition_map){
+          if(composition->display() == last_composition_pair.first){
+            auto &useless_queue = last_composition_pair.second->useless_composition_queue();
+            useless_queue.push(std::move(composition));
+          }
+
+        }
+      }
+
+      for(auto &last_composition_pair : latest_composition_map){
+        CollectInfo(std::move(last_composition_pair.second), 0);
+      }
+    }
+  }
+  return ret;
+}
+
+// 处理来自SurfaceFlinger的请求
+int DrmDisplayCompositor::CollectSFInfo() {
+  ATRACE_CALL();
+  int ret = pthread_mutex_lock(&lock_);
+  if (ret) {
+    ALOGE("Failed to acquire compositor lock %d", ret);
+    return ret;
+  }
+
+  if (composite_queue_.empty()) {
+    ret = pthread_mutex_unlock(&lock_);
+    if (ret){
+      ALOGE("Failed to release compositor lock %d", ret);
+    }
+    return ret;
+  }
+
+  if (!composite_queue_.empty()) {
+    if(drop_mode_){
+      ret = CollectSFInfoByDrop();
+    }else{
+      ret = CollectSFInfoBySequence();
     }
   }else{ // frame_queue_ is empty
     ALOGW_IF(LogLevel(DBG_DEBUG),"%s,line=%d composite_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
@@ -2089,6 +2177,7 @@ int DrmDisplayCompositor::CollectSFInfo() {
     ALOGE("Failed to release compositor lock %d", ret);
     return ret;
   }
+
   return ret;
 }
 
@@ -2793,6 +2882,22 @@ bool DrmDisplayCompositor::HaveQueuedComposites() const {
 
 bool DrmDisplayCompositor::IsSidebandMode() const{
   return current_sideband2_.enable_;
+}
+
+int DrmDisplayCompositor::GetCompositeQueueMaxSize(DrmDisplayComposition* composition){
+  // SVEP 要求缓存3帧，以便得到流畅的SVEP播放效果
+  if(composition->has_svep()){
+      return 3;
+  }
+
+  // 丢帧模式，暂定最大缓存帧数等于 10,实际缓存不会达到这个数值
+  if(composition->IsDropMode()){
+      drop_mode_ = true;
+      return 10;
+  }
+
+  // 一般情况下，只考虑最多缓存1帧
+  return 1;
 }
 
 int DrmDisplayCompositor::TestComposition(DrmDisplayComposition *composition) {

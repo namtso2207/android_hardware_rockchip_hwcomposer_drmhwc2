@@ -137,6 +137,16 @@ int DrmDisplayComposition::SetDisplayHdrMode(DrmHdrType hdr_mode,
   return 0;
 }
 
+
+int DrmDisplayComposition::SetDropMode(bool mode){
+  drop_mode_ = mode;
+  return 0;
+};
+
+bool DrmDisplayComposition::IsDropMode(){
+  return drop_mode_;
+};
+
 int DrmDisplayComposition::AddPlaneDisable(DrmPlane *plane) {
   composition_planes_.emplace_back(DrmCompositionPlane::Type::kDisable, plane,
                                    crtc_);

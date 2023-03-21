@@ -60,6 +60,11 @@ class DrmDisplayCompositor {
   int TestComposition(DrmDisplayComposition *composition);
   int Composite();
   int CollectSFInfo();
+  // 顺序模式
+  int CollectSFInfoBySequence();
+  // 丢帧模式
+  int CollectSFInfoByDrop();
+
   int CollectVPInfo();
   int CollectVPHdrInfo(DrmHwcLayer &layer);
   void Dump(std::ostringstream *out) const;
@@ -71,6 +76,7 @@ class DrmDisplayCompositor {
 
   bool HaveQueuedComposites() const;
   bool IsSidebandMode() const;
+  int GetCompositeQueueMaxSize(DrmDisplayComposition* composition);
 
  private:
   struct ModeState {
@@ -201,8 +207,6 @@ struct SidebandState {
 
   std::map<int, uint64_t> mapDisplayHaveQeueuCnt_;
 
-  int64_t iLastDropFrameNo_;
-
   bool bWriteBackRequestDisable_;
   bool bWriteBackEnable_;
 
@@ -213,6 +217,8 @@ struct SidebandState {
   SidebandState current_sideband2_;
   SidebandState drawing_sideband2_;
 
+  // 丢帧模式
+  bool drop_mode_ = false;
 };
 }  // namespace android
 

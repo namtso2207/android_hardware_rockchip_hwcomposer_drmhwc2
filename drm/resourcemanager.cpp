@@ -147,8 +147,8 @@ DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
 
 int ResourceManager::InitProperty() {
   char property_value[PROPERTY_VALUE_MAX];
-  property_get("vendor.hwc.disble_drop_mode", property_value, "0");
-  mDropMode_ = atoi(property_value) != 0;
+  property_get("vendor.hwc.enable_composition_drop_mode", property_value, "0");
+  mCompositionDropMode_ = atoi(property_value) != 0;
 
   property_get("vendor.hwc.enable_dynamic_display_mode", property_value, "0");
   mDynamicDisplayMode_ = atoi(property_value) > 0;
@@ -165,8 +165,8 @@ int ResourceManager::InitProperty() {
   return 0;
 }
 
-bool ResourceManager::IsDropMode() const {
-  return mDropMode_;
+bool ResourceManager::IsCompositionDropMode() const {
+  return mCompositionDropMode_;
 }
 
 bool ResourceManager::IsDynamicDisplayMode() const {

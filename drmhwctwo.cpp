@@ -1579,6 +1579,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   // 配置 HDR mode
   composition->SetDisplayHdrMode(ctx_.hdr_mode, ctx_.dataspace);
 
+  // 配置丢帧模式
+  composition->SetDropMode(resource_manager_->IsCompositionDropMode());
+
   ret = compositor_->QueueComposition(std::move(composition));
   return HWC2::Error::None;
 }

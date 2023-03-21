@@ -158,7 +158,10 @@ class DrmDisplayComposition {
   int SetDisplayMode(const DrmMode &display_mode);
   int SetDisplayHdrMode(DrmHdrType hdr_mode,
                         android_dataspace_t dataspace);
-
+  // 丢帧模式，允许 DrmDisplayCompositor 线程丢掉不能够及时送显的
+  // DrmDisplayComposition
+  int SetDropMode(bool mode);
+  bool IsDropMode();
 
   int DisableUnusedPlanes();
   int CreateAndAssignReleaseFences(SyncTimeline &sync_timeline);
@@ -171,6 +174,10 @@ class DrmDisplayComposition {
 
   std::vector<DrmCompositionPlane> &composition_planes() {
     return composition_planes_;
+  }
+
+  std::queue<std::unique_ptr<DrmDisplayComposition>> &useless_composition_queue(){
+    return useless_composition_queue_;
   }
 
   bool geometry_changed() const {
@@ -245,6 +252,7 @@ class DrmDisplayComposition {
   DrmCompositionType type_ = DRM_COMPOSITION_TYPE_EMPTY;
   uint32_t dpms_mode_ = DRM_MODE_DPMS_ON;
   DrmMode display_mode_;
+  bool  drop_mode_ = false;
 
   DrmHdrType hdr_mode_;
   bool bYuv10bit_;
@@ -263,6 +271,9 @@ class DrmDisplayComposition {
 
   std::vector<DrmHwcLayer> layers_;
   std::vector<DrmCompositionPlane> composition_planes_;
+
+  std::queue<std::unique_ptr<DrmDisplayComposition>> useless_composition_queue_;
+
 
   uint64_t frame_no_ = 0;
   uint64_t display_id_;
