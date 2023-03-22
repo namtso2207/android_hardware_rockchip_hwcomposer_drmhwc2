@@ -1436,40 +1436,6 @@ void DrmHwcTwo::HwcDisplay::UpdateSvepState() {
   return ;
 }
 
-bool DrmHwcTwo::HwcDisplay::IsLayerStateChange() {
-  bool is_state_change = false;
-  if(!resource_manager_->IsDropMode()){
-    is_state_change = true;
-  }
-
-  bool use_client = false;
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
-    if(l.second.validated_type() == HWC2::Composition::Client){
-      use_client = true;
-    }
-    if(l.second.StateChange()){
-      is_state_change = true;
-    }
-  }
-
-  if(layers_.size() != iLastLayerSize_){
-    iLastLayerSize_ = layers_.size();
-    is_state_change = true;
-  }
-
-  if(use_client && client_layer_.StateChange()){
-    is_state_change = true;
-  }
-
-  if(is_state_change){
-    return is_state_change;
-  }else{
-    HWC2_ALOGI("display=%d all LayerState no change skip Present! frame_no=%d",
-        static_cast<int>(handle_), frame_no_);
-  }
-  return false;
-}
-
 int DrmHwcTwo::HwcDisplay::ImportBuffers() {
   int ret = 0;
   // 匹配 DrmPlane 图层，请求获取 GemHandle
@@ -1561,21 +1527,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::CreateComposition() {
   layers_map.emplace_back();
   DrmCompositionDisplayLayersMap &map = layers_map.back();
   map.display = static_cast<int>(handle_);
-
-  if(bDropFrame_){
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
-        l.second.set_release_fence(l.second.back_release_fence());
-    }
-    d_retire_fence_.add(d_retire_fence_.get_back());
-    return HWC2::Error::None;
-  }
-
-  // 若所有的图层状态与合成方式没有发生改变，则跳过此次 CreateComposition.
-  if(!IsLayerStateChange()){
-    return HWC2::Error::None;
-  }else{
-    map.geometry_changed = true;
-  }
+  map.geometry_changed = true;
 
   ret = ImportBuffers();
   if(ret){
@@ -2355,28 +2307,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
           __FUNCTION__, __LINE__);
     composition_planes_.clear();
     validate_success_ = false;
-    return HWC2::Error::None;
-  }
-
-  // 统计所有图层信息, 判断是否为异显 Display
-  bool is_unique_display = true;
-  resource_manager_->ClearBufferId(handle_);
-  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
-    auto buffer_info_ptr = l.second.GetBufferInfo();
-    if(buffer_info_ptr != NULL){
-      resource_manager_->AddBufferId(handle_, buffer_info_ptr->uBufferId_);
-      if(!resource_manager_->IsUniqueBufferId(handle_, buffer_info_ptr->uBufferId_)){
-        is_unique_display = false;
-      }
-    }
-  }
-
-  bDropFrame_ = false;
-  if(is_unique_display && compositor_->DropCurrentFrame(handle_, frame_no_)){
-    bDropFrame_ = true;
-    HWC2_ALOGD_IF_DEBUG("display=%d drop frame_no=%d!", static_cast<int>(handle_), frame_no_);
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_)
-      l.second.set_validated_type(HWC2::Composition::Device);
     return HWC2::Error::None;
   }
 

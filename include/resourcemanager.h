@@ -89,12 +89,6 @@ class ResourceManager {
   int SwapWBBuffer(uint64_t frame_no);
   // WriteBack interface.
 
-  // 判断同显与异显的方法
-  int ClearBufferId(int display);
-  int AddBufferId(int display, uint64_t buffer_id);
-  int RemoveBufferId(int display, uint64_t buffer_id);
-  bool IsUniqueBufferId(int display, uint64_t buffer_id);
-
   // 系统属性开关
   bool IsDropMode() const;
   bool IsDynamicDisplayMode() const;

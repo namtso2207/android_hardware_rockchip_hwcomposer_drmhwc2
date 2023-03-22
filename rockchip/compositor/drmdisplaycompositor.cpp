@@ -45,6 +45,7 @@
 #define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 1
 
 static const uint32_t kWaitWritebackFence = 100;  // ms
+static const int64_t kOneSecondNs = 1 * 1000 * 1000 * 1000;
 
 #define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
 #define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
@@ -165,69 +166,6 @@ int DrmDisplayCompositor::Init(ResourceManager *resource_manager, int display) {
 std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
     const {
   return std::unique_ptr<DrmDisplayComposition>(new DrmDisplayComposition());
-}
-
-static const int64_t kOneSecondNs = 1 * 1000 * 1000 * 1000;
-bool DrmDisplayCompositor::DropCurrentFrame(int display, int64_t frame_no) {
-  if(!resource_manager_->IsDropMode()){
-    return false;
-  }
-//   Primary fps
-//   DrmDevice *drm = resource_manager_->GetDrmDevice(0);
-//   DrmConnector *primary = drm->GetConnectorForDisplay(0);
-//   float pri_refresh = 60.0f, cur_refresh = 60.0f;  // Default to 60Hz refresh rate
-//   if (primary && primary->state() == DRM_MODE_CONNECTED) {
-//     if (primary->active_mode().v_refresh() > 0.0f)
-//       pri_refresh = primary->active_mode().v_refresh();
-//   }
-
-//   DrmConnector *conn = drm->GetConnectorForDisplay(display_);
-//   if (conn && conn->state() == DRM_MODE_CONNECTED) {
-//     if (conn->active_mode().v_refresh() > 0.0f)
-//       cur_refresh = conn->active_mode().v_refresh();
-//   }
-
-//  // 若当前的屏幕的刷新率大于或者等于主屏，则不使用丢帧逻辑
-//   if(cur_refresh >= pri_refresh){
-//     return false;
-//   }
-
-  // 主屏无需丢帧
-  if(display == 0){
-    return false;
-  }
-
-  int ret = pthread_mutex_lock(&lock_);
-  if (ret) {
-    ALOGE("Failed to acquire compositor lock %d", ret);
-    return ret;
-  }
-
-  // 通过 “frame_no - iLastDropFrameNo_ > 1” 避免跳过连续的两帧
-  if(frame_no - iLastDropFrameNo_ > 1 && mapDisplayHaveQeueuCnt_[display] >= 1){
-    // struct timespec current_time;
-    // int ret = clock_gettime(CLOCK_MONOTONIC, &current_time);
-    // int64_t current_timestamp = current_time.tv_sec * kOneSecondNs + current_time.tv_nsec;
-    // float refresh = 60.0f;  // Default to 60Hz refresh rate
-    // int64_t vsync_timestamp = kOneSecondNs / cur_refresh;
-    // // 若当前的时间戳距离上一次 Vsync 时间大于 * T-Vsync，则考虑丢弃该帧
-    // if(mapDisplayHaveQeueuCnt_[display] >= 1){
-    ret = pthread_mutex_unlock(&lock_);
-    if (ret) {
-      ALOGE("Failed to release compositor lock %d", ret);
-      return ret;
-    }
-    iLastDropFrameNo_ = frame_no;
-    return true;
-  }
-
-  ret = pthread_mutex_unlock(&lock_);
-  if (ret) {
-    ALOGE("Failed to release compositor lock %d", ret);
-    return ret;
-  }
-
-  return false;
 }
 
 int DrmDisplayCompositor::QueueComposition(
