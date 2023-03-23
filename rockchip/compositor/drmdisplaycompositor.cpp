@@ -2099,14 +2099,15 @@ int DrmDisplayCompositor::CollectSFInfoByDrop() {
     // 找到最新的 composition,并且把不需要送显的composition存放在composite_queue_temp_队列中
     while(composite_queue_.size() > 0){
       std::unique_ptr<DrmDisplayComposition> composition = std::move(composite_queue_.front());
-      mapDisplayHaveQeueuCnt_[composition->display()]--;
+      int composition_display = composition->display();
+      mapDisplayHaveQeueuCnt_[composition_display]--;
       composite_queue_.pop();
-      if(latest_composition_map[composition->display()] == NULL){
-        latest_composition_map[composition->display()] = std::move(composition);
+      if(latest_composition_map[composition_display] == NULL){
+        latest_composition_map[composition_display] = std::move(composition);
         composition = NULL;
-      }else if(composition->frame_no() > latest_composition_map[composition->display()]->frame_no()){
-        composite_queue_temp_.push(std::move(latest_composition_map[composition->display()]));
-        latest_composition_map[composition->display()] = std::move(composition);
+      }else if(composition->frame_no() > latest_composition_map[composition_display]->frame_no()){
+        composite_queue_temp_.push(std::move(latest_composition_map[composition_display]));
+        latest_composition_map[composition_display] = std::move(composition);
       }else{
         composite_queue_temp_.push(std::move(composition));
       }
@@ -2118,9 +2119,10 @@ int DrmDisplayCompositor::CollectSFInfoByDrop() {
       while(composite_queue_temp_.size() > 0){
         std::unique_ptr<DrmDisplayComposition>  composition =
             std::move(composite_queue_temp_.front());
+        int composition_display = composition->display();
         composite_queue_temp_.pop();
         for(auto &last_composition_pair : latest_composition_map){
-          if(composition->display() == last_composition_pair.first){
+          if(composition_display == last_composition_pair.first){
             auto &useless_queue = last_composition_pair.second->useless_composition_queue();
             useless_queue.push(std::move(composition));
           }
