@@ -1999,7 +1999,6 @@ void Vop3562::InitSupportContext(
         if(p->get_hdr2sdr())
           ctx.support.iHdrCnt++;
       }
-      break;
     }
   }
   return;

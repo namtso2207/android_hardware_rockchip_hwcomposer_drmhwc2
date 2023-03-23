@@ -1754,7 +1754,6 @@ void Vop3399::InitSupportContext(
         if(p->get_hdr2sdr())
           ctx.support.iHdrCnt++;
       }
-      break;
     }
   }
   return;
