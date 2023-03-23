@@ -150,7 +150,7 @@ int Vop356x::IsXIntersect(hwc_rect_t* rec,hwc_rect_t* rec2){
 
 bool Vop356x::IsRec1IntersectRec2(hwc_rect_t* rec1, hwc_rect_t* rec2){
     int iMaxLeft,iMaxTop,iMinRight,iMinBottom;
-    ALOGD_IF(LogLevel(DBG_DEBUG),"is_not_intersect: rec1[%d,%d,%d,%d],rec2[%d,%d,%d,%d]",rec1->left,rec1->top,
+    HWC2_ALOGD_IF_VERBOSE("is_not_intersect: rec1[%d,%d,%d,%d],rec2[%d,%d,%d,%d]",rec1->left,rec1->top,
         rec1->right,rec1->bottom,rec2->left,rec2->top,rec2->right,rec2->bottom);
 
     iMaxLeft = rec1->left > rec2->left ? rec1->left: rec2->left;
@@ -181,8 +181,8 @@ bool Vop356x::IsLayerCombine(DrmHwcLayer * layer_one,DrmHwcLayer * layer_two){
         || IsXIntersect(&layer_one->display_frame,&layer_two->display_frame)
         )
     {
-        ALOGD_IF(LogLevel(DBG_DEBUG),"is_layer_combine layer one alpha=%d,is_scale=%d",layer_one->alpha,layer_one->bScale_);
-        ALOGD_IF(LogLevel(DBG_DEBUG),"is_layer_combine layer two alpha=%d,is_scale=%d",layer_two->alpha,layer_two->bScale_);
+        HWC2_ALOGD_IF_VERBOSE("is_layer_combine layer one alpha=%d,is_scale=%d",layer_one->alpha,layer_one->bScale_);
+        HWC2_ALOGD_IF_VERBOSE("is_layer_combine layer two alpha=%d,is_scale=%d",layer_two->alpha,layer_two->bScale_);
         return false;
     }
 
@@ -307,7 +307,7 @@ int Vop356x::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,
             for(uint32_t i=0;i < iter->second.size()-1;i++) {
                 for(uint32_t j=i+1;j < iter->second.size();j++) {
                      if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
-                        ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
+                        HWC2_ALOGD_IF_VERBOSE("swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
                         std::swap(iter->second[i],iter->second[j]);
                      }
                  }
@@ -448,14 +448,14 @@ int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
      uint32_t combine_layer_count = 0;
-     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
+     HWC2_ALOGD_IF_VERBOSE("line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
                                    "current_crtc_=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
                                    (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
       //find the match zpos plane group
       if(!(*iter)->bUse && !(*iter)->bReserved && (((1<<crtc->pipe()) & (*iter)->current_crtc_) > 0))
       {
-          ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
+          HWC2_ALOGD_IF_VERBOSE("line=%d,layer_size=%d,planes size=%zu",__LINE__,layer_size,(*iter)->planes.size());
 
           //find the match combine layer count with plane size.
           if(layer_size <= (*iter)->planes.size())
@@ -469,7 +469,7 @@ int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
                   if(match_best){
                       if(!((*iter)->win_type & (*iter_layer)->iBestPlaneType)){
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d, plane_group win-type = 0x%" PRIx64 " , layer best-type = %x, not match ",
+                          HWC2_ALOGD_IF_VERBOSE("line=%d, plane_group win-type = 0x%" PRIx64 " , layer best-type = %x, not match ",
                           __LINE__,(*iter)->win_type, (*iter_layer)->iBestPlaneType);
                           continue;
                       }
@@ -479,7 +479,7 @@ int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                   for(std::vector<DrmPlane*> ::const_iterator iter_plane=(*iter)->planes.begin();
                       !(*iter)->planes.empty() && iter_plane != (*iter)->planes.end(); ++iter_plane)
                   {
-                      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,crtc=0x%x,%s is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
+                      HWC2_ALOGD_IF_VERBOSE("line=%d,crtc=0x%x,%s is_use=%d,possible_crtc_mask=0x%x",__LINE__,(1<<crtc->pipe()),
                               (*iter_plane)->name(),(*iter_plane)->is_use(),(*iter_plane)->get_possible_crtc_mask());
 
 
@@ -665,8 +665,9 @@ int Vop356x::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
                           }
 
-
-                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match layer id=%d, %s, zops = %d",(*iter_layer)->uId_,
+                          ALOGD_IF(LogLevel(DBG_DEBUG),"MatchPlane: match id=%d name=%s, Plane=%s, zops=%d",
+                              (*iter_layer)->uId_,
+                              (*iter_layer)->sLayerName_.c_str(),
                               (*iter_plane)->name(),zpos);
                           //Find the match plane for layer,it will be commit.
                           composition_planes->emplace_back(type, (*iter_plane), crtc, (*iter_layer)->iDrmZpos_);

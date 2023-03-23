@@ -1193,7 +1193,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetHdrCapabilities(
 HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
                                                     hwc2_layer_t *layers,
                                                     int32_t *fences) {
-  HWC2_ALOGD_IF_DEBUG("display-id=%" PRIu64,handle_);
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   uint32_t num_layers = 0;
 
@@ -1208,8 +1208,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 
     layers[num_layers - 1] = l.first;
     fences[num_layers - 1] = l.second.release_fence()->isValid() ? dup(l.second.release_fence()->getFd()) : -1;
-    if(LogLevel(DBG_DEBUG))
-      HWC2_ALOGD_IF_DEBUG("Check Layer %" PRIu64 " Release(%d) %s Info: size=%d act=%d signal=%d err=%d",
+    if(LogLevel(DBG_VERBOSE))
+      HWC2_ALOGD_IF_VERBOSE("Check Layer %" PRIu64 " Release(%d) %s Info: size=%d act=%d signal=%d err=%d",
                           l.first,l.second.release_fence()->isValid(),l.second.release_fence()->getName().c_str(),
                           l.second.release_fence()->getSize(), l.second.release_fence()->getActiveCount(),
                           l.second.release_fence()->getSignaledCount(), l.second.release_fence()->getErrorCount());
@@ -3061,7 +3061,7 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerState(bool gles_comp){
         interval_value = interval_value < 250? 250:interval_value;
         tv.it_value.tv_sec = interval_value / 1000;
         tv.it_value.tv_usec=( interval_value % 1000) * 1000;
-        ALOGD_IF(LogLevel(DBG_DEBUG),"reset timer! interval_value = %d",interval_value);
+        HWC2_ALOGD_IF_VERBOSE("reset timer! interval_value = %d",interval_value);
     } else {
         static_screen_opt_=false;
         tv.it_value.tv_usec = 0;
@@ -3630,7 +3630,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
     drmHwcLayer->uFourccFormat_   = DRM_FORMAT_ABGR8888; // fb target default DRM_FORMAT_ABGR8888
     drmHwcLayer->uModifier_ = 0;
     drmHwcLayer->uGemHandle_      = 0;
-    drmHwcLayer->sLayerName_.clear();
+    drmHwcLayer->sLayerName_ = std::string("FramebufferSurface");
   }
 
   drmHwcLayer->Init();

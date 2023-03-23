@@ -290,7 +290,7 @@ void DrmHwcLayer::ModifyDisplayFrameForOverscan(hwc2_drm_display_t *ctx){
   display_frame.right  = display_frame.left + dst_w;
   display_frame.bottom = display_frame.top  + dst_h;
 
-  HWC2_ALOGD_IF_DEBUG("overscan(%d,%d,%d,%d) display_frame(%d,%d,%d,%d) => (%d,%d,%d,%d)",
+  HWC2_ALOGD_IF_VERBOSE("overscan(%d,%d,%d,%d) display_frame(%d,%d,%d,%d) => (%d,%d,%d,%d)",
     left_margin, top_margin, right_margin, bottom_margin,
     disp_old_l, disp_old_t, disp_old_r, disp_old_b,
     display_frame.left, display_frame.top, display_frame.right, display_frame.bottom);
