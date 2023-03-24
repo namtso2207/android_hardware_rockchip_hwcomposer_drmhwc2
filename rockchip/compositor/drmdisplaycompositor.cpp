@@ -997,8 +997,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       DrmHwcLayer &layer = layers[source_layers.front()];
 
       if (!test_only && layer.acquire_fence->isValid()){
-        if(layer.acquire_fence->wait(100)){
-          HWC2_ALOGE("display=%d Wait AcquireFence 100ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+        if(layer.acquire_fence->wait(500)){
+          HWC2_ALOGE("display=%d Wait AcquireFence 500ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
                             display_,
                             display_comp->frame_no(),
                             layer.acquire_fence->getSize(),
@@ -1006,7 +1006,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                             layer.acquire_fence->getSignaledCount(),
                             layer.acquire_fence->getErrorCount(),
                             layer.sLayerName_.c_str());
-          break;
         }
         layer.acquire_fence->destroy();
       }
@@ -1550,12 +1549,11 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       DrmHwcLayer &layer = layers[source_layers.front()];
 
       if (!test_only && layer.acquire_fence->isValid()){
-        if(layer.acquire_fence->wait(100)){
-          HWC2_ALOGE("Wait AcquireFence 100ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
+        if(layer.acquire_fence->wait(500)){
+          HWC2_ALOGE("Wait AcquireFence 500ms failed! frame = %" PRIu64 " Info: size=%d act=%d signal=%d err=%d ,LayerName=%s ",
                             display_comp->frame_no(), layer.acquire_fence->getSize(),
                             layer.acquire_fence->getActiveCount(), layer.acquire_fence->getSignaledCount(),
                             layer.acquire_fence->getErrorCount(),layer.sLayerName_.c_str());
-          break;
         }
         layer.acquire_fence->destroy();
       }
@@ -1846,9 +1844,8 @@ void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayCompositio
           }
           DrmHwcLayer &layer = layers[source_layers.front()];
           if (layer.acquire_fence->isValid()) {
-            if(layer.acquire_fence->wait(100)){
-              ALOGE("Failed to wait for acquire %d 100ms", layer.acquire_fence->getFd());
-              break;
+            if(layer.acquire_fence->wait(500)){
+              ALOGE("Failed to wait for acquire %d 500ms", layer.acquire_fence->getFd());
             }
             layer.acquire_fence->destroy();
           }
