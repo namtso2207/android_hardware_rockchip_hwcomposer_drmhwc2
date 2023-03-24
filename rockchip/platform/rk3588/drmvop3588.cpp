@@ -2019,7 +2019,8 @@ int Vop3588::TrySvepPolicy(
             dst_buffer = bufferQueue_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
                                                         require.mBufferInfo_.iHeight_,
                                                         require.mBufferInfo_.iFormat_,
-                                                        RK_GRALLOC_USAGE_STRIDE_ALIGN_64,
+                                                        RK_GRALLOC_USAGE_STRIDE_ALIGN_64 |
+                                                        RK_GRALLOC_USAGE_WITHIN_4G,
                                                         "SVEP-SurfaceView",
                                                         drmLayer->uId_);
 
