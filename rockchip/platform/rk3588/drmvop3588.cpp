@@ -219,7 +219,7 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
   }
 
-  // 视频屏幕占比60%以下不使用SVEP
+  // // 视频屏幕占比60%以下不使用SVEP
   uint64_t allow_rate = hwc_get_int_property("vendor.hwc.disable_svep_dis_area_rate","60");
   uint64_t dis_w = layer->display_frame.right - layer->display_frame.left;
   uint64_t dis_h = layer->display_frame.bottom - layer->display_frame.top;
@@ -1999,6 +1999,37 @@ int Vop3588::TrySvepPolicy(
           src.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
           src.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
 
+          // 处理旋转
+          switch(drmLayer->transform){
+          case DRM_MODE_ROTATE_0:
+            src.mRotateMode_ = SVEP_ROTATE_0;
+            break;
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X :
+            src.mRotateMode_ = SVEP_REFLECT_X;
+            break;
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y:
+            src.mRotateMode_ = SVEP_REFLECT_Y;
+            break;
+          case DRM_MODE_ROTATE_90:
+            src.mRotateMode_ = SVEP_ROTATE_90;
+            break;
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y:
+            src.mRotateMode_ = SVEP_ROTATE_180;
+            break;
+          case DRM_MODE_ROTATE_270:
+            src.mRotateMode_ = SVEP_ROTATE_270;
+            break;
+          // case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 :
+          //   usage = IM_HAL_TRANSFORM_FLIP_H | IM_HAL_TRANSFORM_ROT_90;
+          //   break;
+          // case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90:
+          //   usage = IM_HAL_TRANSFORM_FLIP_V | IM_HAL_TRANSFORM_ROT_90;
+          //   break;
+          default:
+            src.mRotateMode_ = SVEP_ROTATE_0;
+            ALOGE_IF(LogLevel(DBG_DEBUG),"Unknow sf transform 0x%x", drmLayer->transform);
+          }
+
           ret = svep_->SetSrcImage(svepCtx_,
                                    src,
                                    (ctx.state.b8kMode_ ? SVEP_OUTPUT_8K_MODE : SVEP_MODE_NONE));
@@ -2111,7 +2142,7 @@ int Vop3588::TrySvepPolicy(
                                                     source_crop,
                                                     dst_buffer->GetBufferId(),
                                                     dst_buffer->GetGemHandle(),
-                                                    drmLayer->transform);
+                                                    DRM_MODE_ROTATE_0);
           rga_layer_ready = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
@@ -2148,7 +2179,7 @@ int Vop3588::TrySvepPolicy(
                                                     source_crop,
                                                     output_buffer->GetBufferId(),
                                                     output_buffer->GetGemHandle(),
-                                                    drmLayer->transform);
+                                                    DRM_MODE_ROTATE_0);
           use_laster_rga_layer = true;
           drmLayer->bUseSvep_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
