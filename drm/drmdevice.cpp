@@ -1308,6 +1308,16 @@ int DrmDevice::UpdateDisplayMode(int display_id){
 
   conn->set_active_mode(conn->current_mode());
 
+#ifdef RK3528
+  // RK3528 解码支持prescale,故希望获取屏幕分辨率作为是否开启prescale的依据
+  char mode_name[50] = {0};
+  sprintf(mode_name,"%dx%dp%d",conn->current_mode().h_display(),
+                              conn->current_mode().v_display(),
+                              (int)conn->current_mode().v_refresh());
+  char value[PROPERTY_VALUE_MAX];
+  property_set("vendor.hwc.resolution_mode", mode_name);
+#endif
+
   drmModeAtomicFree(pset);
   pset=NULL;
 
@@ -1680,6 +1690,17 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
   DestroyPropertyBlob(blob_id[0]);
 
   conn->set_active_mode(conn->current_mode());
+
+#ifdef RK3528
+  // RK3528 解码支持prescale,故希望获取屏幕分辨率作为是否开启prescale的依据
+  char mode_name[50] = {0};
+  sprintf(mode_name,"%dx%dp%d",conn->current_mode().h_display(),
+                              conn->current_mode().v_display(),
+                              (int)conn->current_mode().v_refresh());
+  char value[PROPERTY_VALUE_MAX];
+  property_set("vendor.hwc.resolution_mode", mode_name);
+#endif
+
 
   return 0;
 }
