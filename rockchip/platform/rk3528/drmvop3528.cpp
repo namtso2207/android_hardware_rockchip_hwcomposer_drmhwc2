@@ -609,8 +609,8 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           if(b4kInputScaleMode){
                             if((*iter_plane)->is_support_scale((*iter_layer)->fHScaleMul_) &&
                                 (*iter_plane)->is_support_scale((*iter_layer)->fVScaleMul_) &&
-                                  ((*iter_layer)->fHScaleMul_ < INPUT_4K_SCALE_MAX_RATE &&
-                                  (*iter_layer)->fVScaleMul_ < INPUT_4K_SCALE_MAX_RATE)){
+                                  ((*iter_layer)->fHScaleMul_ <= INPUT_4K_SCALE_MAX_RATE &&
+                                  (*iter_layer)->fVScaleMul_ <= INPUT_4K_SCALE_MAX_RATE)){
                               bNeed = true;
                             }else{
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support 4k scale(%d) factor(%f,%f)",
