@@ -497,6 +497,7 @@ int DrmHwcLayer::SwitchPreScaleBufferInfo(){
     iByteStride_   = iByteStride_ / 2;
     iSize_         = iSize_ / 2;
     uModifier_     = 0;
+    uFourccFormat_ = DRM_FORMAT_NV12;
 
     // source_crop.left   = source_crop.left;
     // source_crop.top    = source_crop.top;
