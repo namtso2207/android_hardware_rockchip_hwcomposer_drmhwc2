@@ -535,6 +535,8 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
                           // 其他的Cluster限制条件
                           if(((*iter_plane)->win_type() & PLANE_RK3528_CLUSTER0_WIN1) > 0){
+
+
                             if(!ctx.state.bClu0TwoWinMode){
                               ALOGD_IF(LogLevel(DBG_DEBUG),"%s disable Cluster two win mode",(*iter_plane)->name());
                               continue;
@@ -547,11 +549,13 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                               continue;
                             }
                             // 输入输出分辨率要求小于2048
+                            // win1使能模式 支持 2k -> 4k 或者 4k -> 2k ，但是不支持 4k -> 4k
+                            // 即不满足 4k -> 4k 模式
                             int src_w = (*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left;
                             int dst_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                            if(src_w > 2048 || dst_w > 2048){
+                            if(src_w > 2048 && dst_w > 2048){
                               ctx.state.bClu0TwoWinMode = false;
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d, dst_w=%d",(*iter_plane)->name(),src_w,dst_w);
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s can't overlay src_w=%d",(*iter_plane)->name(),src_w);
                               continue;
                             }
                           }
@@ -1770,6 +1774,12 @@ int Vop3528::TryMixPolicy(
       return ret;
   }
 
+  if(ctx.state.setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){
+    ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
   if(ctx.state.setHwcPolicy.count(HWC_MIX_SKIP_LOPICY)){
     ret = TryMixSkipPolicy(composition,layers,crtc,plane_groups);
     if(!ret)
@@ -1778,11 +1788,6 @@ int Vop3528::TryMixPolicy(
       return ret;
   }
 
-  if(ctx.state.setHwcPolicy.count(HWC_MIX_VIDEO_LOPICY)){
-    ret = TryMixVideoPolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-  }
 
   if(ctx.state.setHwcPolicy.count(HWC_RGA_OVERLAY_LOPICY)){
     ret = TryRgaOverlayPolicy(composition,layers,crtc,plane_groups);
@@ -1949,6 +1954,15 @@ void Vop3528::InitRequestContext(std::vector<DrmHwcLayer*> &layers){
       ctx.request.iSkipCnt++;
       continue;
     }
+
+#ifdef RK3528
+    if(layer->bAfbcd_ &&
+       (layer->fHScaleMul_ > INPUT_4K_SCALE_MAX_RATE ||
+        layer->fVScaleMul_ > INPUT_4K_SCALE_MAX_RATE)){
+      layer->bNeedPreScale_ = true;
+      layer->SwitchPreScaleBufferInfo();
+    }
+#endif
 
     if(layer->bSidebandStreamLayer_)
       ctx.request.bSidebandStreamMode=true;
