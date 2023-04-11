@@ -895,7 +895,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
       int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
       if(ret < 0){
-        drmModeAtomicFree(pset);
         return ret;
       }
     }else{
@@ -905,7 +904,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
       if (ret) {
         ALOGE("Failed to add overscan to pset");
-        drmModeAtomicFree(pset);
         return ret;
       }
     }
@@ -935,7 +933,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                                   mirror_display_id,
                                   mirror_connector->unique_name());
           if(ret < 0){
-            drmModeAtomicFree(pset);
             return ret;
           }
         }else{
@@ -945,7 +942,6 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
           if (ret) {
             ALOGE("Failed to add overscan to pset");
-            drmModeAtomicFree(pset);
             return ret;
           }
         }
@@ -1290,6 +1286,8 @@ int DrmDisplayCompositor::CollectInfo(
       ALOGE("CollectCommitInfo failed for display %d", display_);
       // Disable the hw used by the last active composition. This allows us to
       // signal the release fences from that composition to avoid hanging.
+      drmModeAtomicFree(pset_);
+      pset_ = NULL;
       return ret;
     }
 
@@ -1299,6 +1297,8 @@ int DrmDisplayCompositor::CollectInfo(
       ALOGE("CollectModeSetInfo failed for display %d", display_);
       // Disable the hw used by the last active composition. This allows us to
       // signal the release fences from that composition to avoid hanging.
+      drmModeAtomicFree(pset_);
+      pset_ = NULL;
       return ret;
     }
   }
@@ -1431,14 +1431,12 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   if (writeback_buffer != NULL) {
     if (writeback_conn == NULL) {
       ALOGE("Invalid arguments requested writeback without writeback conn");
-      drmModeAtomicFree(pset);
       return -EINVAL;
     }
     ret = SetupWritebackCommit(pset, crtc->id(), writeback_conn,
                                writeback_buffer);
     if (ret < 0) {
       ALOGE("Failed to Setup Writeback Commit ret = %d", ret);
-      drmModeAtomicFree(pset);
       return ret;
     }
   }
@@ -1448,7 +1446,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
       int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
       if(ret < 0){
-        drmModeAtomicFree(pset);
         return ret;
       }
     }else{
@@ -1458,7 +1455,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
       if (ret) {
         ALOGE("Failed to add overscan to pset");
-        drmModeAtomicFree(pset);
         return ret;
       }
     }
@@ -1488,7 +1484,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                                   mirror_display_id,
                                   mirror_connector->unique_name());
           if(ret < 0){
-            drmModeAtomicFree(pset);
             return ret;
           }
         }else{
@@ -1498,7 +1493,6 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
           if (ret) {
             ALOGE("Failed to add overscan to pset");
-            drmModeAtomicFree(pset);
             return ret;
           }
         }
@@ -1769,13 +1763,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     if (ret) {
       if (!test_only)
         ALOGE("Failed to commit pset ret=%d\n", ret);
-      drmModeAtomicFree(pset);
       return ret;
     }
   }
-  if (pset)
-    drmModeAtomicFree(pset);
-
   return ret;
 }
 
@@ -1906,6 +1896,7 @@ void DrmDisplayCompositor::ClearDisplay() {
     }
 
     drmModeAtomicFree(pset);
+    pset = NULL;
     bWriteBackEnable_ = false;
   }
 

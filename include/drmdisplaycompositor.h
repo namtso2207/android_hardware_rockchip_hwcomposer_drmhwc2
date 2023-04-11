@@ -159,7 +159,7 @@ struct SidebandState {
   ResourceManager *resource_manager_;
   int display_;
   DrmCompositorWorker worker_;
-  drmModeAtomicReqPtr pset_;
+  drmModeAtomicReqPtr pset_ = NULL;
 
   // Store the display request from SF.
   std::queue<std::unique_ptr<DrmDisplayComposition>> composite_queue_;
@@ -212,7 +212,7 @@ struct SidebandState {
 
   uint32_t hdr_blob_id_ = 0;
 
-  uint64_t frame_no_;
+  uint64_t frame_no_ = 0;
   // RK Support Sideband mode
   SidebandState current_sideband2_;
   SidebandState drawing_sideband2_;
