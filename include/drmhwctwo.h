@@ -601,7 +601,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool is_afbc_;
 
     // Buffer info point
-    std::shared_ptr<bufferInfo_t> pBufferInfo_;
+    std::shared_ptr<bufferInfo_t> pBufferInfo_ = NULL;
 
     // Hwc2Layer fps, for debug.
     int mFrameCount_;

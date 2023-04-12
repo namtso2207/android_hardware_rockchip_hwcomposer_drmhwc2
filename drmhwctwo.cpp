@@ -1593,8 +1593,15 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
 
   *retire_fence = -1;
+  // 若虚拟屏图层数为0，则不做任何处理
+  if(!layers_.size()){
+    HWC2_ALOGD_IF_INFO("display %" PRIu64 " layer size is %zu", handle_, layers_.size());
+    return HWC2::Error::None;
+  }
+
   if(bUseWriteBack_ && resource_manager_->isWBMode()){
     if(resource_manager_->isWBMode()){
+
       const std::shared_ptr<HwcLayer::bufferInfo_t>
         bufferinfo = output_layer_.GetBufferInfo();
 
@@ -2192,6 +2199,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
     if(LogLevel(DBG_INFO)){
       DumpDisplayLayersInfo();
     }
+
+    if(!layers_.size()){
+      HWC2_ALOGI("display %" PRIu64 " layer size is %zu, %s,line=%d", handle_, layers_.size(),
+            __FUNCTION__, __LINE__);
+      return HWC2::Error::None;
+    }
+
     // 强制设置系统刷新为30帧
     InvalidateControl(30,-1);
 
