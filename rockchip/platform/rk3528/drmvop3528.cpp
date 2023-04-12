@@ -602,6 +602,14 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
                           }
 
+                          if((*iter_plane)->win_type() & PLANE_RK3528_ALL_ESMART_MASK){
+                            if(input_w > 2048 && output_w > 2048){
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support input(%d,%d) to output (%d,%d)",
+                                      (*iter_plane)->name(), input_w, input_h, output_w, output_h);
+                              continue;
+                            }
+                          }
+
                           // Scale
 
                           // RK3528 源数据宽大于 3840 小于 4096 ，缩小系数需要做调整：

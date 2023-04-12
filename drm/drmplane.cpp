@@ -713,12 +713,14 @@ bool DrmPlane::is_support_scale(float scale_rate){
 
 bool DrmPlane::is_support_input(int input_w, int input_h){
   // RK platform VOP can't display src/dst w/h < 4 layer.
-  return (input_w <= input_w_max_ && input_w >= 4) && (input_h <= input_h_max_ && input_h >= 4);
+  return (input_w <= input_w_max_ && input_w >= 4) &&
+         (input_h <= input_h_max_ && input_h >= 4);
 }
 
 bool DrmPlane::is_support_output(int output_w, int output_h){
   // RK platform VOP can't display src/dst w/h < 4 layer.
-  return (output_w <= output_w_max_ && output_w >= 4) && (output_h <= output_h_max_ && output_h >= 4);
+  return (output_w <= output_w_max_ && output_w >= 4) &&
+         (output_h <= output_h_max_ && output_h >= 4);
 }
 
 bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
