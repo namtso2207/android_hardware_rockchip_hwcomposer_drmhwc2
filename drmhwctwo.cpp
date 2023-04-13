@@ -2779,7 +2779,8 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
         hdrLayer.metadataHdrParam_.hdr_hdmi_meta.eotf = SINK_EOTF_HLG;
       }
     }
-    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = 50;
+    // hdr10 最小亮度应该是0.05,算法提供接口是要求外部数值 0.05*100=5
+    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_min = 5;
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.dst_max = hwc_get_int_property("persist.sys.vivid.max_brightness", "1000") * 100;
   }else{
     hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT709;
