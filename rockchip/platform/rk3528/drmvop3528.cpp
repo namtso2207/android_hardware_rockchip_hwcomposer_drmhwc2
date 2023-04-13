@@ -577,35 +577,51 @@ int Vop3528::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           // Input info
                           int input_w = (int)((*iter_layer)->source_crop.right - (*iter_layer)->source_crop.left);
                           int input_h = (int)((*iter_layer)->source_crop.bottom - (*iter_layer)->source_crop.top);
-                          if(b8kMode ? (*iter_plane)->is_support_input_8k(input_w,input_h) : \
-                                       (*iter_plane)->is_support_input(input_w,input_h)){
-                            bNeed = true;
-                          }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->name(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
-                            continue;
-
-                          }
-
-                          // Output info
-                          int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                          int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
-
-                          if(b8kMode ? (*iter_plane)->is_support_output_8k(output_w,output_h) : \
-                                       (*iter_plane)->is_support_output(output_w,output_h)){
-                            bNeed = true;
-                          }else{
-                            ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
-                                    (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
-                            continue;
-
-                          }
-
+                          int output_w = (int)((*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left);
+                          int output_h = (int)((*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top);
                           if((*iter_plane)->win_type() & PLANE_RK3528_ALL_ESMART_MASK){
-                            if(input_w > 2048 && output_w > 2048){
-                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support input(%d,%d) to output (%d,%d)",
-                                      (*iter_plane)->name(), input_w, input_h, output_w, output_h);
+                            // RK3528 通过 output_max_w 参数来决定Esmart是否支持 4K 进 4K 出
+                            // 如果该参数大于2048 ,则表示支持
+                            if((*iter_plane)->get_output_w_max() > 2048){
+                              if(input_w > 4096 || output_w > 4096){
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s %s-4k-mode cann't support input(%d,%d) to output (%d,%d)",
+                                        (*iter_plane)->name(),
+                                        ((*iter_plane)->get_output_w_max() > 2048) ? "Enable" : "Disable",
+                                         input_w, input_h, output_w, output_h);
+                                continue;
+                              }
+                            }else{
+                              if(input_w > 2048 && output_w > 2048){
+                                ALOGD_IF(LogLevel(DBG_DEBUG),"%s %s-4k-mode cann't support input(%d,%d) to output (%d,%d)",
+                                        (*iter_plane)->name(),
+                                        ((*iter_plane)->get_output_w_max() > 2048) ? "Enable" : "Disable",
+                                        input_w, input_h, output_w, output_h);
+                                continue;
+                              }
+                            }
+                          }else{
+                            if(b8kMode ? (*iter_plane)->is_support_input_8k(input_w,input_h) : \
+                                        (*iter_plane)->is_support_input(input_w,input_h)){
+                              bNeed = true;
+                            }else{
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support intput (%d,%d), max_input_range is (%d,%d)",
+                                      (*iter_plane)->name(),input_w,input_h,(*iter_plane)->get_input_w_max(),(*iter_plane)->get_input_h_max());
                               continue;
+
+                            }
+
+                            // Output info
+                            int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                            int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
+
+                            if(b8kMode ? (*iter_plane)->is_support_output_8k(output_w,output_h) : \
+                                        (*iter_plane)->is_support_output(output_w,output_h)){
+                              bNeed = true;
+                            }else{
+                              ALOGD_IF(LogLevel(DBG_DEBUG),"%s cann't support output (%d,%d), max_input_range is (%d,%d)",
+                                      (*iter_plane)->name(),output_w,output_h,(*iter_plane)->get_output_w_max(),(*iter_plane)->get_output_h_max());
+                              continue;
+
                             }
                           }
 
