@@ -740,13 +740,13 @@ bool DrmPlane::is_support_format(uint32_t format, bool afbcd){
     else
       return false;
   }else if(isRK3528(soc_id_)){
-    if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) > 0){
+    if((win_type_ & PLANE_RK3528_ALL_CLUSTER_MASK) > 0){
       // RK3528 Cluster 支持非AFBC的 RGBA1010102格式
       if(format == HAL_PIXEL_FORMAT_RGBA_1010102 && !afbcd){
         return true;
       }
       return support_format_list.count(format);
-    }else if((win_type_ & DRM_PLANE_TYPE_ALL_CLUSTER_MASK) == 0 && !afbcd)
+    }else if((win_type_ & PLANE_RK3528_ALL_CLUSTER_MASK) == 0 && !afbcd)
       return support_format_list.count(format);
     else
       return false;
