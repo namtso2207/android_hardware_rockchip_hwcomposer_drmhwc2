@@ -4042,8 +4042,7 @@ void DrmHwcTwo::DrmHotplugHandler::HdmiTvOnlyOne(PLUG_EVENT_TYPE hdmi_hotplug_st
         if(conn->type() == DRM_MODE_CONNECTOR_TV){
           int display_id = conn->display();
           auto &display = hwc2_->displays_.at(display_id);
-          display.ClearDisplay();
-          drm_->ReleaseDpyRes(display_id);
+          display.SetPowerMode(HWC2_POWER_MODE_OFF);
           HWC2_ALOGI("hwc_hotplug: Unplug connector %u type=%s type_id=%d send unhotplug event to SF.",
                     conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
           hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_DISCONNECTED);

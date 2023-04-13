@@ -170,7 +170,6 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
-
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
       if (!active_){
@@ -197,10 +196,14 @@ int DrmDisplayCompositor::QueueComposition(
   if(!initialized_)
     return -EPERM;
 
-  int ret = pthread_mutex_lock(&lock_);
-  if (ret) {
-    ALOGE("Failed to acquire compositor lock %d", ret);
-    return ret;
+
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -EAGAIN;
+
+  if (!active_){
+    HWC2_ALOGD_IF_INFO("active_=%d skip frame_no=%" PRIu64 , active_, composition->frame_no());
+    return -ENODEV;
   }
 
   display_ = composition->display();
@@ -219,12 +222,8 @@ int DrmDisplayCompositor::QueueComposition(
   mapDisplayHaveQeueuCnt_[composition->display()]++;
   composite_queue_.push(std::move(composition));
   clear_ = false;
+  lock.Unlock();
 
-  ret = pthread_mutex_unlock(&lock_);
-  if (ret) {
-    ALOGE("Failed to release compositor lock %d", ret);
-    return ret;
-  }
   worker_.Signal();
   return 0;
 }
@@ -1309,6 +1308,14 @@ int DrmDisplayCompositor::CollectInfo(
 
 void DrmDisplayCompositor::Commit() {
   ATRACE_CALL();
+
+  if (!active_){
+    HWC2_ALOGD_IF_INFO("active_=%d skip frame_no=%" PRIu64 , active_, frame_no_);
+    drmModeAtomicFree(pset_);
+    pset_=NULL;
+    return;
+  }
+
   if(!pset_){
     ALOGE("pset_ is NULL");
     return;
@@ -1864,6 +1871,18 @@ void DrmDisplayCompositor::ClearDisplay() {
       SingalCompsition(std::move(map.second));
   }
   active_composition_map_.clear();
+
+  // 清空
+  for(auto &map : collect_composition_map_){
+    if(map.second != NULL)
+      SingalCompsition(std::move(map.second));
+  }
+  collect_composition_map_.clear();
+
+  if(pset_ != NULL){
+    drmModeAtomicFree(pset_);
+    pset_ = NULL;
+  }
 
   //Singal the remainder fences in composite queue.
   while(!composite_queue_.empty())
