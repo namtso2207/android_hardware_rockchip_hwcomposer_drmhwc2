@@ -215,17 +215,20 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int display_id,
 
   // 获取 VideoProducer 上下文
   std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
-
   if(display_id > 0){
     uint64_t last_handle_buffer_id = ctx->GetLastHandleBufferId();
     if(last_handle_buffer_id > 0){
       std::shared_ptr<DrmBuffer> buffer = ctx->GetLastBufferCache(last_handle_buffer_id);
-      int ret = ctx->AddReleaseFenceRefCnt(display_id, last_handle_buffer_id);
-      if(ret){
-        HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFenceRefCnt fail.", display_id, buffer->GetExternalId());
+      if(buffer == NULL){
+        HWC2_ALOGE("display=%d BufferId=%" PRIu64" GetLastBufferCache fail.", display_id, last_handle_buffer_id);
         return NULL;
       }
-      HWC2_ALOGI("display=%d BufferId=%" PRIu64"", display_id, buffer->GetExternalId());
+      int ret = ctx->AddReleaseFenceRefCnt(display_id, last_handle_buffer_id);
+      if(ret){
+        HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFenceRefCnt fail.", display_id, last_handle_buffer_id);
+        return NULL;
+      }
+      HWC2_ALOGI("display=%d BufferId=%" PRIu64"", display_id, last_handle_buffer_id);
       return buffer;
     }
   }
