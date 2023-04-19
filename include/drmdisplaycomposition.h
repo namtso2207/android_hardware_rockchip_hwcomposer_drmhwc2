@@ -266,8 +266,8 @@ class DrmDisplayComposition {
   bool geometry_changed_;
   bool has_svep_layer_;
   // sideband
-  bool has_sideband2_layer_;
-  uint64_t sideband_tunnel_id_;
+  bool has_sideband2_layer_ = false;
+  uint64_t sideband_tunnel_id_ = 0;
 
   std::vector<DrmHwcLayer> layers_;
   std::vector<DrmCompositionPlane> composition_planes_;

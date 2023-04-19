@@ -105,9 +105,9 @@ private:
   UniqueFd iReleaseFence_;
 
 #ifdef RK3528
-  bool bIsPreScale_;
+  bool bIsPreScale_ = false;
   metadata_for_rkvdec_scaling_t mMetadata_;
-  uint32_t uPreScaleFbId_;
+  uint32_t uPreScaleFbId_ = 0;
 #endif
   // Init flags
   bool bInit_;

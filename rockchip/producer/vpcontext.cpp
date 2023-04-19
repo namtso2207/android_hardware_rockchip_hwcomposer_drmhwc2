@@ -32,6 +32,7 @@ VpContext::VpContext(int tunnel_fd) :
 
 VpContext::~VpContext(){
   std::lock_guard<std::mutex> lock(mtx_);
+  mMapBuffer_.clear();
 }
 
 int VpContext::GetTunnelId(){

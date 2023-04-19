@@ -114,12 +114,13 @@ DrmBuffer::DrmBuffer(native_handle_t* in_handle) :
     return;
   }
 
-  HWC2_ALOGI("Import buffer fd=%d w=%d h=%d s=%d hs=%d bs=%d f=%d fcc=%c%c%c%c mdf=0x%" PRIx64 " BufferId=0x%" PRIx64 "name=%s ",
+  HWC2_ALOGI("Import buffer fd=%d w=%d h=%d s=%d hs=%d bs=%d f=%d fcc=%c%c%c%c mdf=0x%" PRIx64 " BufferId=0x%" PRIx64 " name=%s ",
              iFd_, iWidth_, iHeight_, iStride_, iHeightStride_, iByteStride_,iFormat_,
              uFourccFormat_ , uFourccFormat_ >> 8 , uFourccFormat_ >> 16, uFourccFormat_ >> 24,
              uModifier_, uBufferId_, sName_.c_str());
 
   uFbId_ = 0;
+  uPreScaleFbId_= 0;
   bInit_ = true;
   return;
 }
@@ -134,7 +135,7 @@ DrmBuffer::~DrmBuffer(){
 
   if (uFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
-      ALOGE("Failed to rm fb %d", uFbId_);
+      HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uFbId_ %d", uBufferId_ , uFbId_);
     }
     uFbId_ = 0;
   }
@@ -142,8 +143,9 @@ DrmBuffer::~DrmBuffer(){
 #ifdef RK3528
   if (uPreScaleFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
-      ALOGE("Failed to rm fb %d", uPreScaleFbId_);
+      HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uPreScaleFbId_ %d", uBufferId_ , uPreScaleFbId_);
     }
+
     uPreScaleFbId_ = 0;
   }
 #endif
@@ -152,8 +154,6 @@ DrmBuffer::~DrmBuffer(){
   if(ret){
     HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
   }
-
-
 
   if(inBuffer_ != NULL){
     int ret = ptrDrmGralloc_->freeBuffer(buffer_);
@@ -308,14 +308,20 @@ uint32_t DrmBuffer::DrmFormatToPlaneNum(uint32_t drm_format) {
 uint32_t DrmBuffer::GetFbId(){
   if(uFbId_ > 0)
     return uFbId_;
+
 #ifdef RK3528
   if (uPreScaleFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
-      ALOGE("Failed to rm fb %d", uPreScaleFbId_);
+      HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uPreScaleFbId_ %d", uBufferId_ , uPreScaleFbId_);
     }
+
     uPreScaleFbId_ = 0;
   }
+  if(bIsPreScale_){
+    ResetPreScaleBuffer();
+  }
 #endif
+
   uint32_t pitches[4] = {0};
   uint32_t offsets[4] = {0};
   uint32_t gem_handles[4] = {0};
@@ -593,12 +599,13 @@ int DrmBuffer::ResetPreScaleBuffer(){
 }
 
 uint32_t DrmBuffer::GetPreScaleFbId(){
-  if(uPreScaleFbId_ > 0)
+  if(uPreScaleFbId_ > 0){
     return uPreScaleFbId_;
+  }
 
   if (uFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
-      ALOGE("Failed to rm fb %d", uFbId_);
+      HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uFbId_ %d", uBufferId_ , uFbId_);
     }
     uFbId_ = 0;
   }

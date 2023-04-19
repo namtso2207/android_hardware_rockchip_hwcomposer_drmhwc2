@@ -210,10 +210,6 @@ int DrmDisplayCompositor::QueueComposition(
   // Block the queue if it gets too large. Otherwise, SurfaceFlinger will start
   // to eat our buffer handles when we get about 1 second behind.
 
-  // Enable DrmDisplayCompositor sideband2 mode
-  current_sideband2_.enable_ = composition->has_sideband2();
-  current_sideband2_.tunnel_id_ = composition->get_sideband_tunnel_id();
-
   while(mapDisplayHaveQeueuCnt_[composition->display()]
         >= GetCompositeQueueMaxSize(composition.get())){
     pthread_cond_wait(&composite_queue_cond_,&lock_);
@@ -769,6 +765,11 @@ int DrmDisplayCompositor::UpdateSidebandState() {
     return -1;
   }
 
+  if(current_sideband2_.enable_){
+
+  }else{
+
+  }
   // 1. ct != dt, 进入切换逻辑
   if(current_sideband2_.tunnel_id_ != drawing_sideband2_.tunnel_id_){
     if(current_sideband2_.tunnel_id_ > 0){
@@ -836,6 +837,7 @@ int DrmDisplayCompositor::UpdateSidebandState() {
     drawing_sideband2_.enable_ = current_sideband2_.enable_;
     drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
   }
+
   // current_sideband2_.enable_ = false;
   // current_sideband2_.tunnel_id_ = 0;
   // current_sideband2_.buffer_ = NULL;
@@ -870,6 +872,11 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
 
   frame_no_ = display_comp->frame_no();
+  // Enable DrmDisplayCompositor sideband2 mode
+  current_sideband2_.enable_ = display_comp->has_sideband2();
+  current_sideband2_.tunnel_id_ = display_comp->get_sideband_tunnel_id();
+  current_sideband2_.buffer_ = NULL;
+
   // WriteBack Mode
   if(!test_only){
     if(resource_manager_->isWBMode()){
@@ -1859,8 +1866,9 @@ void DrmDisplayCompositor::ClearDisplay() {
     return;
 
   AutoLock lock(&lock_, __func__);
-  if (lock.Lock())
+  if (lock.Lock()){
     return;
+  }
 
   // Bug: #363288 #361559
   // 清空 DrmDisplayComposition 前需要将已经送显的图层统一关闭后再进行RMFB
@@ -1902,7 +1910,7 @@ void DrmDisplayCompositor::ClearDisplay() {
   if(bWriteBackEnable_){
     drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
     if (!pset) {
-      ALOGE("Failed to allocate property set");
+      HWC2_ALOGE("Failed to allocate property set");
       return;
     }
     DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
@@ -1910,7 +1918,7 @@ void DrmDisplayCompositor::ClearDisplay() {
     uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
     int ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
     if (ret) {
-      ALOGE("Failed to commit pset ret=%d\n", ret);
+      HWC2_ALOGE("Failed to commit pset ret=%d\n", ret);
       pset=NULL;
     }
 
@@ -1924,21 +1932,21 @@ void DrmDisplayCompositor::ClearDisplay() {
   if(current_mode_set_.hdr_.mode_ != DRM_HWC_SDR){
     drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
     if (!pset) {
-      ALOGE("Failed to allocate property set");
+      HWC2_ALOGE("Failed to allocate property set");
       return;
     }
 
     DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
     DrmConnector *connector = drm->GetConnectorForDisplay(display_);
     if (!connector) {
-      ALOGE("Could not locate connector for display %d", display_);
+      HWC2_ALOGE("Could not locate connector for display %d", display_);
       drmModeAtomicFree(pset);
       pset=NULL;
       return;
     }
     DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
     if (!crtc) {
-      ALOGE("Could not locate crtc for display %d", display_);
+      HWC2_ALOGE("Could not locate crtc for display %d", display_);
       drmModeAtomicFree(pset);
       pset=NULL;
       return;
@@ -1956,14 +1964,14 @@ void DrmDisplayCompositor::ClearDisplay() {
     // 进入HDR10/SDR的处理逻辑
     ret = connector->switch_hdmi_hdr_mode(pset, HAL_DATASPACE_UNKNOWN, false);
     if(ret){
-      ALOGE("display %d enable hdr fail. datespace=%x",
+      HWC2_ALOGE("display %d enable hdr fail. datespace=%x",
               display_, HAL_DATASPACE_UNKNOWN);
     }
 
     uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
     ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
     if (ret) {
-      ALOGE("Failed to commit pset ret=%d\n", ret);
+      HWC2_ALOGE("Failed to commit pset ret=%d\n", ret);
       drmModeAtomicFree(pset);
       pset=NULL;
       return;

@@ -192,6 +192,8 @@ int DrmVideoProducer::DestoryConnection(int display_id, int tunnel_id){
   }
 
   mMapCtx_.erase(tunnel_id);
+  HWC2_ALOGD_IF_DEBUG("display=%d tunnel_id=%d connection cnt=%d success! ",
+                        display_id, tunnel_id, ctx->ConnectionCnt());
   return 0;
 }
 
@@ -215,23 +217,6 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int display_id,
 
   // 获取 VideoProducer 上下文
   std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
-  if(display_id > 0){
-    uint64_t last_handle_buffer_id = ctx->GetLastHandleBufferId();
-    if(last_handle_buffer_id > 0){
-      std::shared_ptr<DrmBuffer> buffer = ctx->GetLastBufferCache(last_handle_buffer_id);
-      if(buffer == NULL){
-        HWC2_ALOGE("display=%d BufferId=%" PRIu64" GetLastBufferCache fail.", display_id, last_handle_buffer_id);
-        return NULL;
-      }
-      int ret = ctx->AddReleaseFenceRefCnt(display_id, last_handle_buffer_id);
-      if(ret){
-        HWC2_ALOGE("display=%d BufferId=%" PRIu64" AddReleaseFenceRefCnt fail.", display_id, last_handle_buffer_id);
-        return NULL;
-      }
-      HWC2_ALOGI("display=%d BufferId=%" PRIu64"", display_id, last_handle_buffer_id);
-      return buffer;
-    }
-  }
 
   // 请求最新帧
   vt_buffer_t *acquire_buffer = NULL;
@@ -240,6 +225,17 @@ std::shared_ptr<DrmBuffer> DrmVideoProducer::AcquireBuffer(int display_id,
   if (ret != 0) { // 若当前请求无法获得新 buffer, 则判断是否需要获取上一帧 Buffer
       HWC2_ALOGD_IF_WARN("display=%d rk_vt_acquire_buffer fail, bInit_=%d tunnel-fd=%d tunnel-id=%d" ,
                           display_id, bInit_, iTunnelFd_, tunnel_id);
+    uint64_t last_handle_buffer_id = ctx->GetLastHandleBufferId();
+    if(last_handle_buffer_id > 0){
+      std::shared_ptr<DrmBuffer> buffer = ctx->GetLastBufferCache(last_handle_buffer_id);
+      if(buffer == NULL){
+        HWC2_ALOGD_IF_WARN("display=%d BufferId=%" PRIu64" GetLastBufferCache fail.", display_id, last_handle_buffer_id);
+        return NULL;
+      }else{
+        HWC2_ALOGI("display=%d BufferId=%" PRIu64"", display_id, last_handle_buffer_id);
+        return buffer;
+      }
+    }
       return NULL;
   }
 

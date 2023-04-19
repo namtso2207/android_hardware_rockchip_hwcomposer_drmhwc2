@@ -2685,6 +2685,12 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
     return -1;
   }
 
+  if(hdrLayer.bSideband2_){
+    HWC2_ALOGD_IF_ERR("Sideband2 layer skip, Id=%d Name=%s zpos=%d match=%d",
+                      hdrLayer.uId_, hdrLayer.sLayerName_.c_str(), hdrLayer.iZpos_, hdrLayer.bMatch_);
+    return -1;
+  }
+
   // Next hdr zpos must be 0
   if(hdrLayer.iZpos_ > 0){
     HWC2_ALOGD_IF_ERR("Next hdr zpos must be 0, Id=%d Name=%s zpos=%d",
@@ -2697,6 +2703,8 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
                       hdrLayer.uId_, hdrLayer.sLayerName_.c_str(), hdrLayer.iZpos_, hdrLayer.bMatch_);
     return -1;
   }
+
+
   // 算法解析库是否存在
   DrmHdrParser* dhp = DrmHdrParser::Get();
   if(dhp == NULL){
