@@ -765,11 +765,7 @@ int DrmDisplayCompositor::UpdateSidebandState() {
     return -1;
   }
 
-  if(current_sideband2_.enable_){
 
-  }else{
-
-  }
   // 1. ct != dt, 进入切换逻辑
   if(current_sideband2_.tunnel_id_ != drawing_sideband2_.tunnel_id_){
     if(current_sideband2_.tunnel_id_ > 0){
@@ -1861,6 +1857,72 @@ void DrmDisplayCompositor::SingalCompsition(std::unique_ptr<DrmDisplayCompositio
   composition.reset(NULL);
 }
 
+#ifdef RK3528
+void DrmDisplayCompositor::ClearDisplayHdrState() {
+  if(current_mode_set_.hdr_.mode_ != DRM_HWC_SDR){
+    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+    if (!pset) {
+      HWC2_ALOGE("display=%d Failed to allocate property set", display_);
+      return;
+    }
+
+    DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+    DrmConnector *connector = drm->GetConnectorForDisplay(display_);
+    if (!connector) {
+      HWC2_ALOGE("Could not locate connector for display %d", display_);
+      drmModeAtomicFree(pset);
+      pset=NULL;
+      return;
+    }
+    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
+    if (!crtc) {
+      HWC2_ALOGE("Could not locate crtc for display %d", display_);
+      drmModeAtomicFree(pset);
+      pset=NULL;
+      return;
+    }
+    // 释放上一次的 Blob
+    if (hdr_blob_id_){
+        int ret = drm->DestroyPropertyBlob(hdr_blob_id_);
+        if(ret){
+          HWC2_ALOGE("display=%d Failed to DestroyPropertyBlob crtc-id=%d hdr_ext_data-prop[%d]",
+                      display_, crtc->id(), hdr_blob_id_);
+        }else{
+          hdr_blob_id_ = 0;
+        }
+    }
+
+    if(crtc->hdr_ext_data().id() > 0){
+      int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
+      if (ret < 0) {
+        HWC2_ALOGE("display=%d Failed to add metadata-Hdr crtc-id=%d hdr_ext_data-prop[%d]",
+                    display_, crtc->id(), crtc->hdr_ext_data().id());
+      }
+    }
+    // 进入HDR10/SDR的处理逻辑
+    int ret = connector->switch_hdmi_hdr_mode(pset, HAL_DATASPACE_UNKNOWN, false);
+    if(ret){
+      HWC2_ALOGE("display %d enable hdr fail. datespace=%x",
+              display_, HAL_DATASPACE_UNKNOWN);
+    }
+
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
+    if (ret) {
+      HWC2_ALOGE("display=%d Failed to commit pset ret=%d\n",display_, ret);
+      drmModeAtomicFree(pset);
+      pset=NULL;
+      return;
+    }else{
+      drmModeAtomicFree(pset);
+      pset=NULL;
+      current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
+      current_mode_set_.hdr_.bHasYuv10bit_ = false;
+      current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
+    }
+  }
+}
+#endif
 void DrmDisplayCompositor::ClearDisplay() {
   if(!initialized_)
     return;
@@ -1929,59 +1991,7 @@ void DrmDisplayCompositor::ClearDisplay() {
 
   // 重置HDR状态
 #ifdef RK3528
-  if(current_mode_set_.hdr_.mode_ != DRM_HWC_SDR){
-    drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
-    if (!pset) {
-      HWC2_ALOGE("Failed to allocate property set");
-      return;
-    }
-
-    DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
-    DrmConnector *connector = drm->GetConnectorForDisplay(display_);
-    if (!connector) {
-      HWC2_ALOGE("Could not locate connector for display %d", display_);
-      drmModeAtomicFree(pset);
-      pset=NULL;
-      return;
-    }
-    DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
-    if (!crtc) {
-      HWC2_ALOGE("Could not locate crtc for display %d", display_);
-      drmModeAtomicFree(pset);
-      pset=NULL;
-      return;
-    }
-    // 释放上一次的 Blob
-    if (hdr_blob_id_){
-        drm->DestroyPropertyBlob(hdr_blob_id_);
-        hdr_blob_id_ = 0;
-    }
-    int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->hdr_ext_data().id(), hdr_blob_id_);
-    if (ret < 0) {
-      HWC2_ALOGE("Failed to add metadata-Hdr crtc-id=%d hdr_ext_data-prop[%d]",
-                  crtc->id(), crtc->hdr_ext_data().id());
-    }
-    // 进入HDR10/SDR的处理逻辑
-    ret = connector->switch_hdmi_hdr_mode(pset, HAL_DATASPACE_UNKNOWN, false);
-    if(ret){
-      HWC2_ALOGE("display %d enable hdr fail. datespace=%x",
-              display_, HAL_DATASPACE_UNKNOWN);
-    }
-
-    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-    ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
-    if (ret) {
-      HWC2_ALOGE("Failed to commit pset ret=%d\n", ret);
-      drmModeAtomicFree(pset);
-      pset=NULL;
-      return;
-    }
-    drmModeAtomicFree(pset);
-    pset=NULL;
-    current_mode_set_.hdr_.mode_ = DRM_HWC_SDR;
-    current_mode_set_.hdr_.bHasYuv10bit_ = false;
-    current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
-  }
+  ClearDisplayHdrState();
 #endif
 
   DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
