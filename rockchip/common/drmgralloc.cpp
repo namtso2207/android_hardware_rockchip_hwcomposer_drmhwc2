@@ -72,6 +72,7 @@ DrmGralloc::~DrmGralloc(){
 
 int DrmGralloc::importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHandle)
 {
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 #if USE_GRALLOC_4
   int err = gralloc4::importBuffer(rawHandle, outHandle);
   if (err != android::OK)
@@ -109,6 +110,7 @@ int DrmGralloc::importBuffer(buffer_handle_t rawHandle, buffer_handle_t* outHand
 
 int DrmGralloc::freeBuffer(buffer_handle_t handle)
 {
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 #if USE_GRALLOC_4
 
   int err = gralloc4::freeBuffer(handle);
@@ -688,6 +690,7 @@ uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
 
 
 void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   void* cpu_addr = NULL;
 #if USE_GRALLOC_4
   int ret = gralloc4::lock(hnd,GRALLOC_USAGE_SW_READ_MASK,0,0,width,height,(void **)&cpu_addr);
@@ -710,6 +713,7 @@ void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height
 }
 
 int DrmGralloc::hwc_get_handle_unlock(buffer_handle_t hnd){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   int ret = 0;
 #if USE_GRALLOC_4
   gralloc4::unlock(hnd);
@@ -792,6 +796,7 @@ uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
 int DrmGralloc::hwc_get_gemhandle_from_fd(uint64_t buffer_fd,
                                           uint64_t buffer_id,
                                           uint32_t *out_gem_handle){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   auto mapGemHandle = mapGemHandles_.find(buffer_id);
   if(mapGemHandle == mapGemHandles_.end()){
     HWC2_ALOGD_IF_VERBOSE("Call drmPrimeFDToHandle buf_fd=%" PRIu64 " buf_id=%" PRIx64, buffer_fd, buffer_id);
@@ -819,6 +824,7 @@ int DrmGralloc::hwc_get_gemhandle_from_fd(uint64_t buffer_fd,
 }
 
 int DrmGralloc::hwc_free_gemhandle(uint64_t buffer_id){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   auto mapGemHandle = mapGemHandles_.find(buffer_id);
   if(mapGemHandle == mapGemHandles_.end()){
     HWC2_ALOGI("Can't find buf_id=%" PRIx64 " GemHandle.", buffer_id);
@@ -835,6 +841,7 @@ int DrmGralloc::hwc_free_gemhandle(uint64_t buffer_id){
 }
 
 int64_t DrmGralloc::hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   int64_t offset = -1;
 #if USE_GRALLOC_4
   return offset;
@@ -862,6 +869,7 @@ int64_t DrmGralloc::hwc_get_offset_of_dynamic_hdr_metadata(buffer_handle_t hnd){
 #ifdef RK3528
 int DrmGralloc::lock_rkvdec_scaling_metadata(buffer_handle_t hnd, metadata_for_rkvdec_scaling_t** metadata)
 {
+    std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_LOCK_RKVDEC_SCALING_METADATA;
 
@@ -886,6 +894,7 @@ exit:
 
 int DrmGralloc::unlock_rkvdec_scaling_metadata(buffer_handle_t hnd)
 {
+    std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
     int ret = 0;
     int op = GRALLOC_MODULE_PERFORM_UNLOCK_RKVDEC_SCALING_METADATA;
 

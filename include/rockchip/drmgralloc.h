@@ -46,6 +46,7 @@
 #include <hardware/gralloc.h>
 #include <map>
 #include <vector>
+#include <mutex>
 
 namespace android {
 
@@ -141,6 +142,7 @@ private:
 #else
   const gralloc_module_t *gralloc_;
 #endif
+  mutable std::recursive_mutex mRecursiveMutex;
 };
 }
 
