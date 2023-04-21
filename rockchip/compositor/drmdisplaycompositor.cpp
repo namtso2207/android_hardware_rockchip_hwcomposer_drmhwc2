@@ -1921,6 +1921,7 @@ void DrmDisplayCompositor::ClearDisplayHdrState() {
       current_mode_set_.hdr_.datespace_ = HAL_DATASPACE_UNKNOWN;
     }
   }
+  return;
 }
 #endif
 void DrmDisplayCompositor::ClearDisplay() {
@@ -1981,7 +1982,6 @@ void DrmDisplayCompositor::ClearDisplay() {
     int ret = drmModeAtomicCommit(drm->fd(), pset, flags, drm);
     if (ret) {
       HWC2_ALOGE("Failed to commit pset ret=%d\n", ret);
-      pset=NULL;
     }
 
     drmModeAtomicFree(pset);
@@ -2625,12 +2625,20 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     ALOGE("Could not locate connector for display %d", display_);
     return -ENODEV;
   }
+
+  if(connector_->type() == DRM_MODE_CONNECTOR_TV){
+    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s ColorSpace=%d eotf=%d",
+                      hdrLayer.uId_, hdrLayer.sLayerName_.c_str(),
+                      hdrLayer.uColorSpace,
+                      hdrLayer.uEOTF);
+    return -1;
+  }
   // 显示器是否支持HDR
   bool is_hdr_display = connector_->is_hdmi_support_hdr();
   // 是否为 HDR 片源
   bool is_input_hdr = hdrLayer.bHdr_;
   // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
-  // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
+  // 1:HDR模式: 等同自动模式
   // 0:SDR模式: 电视强制使用SDR模式，HDR片源也采用SDR显示
   int user_hdr_mode = hwc_get_int_property("persist.sys.vivid.hdr_mode", "2");
   // 可能存在模式：SDR2SDR,HDR2SDR,SDR2HDR,HDR2HDR
@@ -2638,7 +2646,7 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
   // 2:自动模式: 电视支持 HDR模式播放HDR视频则切换HDR模式，否则使用SDR模式
   // 1:HDR模式: 电视支持 HDR模式则强制使用HDR模式，SDR片源也采用HDR模式输出
   if((user_hdr_mode == 2 && is_hdr_display && is_input_hdr) ||
-     (user_hdr_mode == 1 && is_hdr_display)){
+     (user_hdr_mode == 1 && is_hdr_display && is_input_hdr)){
     is_output_hdr = true;
   }else{
     is_output_hdr = false;
@@ -2649,7 +2657,6 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     HWC2_ALOGD_IF_INFO("Use SDR2SDR mode.");
     return -1;
   }
-
 
   DrmGralloc* gralloc = DrmGralloc::getInstance();
   if(gralloc == NULL){
@@ -2675,7 +2682,18 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
   memset(&hdrLayer.metadataHdrParam_, 0x00, sizeof(rk_hdr_parser_params_t));
   // 如果输出模式为HDR
   if(is_output_hdr){
-    hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+
+    // Android bt2020 or bt709
+    switch(hdrLayer.eDataSpace_ & HAL_DATASPACE_STANDARD_MASK){
+      case HAL_DATASPACE_STANDARD_BT2020:
+      case HAL_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE :
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT2020;
+        break;
+      default:
+        hdrLayer.metadataHdrParam_.hdr_hdmi_meta.color_prim = COLOR_PRIM_BT709;
+        break;
+    }
+
 
     // 片源为 HLG，且电视支持 HLG ，则选择 HLG bypass 模式
     if(hdrLayer.uEOTF == HLG && connector_->isSupportHLG()){
@@ -2814,7 +2832,8 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = hwc_get_int_property("vendor.hwc.vivid_print_input_meta", "1");
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
   }
-  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+            user_hdr_mode,
             hdrLayer.uColorSpace,
             hdrLayer.uEOTF,
             hdrLayer.metadataHdrParam_.codec_meta_exist,
@@ -2860,7 +2879,6 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
   HWC2_ALOGD_IF_INFO("Use HdrParser mode.");
   return 0;
 }
-
 
 int DrmDisplayCompositor::Composite() {
   ATRACE_CALL();

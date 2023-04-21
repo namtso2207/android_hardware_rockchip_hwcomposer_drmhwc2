@@ -49,7 +49,8 @@
 #endif
 #include "rockchip/drmgralloc.h"
 #include "drm_fourcc.h"
-
+#include <errno.h>
+#include <string.h>
 namespace android {
 
 DrmGralloc::DrmGralloc(){
@@ -797,7 +798,7 @@ int DrmGralloc::hwc_get_gemhandle_from_fd(uint64_t buffer_fd,
     uint32_t gem_handle;
     int ret = drmPrimeFDToHandle(drmDeviceFd_, buffer_fd, &gem_handle);
     if (ret) {
-      HWC2_ALOGE("failed to import prime fd %" PRIu64 " ret=%d", buffer_fd, ret);
+      HWC2_ALOGE("failed to import prime fd %" PRIu64 " ret=%d, error=%s", buffer_fd, ret, strerror(errno));
       return ret;
     }
     auto ptrGemHandle = std::make_shared<GemHandle>(drmDeviceFd_,gem_handle);
