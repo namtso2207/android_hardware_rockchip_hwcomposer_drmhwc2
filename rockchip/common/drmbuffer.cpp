@@ -584,11 +584,6 @@ int DrmBuffer::ResetPreScaleBuffer(){
   uModifier_ = ptrDrmGralloc_->hwc_get_handle_format_modifier(buffer_);
   ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
   ptrDrmGralloc_->hwc_get_handle_name(buffer_, sName_);
-  int ret = ptrDrmGralloc_->hwc_get_gemhandle_from_fd(iFd_, uBufferId_, &uGemHandle_);
-  if(ret){
-    HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
-    return -1;
-  }
 
   HWC2_ALOGI("ResetPreScale Buffer fd=%d w=%d h=%d s=%d hs=%d bs=%d f=%d fcc=%c%c%c%c mdf=0x%" PRIx64 " BufferId=0x%" PRIx64 "name=%s ",
              iFd_, iWidth_, iHeight_, iStride_, iHeightStride_, iByteStride_,iFormat_,
