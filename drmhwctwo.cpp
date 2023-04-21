@@ -333,6 +333,7 @@ int DrmHwcTwo::HwcDisplay::ClearDisplay() {
      connector_->hwc_state() != HwcConnnectorStete::RELEASE_CRTC){
     compositor_->ClearDisplay();
   }
+
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
   return 0;
 }
@@ -2291,6 +2292,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     UpdateDisplayInfo();
   }
 
+  // update sideband mode
+  UpdateSidebandMode();
+
   *num_types = 0;
   *num_requests = 0;
 
@@ -2973,6 +2977,63 @@ int DrmHwcTwo::HwcDisplay::EnableHdrMode(DrmHwcLayer& hdrLayer){
     return 0;
   }
   return -1;
+}
+
+
+int DrmHwcTwo::HwcDisplay::UpdateSidebandMode(){
+
+  if(handle_ > 0){
+    return 0;
+  }
+
+  // UpdateSideband state
+  DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
+  if(!dvp->IsValid()){
+    return -1;
+  }
+
+  // 判断是否存在Sideband图层，并保存tunnel_id信息
+  int tunnel_id = 0;
+  for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+    if(l.second.isSidebandLayer()){
+      tunnel_id = l.second.getTunnelId();
+    }
+  }
+
+  // 若存在合法 tunnel_id
+  if(tunnel_id > 0){
+    if(tunnel_id != iLastTunnelId_){
+      if(iLastTunnelId_ > 0){
+        // tunnel id 不一致则先断开连接旧连接
+        int ret = dvp->DestoryConnection((int(handle_) + 1000), iLastTunnelId_);
+        if(ret){
+          HWC2_ALOGD_IF_ERR("DestoryConnection display=%" PRIu64 " tunnel-id=%d fail ret=%d", handle_, iLastTunnelId_, ret);
+        }else{
+          HWC2_ALOGD_IF_INFO("DestoryConnection display=%" PRIu64 " tunnel-id=%d success ret=%d", handle_, iLastTunnelId_, ret);
+        }
+      }
+      // 创建新连接
+      int ret = dvp->CreateConnection((int(handle_) + 1000), tunnel_id);
+      if(ret){
+        HWC2_ALOGD_IF_ERR("CreateConnection display=%" PRIu64 " fail tunnel-id=%d ret=%d", handle_, tunnel_id, ret);
+      }else{
+        HWC2_ALOGD_IF_INFO("CreateConnection display=%" PRIu64 " tunnel-id=%d success ret=%d", handle_, tunnel_id, ret);
+      }
+      iLastTunnelId_ = tunnel_id;
+    }
+  }else{
+    if(iLastTunnelId_ > 0){
+      // tunnel id 不一致则先断开连接旧连接
+      int ret = dvp->DestoryConnection((int(handle_) + 1000), iLastTunnelId_);
+      if(ret){
+        HWC2_ALOGD_IF_ERR("DestoryConnection display=%" PRIu64 " tunnel-id=%d fail ret=%d", handle_, iLastTunnelId_, ret);
+      }else{
+        HWC2_ALOGD_IF_INFO("DestoryConnection display=%" PRIu64 " tunnel-id=%d success ret=%d", handle_, iLastTunnelId_, ret);
+        iLastTunnelId_ = 0;
+      }
+    }
+  }
+  return 0;
 }
 
 int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){

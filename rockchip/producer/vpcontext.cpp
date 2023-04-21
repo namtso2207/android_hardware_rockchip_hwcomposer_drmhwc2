@@ -47,8 +47,11 @@ int VpContext::ConnectionCnt(){
 // AddConnectionRef
 int VpContext::AddConnRef(int display_id){
   std::lock_guard<std::mutex> lock(mtx_);
-  refDpyConnection_.insert(display_id);
-  return 0;
+  if(refDpyConnection_.count(display_id) == 0){
+    refDpyConnection_.insert(display_id);
+    return 0;
+  }
+  return -1;
 }
 
 // ReleaseConnRef

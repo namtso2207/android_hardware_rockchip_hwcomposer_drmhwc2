@@ -146,8 +146,9 @@ int DrmVideoProducer::CreateConnection(int display_id, int tunnel_id){
 
   if(mMapCtx_.count(tunnel_id)){
     std::shared_ptr<VpContext> ctx = mMapCtx_[tunnel_id];
-    ctx->AddConnRef(display_id);
-    // HWC2_ALOGI("display-id=%d tunnel_id=%d success", display_id, tunnel_id);
+    if(!ctx->AddConnRef(display_id)){
+      HWC2_ALOGI("display-id=%d tunnel_id=%d success, connections size=%d", display_id, tunnel_id, ctx->ConnectionCnt());
+    }
     return 0;
   }
 

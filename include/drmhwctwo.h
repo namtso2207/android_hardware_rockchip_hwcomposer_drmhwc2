@@ -73,6 +73,7 @@ class DrmHwcTwo : public hwc2_device_t {
       bufferInfoMap_.clear();
       bSideband2_=false;
       sidebandStreamHandle_ = NULL;
+      memset(&mSidebandInfo_, 0x00, sizeof(vt_sideband_data_t));
     };
 
     void clear(){
@@ -538,6 +539,9 @@ class DrmHwcTwo : public hwc2_device_t {
       }
     };
 
+    bool isSidebandLayer() { return bSideband2_; }
+    int getTunnelId() { return mSidebandInfo_.tunnel_id; }
+
     float GetFps(){
       nsecs_t now = systemTime();
       nsecs_t diff = now - mLastFpsTime_;
@@ -577,6 +581,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool bSideband2_=false;
     bool bSideband2Valid_=false;
     buffer_handle_t sidebandStreamHandle_ = NULL;
+    // current state
     vt_sideband_data_t mSidebandInfo_;
     // current frame state
     Hwc2LayerState_t mCurrentState;
@@ -717,6 +722,7 @@ class DrmHwcTwo : public hwc2_device_t {
    int UpdateHdmiOutputFormat();
    int UpdateBCSH();
    int UpdateOverscan();
+   int UpdateSidebandMode();
    int SwitchHdrMode();
    bool IsHdrMode();
    int EnableMetadataHdrMode(DrmHwcLayer& hdrLayer);
@@ -787,6 +793,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool bVrrDisplay_;
 
     bool bUseWriteBack_;
+    int iLastTunnelId_=0;
   };
 
 
