@@ -2251,7 +2251,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
 
   DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
   if (!crtc) {
-    ALOGE("Could not locate crtc for display %d", display_);
+    HWC2_ALOGE("Could not locate crtc for display %d", display_);
     return -ENODEV;
   }
 
@@ -2895,7 +2895,7 @@ int DrmDisplayCompositor::Composite() {
     return ret;
   }
   if(IsSidebandMode() && CollectVPInfo()){
-    HWC2_ALOGE("CollectSFInfo fail.");
+    HWC2_ALOGE("CollectVPInfo fail.");
   }
 
   ret = pthread_mutex_unlock(&lock_);
@@ -2906,6 +2906,15 @@ int DrmDisplayCompositor::Composite() {
 
   Commit();
   SyntheticWaitVBlank();
+
+  // 若 DrmDisplayCompositor 电源被关闭，则直接不处理后续的刷新请求
+  // DrmHwc2 前端处理热插拔逻辑，可能会遗漏部分 Compsition 到 DrmDisplayCompositor线程
+  // 需要在此处拦截，并清空送显队列
+  if (!active_){
+    HWC2_ALOGD_IF_INFO("display=%d active_=%d not to Composite()", display_, active_);
+    ClearDisplay();
+    return 0;
+  }
   return 0;
 }
 
