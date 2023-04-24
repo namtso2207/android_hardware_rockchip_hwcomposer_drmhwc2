@@ -821,8 +821,8 @@ int DrmDisplayCompositor::UpdateSidebandState() {
         drawing_sideband2_.buffer_ = current_sideband2_.buffer_;
     }
   }else if(current_sideband2_.tunnel_id_ > 0){  // 2. ct == dt, 进入送显逻辑
-    // 释放上一帧 ReleaseFence
-    if(drawing_sideband2_.buffer_ != NULL){
+    // 若上一帧已显示完成，且当前帧与上一帧不同
+    if(drawing_sideband2_.buffer_ != NULL && drawing_sideband2_.buffer_ != current_sideband2_.buffer_){
       if(dvp->SignalReleaseFence(display_,
                                 drawing_sideband2_.tunnel_id_,
                                 drawing_sideband2_.buffer_->GetExternalId())){
@@ -1323,6 +1323,7 @@ void DrmDisplayCompositor::Commit() {
     ALOGE("pset_ is NULL");
     return;
   }
+
   DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   int ret = drmModeAtomicCommit(drm->fd(), pset_, flags, drm);
