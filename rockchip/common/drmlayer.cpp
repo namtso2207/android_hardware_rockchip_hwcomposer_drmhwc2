@@ -918,7 +918,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
 
   storeLayerInfo_.valid_       = true;
   storeLayerInfo_.sf_handle    = sf_handle;
-  storeLayerInfo_.transform    = replace_transform;
+  storeLayerInfo_.transform    = transform;
   storeLayerInfo_.source_crop  = source_crop;
   storeLayerInfo_.display_frame  = display_frame;
   storeLayerInfo_.iFd_         = iFd_;

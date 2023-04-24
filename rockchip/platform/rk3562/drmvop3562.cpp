@@ -1125,7 +1125,7 @@ int Vop3562::TryRgaOverlayPolicy(
           case DRM_MODE_ROTATE_0:
             usage = 0;
             break;
-          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X :
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X:
             usage = IM_HAL_TRANSFORM_FLIP_H;
             break;
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y:
@@ -1140,10 +1140,10 @@ int Vop3562::TryRgaOverlayPolicy(
           case DRM_MODE_ROTATE_270:
             usage = IM_HAL_TRANSFORM_ROT_270;
             break;
-          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 :
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90 :
             usage = IM_HAL_TRANSFORM_FLIP_H | IM_HAL_TRANSFORM_ROT_90;
             break;
-          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90:
+          case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90:
             usage = IM_HAL_TRANSFORM_FLIP_V | IM_HAL_TRANSFORM_ROT_90;
             break;
           default:
