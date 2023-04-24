@@ -120,7 +120,9 @@ DrmBuffer::DrmBuffer(native_handle_t* in_handle) :
              uModifier_, uBufferId_, sName_.c_str());
 
   uFbId_ = 0;
+#ifdef RK3528
   uPreScaleFbId_= 0;
+#endif
   bInit_ = true;
   return;
 }
