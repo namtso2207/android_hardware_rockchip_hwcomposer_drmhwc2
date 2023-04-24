@@ -257,6 +257,67 @@ uint64_t get_format_modifier(buffer_handle_t handle)
   return modifier;
 }
 
+// HAL_PIXEL_FORMAT_BGR_888 定义在 Android 12
+// hardware/rockchip/libhardware_rockchip/include/hardware/hardware_rockchip.h 文件
+// 其他平台可能存在缺少定义的问题
+#ifndef HAL_PIXEL_FORMAT_BGR_888
+#define HAL_PIXEL_FORMAT_BGR_888  29
+#endif
+
+uint32_t FourccConvertToHalFormat(uint32_t fourcc, uint64_t modifier){
+  bool afbc = (AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 == (modifier & AFBC_FORMAT_MOD_BLOCK_SIZE_16x16));
+  switch (fourcc) {
+    case DRM_FORMAT_ABGR2101010:
+      return HAL_PIXEL_FORMAT_RGBA_1010102;
+    case DRM_FORMAT_BGR888:
+      return HAL_PIXEL_FORMAT_RGB_888;
+    case DRM_FORMAT_RGB888:
+      return HAL_PIXEL_FORMAT_BGR_888;
+    case DRM_FORMAT_ARGB8888:
+      return HAL_PIXEL_FORMAT_BGRA_8888;
+    case DRM_FORMAT_XBGR8888:
+      return HAL_PIXEL_FORMAT_RGBX_8888;
+    case DRM_FORMAT_ABGR8888:
+      return HAL_PIXEL_FORMAT_RGBA_8888;
+    //Fix color error in NenaMark2.
+    case DRM_FORMAT_RGB565:
+      return HAL_PIXEL_FORMAT_RGB_565;
+    case DRM_FORMAT_YVU420:
+      return HAL_PIXEL_FORMAT_YV12;
+    case DRM_FORMAT_NV24:
+      return HAL_PIXEL_FORMAT_YCbCr_444_888;
+    case DRM_FORMAT_NV16:
+      return HAL_PIXEL_FORMAT_YCbCr_422_SP;
+    case DRM_FORMAT_NV12:
+      if(afbc){
+        return HAL_PIXEL_FORMAT_YUV420_8BIT_I;
+      }else{
+        return HAL_PIXEL_FORMAT_YCrCb_NV12;
+      }
+    case DRM_FORMAT_NV15:
+    case DRM_FORMAT_NV12_10:
+      // DrmVersion:
+      // 3.0.0 = Kernel 5.10
+      // 2.0.0 = Kernel 4.19 Vop driver 不支持 NV15格式
+      if(afbc){
+        return HAL_PIXEL_FORMAT_YUV420_10BIT_I;
+      }else{
+        return HAL_PIXEL_FORMAT_YCrCb_NV12_10;
+      }
+    // From hardware/rockchip/libgralloc/gralloc_drm_rockchip.cpp rk_drm_gralloc_select_format()
+    case DRM_FORMAT_YUV420_8BIT:  // NV12 AFBC,  MALI_GRALLOC_FORMAT_INTERNAL_YUV420_8BIT_I
+      return HAL_PIXEL_FORMAT_YUV420_8BIT_I;
+    case DRM_FORMAT_YUV420_10BIT:
+      return HAL_PIXEL_FORMAT_YUV420_10BIT_I;
+    // case HAL_PIXEL_FORMAT_Y210:           // MALI_GRALLOC_FORMAT_INTERNAL_Y210
+    //   return DRM_FORMAT_Y210;
+    default:
+      ALOGE("Cannot convert drm fourcc 0x%x to hal format ", fourcc);
+      return 0;
+  }
+
+}
+
 uint32_t convertToNV12(uint32_t origin_fourcc){
     switch(origin_fourcc){
       case DRM_FORMAT_YUV420_10BIT:
@@ -572,7 +633,18 @@ int get_format_requested(buffer_handle_t handle, int* format_requested)
         return err;
     }
 
-    *format_requested = (int)format;
+    // HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED 格式无法获得真实的 hal format
+    // 所以这里需要获取 drm_forcc format作转换
+    if((int)format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED){
+      uint32_t drm_fourcc = get_fourcc_format(handle);
+      uint32_t modifier = get_format_modifier(handle);
+      int hal_format = FourccConvertToHalFormat(drm_fourcc, modifier);
+      *format_requested = (hal_format > 0 ? hal_format : (int)format);
+      ALOGW_IF(LogLevel(android::DBG_DEBUG), "HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ConvertFormat : drm_fourcc=%c%c%c%c => hal format=%d ",
+                         modifier, modifier >> 8, modifier >> 16, modifier >> 24, *format_requested);
+    }else{
+      *format_requested = (int)format;
+    }
 
     return err;
 }
