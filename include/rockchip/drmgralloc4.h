@@ -119,6 +119,8 @@ int get_byte_stride(buffer_handle_t handle, int* byte_stride);
 
 int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride);
 
+int get_plane_bytes_tride(buffer_handle_t handle, std::vector<uint32_t> &byte_strides);
+
 int get_format_requested(buffer_handle_t handle, int* format_requested);
 
 int get_usage(buffer_handle_t handle, uint64_t* usage);

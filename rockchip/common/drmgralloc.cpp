@@ -688,6 +688,19 @@ uint32_t DrmGralloc::hwc_get_handle_fourcc_format(buffer_handle_t hnd)
 #endif
 }
 
+int DrmGralloc::hwc_get_handle_plane_bytes_stride(buffer_handle_t hnd, std::vector<uint32_t> &byte_strides){
+#if USE_GRALLOC_4
+    int ret = gralloc4::get_plane_bytes_tride(hnd, byte_strides);
+    if(ret){
+      ALOGE("%s: fail to get plane_bytes_stride( buffer, ret : %d",  __FUNCTION__, ret);
+      return ret;
+    }
+    return ret;
+#else // #if USE_GRALLOC_4
+    return -1;
+#endif
+}
+
 
 void* DrmGralloc::hwc_get_handle_lock(buffer_handle_t hnd, int width, int height){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);

@@ -72,7 +72,8 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
                             uint32_t format, uint32_t hal_format,
                             uint64_t modifier,
                             uint64_t usage, uint32_t byte_stride,
-                            uint32_t gem_handle, uint32_t offset[4]){
+                            uint32_t gem_handle, uint32_t offset[4],
+                            std::vector<uint32_t> &plane_byte_stride){
   memset(&bo_,0x00,sizeof(struct hwc_drm_bo));
   bo_.fd = fd;
   bo_.width = width;
@@ -88,6 +89,9 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
   bo_.offsets[1] = offset[1];
   bo_.offsets[2] = offset[2];
   bo_.offsets[3] = offset[3];
+  for(int i = 0; i < plane_byte_stride.size(); i++){
+    bo_.pitches[i] = plane_byte_stride[i];
+  }
   return 0;
 }
 
@@ -149,7 +153,7 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 #endif
   buffer.SetBoInfo(iFd_, iWidth_, iHeight_, iHeightStride_, uFourccFormat_,
                    iFormat_, uModifier_, iUsage, iByteStride_, uGemHandle_,
-                   offsets);
+                   offsets, uByteStridePlanes_);
   int ret = buffer.ImportBuffer(sf_handle, importer);
   if (ret)
     return ret;

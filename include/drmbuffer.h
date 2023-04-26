@@ -86,6 +86,7 @@ private:
   int iStride_;
   int iHeightStride_;
   int iByteStride_;
+  std::vector<uint32_t> uByteStridePlanes_;
   int iSize_;
   uint64_t iUsage_;
   uint32_t uFourccFormat_;

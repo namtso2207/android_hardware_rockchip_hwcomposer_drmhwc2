@@ -190,22 +190,37 @@ uint32_t DrmGenericImporter::DrmFormatToPlaneNum(uint32_t drm_format) {
 }
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-
   uint32_t gem_handle = bo->gem_handles[0];
-  bo->pitches[0] = bo->byte_stride;
+
+  // set bo patches
+  // special for nv24 / nv42
+  if(bo->format == DRM_FORMAT_NV24 ||
+     bo->format == DRM_FORMAT_NV42){
+    // bo->pitches[x] 已经被设置，在更早的 SetBoInfo 流程
+    // 如果没有被设置，则采用本地计算方式
+    if(bo->pitches[0] == 0){
+      bo->pitches[0] = bo->byte_stride;
+      bo->pitches[1] = bo->pitches[0]*2;
+    }
+  }else{
+    bo->pitches[0] = bo->byte_stride;
+    if(DrmFormatToPlaneNum(bo->format) == 2){
+        bo->pitches[1] = bo->pitches[0];
+    }
+  }
+
+  // set gem_handle and offsets
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = bo->offsets[0];
 
   if(DrmFormatToPlaneNum(bo->format) == 2){
     if(bo->format == DRM_FORMAT_NV24 ||
        bo->format == DRM_FORMAT_NV42){
-      bo->pitches[1] = bo->pitches[0]*2;
       bo->gem_handles[1] = gem_handle;
       if(bo->offsets[1] == 0){
         bo->offsets[1] = bo->offsets[0] + bo->pitches[0] * bo->height_stride;
       }
     }else{
-      bo->pitches[1] = bo->pitches[0];
       bo->gem_handles[1] = gem_handle;
       if(bo->offsets[1] == 0){
         bo->offsets[1] = bo->offsets[0] + bo->pitches[1] * bo->height_stride;

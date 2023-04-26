@@ -109,7 +109,8 @@ class DrmHwcBuffer {
                 uint32_t format, uint32_t hal_format,
                 uint64_t modifier,
                 uint64_t usage, uint32_t byte_stride,
-                uint32_t gem_handle, uint32_t offset[4]);
+                uint32_t gem_handle, uint32_t offset[4],
+                std::vector<uint32_t> &plane_byte_stride);
  private:
   hwc_drm_bo bo_;
   Importer *importer_ = NULL;
@@ -252,6 +253,8 @@ struct DrmHwcLayer {
   uint32_t uGemHandle_;
   uint64_t uModifier_;
   std::string sLayerName_;
+  // Tip: NV24 have 2 plane byte stride
+  std::vector<uint32_t> uByteStridePlanes_;
 
   bool bMatch_;
   bool bUse_;

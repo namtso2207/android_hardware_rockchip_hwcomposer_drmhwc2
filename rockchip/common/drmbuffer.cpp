@@ -106,6 +106,7 @@ DrmBuffer::DrmBuffer(native_handle_t* in_handle) :
   iFormat_ = ptrDrmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
   uFourccFormat_ = ptrDrmGralloc_->hwc_get_handle_fourcc_format(buffer_);
   uModifier_ = ptrDrmGralloc_->hwc_get_handle_format_modifier(buffer_);
+  ptrDrmGralloc_->hwc_get_handle_plane_bytes_stride(buffer_, uByteStridePlanes_);
   ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
   ptrDrmGralloc_->hwc_get_handle_name(buffer_, sName_);
   ret = ptrDrmGralloc_->hwc_get_gemhandle_from_fd(iFd_, uBufferId_, &uGemHandle_);
@@ -196,6 +197,7 @@ int DrmBuffer::Init(){
   uFourccFormat_ = ptrDrmGralloc_->hwc_get_handle_fourcc_format(buffer_);
   uModifier_ = ptrDrmGralloc_->hwc_get_handle_format_modifier(buffer_);
   ptrDrmGralloc_->hwc_get_handle_buffer_id(buffer_, &uBufferId_);
+  ptrDrmGralloc_->hwc_get_handle_plane_bytes_stride(buffer_, uByteStridePlanes_);
   int ret = ptrDrmGralloc_->hwc_get_gemhandle_from_fd(iFd_, uBufferId_, &uGemHandle_);
   if(ret){
     HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, sName_.c_str(), uBufferId_);
@@ -329,18 +331,35 @@ uint32_t DrmBuffer::GetFbId(){
   uint32_t gem_handles[4] = {0};
   uint64_t modifier[4] = {0};
 
-  pitches[0] = iByteStride_;
   gem_handles[0] = uGemHandle_;
   offsets[0] = 0;
+
+  // set bo patches
+  // special for nv24 / nv42
+  if(uFourccFormat_ == DRM_FORMAT_NV24 ||
+     uFourccFormat_ == DRM_FORMAT_NV42){
+    // 获取 plane_info byte stride 信息
+    if(uByteStridePlanes_.size() > 0){
+      for(int i = 0; i < uByteStridePlanes_.size(); i++){
+        pitches[i] = uByteStridePlanes_[i];
+      }
+    }else{
+      pitches[0] = iByteStride_;
+      pitches[1] = pitches[0]*2;
+    }
+  }else{
+    pitches[0] = iByteStride_;
+    if(DrmFormatToPlaneNum(uFourccFormat_) == 2){
+      pitches[1] = pitches[0];
+    }
+  }
 
   if(DrmFormatToPlaneNum(uFourccFormat_) == 2){
     if(uFourccFormat_ == DRM_FORMAT_NV24 ||
        uFourccFormat_ == DRM_FORMAT_NV42){
-      pitches[1] = pitches[0]*2;
       gem_handles[1] = uGemHandle_;
       offsets[1] = pitches[0] * iHeightStride_;
     }else{
-      pitches[1] = pitches[0];
       gem_handles[1] = uGemHandle_;
       offsets[1] = pitches[1] * iHeightStride_;
     }

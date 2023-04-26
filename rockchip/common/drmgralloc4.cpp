@@ -620,6 +620,75 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
     return err;
 }
 
+int get_plane_bytes_tride(buffer_handle_t handle, std::vector<uint32_t> &byte_strides){
+    auto &mapper = get_service();
+    std::vector<PlaneLayout> layouts;
+    int format_requested;
+
+    int err = get_format_requested(handle, &format_requested);
+    if (err != android::OK )
+    {
+        ALOGE("err : %d", err);
+        return err;
+    }
+
+    /* 若 'format_requested' "不是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
+    if ( format_requested != HAL_PIXEL_FORMAT_YCrCb_NV12_10 )
+    {
+        err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
+        if (err != android::OK || layouts.size() < 1)
+        {
+            ALOGE("Failed to get plane layouts. err : %d", err);
+            return err;
+        }
+
+        if ( layouts.size() > 0 ){
+          for(int i = 0 ; i < layouts.size(); i++){
+            byte_strides.push_back((uint32_t)layouts[i].strideInBytes);
+            // HWC2_ALOGI("rk-debug format_requested=%d i=%d byte_stride = %d", format_requested, i, (uint32_t)layouts[i].strideInBytes);
+          }
+        }
+    }
+    /* 否则, 即 'format_requested' "是" HAL_PIXEL_FORMAT_YCrCb_NV12_10, 则 ... */
+    else
+    {
+        uint32_t fourcc_format = get_fourcc_format(handle);
+        // RK3588 mali 支持NV15格式，故 byte_stride采用正确的值
+        if(fourcc_format == DRM_FORMAT_NV15){
+            err = get_metadata(mapper, handle, MetadataType_PlaneLayouts, decodePlaneLayouts, &layouts);
+            if (err != android::OK || layouts.size() < 1)
+            {
+                ALOGE("Failed to get plane layouts. err : %d", err);
+                return err;
+            }
+
+            if ( layouts.size() > 0 ){
+              for(int i = 0 ; i < layouts.size(); i++){
+                byte_strides.push_back((uint32_t)layouts[i].strideInBytes);
+                  // HWC2_ALOGI("rk-debug format_requested=%d i=%d byte_stride = %d", format_requested, i, (uint32_t)layouts[i].strideInBytes);
+              }
+            }
+        }
+        // 对于 fourcc不为 DRM_FORMAT_NV15 的情况，认为 Mali不支持 NV15格式,采用 width 作为 byte_stride.
+        else
+        {
+
+            uint64_t width;
+
+            err = get_width(handle, &width);
+            if (err != android::OK )
+            {
+                ALOGE("err : %d", err);
+                return err;
+            }
+
+            byte_strides.push_back((uint32_t)width);
+            // HWC2_ALOGI("rk-debug format_requested=%d i=0 byte_stride = %d", format_requested, (uint32_t)width);
+        }
+    }
+    return 0;
+}
+
 int get_format_requested(buffer_handle_t handle, int* format_requested)
 {
     auto &mapper = get_service();

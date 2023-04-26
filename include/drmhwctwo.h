@@ -40,6 +40,7 @@
 
 #include <map>
 #include <atomic>
+#include <vector>
 
 namespace android {
 
@@ -155,6 +156,7 @@ class DrmHwcTwo : public hwc2_device_t {
       int iHeightStride_=0;
       int iSize_=0;
       int iByteStride_=0;
+      std::vector<uint32_t> uByteStridePlanes_;
       uint64_t iUsage_=0;
       uint32_t uFourccFormat_=0;
       uint32_t uGemHandle_=0;
@@ -285,6 +287,7 @@ class DrmHwcTwo : public hwc2_device_t {
           pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(buffer_);
           pBufferInfo_->uFourccFormat_ = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
           pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
+          drmGralloc_->hwc_get_handle_plane_bytes_stride(buffer_, pBufferInfo_->uByteStridePlanes_);
           drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
           layer_name_ = pBufferInfo_->sLayerName_;
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64
