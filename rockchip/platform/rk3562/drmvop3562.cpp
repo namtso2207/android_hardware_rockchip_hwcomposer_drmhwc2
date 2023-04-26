@@ -1140,11 +1140,15 @@ int Vop3562::TryRgaOverlayPolicy(
           case DRM_MODE_ROTATE_270:
             usage = IM_HAL_TRANSFORM_ROT_270;
             break;
+          // RGA2/RGA3的 flip + rotate 场景，硬件内部处理是先 rotate 再 flip
+          // 而 Android 请求的是先 flip 再 rotate，故此请求需要做转换
+          // Android请求 flip-v + rotate-90  等价于 rotate-90 + flip-h
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y | DRM_MODE_ROTATE_90 :
-            usage = IM_HAL_TRANSFORM_FLIP_H | IM_HAL_TRANSFORM_ROT_90;
+            usage = IM_HAL_TRANSFORM_ROT_90 | IM_HAL_TRANSFORM_FLIP_H ;
             break;
+          // Android请求 flip-h + rotate-90  等价于 rotate-90 + flip-v
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90:
-            usage = IM_HAL_TRANSFORM_FLIP_V | IM_HAL_TRANSFORM_ROT_90;
+            usage = IM_HAL_TRANSFORM_ROT_90 | IM_HAL_TRANSFORM_FLIP_V;
             break;
           default:
             usage = 0;
