@@ -38,6 +38,12 @@ class DrmHwcTwo;
 
 typedef std::pair<uint64_t, std::shared_ptr<DrmBuffer>> PAIR_ID_BUFFER;
 
+typedef enum HwVirtualDisplayMode {
+  HWC2_DISABLE_HW_VIRTUAL_DISPLAY = 0,
+  HWC2_HW_VIRTUAL_DISPLAY_USE_VOP = 1,
+  HWC2_HW_VIRTUAL_DISPLAY_USE_RGA = 2,
+} HwVirtualDisplayMode_t;
+
 class ResourceManager {
  public:
   static ResourceManager* getInstance(){
@@ -77,6 +83,15 @@ class ResourceManager {
   bool isWBMode() const;
   const DrmMode &GetWBMode() const;
   int EnableWriteBackMode(int display);
+  HwVirtualDisplayMode_t ChooseWriteBackMode(int display);
+  // WriteBack by vop
+  bool IsWriteBackByVop();
+  int WriteBackUseVop(int display);
+  int UpdateWriteBackResolutionUseVop(int display);
+
+  // WriteBack by rga
+  bool IsWriteBackByRga();
+  int WriteBackUseRga(int display);
   int DisableWriteBackMode(int display);
   int UpdateWriteBackResolution(int display);
   std::shared_ptr<DrmBuffer> GetResetWBBuffer();
@@ -120,9 +135,11 @@ class ResourceManager {
   int drmVersion_;
   bool dynamic_assigin_enable_;
 
+  // <-- WriteBack Mode info
   int bEnableWriteBack_=0;
   int bWriteBackRunning_=0;
   int iWriteBackDisplayId_=-1;
+  HwVirtualDisplayMode_t mVDMode_;
   int iWBWidth_;
   int iWBHeight_;
   int iWBFormat_;
@@ -132,7 +149,7 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> mNextWriteBackBuffer_;
   std::shared_ptr<DrmBuffer> mDrawingWriteBackBuffer_;
   std::queue<PAIR_ID_BUFFER> mFinishBufferQueue_;
-
+  // -->
   std::map<int, std::set<uint64_t>> mMapDisplayBufferSet_;
 
   // Composition丢帧模式
@@ -149,7 +166,7 @@ class ResourceManager {
   int mWriteBackAsyncMode_ = 0;
   std::set<int> mCropSpiltHasConnectedId_;
 
-  mutable std::mutex mtx_;
+  mutable std::recursive_mutex mRecursiveMutex;
 };
 }  // namespace android
 

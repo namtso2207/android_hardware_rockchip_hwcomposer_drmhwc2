@@ -190,12 +190,12 @@ int ResourceManager::GetCacheBufferLimitSize() const{
 }
 
 int ResourceManager::GetCropSpiltConnectedId() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mCropSpiltConnectedId_;
 }
 
 int ResourceManager::AddCropSpiltConnectedId(int display_id){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(mCropSpiltConnectedId_ == -1){
     mCropSpiltConnectedId_ = display_id;
   }
@@ -204,7 +204,7 @@ int ResourceManager::AddCropSpiltConnectedId(int display_id){
 }
 
 int ResourceManager::RemoveCropSpiltConnectedId(int display_id){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(mCropSpiltHasConnectedId_.count(display_id)){
     mCropSpiltHasConnectedId_.erase(display_id);
     if(mCropSpiltHasConnectedId_.size() == 0){
@@ -245,58 +245,63 @@ std::shared_ptr<DrmDisplayCompositor> ResourceManager::GetDrmDisplayCompositor(D
 }
 
 int ResourceManager::GetWBDisplay() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return iWriteBackDisplayId_;
 }
 
 bool ResourceManager::isWBMode() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return bEnableWriteBack_ > 0;
 }
 
-
 const DrmMode& ResourceManager::GetWBMode() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mWBMode_;
 }
 
-int ResourceManager::EnableWriteBackMode(int display){
-  std::lock_guard<std::mutex> lock(mtx_);
+bool ResourceManager::IsWriteBackByVop(){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  return mVDMode_ == HWC2_HW_VIRTUAL_DISPLAY_USE_VOP;
+}
 
-  // 1. 检查 WB 模块是否已经被绑定
-  if(bEnableWriteBack_ > 0){
-    if(iWriteBackDisplayId_ != display){
-      HWC2_ALOGE("WriteBack has bind display %d, so display=%d WB request can't handle.",
-                iWriteBackDisplayId_, display);
-      return -1;
-    }else{
-      bEnableWriteBack_++;
-      return 0;
-    }
-  }
+bool ResourceManager::IsWriteBackByRga(){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  return mVDMode_ == HWC2_HW_VIRTUAL_DISPLAY_USE_RGA;
+}
 
+HwVirtualDisplayMode_t ResourceManager::ChooseWriteBackMode(int display){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   // 2. 获取待 WriteBack display状态，状态异常则直接关闭 WriteBack 模式
   DrmDevice *drmDevice = GetDrmDevice(display);
   DrmConnector *writeBackConn = drmDevice->GetConnectorForDisplay(display);
   if(!writeBackConn){
     HWC2_ALOGE("display=%d WriteBackConn is NULL", display);
-    return -1;
+    return HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
   }
 
   if(writeBackConn->state() != DRM_MODE_CONNECTED){
     HWC2_ALOGE("display=%d WriteBackConn state isn't connected(%d)",
                 display, writeBackConn->state());
-    return -1;
+    return HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
   }
 
   // 3. 获取待 WriteBack 当前分辨率，用于申请 WriteBackBuffer
   // 4. WriteBack 硬件要求 16对齐，否则超出部分会直接丢弃
-  DrmMode currentMode = writeBackConn->current_mode();
-  mWBMode_ = currentMode;
-  iWBWidth_  = ALIGN_DOWN(currentMode.width(),16);
-  iWBHeight_ = currentMode.height();
-  iWBFormat_ = HAL_PIXEL_FORMAT_YCrCb_NV12;
+  mWBMode_ = writeBackConn->current_mode();;
+  if(mWBMode_.width() > 4096 || mWBMode_.height() > 2160){
+    HWC2_ALOGI("Primary resolution=%dx%d, use WriteBack by RGA", mWBMode_.width(), mWBMode_.height());
+    return HWC2_HW_VIRTUAL_DISPLAY_USE_RGA;
+  }
 
+  HWC2_ALOGI("Primary resolution=%dx%d, use WriteBack by Vop WriteBack", mWBMode_.width(), mWBMode_.height());
+  return HWC2_HW_VIRTUAL_DISPLAY_USE_VOP;
+}
+
+int ResourceManager::WriteBackUseVop(int display){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  iWBWidth_  = ALIGN_DOWN(mWBMode_.width(),16);
+  iWBHeight_ = mWBMode_.height();
+  iWBFormat_ = HAL_PIXEL_FORMAT_YCrCb_NV12;
 
   // 5. 创建 WriteBackBuffer BufferQueue，并且申请 WB Buffer.
   if(mWriteBackBQ_ == NULL){
@@ -324,9 +329,13 @@ int ResourceManager::EnableWriteBackMode(int display){
   return 0;
 }
 
+int ResourceManager::WriteBackUseRga(int display){
+  // unuse
+  return 0;
+}
 
-int ResourceManager::UpdateWriteBackResolution(int display){
-  std::lock_guard<std::mutex> lock(mtx_);
+int ResourceManager::EnableWriteBackMode(int display){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 
   // 1. 检查 WB 模块是否已经被绑定
   if(bEnableWriteBack_ > 0){
@@ -334,8 +343,32 @@ int ResourceManager::UpdateWriteBackResolution(int display){
       HWC2_ALOGE("WriteBack has bind display %d, so display=%d WB request can't handle.",
                 iWriteBackDisplayId_, display);
       return -1;
+    }else{
+      bEnableWriteBack_++;
+      return 0;
     }
   }
+
+  // 2. 根据 primary 分辨率模式选择 WriteBack 模式
+  mVDMode_ = ChooseWriteBackMode(display);
+  switch(mVDMode_){
+    case HWC2_HW_VIRTUAL_DISPLAY_USE_VOP:
+      return WriteBackUseVop(display);
+    case HWC2_HW_VIRTUAL_DISPLAY_USE_RGA:
+      return WriteBackUseRga(display);
+    case HWC2_DISABLE_HW_VIRTUAL_DISPLAY:
+    default:
+      HWC2_ALOGE("display=%d can't find any suitable WriteBack mode, roll back to GLES display, VDMode=%d",
+                 display, mVDMode_);
+      return -1;
+  }
+
+  return -1;
+}
+
+
+int ResourceManager::UpdateWriteBackResolutionUseVop(int display){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 
   // 2. 获取待 WriteBack display状态，状态异常则直接关闭 WriteBack 模式
   DrmDevice *drmDevice = GetDrmDevice(display);
@@ -389,8 +422,35 @@ int ResourceManager::UpdateWriteBackResolution(int display){
   return 0;
 }
 
+int ResourceManager::UpdateWriteBackResolution(int display){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+
+  // 1. 检查 WB 模块是否已经被绑定
+  if(bEnableWriteBack_ > 0){
+    if(iWriteBackDisplayId_ != display){
+      HWC2_ALOGE("WriteBack has bind display %d, so display=%d WB request can't handle.",
+                iWriteBackDisplayId_, display);
+      return -1;
+    }
+  }
+
+  // 根据 WriteBack mode 处理 update WriteBack resolution 请求
+  switch(mVDMode_){
+    case HWC2_HW_VIRTUAL_DISPLAY_USE_VOP:
+      return UpdateWriteBackResolutionUseVop(display);
+    case HWC2_HW_VIRTUAL_DISPLAY_USE_RGA:
+      // RGA 模式不需要考虑分辨率切换的场景
+      return 0;
+    case HWC2_DISABLE_HW_VIRTUAL_DISPLAY:
+    default:
+      HWC2_ALOGE("display=%d can't find any suitable WriteBack mode, VDMode=%d ", display, mVDMode_);
+      return -1;
+  }
+  return 0;
+}
+
 int ResourceManager::DisableWriteBackMode(int display){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(display != iWriteBackDisplayId_)
     return 0;
 
@@ -401,12 +461,13 @@ int ResourceManager::DisableWriteBackMode(int display){
       mFinishBufferQueue_.pop();
     }
     bWriteBackRunning_ = 0;
+    mVDMode_ = HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
   }
   return 0;
 }
 
 std::shared_ptr<DrmBuffer> ResourceManager::GetResetWBBuffer(){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(mResetBackBuffer_ == NULL){
     mResetBackBuffer_ =  std::make_shared<DrmBuffer>(640,
                                                      360,
@@ -463,17 +524,17 @@ std::shared_ptr<DrmBuffer> ResourceManager::GetResetWBBuffer(){
   return mResetBackBuffer_;
 }
 std::shared_ptr<DrmBuffer> ResourceManager::GetNextWBBuffer(){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mNextWriteBackBuffer_;
 }
 
 std::shared_ptr<DrmBuffer> ResourceManager::GetDrawingWBBuffer(){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mDrawingWriteBackBuffer_;;
 }
 
 int ResourceManager::GetFinishWBBufferSize(){
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mFinishBufferQueue_.size();
 }
 
@@ -482,7 +543,7 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
                                     int32_t *retire_fence){
 
   ATRACE_CALL();
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(mFinishBufferQueue_.size() == 0){
     HWC2_ALOGE("mFinishBufferQueue_ size is 0");
     return -1;
@@ -574,7 +635,7 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
 int ResourceManager::SwapWBBuffer(uint64_t frame_no){
 
   ATRACE_CALL();
-  std::lock_guard<std::mutex> lock(mtx_);
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   if(bEnableWriteBack_ <= 0){
     HWC2_ALOGE("");
     return -1;

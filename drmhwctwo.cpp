@@ -1608,7 +1608,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
 
   if(bUseWriteBack_ && resource_manager_->isWBMode()){
     if(resource_manager_->isWBMode()){
-
       const std::shared_ptr<HwcLayer::bufferInfo_t>
         bufferinfo = output_layer_.GetBufferInfo();
 
@@ -3137,6 +3136,7 @@ int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
     }
 #endif
   }
+
   if(enable_self_refresh){
     InvalidateControl(10,-1);
   }

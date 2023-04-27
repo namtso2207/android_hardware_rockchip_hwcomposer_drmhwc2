@@ -881,7 +881,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
   // WriteBack Mode
   if(!test_only){
-    if(resource_manager_->isWBMode()){
+    // 只有 WriteBack by vop 需要执行以下步骤
+    if(resource_manager_->isWBMode() && resource_manager_->IsWriteBackByVop()){
       int wbDisplay = resource_manager_->GetWBDisplay();
       if(wbDisplay == display_){
         ret = SetupWritebackCommit(pset,
@@ -1344,8 +1345,9 @@ void DrmDisplayCompositor::Commit() {
   }
 
   // WriteBack Fence handle.
+  // 只有 WriteBack by vop 需要执行以下步骤
   if(writeback_fence_ > 0){
-    if(resource_manager_->isWBMode()){
+    if(resource_manager_->isWBMode() && resource_manager_->IsWriteBackByVop()){
       int wbDisplay = resource_manager_->GetWBDisplay();
       if(wbDisplay == display_){
         std::shared_ptr<DrmBuffer> wbBuffer = resource_manager_->GetNextWBBuffer();
