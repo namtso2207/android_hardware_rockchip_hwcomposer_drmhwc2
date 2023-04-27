@@ -261,12 +261,12 @@ int DrmPlane::Init() {
     ALOGE("Could not get SCALE_RATE property");
   else{
     uint64_t scale_rate=0;
-    std::tie(ret,scale_rate) = scale_rate_property_.range_min();
+    std::tie(ret,scale_rate) = scale_rate_property_.range_max();
     if(!ret)
       scale_min_ = 1/(scale_rate * 1.0);
     else
       ALOGE("Could not get SCALE_RATE range_min property");
-    std::tie(ret,scale_rate) = scale_rate_property_.range_max();
+    std::tie(ret,scale_rate) = scale_rate_property_.range_min();
     if(!ret)
       scale_max_ = scale_rate;
     else
