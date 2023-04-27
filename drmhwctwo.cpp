@@ -231,6 +231,13 @@ void DrmHwcTwo::Dump(uint32_t *size, char *buffer) {
 
 uint32_t DrmHwcTwo::GetMaxVirtualDisplayCount() {
   HWC2_ALOGI();
+
+  // DSI 固件不支持 HW VirtualDisplay.
+  if(hwc_get_int_property("ro.vendor.rk_sdk","0") == 0){
+      HWC2_ALOGI("Maybe GSI SDK, to disable HW VirtualDisplay\n");
+      return 0;
+  }
+
   char value[PROPERTY_VALUE_MAX];
   property_get("vendor.hwc.max_virtual_display_count", value, "5");
   return atoi(value);
