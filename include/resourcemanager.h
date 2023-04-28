@@ -84,6 +84,8 @@ class ResourceManager {
   const DrmMode &GetWBMode() const;
   int EnableWriteBackMode(int display);
   HwVirtualDisplayMode_t ChooseWriteBackMode(int display);
+  // Virtual Display Composition by gles.
+  bool IsDisableHwVirtualDisplay();
   // WriteBack by vop
   bool IsWriteBackByVop();
   int WriteBackUseVop(int display);
@@ -136,14 +138,19 @@ class ResourceManager {
   bool dynamic_assigin_enable_;
 
   // <-- WriteBack Mode info
-  int bEnableWriteBack_=0;
-  int bWriteBackRunning_=0;
+  // WriteBack 引用计数，若每一个virtual display 请求 WriteBack，则引用计数+1
+  int bEnableWriteBackRef_=0;
+  // WriteBack 使能 display 的 id
   int iWriteBackDisplayId_=-1;
+  // Hw Virtual Display 实现模式, 存在 gles / vop / rga 三种模式
   HwVirtualDisplayMode_t mVDMode_;
+  // WriteBack 格式信息
   int iWBWidth_;
   int iWBHeight_;
   int iWBFormat_;
+  // WriteBack分辨率
   DrmMode mWBMode_;
+  // WriteBack BufferQueue 信息，用于实现环形缓冲区结构
   std::shared_ptr<DrmBufferQueue> mWriteBackBQ_;
   std::shared_ptr<DrmBuffer> mResetBackBuffer_;
   std::shared_ptr<DrmBuffer> mNextWriteBackBuffer_;

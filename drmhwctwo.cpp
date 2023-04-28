@@ -1606,7 +1606,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
     return HWC2::Error::None;
   }
 
-  if(bUseWriteBack_ && resource_manager_->isWBMode()){
+  if(bUseWriteBack_ &&
+     resource_manager_->isWBMode() &&
+     !resource_manager_->IsDisableHwVirtualDisplay()){
     if(resource_manager_->isWBMode()){
       const std::shared_ptr<HwcLayer::bufferInfo_t>
         bufferinfo = output_layer_.GetBufferInfo();
@@ -2217,6 +2219,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
 
     bUseWriteBack_ = true;
 
+    // 提供仅 Sideband 模式下开启 hw Virtual Display 功能接口
     char value[PROPERTY_VALUE_MAX];
     property_get("vendor.hwc.only_sideband_use_wb", value, "0");
     if(atoi(value) > 0){
@@ -2238,10 +2241,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
     HWC2_ALOGI("frame_no_ = %d", frame_no_);
     if(frame_no_ < 5)
       bUseWriteBack_ = false;
-
-    // 检查主屏状态，如果状态异常则使用GPU合成
+    // 获取 WriteBack id
     int WBDisplayId = resource_manager_->GetWBDisplay();
-    if(WBDisplayId >= 0){
+    // 检查是否正确使能 Hw Virtual Display 功能
+    if(WBDisplayId > 0 &&
+       resource_manager_->isWBMode() &&
+       !resource_manager_->IsDisableHwVirtualDisplay()){
       DrmConnector *connector = drm_->GetConnectorForDisplay(WBDisplayId);
       if (!connector) {
         HWC2_ALOGD_IF_DEBUG("Failed to get WB connector for display %d", WBDisplayId);

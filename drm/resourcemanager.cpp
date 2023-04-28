@@ -251,12 +251,17 @@ int ResourceManager::GetWBDisplay() const {
 
 bool ResourceManager::isWBMode() const {
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
-  return bEnableWriteBack_ > 0;
+  return bEnableWriteBackRef_ > 0;
 }
 
 const DrmMode& ResourceManager::GetWBMode() const {
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   return mWBMode_;
+}
+
+bool ResourceManager::IsDisableHwVirtualDisplay(){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  return mVDMode_ == HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
 }
 
 bool ResourceManager::IsWriteBackByVop(){
@@ -297,6 +302,7 @@ HwVirtualDisplayMode_t ResourceManager::ChooseWriteBackMode(int display){
   return HWC2_HW_VIRTUAL_DISPLAY_USE_VOP;
 }
 
+// 使用 Vop 作为 WriteBack 内容输出单元
 int ResourceManager::WriteBackUseVop(int display){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
   iWBWidth_  = ALIGN_DOWN(mWBMode_.width(),16);
@@ -324,11 +330,12 @@ int ResourceManager::WriteBackUseVop(int display){
     }
   }
 
-  bEnableWriteBack_++;
+  bEnableWriteBackRef_++;
   iWriteBackDisplayId_ = display;
   return 0;
 }
 
+// 使用 Rga 作为 WriteBack 内容输出单元
 int ResourceManager::WriteBackUseRga(int display){
   // unuse
   return 0;
@@ -338,13 +345,13 @@ int ResourceManager::EnableWriteBackMode(int display){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 
   // 1. 检查 WB 模块是否已经被绑定
-  if(bEnableWriteBack_ > 0){
+  if(bEnableWriteBackRef_ > 0){
     if(iWriteBackDisplayId_ != display){
       HWC2_ALOGE("WriteBack has bind display %d, so display=%d WB request can't handle.",
                 iWriteBackDisplayId_, display);
       return -1;
     }else{
-      bEnableWriteBack_++;
+      bEnableWriteBackRef_++;
       return 0;
     }
   }
@@ -426,7 +433,7 @@ int ResourceManager::UpdateWriteBackResolution(int display){
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
 
   // 1. 检查 WB 模块是否已经被绑定
-  if(bEnableWriteBack_ > 0){
+  if(bEnableWriteBackRef_ > 0){
     if(iWriteBackDisplayId_ != display){
       HWC2_ALOGE("WriteBack has bind display %d, so display=%d WB request can't handle.",
                 iWriteBackDisplayId_, display);
@@ -454,13 +461,12 @@ int ResourceManager::DisableWriteBackMode(int display){
   if(display != iWriteBackDisplayId_)
     return 0;
 
-  bEnableWriteBack_--;
-  if(bEnableWriteBack_ <= 0){
+  bEnableWriteBackRef_--;
+  if(bEnableWriteBackRef_ <= 0){
     iWriteBackDisplayId_ = -1;
     while(mFinishBufferQueue_.size() > 0){
       mFinishBufferQueue_.pop();
     }
-    bWriteBackRunning_ = 0;
     mVDMode_ = HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
   }
   return 0;
@@ -636,7 +642,7 @@ int ResourceManager::SwapWBBuffer(uint64_t frame_no){
 
   ATRACE_CALL();
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
-  if(bEnableWriteBack_ <= 0){
+  if(bEnableWriteBackRef_ <= 0){
     HWC2_ALOGE("");
     return -1;
   }
