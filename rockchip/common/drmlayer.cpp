@@ -233,6 +233,14 @@ void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame,
   float right_scale  = 1;
   float top_scale    = 1;
   float bottom_scale = 1;
+
+  // 保存SurfaceFlinger display frame 信息
+  display_frame_sf.left   = frame.left;
+  display_frame_sf.right  = frame.right;
+  display_frame_sf.top    = frame.top;
+  display_frame_sf.bottom = frame.bottom;
+
+
   if(!ctx->bStandardSwitchResolution){
     left_scale   = ctx->rel_xres / (float)ctx->framebuffer_width;
     right_scale  = ctx->rel_xres / (float)ctx->framebuffer_width;

@@ -303,6 +303,7 @@ uint32_t DrmBuffer::DrmFormatToPlaneNum(uint32_t drm_format) {
     case DRM_FORMAT_NV61:
     case DRM_FORMAT_NV12_10:
     case DRM_FORMAT_NV15:
+    case DRM_FORMAT_NV30:
       return 2;
     default:
       return 1;
@@ -643,7 +644,8 @@ uint32_t DrmBuffer::GetPreScaleFbId(){
 
   if(DrmFormatToPlaneNum(uFourccFormat_) == 2){
     if(uFourccFormat_ == DRM_FORMAT_NV24 ||
-       uFourccFormat_ == DRM_FORMAT_NV42){
+       uFourccFormat_ == DRM_FORMAT_NV42 ||
+       uFourccFormat_ == DRM_FORMAT_NV30){
       pitches[1] = pitches[0]*2;
       gem_handles[1] = uGemHandle_;
       if(offsets[1] == 0){

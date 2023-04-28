@@ -23,6 +23,9 @@
 #include "resourcemanager.h"
 #include "vsyncworker.h"
 #include "drmcompositorworker.h"
+#ifdef USE_LIBPQ
+#include "rkpq.h"
+#endif
 
 #include <pthread.h>
 #include <memory>
@@ -67,6 +70,8 @@ class DrmDisplayCompositor {
 
   int CollectVPInfo();
   int CollectVPHdrInfo(DrmHwcLayer &layer);
+  // HwVirtualDisplay功能
+  int WriteBackByRGA();
   void Dump(std::ostringstream *out) const;
   void Vsync(int display, int64_t timestamp);
   void SingalCompsition(std::unique_ptr<DrmDisplayComposition> composition);
@@ -220,6 +225,13 @@ struct SidebandState {
 
   // 丢帧模式
   bool drop_mode_ = false;
+
+#ifdef USE_LIBPQ
+  // Sideband YUV444 tmp buffer
+  std::shared_ptr<DrmBuffer> sidbenad_pq_tmp_buffer_ = NULL;
+  std::shared_ptr<rkpq> pq_ = NULL;
+  int pq_last_init_format_ = 0;
+#endif
 };
 }  // namespace android
 

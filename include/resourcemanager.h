@@ -145,8 +145,8 @@ class ResourceManager {
   // Hw Virtual Display 实现模式, 存在 gles / vop / rga 三种模式
   HwVirtualDisplayMode_t mVDMode_;
   // WriteBack 格式信息
-  int iWBWidth_;
-  int iWBHeight_;
+  uint32_t iWBWidth_;
+  uint32_t iWBHeight_;
   int iWBFormat_;
   // WriteBack分辨率
   DrmMode mWBMode_;

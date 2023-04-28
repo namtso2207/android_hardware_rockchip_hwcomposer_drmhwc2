@@ -145,6 +145,14 @@ HWC2::Error DrmHwcTwo::Init() {
   return ret;
 }
 
+hwc2_drm_display_t* DrmHwcTwo::GetDisplayCtxPtr(hwc2_display_t display_id){
+  if(displays_.count(display_id)){
+    auto &display = displays_.at(display_id);
+    return display.GetDisplayCtxPtr();
+  }
+  return NULL;
+}
+
 template <typename... Args>
 static inline HWC2::Error unsupported(char const *func, Args... /*args*/) {
   ALOGV("Unsupported function: %s", func);
@@ -1444,6 +1452,10 @@ void DrmHwcTwo::HwcDisplay::UpdateSvepState() {
   return ;
 }
 
+hwc2_drm_display_t* DrmHwcTwo::HwcDisplay::GetDisplayCtxPtr(){
+  return &ctx_;
+}
+
 int DrmHwcTwo::HwcDisplay::ImportBuffers() {
   int ret = 0;
   // 匹配 DrmPlane 图层，请求获取 GemHandle
@@ -1724,6 +1736,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
 
       rga_buffer_t dst;
       im_rect dst_rect;
+
+      memset(&dst, 0x00, sizeof(rga_buffer_t));
+      memset(&dst_rect, 0x00, sizeof(im_rect));
+
       // Set dst buffer info
       dst.fd      = bufferinfo->iFd_;
       dst.width   = bufferinfo->iWidth_;
@@ -2271,7 +2287,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
 
     for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
       DrmHwcTwo::HwcLayer &layer = l.second;
-      if(bUseWriteBack_ && layer.sf_type() == HWC2::Composition::Device){
+      if(bUseWriteBack_){
         layer.set_validated_type(HWC2::Composition::Device);
       }else{
         layer.set_validated_type(HWC2::Composition::Client);
@@ -3140,6 +3156,10 @@ int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
       break;
     }
 #endif
+  }
+
+  if(resource_manager_->isWBMode()){
+    InvalidateControl(30,-1);
   }
 
   if(enable_self_refresh){

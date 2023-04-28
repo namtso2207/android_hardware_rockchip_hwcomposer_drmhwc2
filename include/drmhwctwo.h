@@ -63,6 +63,8 @@ class DrmHwcTwo : public hwc2_device_t {
 
   HWC2::Error Init();
 
+  hwc2_drm_display_t* GetDisplayCtxPtr(hwc2_display_t display_id);
+
  private:
 
   class HwcLayer {
@@ -732,6 +734,7 @@ class DrmHwcTwo : public hwc2_device_t {
    int EnableHdrMode(DrmHwcLayer& hdrLayer);
    void UpdateSvepState();
 
+   hwc2_drm_display_t* GetDisplayCtxPtr();
    // Static Screen opt function
    int UpdateTimerEnable();
    int UpdateTimerState(bool gles_comp);
@@ -740,6 +743,7 @@ class DrmHwcTwo : public hwc2_device_t {
    int EntreStaticScreen(uint64_t refresh, int refresh_cnt);
    int InvalidateControl(uint64_t refresh, int refresh_cnt);
    int isVirtual() { return type_ == HWC2::DisplayType::Virtual;}
+
 
    private:
     HWC2::Error ValidatePlanes();

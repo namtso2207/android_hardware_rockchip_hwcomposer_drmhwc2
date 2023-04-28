@@ -1742,7 +1742,7 @@ int Vop3588::TryGlesSidebandPolicy(
     return -1;
   }
 
-  if((layers.size() - 1) > 1){
+  if((layers.size() - 1) >= 1){
     layer_indices.first = sideband_index + 1;
     layer_indices.second = layers.size() - 1;
   }

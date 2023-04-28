@@ -204,6 +204,7 @@ struct DrmHwcLayer {
   uint16_t alpha = 0xff;
   hwc_frect_t source_crop;
   hwc_rect_t display_frame;
+  hwc_rect_t display_frame_sf;
 
   // Commit mirror function
   int iFbWidth_;

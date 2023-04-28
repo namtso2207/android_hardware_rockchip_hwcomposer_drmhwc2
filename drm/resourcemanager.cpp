@@ -312,7 +312,6 @@ int ResourceManager::WriteBackUseVop(int display){
   // 5. 创建 WriteBackBuffer BufferQueue，并且申请 WB Buffer.
   if(mWriteBackBQ_ == NULL){
     mWriteBackBQ_ = std::make_shared<DrmBufferQueue>(WB_BUFFERQUEUE_MAX_SIZE);
-
     mNextWriteBackBuffer_
       = mWriteBackBQ_->DequeueDrmBuffer(iWBWidth_,
                                         iWBHeight_,
@@ -337,7 +336,43 @@ int ResourceManager::WriteBackUseVop(int display){
 
 // 使用 Rga 作为 WriteBack 内容输出单元
 int ResourceManager::WriteBackUseRga(int display){
-  // unuse
+  // 利用 RGA 进行 WriteBack, RGA alpha blend 要求点对点，不允许缩放
+  // 故要求申请内存与系统UI分辨率一致
+  uint32_t fps = 0;
+  if(hwc2_->GetDisplayCtxPtr(display) != NULL){
+    hwc2_drm_display_t* dpy_ctx = hwc2_->GetDisplayCtxPtr(display);
+    iWBWidth_ = dpy_ctx->framebuffer_width;
+    iWBHeight_ = dpy_ctx->framebuffer_height;
+    iWBFormat_ = HAL_PIXEL_FORMAT_RGBA_8888;
+  }else{
+    iWBWidth_  = mWBMode_.h_display();
+    iWBHeight_ = mWBMode_.v_display();
+    iWBFormat_ = HAL_PIXEL_FORMAT_RGBA_8888;
+  }
+
+  // 5. 创建 WriteBackBuffer BufferQueue，并且申请 WB Buffer.
+  if(mWriteBackBQ_ == NULL){
+    mWriteBackBQ_ = std::make_shared<DrmBufferQueue>();
+
+    mNextWriteBackBuffer_
+      = mWriteBackBQ_->DequeueDrmBuffer(iWBWidth_,
+                                        iWBHeight_,
+                                        iWBFormat_,
+                                        RK_GRALLOC_USAGE_STRIDE_ALIGN_16 |
+                                        MALI_GRALLOC_USAGE_NO_AFBC,
+                                        "WriteBackBuffer");
+    if(!mNextWriteBackBuffer_->initCheck()){
+      HWC2_ALOGE("display=%d WBBuffer Dequeue fail, w=%d h=%d format=%d",
+                                        display,
+                                        iWBWidth_,
+                                        iWBHeight_,
+                                        iWBFormat_);
+      return -1;
+    }
+  }
+
+  bEnableWriteBackRef_++;
+  iWriteBackDisplayId_ = display;
   return 0;
 }
 

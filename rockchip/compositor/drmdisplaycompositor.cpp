@@ -54,6 +54,8 @@ static const int64_t kOneSecondNs = 1 * 1000 * 1000 * 1000;
 #define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
 #endif
 #define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+#define ALIGN_DOWN_INT( value, base)	(((int)(value)) & (~(base-1)) )
+#define YUV_ALIGN 2
 
 
 namespace android {
@@ -332,6 +334,12 @@ int DrmDisplayCompositor::SetupWritebackCommit(drmModeAtomicReqPtr pset,
     ALOGE("Failed to add writeback_fb_id");
     return ret;
   }
+
+  if(writeback_fence_ > 0){
+    close(writeback_fence_);
+    writeback_fence_ = -1;
+  }
+
   ret = drmModeAtomicAddProperty(pset, writeback_conn->id(),
                                  writeback_conn->writeback_out_fence().id(),
                                  (uint64_t)&writeback_fence_);
@@ -882,7 +890,8 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
   // WriteBack Mode
   if(!test_only){
     // 只有 WriteBack by vop 需要执行以下步骤
-    if(resource_manager_->isWBMode() && resource_manager_->IsWriteBackByVop()){
+    if(resource_manager_->isWBMode() &&
+       resource_manager_->IsWriteBackByVop()){
       int wbDisplay = resource_manager_->GetWBDisplay();
       if(wbDisplay == display_){
         ret = SetupWritebackCommit(pset,
@@ -1331,6 +1340,15 @@ void DrmDisplayCompositor::Commit() {
     return;
   }
 
+  // 如果 WriteBack 使用 RGA 模式， 则 调用 WriteBackByRGA 实现合成
+  if(resource_manager_->isWBMode() && resource_manager_->IsWriteBackByRga()){
+    int wbDisplay = resource_manager_->GetWBDisplay();
+    if(wbDisplay == display_){
+      WriteBackByRGA();
+    }
+  }
+
+
   DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   int ret = drmModeAtomicCommit(drm->fd(), pset_, flags, drm);
@@ -1343,6 +1361,10 @@ void DrmDisplayCompositor::Commit() {
     UpdateModeSetState();
     UpdateSidebandState();
   }
+
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return;
 
   // WriteBack Fence handle.
   // 只有 WriteBack by vop 需要执行以下步骤
@@ -1369,9 +1391,6 @@ void DrmDisplayCompositor::Commit() {
     pset_=NULL;
   }
 
-  AutoLock lock(&lock_, __func__);
-  if (lock.Lock())
-    return;
   ++dump_frames_composited_;
   for(auto &collect_composition : collect_composition_map_){
     auto active_composition = active_composition_map_.find(collect_composition.first);
@@ -2887,6 +2906,460 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
   hdrLayer.IsMetadataHdr_ = true;
   HWC2_ALOGD_IF_INFO("Use HdrParser mode.");
   return 0;
+}
+
+
+int DrmDisplayCompositor::WriteBackByRGA() {
+  ATRACE_CALL();
+  int ret = 0;
+
+  DrmDisplayComposition* current_composition = NULL;
+  bool sf_update = false, sideband_update = false;
+  // collect_composition_map_ 有值则表示当前帧包含 SF 刷新
+  if(collect_composition_map_.count(display_) > 0){
+    current_composition = collect_composition_map_[display_].get();
+    sf_update = true;
+  // collect_composition_map_ 无值，则表示当前帧包含不包含
+  }else if(active_composition_map_.count(display_) > 0){
+    current_composition = active_composition_map_[display_].get();
+  }
+
+  if(current_composition == NULL){
+    HWC2_ALOGE("can't find suitable active DrmDisplayComposition");
+    return 0;
+  }
+
+  if(current_sideband2_.buffer_ != NULL){
+    sideband_update = true;
+  }
+
+  if(!sf_update && !sideband_update){
+    HWC2_ALOGI("not update, skip rga compose.");
+    return 0;
+  }
+
+  std::vector<DrmHwcLayer> &layers = current_composition->layers();
+
+  if(layers.size() == 0){
+    HWC2_ALOGE("layers size is 0");
+    return 0;
+  }
+  std::vector<DrmCompositionPlane> &comp_planes = current_composition
+                                                      ->composition_planes();
+  DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
+
+  DrmConnector *connector = drm->GetConnectorForDisplay(display_);
+  if (!connector) {
+    ALOGE("Could not locate connector for display %d", display_);
+    return -ENODEV;
+  }
+
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
+  if (!crtc) {
+    ALOGE("Could not locate crtc for display %d", display_);
+    return -ENODEV;
+  }
+
+  int wbDisplay = resource_manager_->GetWBDisplay();
+  if(wbDisplay != display_){
+    HWC2_ALOGD_IF_WARN("display=%d is not wbDisplay, skip.", display_);
+    return -1;
+  }
+
+  ret = resource_manager_->UpdateWriteBackResolution(display_);
+  if(ret){
+    HWC2_ALOGE("UpdateWriteBackResolution fail.");
+    return -1;
+  }
+  // 获取下一帧的 WB buffer
+  std::shared_ptr<DrmBuffer> dst_buffer = resource_manager_->GetNextWBBuffer();
+  if(!dst_buffer->initCheck()){
+    HWC2_ALOGE("wbBuffer init fail.");
+    return -1;
+  }
+
+  bWriteBackEnable_ = true;
+  uint64_t zpos = 0;
+  int releaseFence = -1;
+  for (DrmCompositionPlane &comp_plane : comp_planes) {
+    DrmPlane *plane = comp_plane.plane();
+    DrmCrtc *crtc = comp_plane.crtc();
+    std::vector<size_t> &source_layers = comp_plane.source_layers();
+    if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
+      if(source_layers.empty()){
+        ALOGE("Can't handle empty source layer CompositionPlane.");
+        continue;
+      }
+
+      if (source_layers.size() > 1) {
+        ALOGE("Can't handle more than one source layer sz=%zu type=%d",
+              source_layers.size(), comp_plane.type());
+        continue;
+      }
+
+      if (source_layers.front() >= layers.size()) {
+        ALOGE("Source layer index %zu out of bounds %zu type=%d",
+              source_layers.front(), layers.size(), comp_plane.type());
+        break;
+      }
+
+      DrmHwcLayer &layer = layers[source_layers.front()];
+
+      if (!layer.buffer && !layer.bSidebandStreamLayer_) {
+        ALOGE("Expected a valid framebuffer for pset");
+        continue;
+      }
+
+      zpos = comp_plane.get_zpos();
+      if(zpos < 0){
+        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+        continue;
+      }
+
+      if(zpos == 0){
+        rga_buffer_t src;
+        rga_buffer_t dst;
+        rga_buffer_t pat;
+        im_rect src_rect;
+        im_rect dst_rect;
+        im_rect pat_rect;
+
+        memset(&src, 0x0, sizeof(rga_buffer_t));
+        memset(&dst, 0x0, sizeof(rga_buffer_t));
+        memset(&pat, 0x0, sizeof(rga_buffer_t));
+        memset(&src_rect, 0x0, sizeof(im_rect));
+        memset(&dst_rect, 0x0, sizeof(im_rect));
+        memset(&pat_rect, 0x0, sizeof(im_rect));
+
+        if(layer.bSidebandStreamLayer_){
+          std::shared_ptr<DrmBuffer> avtive_buffer = NULL;
+          if(current_sideband2_.buffer_ != NULL){
+            avtive_buffer = current_sideband2_.buffer_;
+          }else if(drawing_sideband2_.buffer_ != NULL){
+            avtive_buffer = drawing_sideband2_.buffer_;
+          }
+
+          if(avtive_buffer == NULL){
+            HWC2_ALOGI("avtive_buffer==null, return");
+            continue;
+          }
+
+          // avtive_buffer->DumpData();
+          HWC2_ALOGD_IF_INFO("src buffer-id=0x%" PRIx64 " avtive_buffer=%p fd=%d w=%d h=%d s=%d hs=%d size=%d format=%d",
+                avtive_buffer->GetBufferId(),
+                avtive_buffer.get(),
+                avtive_buffer->GetFd(),
+                avtive_buffer->GetWidth(),
+                avtive_buffer->GetHeight(),
+                avtive_buffer->GetStride(),
+                avtive_buffer->GetHeightStride(),
+                avtive_buffer->GetSize(),
+                avtive_buffer->GetFormat());
+
+          // 利用PQ实现 YUV444 转 YUV420, 若未使能PQ，则RGA无法处理该数据
+          if(avtive_buffer->GetFormat() == HAL_PIXEL_FORMAT_YCbCr_444_888 ||
+             avtive_buffer->GetFormat() == HAL_PIXEL_FORMAT_NV30){
+#ifdef USE_LIBPQ
+            bool need_realloc = false;
+            if(sidbenad_pq_tmp_buffer_ != NULL){
+              if(sidbenad_pq_tmp_buffer_->GetWidth() != avtive_buffer->GetWidth() ||
+                 sidbenad_pq_tmp_buffer_->GetHeight() != avtive_buffer->GetHeight()){
+                  need_realloc = true;
+              }
+            }else{
+              need_realloc = true;
+            }
+
+            if(need_realloc){
+              sidbenad_pq_tmp_buffer_ = std::make_shared<DrmBuffer>(avtive_buffer->GetWidth(),
+                                                        avtive_buffer->GetHeight(),
+                                                        HAL_PIXEL_FORMAT_YCbCr_420_888,
+                                                        RK_GRALLOC_USAGE_STRIDE_ALIGN_64 |
+                                                        MALI_GRALLOC_USAGE_NO_AFBC,
+                                                        "SidebandYuv444TmpBuffer",
+                                                        0);
+              if(sidbenad_pq_tmp_buffer_->Init()){
+                HWC2_ALOGE("DrmBuffer Init fail, w=%d h=%d format=%d name=%s",
+                          avtive_buffer->GetWidth(),
+                          avtive_buffer->GetHeight(),
+                          HAL_PIXEL_FORMAT_YCbCr_420_888,
+                          "SidebandYuv444TmpBuffer");
+                return -1;
+              }
+            }
+            bool need_reinit_pq = false;
+            if(pq_ == NULL ||
+               pq_last_init_format_ != avtive_buffer->GetFormat()){
+              need_reinit_pq = true;
+              pq_last_init_format_ = avtive_buffer->GetFormat();
+            }
+
+            if(need_reinit_pq){
+              int rkpq_intput_fmt = RKPQ_IMG_FMT_YUV_MIN;
+              switch(avtive_buffer->GetFormat()){
+                case HAL_PIXEL_FORMAT_YCbCr_444_888:
+                  rkpq_intput_fmt = RKPQ_IMG_FMT_NV24;
+                  break;
+                case HAL_PIXEL_FORMAT_NV30:
+                  rkpq_intput_fmt = RKPQ_IMG_FMT_NV30;
+                  break;
+                default:
+                  rkpq_intput_fmt = RKPQ_IMG_FMT_NV24;
+                  break;
+              }
+
+              /* dataspace可能值为：
+                HAL_DATASPACE_STANDARD_BT601_625
+                HAL_DATASPACE_BT709
+                HAL_DATASPACE_RANGE_LIMITED
+                HAL_DATASPACE_RANGE_FULL
+                */
+              HWC2_ALOGD_IF_INFO("layer.eDataSpace_=0x%x" , layer.eDataSpace_);
+              int rkpq_intput_fmt_colorspace = RKPQ_CLR_SPC_YUV_601_FULL;
+              if(layer.bYuv_ && layer.eDataSpace_){
+                if((layer.eDataSpace_ & HAL_DATASPACE_STANDARD_BT601_625) == HAL_DATASPACE_STANDARD_BT601_625){
+                  if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_LIMITED) == HAL_DATASPACE_RANGE_LIMITED){
+                    rkpq_intput_fmt_colorspace = RKPQ_CLR_SPC_YUV_601_LIMITED;
+                  }
+
+                  if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_FULL) == HAL_DATASPACE_RANGE_FULL){
+                    rkpq_intput_fmt_colorspace = RKPQ_CLR_SPC_YUV_601_FULL;
+                  }
+                }
+
+                if((layer.eDataSpace_ & HAL_DATASPACE_BT709) == HAL_DATASPACE_BT709){
+                  if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_LIMITED) == HAL_DATASPACE_RANGE_LIMITED){
+                    rkpq_intput_fmt_colorspace = RKPQ_CLR_SPC_YUV_709_LIMITED;
+                  }else{
+                    rkpq_intput_fmt_colorspace = RKPQ_CLR_SPC_YUV_709_FULL;
+                  }
+                }
+              }
+
+              pq_ = std::make_shared<rkpq>();
+              uint32_t src_stride[3] = {0,0,0};
+              pq_->init(avtive_buffer->GetWidth(),
+                        avtive_buffer->GetHeight(),
+                        src_stride,
+                        sidbenad_pq_tmp_buffer_->GetWidth(),
+                        sidbenad_pq_tmp_buffer_->GetHeight(),
+                        64,
+                        rkpq_intput_fmt,
+                        rkpq_intput_fmt_colorspace,
+                        RKPQ_IMG_FMT_NV12,
+                        RKPQ_CLR_SPC_YUV_601_FULL,
+                        RKPQ_FLAG_HIGH_PERFORM);
+
+              HWC2_ALOGD_IF_INFO("PQ: reinit src: w=%d h=%d fmt=%d colorspace=%d"
+                                 " dst: w=%d h=%d fmt=%d colorspace=%d perf=%d",
+                                 avtive_buffer->GetWidth(),
+                                 avtive_buffer->GetHeight(),
+                                 rkpq_intput_fmt,
+                                 rkpq_intput_fmt_colorspace,
+                                 sidbenad_pq_tmp_buffer_->GetWidth(),
+                                 sidbenad_pq_tmp_buffer_->GetHeight(),
+                                 RKPQ_IMG_FMT_NV12,
+                                 RKPQ_CLR_SPC_YUV_601_FULL,
+                                 RKPQ_FLAG_HIGH_PERFORM);
+            }
+
+            pq_->dopq(avtive_buffer->GetFd(),
+                      sidbenad_pq_tmp_buffer_->GetFd(),
+                      PQ_LF_RANGE);
+            // avtive_buffer->DumpData();
+            // sidbenad_pq_tmp_buffer_->DumpData();
+            avtive_buffer = sidbenad_pq_tmp_buffer_;
+            layer.eDataSpace_ = HAL_DATASPACE_V0_BT601_625;
+#else       // RGA 无法处理 NV24/NV42/NV30 等格式，直接跳过
+            continue;
+#endif
+          }
+
+          // Set src buffer info
+          src.fd     = avtive_buffer->GetFd();
+          src.width  = avtive_buffer->GetWidth();
+          src.height = avtive_buffer->GetHeight();
+          src.wstride = avtive_buffer->GetStride();
+          src.hstride = avtive_buffer->GetHeightStride();
+          // RGA 有一些特殊格式不支持输出，需要转换为 RGA 格式
+          // bgr888:HAL_PIXEL_FORMAT_BGR_888
+          // nv12:HAL_PIXEL_FORMAT_YCrCb_NV12
+          // nv16:HAL_PIXEL_FORMAT_YCbCr_422_SP
+          // nv24:HAL_PIXEL_FORMAT_YCbCr_444_888 RGA 不支持，建议HDMI-IN处理掉
+          // nv15:HAL_PIXEL_FORMAT_YCrCb_NV12_10
+          // nv30:HAL_PIXEL_FORMAT_NV30 RGA 不支持，建议HDMI-IN处理掉
+          switch(avtive_buffer->GetFormat()){
+            case HAL_PIXEL_FORMAT_BGR_888:
+                src.format = RK_FORMAT_BGR_888;
+                break;
+            case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+                src.format = RK_FORMAT_YCbCr_422_SP;
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_NV12_10:
+                src.format = RK_FORMAT_YCrCb_420_SP_10B;
+                break;
+            // YUV444格式为 HAL_PIXEL_FORMAT_YCbCr_444_888
+            // 故需要转换格式为 RK_FORMAT_YCbCr_420_SP
+            case HAL_PIXEL_FORMAT_YCbCr_420_888:
+                src.format = RK_FORMAT_YCbCr_420_SP;
+                break;
+            default:
+                src.format = avtive_buffer->GetFormat();
+          }
+
+          // Set src rect info
+          src_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
+          src_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
+          src_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
+          src_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+
+          if(layer.uModifier_ > 0)
+            src.rd_mode = IM_FBC_MODE;
+
+          /* dataspace可能值为：
+            HAL_DATASPACE_STANDARD_BT601_625
+            HAL_DATASPACE_BT709
+            HAL_DATASPACE_RANGE_LIMITED
+            HAL_DATASPACE_RANGE_FULL
+            */
+          HWC2_ALOGD_IF_INFO("layer.eDataSpace_=0x%x" , layer.eDataSpace_);
+          src.color_space_mode = IM_YUV_TO_RGB_BT601_FULL;
+          if(layer.bYuv_ && layer.eDataSpace_){
+            if((layer.eDataSpace_ & HAL_DATASPACE_STANDARD_BT601_625) == HAL_DATASPACE_STANDARD_BT601_625){
+              if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_LIMITED) == HAL_DATASPACE_RANGE_LIMITED){
+                src.color_space_mode = IM_YUV_TO_RGB_BT601_LIMIT;
+              }
+
+              if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_FULL) == HAL_DATASPACE_RANGE_FULL){
+                src.color_space_mode = IM_YUV_TO_RGB_BT601_FULL;
+              }
+            }
+
+            if((layer.eDataSpace_ & HAL_DATASPACE_BT709) == HAL_DATASPACE_BT709){
+              if((layer.eDataSpace_ & HAL_DATASPACE_RANGE_LIMITED) == HAL_DATASPACE_RANGE_LIMITED){
+                src.color_space_mode = IM_YUV_TO_RGB_BT709_LIMIT;
+              }
+            }
+          }
+        }else{
+          // Set src buffer info
+          src.fd     = layer.iFd_;
+          src.width  = layer.iWidth_;
+          src.height = layer.iHeight_;
+          src.wstride = layer.iStride_;
+          src.hstride = layer.iHeightStride_;
+          src.format = layer.iFormat_;
+
+          // Set src rect info
+          src_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
+          src_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
+          src_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
+          src_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+
+          if(layer.uModifier_ > 0)
+            src.rd_mode = IM_FBC_MODE;
+        }
+
+        // Set dst buffer info
+        dst.fd     = dst_buffer->GetFd();
+        dst.width  = dst_buffer->GetWidth();
+        dst.height = dst_buffer->GetHeight();
+        dst.wstride = dst_buffer->GetStride();
+        dst.hstride = dst_buffer->GetHeightStride();
+        dst.format = dst_buffer->GetFormat();
+
+        // Set src rect info
+        dst_rect.x = ALIGN_DOWN_INT(layer.display_frame_sf.left, YUV_ALIGN);
+        dst_rect.y = ALIGN_DOWN_INT(layer.display_frame_sf.top, YUV_ALIGN);
+        dst_rect.width = ALIGN_DOWN_INT(layer.display_frame_sf.right - layer.display_frame_sf.left, YUV_ALIGN);
+        dst_rect.height = ALIGN_DOWN_INT(layer.display_frame_sf.bottom - layer.display_frame_sf.top, YUV_ALIGN);
+
+        IM_STATUS im_state;
+        im_opt_t opt;
+        memset(&opt, 0x00, sizeof(im_opt_t));
+
+        int usage = IM_SYNC;
+        // Call Im2d 格式转换
+        im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect,  -1, NULL, &opt, usage);
+        if (im_state == IM_STATUS_SUCCESS) {
+            HWC2_ALOGD_IF_INFO("%s running success! zpos==0 \n", LOG_TAG);
+        } else {
+            HWC2_ALOGE("%s running failed,  zpos==0  %s\n", LOG_TAG, imStrError((IM_STATUS)ret));
+        }
+      }else{
+        rga_buffer_t src;
+        rga_buffer_t dst;
+        rga_buffer_t pat;
+        im_rect src_rect;
+        im_rect dst_rect;
+        im_rect pat_rect;
+
+        memset(&src, 0x0, sizeof(rga_buffer_t));
+        memset(&dst, 0x0, sizeof(rga_buffer_t));
+        memset(&pat, 0x0, sizeof(rga_buffer_t));
+        memset(&src_rect, 0x0, sizeof(im_rect));
+        memset(&dst_rect, 0x0, sizeof(im_rect));
+        memset(&pat_rect, 0x0, sizeof(im_rect));
+
+        // Set dst buffer info
+        src.fd     = layer.iFd_;
+        src.width  = layer.iWidth_;
+        src.height = layer.iHeight_;
+        src.wstride = layer.iStride_;
+        src.hstride = layer.iHeightStride_;
+        src.format = layer.iFormat_;
+
+        // Set src rect info
+        src_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
+        src_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
+        src_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
+        src_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+
+        if(layer.uModifier_ > 0)
+          src.rd_mode = IM_FBC_MODE;
+
+        // Set dst buffer info
+        dst.fd     = dst_buffer->GetFd();
+        dst.width  = dst_buffer->GetWidth();
+        dst.height = dst_buffer->GetHeight();
+        dst.wstride = dst_buffer->GetStride();
+        dst.hstride = dst_buffer->GetHeightStride();
+        dst.format = dst_buffer->GetFormat();
+
+        // Set src rect info
+        dst_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
+        dst_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
+        dst_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
+        dst_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+
+        IM_STATUS im_state;
+        im_opt_t opt;
+        memset(&opt, 0x00, sizeof(im_opt_t));
+
+        int usage = IM_ASYNC | IM_ALPHA_BLEND_SRC_OVER | IM_ALPHA_BLEND_PRE_MUL;
+        // Call Im2d 格式转换
+        im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect,  0, &releaseFence, &opt, usage);
+        if (im_state == IM_STATUS_SUCCESS) {
+            HWC2_ALOGD_IF_INFO("%s running success! zpos==0 \n", LOG_TAG);
+        } else {
+            HWC2_ALOGE("%s running failed,  zpos==0  %s\n", LOG_TAG, imStrError((IM_STATUS)ret));
+        }
+      }
+    }
+  }
+
+  // WriteBack Fence handle.
+  if(resource_manager_->isWBMode()){
+    int wbDisplay = resource_manager_->GetWBDisplay();
+    if(wbDisplay == display_){
+      std::shared_ptr<DrmBuffer> wbBuffer = resource_manager_->GetNextWBBuffer();
+      if(releaseFence > 0){
+        wbBuffer->SetFinishFence(releaseFence);
+      }
+      resource_manager_->SwapWBBuffer(frame_no_);
+    }
+  }
+  return ret;
 }
 
 int DrmDisplayCompositor::Composite() {
