@@ -742,6 +742,9 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
 
 int DrmDisplayCompositor::UpdateModeSetState() {
   ATRACE_CALL();
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -1;
   int ret = 0;
   if(!need_mode_set_){
     return 0;
@@ -758,6 +761,9 @@ int DrmDisplayCompositor::UpdateModeSetState() {
 
 int DrmDisplayCompositor::UpdateSidebandState() {
   ATRACE_CALL();
+  AutoLock lock(&lock_, __func__);
+  if (lock.Lock())
+    return -1;
 
   DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
   if(!dvp->IsValid()){
