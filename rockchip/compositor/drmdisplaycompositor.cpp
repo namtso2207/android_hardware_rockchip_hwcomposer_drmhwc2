@@ -478,6 +478,12 @@ int64_t DrmDisplayCompositor::GetPhasedVSync(int64_t frame_ns, int64_t current) 
 
 int DrmDisplayCompositor::SyntheticWaitVBlank() {
   ATRACE_CALL();
+
+  // WriteBack by RGA 不需要等待时间
+  if(resource_manager_->isWBMode() && resource_manager_->IsWriteBackByRga()){
+    return 0;
+  }
+
   int ret = clock_gettime(CLOCK_MONOTONIC, &vsync_);
   float refresh = 60.0f;  // Default to 60Hz refresh rate
   DrmDevice *drm = resource_manager_->GetDrmDevice(display_);
@@ -487,7 +493,7 @@ int DrmDisplayCompositor::SyntheticWaitVBlank() {
       refresh = conn->active_mode().v_refresh();
   }
 
-  float percentage = 0.1f; // 30% Remaining Time to the drm driver。
+  float percentage = 0.1f; // 10% Remaining Time to the drm driver。
   int64_t phased_timestamp = GetPhasedVSync(kOneSecondNs / refresh * percentage,
                                             vsync_.tv_sec * kOneSecondNs +
                                                 vsync_.tv_nsec);
