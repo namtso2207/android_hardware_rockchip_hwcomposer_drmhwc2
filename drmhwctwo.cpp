@@ -2260,7 +2260,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
     // 获取 WriteBack id
     int WBDisplayId = resource_manager_->GetWBDisplay();
     // 检查是否正确使能 Hw Virtual Display 功能
-    if(WBDisplayId > 0 &&
+    if(WBDisplayId >= 0 &&
        resource_manager_->isWBMode() &&
        !resource_manager_->IsDisableHwVirtualDisplay()){
       DrmConnector *connector = drm_->GetConnectorForDisplay(WBDisplayId);
