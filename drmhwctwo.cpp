@@ -2661,8 +2661,26 @@ int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
   return 0;
 }
+bool DrmHwcTwo::HwcDisplay::DisableHdrModeRK3588(){
+  DrmMode active_mode = connector_->active_mode();
+  // 如果是8K分辨率模式，HDR片源没有走 overlay 策略，则关闭HDR
+  // 主要原因是VOP硬件限制，要求最底层为 HDR dataspace，GPU合成输出为SDR，
+  // 不满足条件，则需要关闭HDR模式
+  if(active_mode.id() > 0 && active_mode.is_8k_mode()){
+    for(auto &drmHwcLayer : drm_hwc_layers_){
+      if(drmHwcLayer.bHdr_){
+        // 没有被硬件图层匹配，则说明使用GPU合成
+        if(!drmHwcLayer.bMatch_){
+          HWC2_ALOGD_IF_DEBUG("HDR video compose by GLES on 8k resolution, Fource Disable HDR mode.");
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
 
-bool DrmHwcTwo::HwcDisplay::IsHdrMode(){
+bool DrmHwcTwo::HwcDisplay::DisableHdrMode(){
   bool exist_hdr_layer = false;
   int  hdr_area_ratio = 0;
 
@@ -2695,7 +2713,7 @@ bool DrmHwcTwo::HwcDisplay::IsHdrMode(){
         property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
       }
       HWC2_ALOGD_IF_DEBUG("Fource Disable HDR mode.");
-      return false;
+      return true;
     }
 
     // 存在 HDR图层，判断HDR视频的屏幕占比与缩放倍率，满足条件则关闭HDR模式
@@ -2706,17 +2724,17 @@ bool DrmHwcTwo::HwcDisplay::IsHdrMode(){
         property_set("vendor.hwc.hdr_state","FORCE-NORMAL");
       }
       HWC2_ALOGD_IF_DEBUG("Force Disable HDR mode.");
-      return false;
+      return true;
     }
   }
 
   if(!exist_hdr_layer && ctx_.hdr_mode != DRM_HWC_SDR){
     ALOGD_IF(LogLevel(DBG_DEBUG),"Exit HDR mode success");
     property_set("vendor.hwc.hdr_state","NORMAL");
-    return false;
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
@@ -3086,14 +3104,22 @@ int DrmHwcTwo::HwcDisplay::SwitchHdrMode(){
         if(EnableMetadataHdrMode(drmHwcLayer) == 0){
           return 0;
         }
-      }else{ // 其他平台正常走HDR判断模式
+      // 其他平台的 HDR 模式处理
+      }else{
         if(drmHwcLayer.bHdr_){
-          // 判断是否需要进入HDR模式
-          if(!IsHdrMode()){
+          // 其他平台通用的判断是否需要进入HDR模式逻辑
+          if(DisableHdrMode()){
             ctx_.hdr_mode = DRM_HWC_SDR;
             ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
             return 0;
           }
+          // RK3588 平台特殊的判断逻辑
+          if(DisableHdrModeRK3588()){
+            ctx_.hdr_mode = DRM_HWC_SDR;
+            ctx_.dataspace = HAL_DATASPACE_UNKNOWN;
+            return 0;
+          }
+
           if(!EnableHdrMode(drmHwcLayer)){
             return 0;
           }
