@@ -1984,11 +1984,6 @@ void DrmDisplayCompositor::ClearDisplay() {
   }
   collect_composition_map_.clear();
 
-  if(pset_ != NULL){
-    drmModeAtomicFree(pset_);
-    pset_ = NULL;
-  }
-
   //Singal the remainder fences in composite queue.
   while(!composite_queue_.empty())
   {
