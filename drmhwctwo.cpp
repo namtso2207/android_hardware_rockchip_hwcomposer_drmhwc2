@@ -3894,7 +3894,7 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
         std::shared_ptr<DrmBuffer> dst_buffer;
         dst_buffer = bufferQueue_->DequeueDrmBuffer(ctx->framebuffer_width,
                                                     ctx->framebuffer_height,
-                                                    HAL_PIXEL_FORMAT_YCrCb_NV12_10,
+                                                    HAL_PIXEL_FORMAT_YCBCR_444_888,
                                                     // PQ 算法要求 256 对齐，Gralloc可用的只有256奇数倍对齐
                                                     // 暂时按照 256 奇数倍对齐，后续查看情况
                                                     // TODO: 最终PQ库内部修改为64对齐即可
@@ -3983,7 +3983,7 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
         bufferQueue_->QueueBuffer(dst_buffer);
       }
     }
-	drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV15;
+    drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV24;
   }
   drmHwcLayer->Init();
   drmHwcLayer->uColorSpace = V4L2_COLORSPACE_JPEG;
