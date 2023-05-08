@@ -3819,6 +3819,9 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
           bPqReady_ = true;
           HWC2_ALOGI("Pq module ready. to enable PqMode.");
         }
+      } else {
+          bPqReady_ = true;
+          HWC2_ALOGI("Pq module ready. to enable PqMode.");
       }
       if(bPqReady_){
         // 1. Init Ctx
@@ -3984,6 +3987,11 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
       }
     }
     drmHwcLayer->uFourccFormat_ = DRM_FORMAT_NV24;
+  } else {
+      if(bPqReady_) {
+          pq_->DeInit();
+          bPqReady_ = false;
+      }
   }
   drmHwcLayer->Init();
   drmHwcLayer->uColorSpace = V4L2_COLORSPACE_JPEG;
