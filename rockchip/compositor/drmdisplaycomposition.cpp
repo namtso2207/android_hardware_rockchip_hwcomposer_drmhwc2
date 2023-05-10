@@ -81,7 +81,8 @@ int DrmDisplayComposition::SetLayers(DrmHwcLayer *layers, size_t num_layers,
   has_sideband2_layer_ = false;
 
   for (size_t layer_index = 0; layer_index < num_layers; layer_index++) {
-    if(layers[layer_index].bUseSvep_){
+    if(layers[layer_index].bUseSvep_ ||
+       layers[layer_index].bUseMemc_){
         has_svep_layer_ = true;
     }
     if(layers[layer_index].bSidebandStreamLayer_ && layers[layer_index].iTunnelId_ > 0){
@@ -240,8 +241,12 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences(SyncTimeline &sync_timel
     layer->release_fence = sp<ReleaseFence>(new ReleaseFence(sync_timeline, sync_timeline_cnt, acBuf));
     if (layer->release_fence->isValid()){
       HWC2_ALOGD_IF_DEBUG(" Create ReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
-#ifdef USE_LIBSVEP
-      if(layer->bUseSvep_){
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+      if(layer->bUseSvep_ && layer->pSvepBuffer_ != NULL){
+        layer->pSvepBuffer_->SetReleaseFence(dup(layer->release_fence->getFd()));
+        HWC2_ALOGD_IF_DEBUG(" Create SvepReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
+      }
+      if(layer->bUseMemc_ && layer->pSvepBuffer_ != NULL){
         layer->pSvepBuffer_->SetReleaseFence(dup(layer->release_fence->getFd()));
         HWC2_ALOGD_IF_DEBUG(" Create SvepReleaseFence(%s) Sucess: frame = %" PRIu64 " LayerName=%s",acBuf, frame_no_, layer->sLayerName_.c_str());
       }

@@ -208,19 +208,38 @@ LOCAL_C_INCLUDES += \
 endif
 endif
 
+# SR
 # BOARD_USES_LIBSVEP=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
+# in order to adapter old version，need include two dir.
 LOCAL_C_INCLUDES += \
-  hardware/rockchip/libsvep/include
+  hardware/rockchip/libsvep/include \
+  hardware/rockchip/libsvep/include/sr
 
 LOCAL_SHARED_LIBRARIES += \
 	libsvep \
 	librknnrt-svep \
-	libOpenCL \
-	librksvep
+	libOpenCL
 
 LOCAL_CFLAGS += \
 	-DUSE_LIBSVEP=1
+
+LOCAL_REQUIRED_MODULES += \
+	HwcSvepEnv.xml
+endif
+
+# MEMC
+# BOARD_USES_LIBSVEP_MEMC=true
+ifeq ($(strip $(BOARD_USES_LIBSVEP_MEMC)),true)
+LOCAL_C_INCLUDES += \
+  hardware/rockchip/libsvep/include/memc
+
+LOCAL_SHARED_LIBRARIES += \
+	libmemc \
+	libOpenCL
+
+LOCAL_CFLAGS += \
+	-DUSE_LIBSVEP_MEMC=1
 
 LOCAL_REQUIRED_MODULES += \
 	HwcSvepEnv.xml

@@ -44,6 +44,10 @@
 #include "Svep.h"
 #endif
 
+#ifdef USE_LIBSVEP_MEMC
+#include "Memc.h"
+#endif
+
 #include <cutils/properties.h>
 
 
@@ -74,6 +78,12 @@ class Vop3588 : public Planner::PlanStage {
 
 typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
+typedef enum tagHwcSvepMode{
+  HWC2_SVEP_NONE = 0,
+  HWC2_SVEP_SR   = 1,
+  HWC2_SVEP_MEMC = 2
+} HwcSvepMode;
+
 typedef enum tagComposeMode{
    HWC_OVERLAY_LOPICY,
    HWC_MIX_SKIP_LOPICY,
@@ -92,6 +102,7 @@ typedef enum tagComposeMode{
 }ComposeMode;
 
 typedef struct RequestContext{
+  uint64_t frame_no_ = 0;
   int iSkipCnt=0;
   bool bSidebandStreamMode=false;
   bool accelerate_app_exist_;
@@ -223,6 +234,11 @@ struct SvepXml{
      ,
      bufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
+
+#ifdef USE_LIBSVEP_MEMC
+     ,
+     memcBufferQueue_((std::make_shared<DrmBufferQueue>()))
+#endif
   {
     Init();
   }
@@ -245,11 +261,26 @@ struct SvepXml{
   int TryMixSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
                     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                     std::vector<PlaneGroup *> &plane_groups);
-#ifdef USE_LIBSVEP
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+  bool TrySvepOverlay();
   int TrySvepPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
 #endif
+
+#ifdef USE_LIBSVEP
+  int TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+#endif
+
+#ifdef USE_LIBSVEP_MEMC
+  int ClearMemcJob();
+  int TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
+                        std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
+                        std::vector<PlaneGroup *> &plane_groups);
+#endif
+
   int TryGlesSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
@@ -287,7 +318,6 @@ struct SvepXml{
   bool SvepAllowedByBlacklist(DrmHwcLayer *layer);
   bool SvepAllowedByWhitelist(DrmHwcLayer *layer);
   bool SvepAllowedByLocalPolicy(DrmHwcLayer *layer);
-  bool TrySvepOverlay();
 #endif
 
   void TryMix();
@@ -335,6 +365,7 @@ struct SvepXml{
   Vop2Ctx ctx;
   std::shared_ptr<DrmBufferQueue> rgaBufferQueue_;
 #ifdef USE_LIBSVEP
+  // SR
   Svep* svep_;
   bool bSvepReady_;
   SvepContext svepCtx_;
@@ -343,6 +374,18 @@ struct SvepXml{
   int mLastMode_;
   bool mEnableOnelineMode_;
   uint64_t mSvepBeginTimeMs_;
+#endif
+
+#ifdef USE_LIBSVEP_MEMC
+  // MEMC
+  Memc* memc_;
+  bool bMemcReady_;
+  uint64_t uMemcFrameNo_;
+  MemcContext memcCtx_;
+  std::shared_ptr<DrmBufferQueue> memcBufferQueue_;
+  int mMemcLastMode_;
+  bool mMemcEnableOnelineMode_;
+  uint64_t mMemcBeginTimeMs_;
 #endif
 };
 

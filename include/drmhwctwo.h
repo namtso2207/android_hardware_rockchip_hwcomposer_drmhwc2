@@ -27,9 +27,6 @@
 #include "rockchip/producer/drmvideoproducer.h"
 
 #include "drmbufferqueue.h"
-#ifdef USE_LIBSVEP
-#include "Svep.h"
-#endif
 
 #ifdef USE_LIBPQ
 #include "Pq.h"
@@ -611,13 +608,6 @@ class DrmHwcTwo : public hwc2_device_t {
     nsecs_t mLastFpsTime_ = 0;
 
     float mFps_;
-
-#ifdef USE_LIBSVEP
-    std::shared_ptr<DrmBufferQueue> bufferQueue_;
-    Svep* svep_;
-    bool bSvepReady_;
-    SvepContext svepCtx_;
-#endif
     // DRM Resource
     DrmGralloc *drmGralloc_;
     DrmDevice *drm_;

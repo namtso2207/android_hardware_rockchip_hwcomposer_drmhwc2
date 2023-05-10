@@ -288,6 +288,9 @@ struct DrmHwcLayer {
   bool bUseSvep_;
   std::shared_ptr<DrmBuffer> pSvepBuffer_;
 
+  bool bUseMemc_;
+  std::shared_ptr<DrmBuffer> pMemcBuffer_;
+
   bool bUsePq_;
   std::shared_ptr<DrmBuffer> pPqBuffer_;
 

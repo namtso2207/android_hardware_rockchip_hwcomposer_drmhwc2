@@ -1394,6 +1394,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       map_hwc2layer->second.set_validated_type(HWC2::Composition::Device);
       if(drm_hwc_layer.bUseSvep_){
         ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device-Svep : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
+      }else if(drm_hwc_layer.bUseMemc_){
+        ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device-Memc : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
       }else{
         ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Device : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
       }
@@ -1403,7 +1405,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidatePlanes() {
       ALOGD_IF(LogLevel(DBG_INFO),"[%.4" PRIu32 "]=Client : %s",drm_hwc_layer.uId_,drm_hwc_layer.sLayerName_.c_str());
     }
   }
-#ifdef USE_LIBSVEP
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
   // Update svep state.
   UpdateSvepState();
 #endif
@@ -1420,6 +1422,10 @@ void DrmHwcTwo::HwcDisplay::UpdateSvepState() {
   bool exist_svep_layer = false;
   for (auto &drm_hwc_layer : drm_hwc_layers_) {
     if(drm_hwc_layer.bUseSvep_){
+      exist_svep_layer = true;
+    }
+
+    if(drm_hwc_layer.bUseMemc_){
       exist_svep_layer = true;
     }
   }
@@ -1468,9 +1474,12 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
       // 如果图层没有采用Overlay,则不需要获取GemHandle
       if(!drm_hwc_layer.bMatch_)
         continue;
-#ifdef USE_LIBSVEP
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
       // 如果是超分处理后的图层，已经更新了GemHandle参数，则不再获取GemHandle
       if(drm_hwc_layer.bUseSvep_)
+        continue;
+      // 如果是超分处理后的图层，已经更新了GemHandle参数，则不再获取GemHandle
+      if(drm_hwc_layer.bUseMemc_)
         continue;
 #endif
       // 如果是超分处理后的图层，已经更新了GemHandle参数，则不再获取GemHandle
@@ -3149,9 +3158,15 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
       break;
     }
 
-#ifdef USE_LIBSVEP
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
     // Svep
     if(drmHwcLayer.bUseSvep_){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"Svep %s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
+      enable_timer = false;
+      break;
+    }
+    // Memc
+    if(drmHwcLayer.bUseMemc_){
       ALOGD_IF(LogLevel(DBG_DEBUG),"Svep %s timer!",static_screen_timer_enable_ ? "Enable" : "Disable");
       enable_timer = false;
       break;
@@ -3178,31 +3193,40 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
 }
 int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
   bool enable_self_refresh = false;
-  int fps = 10;
+  int self_fps = 10;
   for(auto &drmHwcLayer : drm_hwc_layers_){
 
-#ifdef USE_LIBSVEP
+#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
     // Svep
     if(drmHwcLayer.bUseSvep_){
       HWC2_ALOGD_IF_DEBUG("Svep Enable SelfRefresh!");
       enable_self_refresh = true;
+      self_fps = 10;
+      break;
+    }
+    // MEMC
+    if(drmHwcLayer.bUseMemc_){
+      HWC2_ALOGD_IF_DEBUG("Svep Enable SelfRefresh!");
+      enable_self_refresh = true;
+      self_fps = 60;
       break;
     }
 #endif
 
     if(drmHwcLayer.bAccelerateLayer_ && !drmHwcLayer.bMatch_){
       enable_self_refresh = true;
-      fps = 30;
+      self_fps = 30;
+      break;
     }
-
   }
 
   if(resource_manager_->isWBMode()){
-    InvalidateControl(30,-1);
+    if(self_fps < 30)
+      self_fps = 30;
   }
 
   if(enable_self_refresh){
-    InvalidateControl(fps,-1);
+    InvalidateControl(self_fps,-1);
   }
   return 0 ;
 }
