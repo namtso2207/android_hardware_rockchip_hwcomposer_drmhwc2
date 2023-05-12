@@ -3172,6 +3172,7 @@ int DrmHwcTwo::HwcDisplay::UpdateTimerEnable(){
 }
 int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
   bool enable_self_refresh = false;
+  int fps = 10;
   for(auto &drmHwcLayer : drm_hwc_layers_){
 
 #ifdef USE_LIBSVEP
@@ -3182,6 +3183,12 @@ int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
       break;
     }
 #endif
+
+    if(drmHwcLayer.bAccelerateLayer_ && !drmHwcLayer.bMatch_){
+      enable_self_refresh = true;
+      fps = 30;
+    }
+
   }
 
   if(resource_manager_->isWBMode()){
@@ -3189,7 +3196,7 @@ int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
   }
 
   if(enable_self_refresh){
-    InvalidateControl(10,-1);
+    InvalidateControl(fps,-1);
   }
   return 0 ;
 }
