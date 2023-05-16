@@ -794,6 +794,7 @@ class DrmHwcTwo : public hwc2_device_t {
     int iLastLayerSize_;
 
     uint32_t frame_no_ = 0;
+    uint64_t wb_frame_no_ = 0;
     SyncTimeline sync_timeline_;
     DeferredRetireFence d_retire_fence_;
     bool bDropFrame_;

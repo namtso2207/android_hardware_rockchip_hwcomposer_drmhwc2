@@ -1818,7 +1818,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
         dst.rd_mode = IM_FBC_MODE;
       }
 
-      int ret = resource_manager_->OutputWBBuffer(dst, dst_rect, retire_fence);
+      int ret = resource_manager_->OutputWBBuffer((int)handle_, dst, dst_rect, retire_fence, &wb_frame_no_);
       if(ret){
         HWC2_ALOGE("OutputWBBuffer fail!");
       }

@@ -292,7 +292,7 @@ HwVirtualDisplayMode_t ResourceManager::ChooseWriteBackMode(int display){
 
   // 3. 获取待 WriteBack 当前分辨率，用于申请 WriteBackBuffer
   // 4. WriteBack 硬件要求 16对齐，否则超出部分会直接丢弃
-  mWBMode_ = writeBackConn->current_mode();;
+  mWBMode_ = writeBackConn->current_mode();
   if(mWBMode_.width() > 4096 || mWBMode_.height() > 2160){
     HWC2_ALOGI("Primary resolution=%dx%d, use WriteBack by RGA", mWBMode_.width(), mWBMode_.height());
     return HWC2_HW_VIRTUAL_DISPLAY_USE_RGA;
@@ -499,9 +499,7 @@ int ResourceManager::DisableWriteBackMode(int display){
   bEnableWriteBackRef_--;
   if(bEnableWriteBackRef_ <= 0){
     iWriteBackDisplayId_ = -1;
-    while(mFinishBufferQueue_.size() > 0){
-      mFinishBufferQueue_.pop();
-    }
+    mFinishBufferQueue_.clear();
     mVDMode_ = HWC2_DISABLE_HW_VIRTUAL_DISPLAY;
   }
   return 0;
@@ -579,9 +577,11 @@ int ResourceManager::GetFinishWBBufferSize(){
   return mFinishBufferQueue_.size();
 }
 
-int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
+int ResourceManager::OutputWBBuffer(int display_id,
+                                    rga_buffer_t &dst,
                                     im_rect &dst_rect,
-                                    int32_t *retire_fence){
+                                    int32_t *retire_fence,
+                                    uint64_t *last_frame_no){
 
   ATRACE_CALL();
   std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
@@ -590,24 +590,37 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
     return -1;
   }
 
-  PAIR_ID_BUFFER FinishBufferPair = mFinishBufferQueue_.front();
-  uint64_t frame_no = FinishBufferPair.first;
-  std::shared_ptr<DrmBuffer> finish_buffer = FinishBufferPair.second;
-  mFinishBufferQueue_.pop();
+  std::shared_ptr<DrmBuffer> output_buffer = NULL;
+  uint64_t output_frame_no = 0;
+  std::queue<PAIR_ID_BUFFER> tmp_bufferqueue;
+  for(auto &FinishBufferPair : mFinishBufferQueue_){
+    if(FinishBufferPair.first > *last_frame_no){
+      output_buffer = FinishBufferPair.second;
+      output_frame_no = FinishBufferPair.first;
+      break;
+    }
+  }
 
-  if(finish_buffer == NULL){
-    HWC2_ALOGE("finish_buffer is NULL");
+  if(output_buffer == NULL && mFinishBufferQueue_.size() >0){
+    output_buffer = mFinishBufferQueue_.back().second;
+    output_frame_no = mFinishBufferQueue_.back().first;
+    HWC2_ALOGW("VDS may output a same image frame_no=%" PRIu64 " Last_frame_no=%" PRIu64 , output_frame_no, *last_frame_no);
+  }
+
+  if(output_buffer == NULL){
+    HWC2_ALOGE("output_buffer is NULL");
     return -1;
   }
 
-  HWC2_ALOGD_IF_VERBOSE("WB: frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,frame_no, finish_buffer->GetId(),mFinishBufferQueue_.size());
+  HWC2_ALOGD_IF_DEBUG("WB: display=%d frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,
+                        display_id, output_frame_no, output_buffer->GetId(),mFinishBufferQueue_.size());
 
-  finish_buffer->WaitFinishFence();
+  output_buffer->WaitFinishFence();
   // 添加调试接口，抓打印WriteBack Buffer
   char value[PROPERTY_VALUE_MAX];
   property_get("debug.wb.dump", value, "0");
   if(atoi(value) > 0){
-    finish_buffer->DumpData();
+    output_buffer->DumpData();
   }
 
   rga_buffer_t src;
@@ -621,12 +634,12 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   memset(&src_rect, 0x0, sizeof(im_rect));
 
   // Set src buffer info
-  src.fd      = finish_buffer->GetFd();
-  src.width   = finish_buffer->GetWidth();
-  src.height  = finish_buffer->GetHeight();
-  src.wstride = finish_buffer->GetStride();
-  src.hstride = finish_buffer->GetHeightStride();
-  src.format  = finish_buffer->GetFormat();
+  src.fd      = output_buffer->GetFd();
+  src.width   = output_buffer->GetWidth();
+  src.height  = output_buffer->GetHeight();
+  src.wstride = output_buffer->GetStride();
+  src.hstride = output_buffer->GetHeightStride();
+  src.format  = output_buffer->GetFormat();
 
   // 由于WriteBack仅支持BGR888(B:G:R little endian)，故需要使用RGA做格式转换
   if(src.format == HAL_PIXEL_FORMAT_RGB_888)
@@ -639,8 +652,8 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   // Set src rect info
   src_rect.x = 0;
   src_rect.y = 0;
-  src_rect.width  = finish_buffer->GetWidth();
-  src_rect.height = finish_buffer->GetHeight();
+  src_rect.width  = output_buffer->GetWidth();
+  src_rect.height = output_buffer->GetHeight();
 
   // Set Dataspace
   // if((srcBuffer.mBufferInfo_.uDataSpace_ & HAL_DATASPACE_STANDARD_BT709) == HAL_DATASPACE_STANDARD_BT709){
@@ -663,12 +676,14 @@ int ResourceManager::OutputWBBuffer(rga_buffer_t &dst,
   if(im_state == IM_STATUS_SUCCESS){
     HWC2_ALOGD_IF_VERBOSE("call im2d convert to rgb888 Success");
     *retire_fence = dup(releaseFence);
-    finish_buffer->SetReleaseFence(releaseFence);
+    output_buffer->SetReleaseFence(releaseFence);
   }else{
     HWC2_ALOGD_IF_DEBUG("call im2d fail, ret=%d Error=%s", im_state, imStrError(im_state));
     *retire_fence = -1;
     return -1;
   }
+
+  *last_frame_no = output_frame_no;
 
   return 0;
 }
@@ -684,15 +699,15 @@ int ResourceManager::SwapWBBuffer(uint64_t frame_no){
 
   // 1. Drawing 切换为 Finish 状态, 并 push 进队列
   if(mDrawingWriteBackBuffer_ != NULL){
-    mFinishBufferQueue_.push(PAIR_ID_BUFFER{frame_no, mDrawingWriteBackBuffer_});
+    mFinishBufferQueue_.push_back(PAIR_ID_BUFFER{frame_no, mDrawingWriteBackBuffer_});
     HWC2_ALOGD_IF_VERBOSE("WB: frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,frame_no, mDrawingWriteBackBuffer_->GetId(),mFinishBufferQueue_.size());
     // 环形缓冲区，若达到环形缓冲区最大尺寸，则需要丢掉最旧的一帧缓存
     if(mFinishBufferQueue_.size() > (WB_BUFFERQUEUE_MAX_SIZE - 1)){
-      auto last_buffer_pair = mFinishBufferQueue_.front();
-      mFinishBufferQueue_.pop();
+      auto last_buffer_pair = mFinishBufferQueue_.begin();
+      mFinishBufferQueue_.erase(last_buffer_pair);
       HWC2_ALOGD_IF_WARN("WB: lost frame_no=%" PRIu64 " id=%" PRIu64 " queue.size=%zu" ,
-                 last_buffer_pair.first,
-                 ((last_buffer_pair.second != NULL) ? last_buffer_pair.second->GetId() : -1),
+                 last_buffer_pair->first,
+                 ((last_buffer_pair->second != NULL) ? last_buffer_pair->second->GetId() : -1),
                  mFinishBufferQueue_.size());
 
     }

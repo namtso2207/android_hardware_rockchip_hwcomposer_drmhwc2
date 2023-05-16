@@ -100,9 +100,11 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> GetNextWBBuffer();
   std::shared_ptr<DrmBuffer> GetDrawingWBBuffer();
   int GetFinishWBBufferSize();
-  int OutputWBBuffer(rga_buffer_t &dst,
+  int OutputWBBuffer(int display_id,
+                     rga_buffer_t &dst,
                      im_rect &src_rect,
-                     int32_t *retire_fence);
+                     int32_t *retire_fence,
+                     uint64_t *last_frame_no);
   int SwapWBBuffer(uint64_t frame_no);
   // WriteBack interface.
 
@@ -155,7 +157,7 @@ class ResourceManager {
   std::shared_ptr<DrmBuffer> mResetBackBuffer_;
   std::shared_ptr<DrmBuffer> mNextWriteBackBuffer_;
   std::shared_ptr<DrmBuffer> mDrawingWriteBackBuffer_;
-  std::queue<PAIR_ID_BUFFER> mFinishBufferQueue_;
+  std::vector<PAIR_ID_BUFFER> mFinishBufferQueue_;
   // -->
   std::map<int, std::set<uint64_t>> mMapDisplayBufferSet_;
 
