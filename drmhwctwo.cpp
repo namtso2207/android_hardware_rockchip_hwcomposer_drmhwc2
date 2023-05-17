@@ -2255,8 +2255,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
     }
 
     HWC2_ALOGI("frame_no_ = %d", frame_no_);
-    if(frame_no_ < 5)
-      bUseWriteBack_ = false;
+
     // 获取 WriteBack id
     int WBDisplayId = resource_manager_->GetWBDisplay();
     // 检查是否正确使能 Hw Virtual Display 功能
@@ -2265,18 +2264,25 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
        !resource_manager_->IsDisableHwVirtualDisplay()){
       DrmConnector *connector = drm_->GetConnectorForDisplay(WBDisplayId);
       if (!connector) {
-        HWC2_ALOGD_IF_DEBUG("Failed to get WB connector for display %d", WBDisplayId);
+        HWC2_ALOGD_IF_DEBUG("Failed to get WB connector for display=%" PRIu64 " wb-display %d frame_no=%d", handle_, WBDisplayId, frame_no_);
         bUseWriteBack_ = false;
       }else{
         if(connector->state() != DRM_MODE_CONNECTED){
-          HWC2_ALOGD_IF_DEBUG("WB Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED, skip init\n",
-                connector->id(),drm_->connector_type_str(connector->type()),connector->type_id());
+          HWC2_ALOGD_IF_DEBUG("WB Connector %u type=%s, type_id=%d, state is DRM_MODE_DISCONNECTED,"
+                              " skip init. display=%" PRIu64 " wb-display %d frame_no=%d",
+                connector->id(),drm_->connector_type_str(connector->type()),connector->type_id(),
+                handle_, WBDisplayId, frame_no_);;
           bUseWriteBack_ = false;
         }
 
         DrmCrtc *crtc = drm_->GetCrtcForDisplay(WBDisplayId);
         if (!crtc) {
-          HWC2_ALOGD_IF_DEBUG("Failed to get crtc for WB display %d", WBDisplayId);
+          HWC2_ALOGD_IF_DEBUG("Failed to get crtc for display=%" PRIu64 " wb-display %d frame_no=%d", handle_, WBDisplayId, frame_no_);
+          bUseWriteBack_ = false;
+        }
+
+        if(resource_manager_->GetFinishWBBufferSize() == 0){
+          HWC2_ALOGD_IF_DEBUG("WB buffer not ready, display=%" PRIu64 " wb-display %d frame_no=%d", handle_, WBDisplayId, frame_no_);
           bUseWriteBack_ = false;
         }
       }
