@@ -348,6 +348,10 @@ int DrmDisplayCompositor::SetupWritebackCommit(drmModeAtomicReqPtr pset,
     return ret;
   }
 
+#ifndef BOARD_BUILD_GKI
+  // 20230516,GKI版本若设置wb-connector crtc=0，则会使整个显示通路黑屏
+  // 故暂时关闭此选项， wb-crtc属性伴随主屏 enable/disable状态进行切换
+  // 下列流程移动到主屏 power on 流程
   ret = drmModeAtomicAddProperty(pset, writeback_conn->id(),
                                  writeback_conn->crtc_id_property().id(),
                                  crtc_id);
@@ -355,6 +359,7 @@ int DrmDisplayCompositor::SetupWritebackCommit(drmModeAtomicReqPtr pset,
     ALOGE("Failed to  attach writeback");
     return ret;
   }
+#endif
 
   bWriteBackEnable_ = true;
 
@@ -391,6 +396,10 @@ int DrmDisplayCompositor::DisableWritebackCommit(drmModeAtomicReqPtr pset,
     return ret;
   }
 
+#ifndef BOARD_BUILD_GKI
+  // 20230516,GKI版本若设置wb-connector crtc=0，则会使整个显示通路黑屏
+  // 故暂时关闭此选项， wb-crtc属性伴随主屏 enable/disable状态进行切换
+  // 下面逻辑切换到主屏 power down 流程
   ret = drmModeAtomicAddProperty(pset, writeback_conn->id(),
                                  writeback_conn->crtc_id_property().id(),
                                  0);
@@ -398,6 +407,7 @@ int DrmDisplayCompositor::DisableWritebackCommit(drmModeAtomicReqPtr pset,
     ALOGE("Failed to  attach writeback");
     return ret;
   }
+#endif
 
   bWriteBackRequestDisable_ = true;
   HWC2_ALOGD_IF_DEBUG("Reset WB: conn-id=%d ", writeback_conn->id());

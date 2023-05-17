@@ -1673,6 +1673,18 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
   DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 1);
 
 
+#ifdef BOARD_BUILD_GKI
+  // WriteBack connector only be binded by PrimaryDisplay
+  if(display_id == 0){
+    DrmConnector* writeback_conn = GetWritebackConnectorForDisplay(0);
+    if(writeback_conn != NULL &&
+       writeback_conn->writeback_fb_id().id() != 0 &&
+       writeback_conn->writeback_out_fence().id() != 0){
+      DRM_ATOMIC_ADD_PROP(writeback_conn->id(), writeback_conn->crtc_id_property().id(), crtc->id());
+    }
+  }
+#endif
+
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
   if (ret < 0) {
@@ -2034,6 +2046,18 @@ int DrmDevice::ReleaseDpyResByMirror(int display_id,
     }
   }
 
+#ifdef BOARD_BUILD_GKI
+  // WriteBack connector only be binded by PrimaryDisplay
+  if(display_id == 0){
+    DrmConnector* writeback_conn = GetWritebackConnectorForDisplay(0);
+    if(writeback_conn != NULL &&
+       writeback_conn->writeback_fb_id().id() != 0 &&
+       writeback_conn->writeback_out_fence().id() != 0){
+      DRM_ATOMIC_ADD_PROP(writeback_conn->id(), writeback_conn->crtc_id_property().id(), 0);
+    }
+  }
+#endif
+
   // 3. AtomicCommit
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
   ret = drmModeAtomicCommit(fd_.get(), pset, flags, this);
@@ -2131,6 +2155,18 @@ int DrmDevice::ReleaseDpyResByNormal(int display_id,
   // Disable DrmCrtc resource.
   DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->mode_property().id(), 0);
   DRM_ATOMIC_ADD_PROP(crtc->id(), crtc->active_property().id(), 0);
+
+#ifdef BOARD_BUILD_GKI
+  // WriteBack connector only be binded by PrimaryDisplay
+  if(display_id == 0){
+    DrmConnector* writeback_conn = GetWritebackConnectorForDisplay(0);
+    if(writeback_conn != NULL &&
+       writeback_conn->writeback_fb_id().id() != 0 &&
+       writeback_conn->writeback_out_fence().id() != 0){
+      DRM_ATOMIC_ADD_PROP(writeback_conn->id(), writeback_conn->crtc_id_property().id(), 0);
+    }
+  }
+#endif
 
   // AtomicCommit
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
