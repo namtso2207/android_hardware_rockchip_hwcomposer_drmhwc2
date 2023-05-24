@@ -68,6 +68,7 @@ LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
 
 LOCAL_C_INCLUDES := \
+  ${LOCAL_PATH}/include \
   external/libdrm \
   external/libdrm/include/drm \
   system/core \

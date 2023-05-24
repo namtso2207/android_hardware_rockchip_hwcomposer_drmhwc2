@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef DW2_FOURCC_H
-#define DW2_FOURCC_H
+#ifndef DRMHWC2_FOURCC_H
+#define DRMHWC2_FOURCC_H
 #include "drm_fourcc.h"
 
 
@@ -28,10 +28,16 @@
 #define DRM_FORMAT_NV15		fourcc_code('N', 'V', '1', '5') /* 2x2 subsampled Cr:Cb plane */
 #endif
 
-
 #ifndef DRM_FORMAT_NV12_10
 #define DRM_FORMAT_NV12_10		fourcc_code('N', 'A', '1', '2') /* 2x2 subsampled Cr:Cb plane */
 #endif
 
+#ifndef DRM_FORMAT_NV20
+#define DRM_FORMAT_NV20		fourcc_code('N', 'V', '2', '0') /* 2x1 subsampled Cr:Cb plane */
+#endif
+
+#ifndef DRM_FORMAT_NV30
+#define DRM_FORMAT_NV30		fourcc_code('N', 'V', '3', '0') /* non-subsampled Cr:Cb plane */
+#endif
 
 #endif
