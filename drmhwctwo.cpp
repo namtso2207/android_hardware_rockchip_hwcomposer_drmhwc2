@@ -4096,7 +4096,6 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
     return;
 
   if(isRK3566(resource_manager_->getSocId())){
-      ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
       if(displayid != HWC_DISPLAY_PRIMARY){
         auto &drmDevices = resource_manager_->GetDrmDevices();
         for (auto &device : drmDevices) {
@@ -4105,8 +4104,9 @@ void DrmHwcTwo::HandleDisplayHotplug(hwc2_display_t displayid, int state) {
           else
             device->SetCommitMirrorDisplayId(-1);
         }
+        ALOGD_IF(LogLevel(DBG_DEBUG),"HandleDisplayHotplug skip display-id=%" PRIu64 " state=%d",displayid,state);
+        return;
       }
-      return;
   }
 
   if(displayid == HWC_DISPLAY_PRIMARY && state == HWC2_CONNECTION_DISCONNECTED)
