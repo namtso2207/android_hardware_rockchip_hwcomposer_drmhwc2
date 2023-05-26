@@ -2051,7 +2051,7 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   std::shared_ptr<DrmBuffer> dst_buffer;
 
   // 以下参数更新后需要强制触发svep处理更新图像数据
-  property_get(SVEP_ENHANCEMENT_RATE_NAME, value, "5");
+  property_get(SVEP_ENHANCEMENT_RATE_NAME, value, "0");
   int enhancement_rate = atoi(value);
   property_get(SVEP_CONTRAST_MODE_NAME, value, "0");
   int contrast_mode = atoi(value);
