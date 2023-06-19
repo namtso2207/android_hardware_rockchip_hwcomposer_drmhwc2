@@ -56,7 +56,7 @@ void InitDebugModule()
 void InitHwcVersion()
 {
   char acVersion[50] = {0};
-  strcpy(acVersion,GHWC_VERSION);
+  sprintf(acVersion,"%s%s",GHWC_VERSION,GHWC_VERSION_NOTES);
   property_set("vendor.ghwc.version", acVersion);
   ALOGD("DrmHwcTwo version : %s", acVersion);
   return;
