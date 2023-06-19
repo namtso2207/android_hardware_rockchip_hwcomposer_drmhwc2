@@ -109,8 +109,11 @@ class DrmHwcTwo : public hwc2_device_t {
 
     class GemHandle {
       public:
-        GemHandle(){};
+        GemHandle():drm_(NULL), drmGralloc_(NULL), name_(NULL){};
         ~GemHandle(){
+          if(drm_ == NULL || drmGralloc_ == NULL || name_ == NULL)
+            return;
+
           if(uBufferId_ == 0 || uGemHandle_ == 0)
             return;
           int ret = drmGralloc_->hwc_free_gemhandle(uBufferId_);
@@ -146,7 +149,7 @@ class DrmHwcTwo : public hwc2_device_t {
     };
 
     typedef struct bufferInfo{
-      bufferInfo(){};
+      bufferInfo(): gemHandle_(GemHandle()){};
       int iFd_=0;
       int iFormat_=0;
       int iWidth_=0;

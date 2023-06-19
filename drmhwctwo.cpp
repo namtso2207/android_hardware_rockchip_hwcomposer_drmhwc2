@@ -1726,7 +1726,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
           dst.rd_mode = IM_FBC_MODE;
         }
 
-        IM_STATUS im_state;
+        IM_STATUS im_state = IM_STATUS_NOERROR;;
 
         im_opt_t imOpt;
         memset(&imOpt, 0x00, sizeof(im_opt_t));
