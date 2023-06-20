@@ -1419,16 +1419,10 @@ void DrmHwcTwo::HwcDisplay::UpdateSvepState() {
   if(handle_ > 0)
     return;
 
-  bool exist_svep_layer = false;
-  for (auto &drm_hwc_layer : drm_hwc_layers_) {
-    if(drm_hwc_layer.bUseSvep_){
-      exist_svep_layer = true;
-    }
-
-    if(drm_hwc_layer.bUseMemc_){
-      exist_svep_layer = true;
-    }
-  }
+  bool exist_svep_layer = std::any_of(drm_hwc_layers_.begin(), drm_hwc_layers_.end(),
+                                    [](const auto& drm_hwc_layer) {
+                                      return drm_hwc_layer.bUseSvep_ || drm_hwc_layer.bUseMemc_;
+                                    });
 
   if(exist_svep_layer != bLastSvepState_){
 
