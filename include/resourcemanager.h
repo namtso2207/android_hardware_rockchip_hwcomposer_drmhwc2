@@ -113,7 +113,6 @@ class ResourceManager {
   bool IsDynamicDisplayMode() const;
   bool IsSidebandStream2Mode() const;
   int GetCacheBufferLimitSize() const;
-  bool IsWriteBackAsyncMode() const;
 
   // 拼接模式相关信息记录
   int GetCropSpiltConnectedId() const;
@@ -171,8 +170,6 @@ class ResourceManager {
   int mCacheBufferLimitSize_ = 0;
   // 拼接模式热插拔注册id信息
   int mCropSpiltConnectedId_ = -1;
-  // WriteBack 异步模式
-  int mWriteBackAsyncMode_ = 0;
   std::set<int> mCropSpiltHasConnectedId_;
 
   mutable std::recursive_mutex mRecursiveMutex;

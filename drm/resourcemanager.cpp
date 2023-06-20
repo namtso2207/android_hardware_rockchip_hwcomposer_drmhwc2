@@ -159,9 +159,6 @@ int ResourceManager::InitProperty() {
   property_get("vendor.hwc.video_buf_cache_max_size", property_value, "0");
   mCacheBufferLimitSize_ = atoi(property_value);
 
-  property_get("vendor.hwc.enable_wb_async_mode", property_value, "0");
-  mWriteBackAsyncMode_ = atoi(property_value);
-
   return 0;
 }
 
@@ -179,10 +176,6 @@ bool ResourceManager::IsSidebandStream2Mode() const {
     return true;
   }
   return mSidebandStream2Mode_;
-}
-
-bool ResourceManager::IsWriteBackAsyncMode() const{
-  return mWriteBackAsyncMode_;
 }
 
 int ResourceManager::GetCacheBufferLimitSize() const{
@@ -668,14 +661,12 @@ int ResourceManager::OutputWBBuffer(int display_id,
   memset(&imOpt, 0x00, sizeof(im_opt_t));
   imOpt.core = IM_SCHEDULER_RGA3_CORE0 | IM_SCHEDULER_RGA3_CORE1;
 
-  int releaseFence = -1;
   // Call Im2d 格式转换
-  im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0, &releaseFence, &imOpt, IM_ASYNC);
+  im_state = improcess(src, dst, pat, src_rect, dst_rect, pat_rect, 0, NULL, &imOpt, IM_SYNC);
 
   if(im_state == IM_STATUS_SUCCESS){
     HWC2_ALOGD_IF_VERBOSE("call im2d convert to rgb888 Success");
-    *retire_fence = dup(releaseFence);
-    output_buffer->SetReleaseFence(releaseFence);
+    *retire_fence = -1;
   }else{
     HWC2_ALOGD_IF_DEBUG("call im2d fail, ret=%d Error=%s", im_state, imStrError(im_state));
     *retire_fence = -1;
