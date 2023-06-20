@@ -121,6 +121,12 @@ void InvalidateWorker::Routine() {
 
   int64_t timestamp;
   ret = SyntheticWaitVBlank(&timestamp);
+  if (ret < 0) {
+    ALOGE("Failed to wait for vblank: %d", ret);
+    Unlock();
+    return;
+  }
+
   last_timestamp_ = timestamp;
 
   bool enable = (refresh_cnt_ > 0 || refresh_cnt_ < 0);

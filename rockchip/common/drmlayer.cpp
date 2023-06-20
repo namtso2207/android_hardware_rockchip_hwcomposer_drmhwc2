@@ -178,7 +178,6 @@ int DrmHwcLayer::Init() {
   iSkipLine_  = GetSkipLine();
   bAfbcd_ = IsAfbcModifier(uModifier_);
   bSkipLayer_ = IsSkipLayer();
-  //bGlesCompose_ = IsGlesCompose();
 
   // HDR
   bHdr_ = IsHdr(iUsage, eDataSpace_);
@@ -441,7 +440,7 @@ int DrmHwcLayer::SwitchPreScaleBufferInfo(){
   storePreScaleInfo_.uGemHandle_   = uGemHandle_;
 
   metadata_for_rkvdec_scaling_t* metadata = NULL;
-  int ret = gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
+  gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
   HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata sf_handle=%p metadata=%p", sf_handle, metadata);
   if(metadata != NULL){
     metadata->requestMask = 1;
@@ -553,7 +552,7 @@ int DrmHwcLayer::ResetInfoFromPreScaleStore(){
     return -1;
   }
   metadata_for_rkvdec_scaling_t* metadata = NULL;
-  int ret = gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
+  gralloc->lock_rkvdec_scaling_metadata(sf_handle, &metadata);
   HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata sf_handle=%p metadata=%p", sf_handle, metadata);
   if(metadata != NULL){
     bIsPreScale_ = false;
@@ -771,85 +770,6 @@ bool DrmHwcLayer::IsSkipLayer(){
   return (!sf_handle ? true:false);
 }
 
-/*
- * CLUSTER_AFBC_DECODE_MAX_RATE = 3.2
- * (src(W*H)/dst(W*H))/(aclk/dclk) > CLUSTER_AFBC_DECODE_MAX_RATE to use GLES compose.
- * Notes: (4096,1714)=>(1080,603) appear( DDR 1560M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.839350
- * Notes: (4096,1714)=>(1200,900) appear( DDR 1056M ), CLUSTER_AFBC_DECODE_MAX_RATE=2.075307
- */
-#define CLUSTER_AFBC_DECODE_MAX_RATE 2.0
-bool DrmHwcLayer::IsGlesCompose(){
-  // RK356x can't overlay RGBA1010102
-  if(iFormat_ == HAL_PIXEL_FORMAT_RGBA_1010102)
-    return true;
-
-
-  int act_w = static_cast<int>(source_crop.right - source_crop.left);
-  int act_h = static_cast<int>(source_crop.bottom - source_crop.top);
-  int dst_w = static_cast<int>(display_frame.right - display_frame.left);
-  int dst_h = static_cast<int>(display_frame.bottom - display_frame.top);
-
-  // RK platform VOP can't display src/dst w/h < 4 layer.
-  if(act_w < 4 || act_h < 4 || dst_w < 4 || dst_h < 4){
-    ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：[%dx%d] => [%dx%d] too small to use GLES composer.",
-              sLayerName_.c_str(),act_w,act_h,dst_w,dst_h);
-    return true;
-  }
-
-  // RK356x Cluster can't overlay act_w % 4 != 0 afbcd layer.
-  if(bAfbcd_){
-    if(act_w % 4 != 0)
-      return true;
-    //  (src(W*H)/dst(W*H))/(aclk/dclk) > rate = CLUSTER_AFBC_DECODE_MAX_RATE, Use GLES compose
-    if(uAclk_ > 0 && uDclk_ > 0){
-        char value[PROPERTY_VALUE_MAX];
-        property_get("vendor.hwc.cluster_afbc_decode_max_rate", value, "0");
-        double cluster_afbc_decode_max_rate = atof(value);
-
-        ALOGD_IF(LogLevel(DBG_VERBOSE),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
-                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)),
-                  cluster_afbc_decode_max_rate ,CLUSTER_AFBC_DECODE_MAX_RATE,
-                  fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
-      if(cluster_afbc_decode_max_rate > 0){
-        if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > cluster_afbc_decode_max_rate){
-          ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
-                    "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                    sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)), CLUSTER_AFBC_DECODE_MAX_RATE,
-                    cluster_afbc_decode_max_rate, fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
-          return true;
-        }
-      }else if((fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)) > CLUSTER_AFBC_DECODE_MAX_RATE){
-        ALOGD_IF(LogLevel(DBG_DEBUG),"[%s]：scale too large(%f) to use GLES composer, allow_rate = %f, "
-                  "property_rate=%f, fHScaleMul_ = %f, fVScaleMul_ = %f, uAclk_ = %d, uDclk_=%d ",
-                  sLayerName_.c_str(),(fHScaleMul_ * fVScaleMul_) / (uAclk_/(uDclk_ * 1.0)), CLUSTER_AFBC_DECODE_MAX_RATE,
-                  cluster_afbc_decode_max_rate, fHScaleMul_ ,fVScaleMul_ ,uAclk_ ,uDclk_);
-        return true;
-      }
-    }
-  }
-
-  // RK356x Esmart can't overlay act_w % 16 == 1 and fHScaleMul_ < 1.0 layer.
-  if(!bAfbcd_){
-    if(act_w % 16 == 1 && fHScaleMul_ < 1.0)
-      return true;
-
-    int dst_w = static_cast<int>(display_frame.right - display_frame.left);
-    if(dst_w % 2 == 1 && fHScaleMul_ < 1.0)
-      return true;
-  }
-
-  switch(sf_composition){
-    case HWC2::Composition::Client:
-    //case HWC2::Composition::Sideband:
-    case HWC2::Composition::SolidColor:
-      return true;
-    default:
-      break;
-  }
-
-  return false;
-}
 int DrmHwcLayer::GetSkipLine(){
     int skip_line = 0;
     if(bYuv_){
@@ -1111,10 +1031,11 @@ int DrmHwcLayer::DumpData(){
   byte_stride = drm_gralloc->hwc_get_handle_attibute(sf_handle,ATT_BYTE_STRIDE);
 
   cpu_addr = drm_gralloc->hwc_get_handle_lock(sf_handle,width,height);
-  if(ret){
-    ALOGE("%s,line=%d, LayerId=%u, lock fail ret = %d ",__FUNCTION__,__LINE__,uId_,ret);
-    return ret;
+  if (cpu_addr == NULL) {
+    ALOGE("%s,line=%d, LayerId=%u, lock fail", __FUNCTION__, __LINE__, uId_);
+    return -1;
   }
+
   FILE * pfile = NULL;
   char data_name[100] ;
   system("mkdir /data/dump/ && chmod /data/dump/ 777 ");

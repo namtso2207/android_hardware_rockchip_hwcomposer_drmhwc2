@@ -556,7 +556,6 @@ int DrmGralloc::hwc_get_handle_name(buffer_handle_t hnd, std::string &name){
     int op = GRALLOC_MODULE_PERFORM_GET_RK_ASHMEM;
 
     struct rk_ashmem_t rk_ashmem;
-    unsigned long str_size;
 
     memset(&rk_ashmem,0x00,sizeof(struct rk_ashmem_t));
 

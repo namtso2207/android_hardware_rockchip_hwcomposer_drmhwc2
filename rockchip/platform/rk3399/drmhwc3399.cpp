@@ -74,7 +74,6 @@ int Hwc3399::assignPlaneByPlaneMask(DrmDevice* drm){
 
 int Hwc3399::TryAssignPlane(DrmDevice* drm){
   int ret = -1;
-  bool have_plane_mask = false;
   for (auto &conn : drm->connectors()) {
     if(conn->state() != DRM_MODE_CONNECTED)
       continue;
@@ -83,10 +82,6 @@ int Hwc3399::TryAssignPlane(DrmDevice* drm){
     if(!crtc){
       ALOGE("%s,line=%d crtc is NULL.",__FUNCTION__,__LINE__);
       continue;
-    }
-
-    if(crtc->get_plane_mask() > 0){
-      have_plane_mask = true;
     }
   }
 

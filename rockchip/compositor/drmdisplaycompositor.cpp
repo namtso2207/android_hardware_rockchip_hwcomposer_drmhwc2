@@ -62,7 +62,7 @@ namespace android {
 
 class CompositorVsyncCallback : public VsyncCallback {
  public:
-  CompositorVsyncCallback(DrmDisplayCompositor *compositor)
+  explicit CompositorVsyncCallback(DrmDisplayCompositor *compositor)
       : compositor_(compositor) {
   }
 
@@ -460,7 +460,7 @@ int DrmDisplayCompositor::CheckOverscan(drmModeAtomicReqPtr pset, DrmCrtc* crtc,
 
 int DrmDisplayCompositor::GetTimestamp() {
   struct timespec current_time;
-  int ret = clock_gettime(CLOCK_MONOTONIC, &current_time);
+  clock_gettime(CLOCK_MONOTONIC, &current_time);
   last_timestamp_ = current_time.tv_sec * kOneSecondNs + current_time.tv_nsec;
   return 0;
 }
@@ -674,13 +674,6 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     return -ENODEV;
   }
 
-  bool is_yuv_10bit = false;
-  for(auto &layer : display_comp->layers()){
-    if(layer.bYuv10bit_){
-      is_yuv_10bit = layer.bYuv10bit_;
-    }
-  }
-
   // 由 VividHdr 切换到其他 HDR 状态
   if(display_comp->hdr_mode() != DRM_HWC_METADATA_HDR){
     if(current_mode_set_.hdr_.mode_ == DRM_HWC_METADATA_HDR){
@@ -699,7 +692,7 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
     if(display_comp->hdr_mode() != current_mode_set_.hdr_.mode_ ||
        display_comp->has_10bit_Yuv() != current_mode_set_.hdr_.bHasYuv10bit_){
       // 进入HDR10/SDR的处理逻辑
-      int ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace(), display_comp->has_10bit_Yuv());
+      ret = connector->switch_hdmi_hdr_mode(pset, display_comp->dataspace(), display_comp->has_10bit_Yuv());
       if(ret){
         ALOGE("display %d enable hdr fail. datespace=%x",
                 display_, display_comp->dataspace());
@@ -720,7 +713,7 @@ int DrmDisplayCompositor::CollectModeSetInfo(drmModeAtomicReqPtr pset,
         memcpy(&hdr_metadata,
                 &layer.metadataHdrParam_.target_display_data,
                 sizeof(struct hdr_output_metadata));
-        int ret = connector->switch_hdmi_hdr_mode_by_medadata(pset,
+        ret = connector->switch_hdmi_hdr_mode_by_medadata(pset,
                                                               layer.metadataHdrParam_.hdr_hdmi_meta.color_prim,
                                                               &hdr_metadata,
                                                               layer.bYuv10bit_);
@@ -769,7 +762,7 @@ int DrmDisplayCompositor::UpdateModeSetState() {
   AutoLock lock(&lock_, __func__);
   if (lock.Lock())
     return -1;
-  int ret = 0;
+
   if(!need_mode_set_){
     return 0;
   }
@@ -890,6 +883,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     ALOGE("Could not locate connector for display %d", display_);
     return -ENODEV;
   }
+
   DrmCrtc *crtc = drm->GetCrtcForDisplay(display_);
   if (!crtc) {
     ALOGE("Could not locate crtc for display %d", display_);
@@ -926,13 +920,13 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
   if (crtc->can_overscan()) {
     // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
-    if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
-      int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
+    if(connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
+      ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
       if(ret < 0){
         return ret;
       }
     }else{
-      int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
+      ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), 100) < 0 ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), 100) < 0   ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
@@ -961,16 +955,16 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         ALOGE("Could not locate connector for display %d", mirror_display_id);
       }else{
         // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
-        if(mirror_connector && mirror_connector->current_mode().id() > 0 &&
+        if(mirror_connector->current_mode().id() > 0 &&
           mirror_connector->current_mode().interlaced() == 0){
-          int ret = CheckOverscan(pset, mirror_commit_crtc,
+          ret = CheckOverscan(pset, mirror_commit_crtc,
                                   mirror_display_id,
                                   mirror_connector->unique_name());
           if(ret < 0){
             return ret;
           }
         }else{
-          int ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
+          ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->right_margin_property().id(), 100) < 0 ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->top_margin_property().id(), 100) < 0   ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
@@ -983,13 +977,11 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     }
   }
 
-  uint64_t zpos = 0;
+  int zpos = -1;
 
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    DrmCrtc *crtc = comp_plane.crtc();
     std::vector<size_t> &source_layers = comp_plane.source_layers();
-
     int fb_id = -1;
     hwc_rect_t display_frame;
     // Commit mirror function
@@ -1005,6 +997,9 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     int src_l,src_t,src_w,src_h;
     bool afbcd = false, yuv = false, yuv10bit = false, sideband = false;
     bool is_metadata_hdr = false;
+
+    crtc = comp_plane.crtc();
+
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -1049,7 +1044,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       if(display_comp->display() > 0xf)
         zpos=1;
       if(zpos < 0)
-        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+        ALOGE("The zpos(%d) is invalid", zpos);
 
 	    // todo
       sideband = layer.bSidebandStreamLayer_;
@@ -1498,12 +1493,12 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
   if (crtc->can_overscan()) {
     // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
     if(connector && connector->current_mode().id() > 0 && connector->current_mode().interlaced() == 0){
-      int ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
+      ret = CheckOverscan(pset,crtc,display_,connector->unique_name());
       if(ret < 0){
         return ret;
       }
     }else{
-      int ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
+      ret = drmModeAtomicAddProperty(pset, crtc->id(), crtc->left_margin_property().id(), 100) < 0  ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->right_margin_property().id(), 100) < 0 ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->top_margin_property().id(), 100) < 0   ||
                 drmModeAtomicAddProperty(pset, crtc->id(), crtc->bottom_margin_property().id(), 100) < 0;
@@ -1532,16 +1527,16 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         ALOGE("Could not locate connector for display %d", mirror_display_id);
       }else{
         // 如果当前显示分辨率为隔行扫描，则不不建议使用 overscan 功能，建议采用图层scale实现
-        if(mirror_connector && mirror_connector->current_mode().id() > 0 &&
+        if (mirror_connector->current_mode().id() > 0 &&
           mirror_connector->current_mode().interlaced() == 0){
-          int ret = CheckOverscan(pset, mirror_commit_crtc,
+          ret = CheckOverscan(pset, mirror_commit_crtc,
                                   mirror_display_id,
                                   mirror_connector->unique_name());
           if(ret < 0){
             return ret;
           }
         }else{
-          int ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
+          ret = drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->left_margin_property().id(), 100) < 0  ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->right_margin_property().id(), 100) < 0 ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->top_margin_property().id(), 100) < 0   ||
                     drmModeAtomicAddProperty(pset, mirror_commit_crtc->id(), mirror_commit_crtc->bottom_margin_property().id(), 100) < 0;
@@ -1554,11 +1549,10 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     }
   }
 
-  uint64_t zpos = 0;
+  int zpos = -1;
 
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    DrmCrtc *crtc = comp_plane.crtc();
     std::vector<size_t> &source_layers = comp_plane.source_layers();
 
     int fb_id = -1;
@@ -1574,8 +1568,12 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
-    bool afbcd = false, yuv = false;
+    bool yuv = false;
+
+    crtc = comp_plane.crtc();
+
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
+      bool afbcd = false;
 
       if(source_layers.empty()){
         ALOGE("Can't handle empty source layer CompositionPlane.");
@@ -1647,7 +1645,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         zpos = 1;
 
       if(zpos < 0)
-        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+        ALOGE("The zpos(%d) is invalid", zpos);
 
       rotation = layer.transform;
     }
@@ -2052,13 +2050,11 @@ void DrmDisplayCompositor::ClearDisplay() {
       if(current_sideband2_.enable_ &&
         current_sideband2_.buffer_ != NULL){
         // 释放上一帧 ReleaseFence
-        if(current_sideband2_.buffer_ != NULL){
-          if(dvp->SignalReleaseFence(display_,
-                                    current_sideband2_.tunnel_id_,
-                                    current_sideband2_.buffer_->GetExternalId())){
-            HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
-                        display_, current_sideband2_.buffer_->GetId());
-          }
+        if(dvp->SignalReleaseFence(display_,
+                                  current_sideband2_.tunnel_id_,
+                                  current_sideband2_.buffer_->GetExternalId())){
+          HWC2_ALOGE("SidebandStream: display-id=%d SignalReleaseFence fail, last buffer id=%" PRIu64 ,
+                      display_, current_sideband2_.buffer_->GetId());
         }
       }
 
@@ -2221,9 +2217,9 @@ int DrmDisplayCompositor::CollectSFInfo() {
 
   if (!composite_queue_.empty()) {
     if(drop_mode_){
-      ret = CollectSFInfoByDrop();
+      CollectSFInfoByDrop();
     }else{
-      ret = CollectSFInfoBySequence();
+      CollectSFInfoBySequence();
     }
   }else{ // frame_queue_ is empty
     ALOGW_IF(LogLevel(DBG_DEBUG),"%s,line=%d composite_queue_ is empty, skip ApplyFrame",__FUNCTION__,__LINE__);
@@ -2293,11 +2289,10 @@ int DrmDisplayCompositor::CollectVPInfo() {
     return -ENODEV;
   }
 
-  uint64_t zpos = 0;
+  int zpos = -1;
 
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    DrmCrtc *crtc = comp_plane.crtc();
     std::vector<size_t> &source_layers = comp_plane.source_layers();
 
     int fb_id = -1;
@@ -2314,6 +2309,9 @@ int DrmDisplayCompositor::CollectVPInfo() {
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
     bool afbcd = false, yuv = false, sideband = false;
+
+    crtc = comp_plane.crtc();
+
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -2341,7 +2339,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
       if(layer.bSidebandStreamLayer_){
         DrmVideoProducer* dvp = DrmVideoProducer::getInstance();
 
-        int ret = dvp->CreateConnection(display_, layer.iTunnelId_);
+        ret = dvp->CreateConnection(display_, layer.iTunnelId_);
         if(ret < 0){
           HWC2_ALOGI("SidebandStream: display-id=%d CreateConnection fail, iTunnelId = %d",
                      display_, layer.iTunnelId_);
@@ -2360,7 +2358,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
         }
 #ifdef RK3528
         if(layer.bNeedPreScale_){
-          int ret = buffer->SwitchToPreScaleBuffer();
+          ret = buffer->SwitchToPreScaleBuffer();
           if(ret){
             HWC2_ALOGD_IF_WARN("SidebandStream: SwitchToPreScaleBuffer fail, iTunnelId = %d",
                         layer.iTunnelId_);
@@ -2464,7 +2462,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
       if(current_composition->display() > 0xf)
         zpos=1;
       if(zpos < 0)
-        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+        ALOGE("The zpos(%d) is invalid", zpos);
 
       rotation = layer.transform;
     }
@@ -2990,12 +2988,14 @@ int DrmDisplayCompositor::WriteBackByRGA() {
   }
 
   bWriteBackEnable_ = true;
-  uint64_t zpos = 0;
+  int zpos = -1;
   int releaseFence = -1;
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    DrmCrtc *crtc = comp_plane.crtc();
     std::vector<size_t> &source_layers = comp_plane.source_layers();
+
+    crtc = comp_plane.crtc();
+
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
       if(source_layers.empty()){
         ALOGE("Can't handle empty source layer CompositionPlane.");
@@ -3023,7 +3023,7 @@ int DrmDisplayCompositor::WriteBackByRGA() {
 
       zpos = comp_plane.get_zpos();
       if(zpos < 0){
-        ALOGE("The zpos(%" PRIu64 ") is invalid", zpos);
+        ALOGE("The zpos(%d) is invalid", zpos);
         continue;
       }
 
@@ -3361,7 +3361,7 @@ int DrmDisplayCompositor::WriteBackByRGA() {
 
   // WriteBack Fence handle.
   if(resource_manager_->isWBMode()){
-    int wbDisplay = resource_manager_->GetWBDisplay();
+    wbDisplay = resource_manager_->GetWBDisplay();
     if(wbDisplay == display_){
       std::shared_ptr<DrmBuffer> wbBuffer = resource_manager_->GetNextWBBuffer();
       if(releaseFence > 0){

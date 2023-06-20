@@ -393,7 +393,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
   if(gIsRK3528() && connector_->type() == DRM_MODE_CONNECTOR_TV){
     DrmConnector* primary = drm_->GetConnectorForDisplay(HWC_DISPLAY_PRIMARY);
     if(primary && primary->state() == DRM_MODE_CONNECTED){
-      int ret = drm_->ReleaseDpyRes(handle_);
+      ret = drm_->ReleaseDpyRes(handle_);
       if (ret) {
         HWC2_ALOGE("Failed to ReleaseDpyRes for display=%d %d\n", display, ret);
         return HWC2::Error::NoResources;
@@ -847,8 +847,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
     int vrefresh = ctx_.vrefresh;
     // VRR
     const std::vector<int> vrr_mode = connector_->vrr_modes();
-    if(bVrrDisplay_ && vrr_mode.size() > 1
-       && config <= vrr_mode.size()){
+    if (bVrrDisplay_ && vrr_mode.size() > 1
+       && config < vrr_mode.size()) {
       vrefresh = vrr_mode[config];
     }
     auto attribute = static_cast<HWC2::Attribute>(attribute_in);
@@ -909,13 +909,13 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     std::vector<DrmMode> sel_modes;
 
     // Add the preferred mode first to be sure it's not dropped
-    auto mode = std::find_if(connector_->modes().begin(),
+    auto preferred_mode = std::find_if(connector_->modes().begin(),
                              connector_->modes().end(), [&](DrmMode const &m) {
                                return m.id() ==
                                       connector_->get_preferred_mode_id();
                              });
-    if (mode != connector_->modes().end())
-      sel_modes.push_back(*mode);
+    if (preferred_mode != connector_->modes().end())
+      sel_modes.push_back(*preferred_mode);
 
     // Add the active mode if different from preferred mode
     if (connector_->active_mode().id() != connector_->get_preferred_mode_id())
@@ -1015,7 +1015,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
       ctx_.rel_xres = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
       ctx_.rel_yres = best_mode.v_display();
       ctx_.framebuffer_width = ctx_.framebuffer_width / DRM_CONNECTOR_SPILT_RATIO;
-      ctx_.framebuffer_height = ctx_.framebuffer_height;
       if(handle_ >= DRM_CONNECTOR_SPILT_MODE_MASK){
         ctx_.rel_xoffset = best_mode.h_display() / DRM_CONNECTOR_SPILT_RATIO;
         ctx_.rel_yoffset = 0;//best_mode.v_display() / 2;
@@ -1038,8 +1037,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     }
 
     // AFBC limit
-    bool disable_afbdc = false;
     if(handle_ == HWC_DISPLAY_PRIMARY){
+      bool disable_afbdc = false;
+
       if(isRK356x(resource_manager_->getSocId())){
         if(ctx_.framebuffer_width % 4 != 0){
           disable_afbdc = true;
@@ -1063,7 +1063,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
         return HWC2::Error::None;
       }
       *num_configs = vrr_mode.size();
-      int index = 0;
+
       for(int index = 0 ; index <= vrr_mode.size(); index++){
         configs[index] = index;
       }
@@ -1491,7 +1491,7 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
         continue;
 
       if(drm_hwc_layer.uId_ == l.first){
-        int ret = l.second.initOrGetGemhanleFromCache(&drm_hwc_layer);
+        ret = l.second.initOrGetGemhanleFromCache(&drm_hwc_layer);
         if (ret) {
           ALOGE("Failed to get_gemhanle layer-id=%" PRIu64  ", ret=%d", l.first, ret);
           return ret;
@@ -1513,7 +1513,7 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
         }
 #ifdef USE_LIBPQ
         if(handle_ == 0){
-          int ret = client_layer_.DoPq(false, &drm_hwc_layer, &ctx_);
+          ret = client_layer_.DoPq(false, &drm_hwc_layer, &ctx_);
           if(ret){
             HWC2_ALOGE("ClientLayer DoPq fail, ret = %d", ret);
           }
@@ -2171,7 +2171,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
 
   if(dpms_value == DRM_MODE_DPMS_OFF){
     ClearDisplay();
-    int ret = drm_->ReleaseDpyRes(handle_, DmcuReleaseByPowerMode);
+    ret = drm_->ReleaseDpyRes(handle_, DmcuReleaseByPowerMode);
     if (ret) {
       HWC2_ALOGE("Failed to ReleaseDpyRes for display=%" PRIu64 " %d\n", handle_, ret);
     }
@@ -2189,7 +2189,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
       }
     }
   }else{
-    int ret = 0;
     if(connector_->hotplug()){
       ret = connector_->UpdateModes();
       if (ret) {
@@ -2428,9 +2427,9 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayInfo(String8 &output){
                         get_layers().size(),
                         active_mode.id(), active_mode.name().c_str(),'p' ,active_mode.v_refresh(),
                         color_mode_,ctx_.bStandardSwitchResolution);
-  uint32_t idx = 0;
-
   if(sf_modes_.size() > 0){
+    uint32_t idx = 0;
+
     for (const DrmMode &mode : sf_modes_) {
       if(active_mode.id() == mode.id())
         output.appendFormat("    Config[%2u] = %s%c%.2f mode-id=%d (active)\n",idx, mode.name().c_str(), 'p' , mode.v_refresh(),mode.id());
@@ -2520,7 +2519,6 @@ int DrmHwcTwo::HwcDisplay::DumpDisplayLayersInfo(){
   return 0;
 }
 int DrmHwcTwo::HwcDisplay::DumpAllLayerData(){
-  int ret = 0;
   char pro_value[PROPERTY_VALUE_MAX];
   property_get( PROPERTY_TYPE ".dump",pro_value,0);
   if(!strcmp(pro_value,"true")){
@@ -2572,7 +2570,7 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
 
     if(isRK3566(resource_manager_->getSocId())){
       bool mirror_mode = true;
-      int display_id = drm_->GetCommitMirrorDisplayId();
+      display_id = drm_->GetCommitMirrorDisplayId();
       DrmConnector *conn_mirror = drm_->GetConnectorForDisplay(display_id);
       if(!conn_mirror || conn_mirror->state() != DRM_MODE_CONNECTED){
         ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d disable bCommitMirrorMode",__FUNCTION__,__LINE__);
@@ -2580,7 +2578,7 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       }
 
       if(mirror_mode){
-        int ret = conn_mirror->UpdateDisplayMode(display_id, timeline);
+        ret = conn_mirror->UpdateDisplayMode(display_id, timeline);
         if(!ret){
           const DrmMode best_mode = conn_mirror->best_mode();
           conn_mirror->set_current_mode(best_mode);
@@ -2620,8 +2618,7 @@ int DrmHwcTwo::HwcDisplay::UpdateOverscan(){
 
 int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
   int timeline = 0;
-  int ret = 0;
-  char prop_format[PROPERTY_VALUE_MAX];
+
   timeline = property_get_int32( "vendor.display.timeline", -1);
   /*
    * force update propetry when timeline is zero or not exist.
@@ -2651,7 +2648,6 @@ int DrmHwcTwo::HwcDisplay::UpdateHdmiOutputFormat(){
 int DrmHwcTwo::HwcDisplay::UpdateBCSH(){
 
   int timeline = property_get_int32("vendor.display.timeline", -1);
-  int ret;
   /*
    * force update propetry when timeline is zero or not exist.
    */
@@ -3272,7 +3268,7 @@ int DrmHwcTwo::HwcDisplay::DoMirrorDisplay(int32_t *retire_fence){
     return 0;
   }
 
-  int32_t merge_rt_fence;
+  int32_t merge_rt_fence = -1;
   int32_t display_cnt = 1;
   for (auto &conn : drm_->connectors()) {
     if(!conn->isCropSpilt()){
@@ -3688,7 +3684,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
    int enable_prescale_video = hwc_get_int_property("debug.hwc.enable_prescale_video", "0");
    if(enable_prescale_video > 0 && drmHwcLayer->bYuv_){
      metadata_for_rkvdec_scaling_t* metadata = NULL;
-     int ret = drmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
+     drmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
      HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);
      if(metadata != NULL){
       metadata->requestMask = enable_prescale_video;
@@ -3824,8 +3820,10 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
   char value[PROPERTY_VALUE_MAX];
   property_get("persist.vendor.tvinput.rkpq.mode", value, "0");
   bool pq_mode_enable = atoi(value) > 0;
-  static bool use_pq_fb = false;
+
   if(pq_mode_enable == 1){
+    static bool use_pq_fb = false;
+
     if(validate){
       if(bufferQueue_ == NULL){
         bufferQueue_ = std::make_shared<DrmBufferQueue>();
@@ -4039,20 +4037,20 @@ int DrmHwcTwo::HwcLayer::DumpData() {
 
   void* cpu_addr = NULL;
   static int frame_cnt =0;
-  int width,height,stride,byte_stride,format,size;
+  int width, height, stride, byte_stride, size;
   int ret = 0;
   width  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
   height = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
   stride = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
-  format = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
   size   = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
   byte_stride = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE);
 
   cpu_addr = drmGralloc_->hwc_get_handle_lock(buffer_,width,height);
-  if(ret){
-    ALOGE("%s,line=%d, LayerId=%u, lock fail ret = %d ",__FUNCTION__,__LINE__,id_,ret);
-    return ret;
+  if(cpu_addr == NULL) {
+    ALOGE("%s, line = %d, LayerId = %u, lock fail", __FUNCTION__, __LINE__, id_);
+    return -1;
   }
+
   FILE * pfile = NULL;
   char data_name[100] ;
   system("mkdir /data/dump/ && chmod /data/dump/ 777 ");
@@ -4341,13 +4339,13 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
 
     // SpiltDisplay Hoplug.
     if(conn->isHorizontalSpilt()){
-      int display_id = conn->GetSpiltModeId();
-      auto &display = hwc2_->displays_.at(display_id);
+      display_id = conn->GetSpiltModeId();
+      auto &spilt_display = hwc2_->displays_.at(display_id);
       if (cur_state == DRM_MODE_CONNECTED) {
-        ret |= (int32_t)display.HoplugEventTmeline();
-        ret |= (int32_t)display.UpdateDisplayMode();
-        ret |= (int32_t)display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
-        ret |= (int32_t)display.ChosePreferredConfig();
+        ret |= (int32_t)spilt_display.HoplugEventTmeline();
+        ret |= (int32_t)spilt_display.UpdateDisplayMode();
+        ret |= (int32_t)spilt_display.CheckStateAndReinit(!hwc2_->IsHasRegisterDisplayId(display_id));
+        ret |= (int32_t)spilt_display.ChosePreferredConfig();
         if(ret != 0){
           HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -4357,10 +4355,10 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                     conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
           hwc2_->HandleDisplayHotplug(display_id, cur_state);
-          display.SyncPowerMode();
+          spilt_display.SyncPowerMode();
         }
       }else{
-      ret |= (int32_t)display.ClearDisplay();
+      ret |= (int32_t)spilt_display.ClearDisplay();
       ret |= (int32_t)drm_->ReleaseDpyRes(display_id);
       if(ret != 0){
         HWC2_ALOGE("hwc_hotplug: %s connector %u type=%s type_id=%d state is error, skip hotplug.",

@@ -65,14 +65,15 @@ bool SortByWinType(const PlaneGroup* planeGroup1,const PlaneGroup* planeGroup2)
     return planeGroup1->win_type < planeGroup2->win_type;
 }
 
-bool PlaneSortByArea(const DrmPlane*  plane1,const DrmPlane* plane2)
+bool PlaneSortByArea(const DrmPlane* plane1, const DrmPlane* plane2)
 {
-    int ret = 0;
     uint64_t area1=0,area2=0;
     if(plane1->area_id_property().id() && plane2->area_id_property().id())
     {
-        std::tie(ret, area1) = plane1->area_id_property().value();
-        std::tie(ret, area2) = plane2->area_id_property().value();
+        uint64_t parm = 0;
+
+        std::tie(parm, area1) = plane1->area_id_property().value();
+        std::tie(parm, area2) = plane2->area_id_property().value();
     }
     return area1 < area2;
 }
@@ -130,26 +131,34 @@ void DrmDevice::init_white_modes(void){
   }
 }
 
+/**
+ * Verify if the given DrmMode structure is allowed to be used based on a whitelist of display modes.
+ *
+ * @param m DrmMode structure to verify.
+ * @return True if the given DrmMode structure is in the whitelist, false otherwise.
+ */
 bool DrmDevice::mode_verify(const DrmMode &m) {
+  // If the whitelist is empty, no verification is needed.
   if (!white_modes_.size())
     return true;
 
-  for (const DrmMode &mode : white_modes_) {
-    if (mode.h_display() == m.h_display() &&
-        mode.v_display() == m.v_display() &&
-        mode.h_total() == m.h_total() &&
-        mode.v_total() == m.v_total() &&
-        mode.clock() == m.clock() &&
-        mode.flags() == m.flags() &&
-        // 以下为后续添加判断条件
-        mode.h_sync_start() == m.h_sync_start() &&
-        mode.h_sync_end() == m.h_sync_end() &&
-        mode.h_skew() == m.h_skew() &&
-        mode.v_sync_start() == m.v_sync_start() &&
-        mode.v_sync_end() == m.v_sync_end())
-      return true;
-  }
-  return false;
+  // Check if the given DrmMode structure matches any of the elements in white_modes_ using the std::any_of() function.
+  bool is_mode_valid = std::any_of(white_modes_.begin(), white_modes_.end(), [&](const DrmMode &mode) {
+    // Define the condition for matching using a lambda expression.
+    return (mode.h_display() == m.h_display() &&
+            mode.v_display() == m.v_display() &&
+            mode.h_total() == m.h_total() &&
+            mode.v_total() == m.v_total() &&
+            mode.clock() == m.clock() &&
+            mode.flags() == m.flags() &&
+            mode.h_sync_start() == m.h_sync_start() &&
+            mode.h_sync_end() == m.h_sync_end() &&
+            mode.h_skew() == m.h_skew() &&
+            mode.v_sync_start() == m.v_sync_start() &&
+            mode.v_sync_end() == m.v_sync_end());
+  });
+
+  return is_mode_valid;
 }
 
 int DrmDevice::InitEnvFromXml(){
@@ -748,10 +757,11 @@ std::tuple<int, int> DrmDevice::Init(int num_displays) {
       for(std::vector<DrmPlane*> ::const_iterator iter_plane = (*iter)->planes.begin();
          iter_plane != (*iter)->planes.end(); ++iter_plane)
       {
-          int ret = 0;
           uint64_t area=0;
-          if((*iter_plane)->area_id_property().id())
-              std::tie(ret, area) = (*iter_plane)->area_id_property().value();
+          if((*iter_plane)->area_id_property().id()) {
+              uint64_t parm = 0;
+              std::tie(parm, area) = (*iter_plane)->area_id_property().value();
+          }
           ALOGD_IF(LogLevel(DBG_DEBUG),"\tPlane id=%d,area id=%" PRIu64 "",(*iter_plane)->id(),area);
       }
   }
@@ -856,10 +866,10 @@ uint32_t DrmDevice::next_mode_id() {
 
 int DrmDevice::TryEncoderForDisplay(int display, DrmEncoder *enc) {
   /* First try to use the currently-bound crtc */
-  DrmCrtc *crtc = enc->crtc();
-  if (crtc && crtc->can_bind(display)) {
-    crtc->set_display(display);
-    enc->set_crtc(crtc);
+  DrmCrtc *current_crtc = enc->crtc();
+  if (current_crtc && current_crtc->can_bind(display)) {
+    current_crtc->set_display(display);
+    enc->set_crtc(current_crtc);
     return 0;
   }
 
@@ -1181,7 +1191,7 @@ int DrmDevice::UpdateDisplayMode(int display_id){
   }
 
   // 判断是否存在Mirror模式
-  if(conn && conn->encoder() && conn->encoder()->crtc()){
+  if(conn->encoder() && conn->encoder()->crtc()) {
     DrmCrtc* crtc = conn->encoder()->crtc();
     DrmConnector *conn_mirror = NULL;
     // 检查是否存在 ConnectorMirror方式
@@ -1285,6 +1295,12 @@ int DrmDevice::UpdateDisplayMode(int display_id){
   ALOGD_IF(LogLevel(DBG_VERBOSE),"%s,line=%d, current_mode id=%d , w=%d,h=%d",__FUNCTION__,__LINE__,
             conn->current_mode().id(),conn->current_mode().h_display(),conn->current_mode().v_display());
   ret = CreatePropertyBlob(&drm_mode, sizeof(drm_mode), &blob_id[0]);
+  if(ret){
+    ALOGE("%s:line=%d Failed to CreatePropertyBlob ret=%d\n", __FUNCTION__, __LINE__, ret);
+    drmModeAtomicFree(pset);
+    pset=NULL;
+    return ret;
+  }
 
   DrmCrtc *crtc = conn->encoder()->crtc();
 
@@ -1314,7 +1330,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
   sprintf(mode_name,"%dx%dp%d",conn->current_mode().h_display(),
                               conn->current_mode().v_display(),
                               (int)conn->current_mode().v_refresh());
-  char value[PROPERTY_VALUE_MAX];
   property_set("vendor.hwc.resolution_mode", mode_name);
 #endif
 
@@ -1709,10 +1724,8 @@ int DrmDevice::BindConnectorAndCrtc(int display_id, DrmConnector* conn, DrmCrtc*
   sprintf(mode_name,"%dx%dp%d",conn->current_mode().h_display(),
                               conn->current_mode().v_display(),
                               (int)conn->current_mode().v_refresh());
-  char value[PROPERTY_VALUE_MAX];
   property_set("vendor.hwc.resolution_mode", mode_name);
 #endif
-
 
   return 0;
 }
@@ -1722,7 +1735,7 @@ int DrmDevice::ReleaseConnectorAndCrtcNoCommit(int display_id,
                                                DrmConnector* conn,
                                                DrmCrtc *crtc,
                                                drmModeAtomicReqPtr pset){
-  int ret;
+  int ret = 0;
   if (!conn) {
     HWC2_ALOGE("Failed to find display-id=%d connector", display_id);
     return -EINVAL;
@@ -1923,20 +1936,20 @@ int DrmDevice::BindDpyRes(int display_id){
         if(!temp_connector)
           continue;
         // 1. 检查 Connector 状态
-        int ret = CheckConnectorState(temp_connector->display(), temp_connector);
+        ret = CheckConnectorState(temp_connector->display(), temp_connector);
         if(ret){
           return ret;
         }
 
         // 2. 获取可用的 crtc 资源
-        DrmCrtc *crtc = NULL;
-        ret = FindAvailableCrtc(temp_connector->display(), temp_connector, &crtc);
+        DrmCrtc *tmp_crtc = NULL;
+        ret = FindAvailableCrtc(temp_connector->display(), temp_connector, &tmp_crtc);
         if(ret){
           return ret;
         }
 
         // 3. 绑定 Connector and Crtc 资源并使能
-        ret = BindConnectorAndCrtc(temp_connector->display(), temp_connector, crtc);
+        ret = BindConnectorAndCrtc(temp_connector->display(), temp_connector, tmp_crtc);
         if(ret){
           return ret;
         }
@@ -1958,7 +1971,7 @@ int DrmDevice::ReleaseDpyRes(int display_id, DrmModeChangeUsage usage ){
     return -EINVAL;
   }
 
-  if(conn && conn->encoder() && conn->encoder()->crtc()){
+  if(conn->encoder() && conn->encoder()->crtc()) {
     DrmCrtc* crtc = conn->encoder()->crtc();
     // 检查是否存在 ConnectorMirror方式
     // 若存在，解除 ConnectorMirrot方式，断开所有与 crtc 绑定的 Connector
@@ -2105,21 +2118,21 @@ int DrmDevice::ReleaseDpyResByMirror(int display_id,
     for(auto temp_conn : store_mirror_conn){
       int temp_display_id = temp_conn->display();
       // 4.1 检查 Connector 状态
-      int ret = CheckConnectorState(temp_display_id, temp_conn);
-      if(ret){
+      ret = CheckConnectorState(temp_display_id, temp_conn);
+      if (ret) {
         return ret;
       }
 
       // 4.2 获取可用的 crtc 资源
       DrmCrtc *temp_crtc = NULL;
       ret = FindAvailableCrtc(temp_display_id, temp_conn, &temp_crtc);
-      if(ret){
+      if (ret) {
         return ret;
       }
 
       // 4.3 绑定 Connector and Crtc 资源并使能
       ret = BindConnectorAndCrtc(temp_display_id, temp_conn, temp_crtc);
-      if(ret){
+      if (ret) {
         return ret;
       }
       HWC2_ALOGI("display-id=%d %s-%d Crtc-id=%d exit Mirror Mode Success! Enter Normal Mode.",

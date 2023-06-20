@@ -324,8 +324,8 @@ int Vop3562::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
         if(iter->second.size() > 1) {
-            for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                for(uint32_t j=i+1;j < iter->second.size();j++) {
+            for(i = 0; i < iter->second.size()-1; i++) {
+                for(j = i + 1; j < iter->second.size(); j++) {
                      if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
                         HWC2_ALOGD_IF_VERBOSE("swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
                         std::swap(iter->second[i],iter->second[j]);
@@ -470,7 +470,6 @@ int Vop3562::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
   //loop plane groups.
   for (iter = plane_groups.begin();
      iter != plane_groups.end(); ++iter) {
-     uint32_t combine_layer_count = 0;
      HWC2_ALOGD_IF_VERBOSE("line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
                                    "current_crtc=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
@@ -483,6 +482,8 @@ int Vop3562::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
           //find the match combine layer count with plane size.
           if(layer_size <= (*iter)->planes.size())
           {
+              uint32_t combine_layer_count = 0;
+
               //loop layer
               for(std::vector<DrmHwcLayer*>::const_iterator iter_layer= layers.second.begin();
                   iter_layer != layers.second.end();++iter_layer)
@@ -716,12 +717,12 @@ int Vop3562::MatchBestPlanes(
   ResetPlaneGroups(plane_groups);
   composition->clear();
   LayerMap layer_map;
-  int ret = CombineLayer(layer_map, layers, plane_groups.size());
+  CombineLayer(layer_map, layers, plane_groups.size());
 
   // Fill up the remaining planes
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
-    ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+    int ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),zpos, true);
     // We don't have any planes left
     if (ret == -ENOENT){
@@ -750,14 +751,14 @@ int Vop3562::MatchPlanes(
   ResetPlaneGroups(plane_groups);
   composition->clear();
   LayerMap layer_map;
-  int ret = CombineLayer(layer_map, layers, plane_groups.size());
+  CombineLayer(layer_map, layers, plane_groups.size());
 
   int total_size = 0;
 
   // Fill up the remaining planes
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
-    ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+    int ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),zpos);
 #ifdef RK3528
     // RK3528 支持预缩小，当源片源无法匹配时，需要考虑预缩小是否可以满足需求；
@@ -1017,7 +1018,7 @@ int Vop3562::TryRgaOverlayPolicy(
           }
 
           bool rga_scale_max = false;
-          int  scale_max_rate = 4;
+
           // RGA 有缩放倍数限制
           if((drmLayer->fHScaleMul_ < 0.125 ||
               drmLayer->fHScaleMul_ > 8.0   ||
@@ -1105,6 +1106,8 @@ int Vop3562::TryRgaOverlayPolicy(
 
           // 若缩放倍数超出RGA最大缩小倍数，则进行二次缩放，倍率设置为6
           if(rga_scale_max){
+            int scale_max_rate = 4;
+
             // Set dst rect info
             dst_rect.x = 0;
             dst_rect.y = 0;
@@ -1320,7 +1323,6 @@ int Vop3562::TryGlesSidebandPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
 
-  int iPlaneSize = plane_groups.size();
   std::pair<int, int> layer_indices(-1, -1);
 
   int sideband_index = -1;
@@ -1372,7 +1374,6 @@ int Vop3562::TryMixSidebandPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
 
-  int iPlaneSize = plane_groups.size();
   std::pair<int, int> layer_indices(-1, -1);
 
   if((int)layers.size() < 4)
@@ -1392,7 +1393,7 @@ int Vop3562::TryMixSidebandPolicy(
       ResetLayerFromTmpExceptFB(layers,tmp_layers);
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix sideband (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(!ret)
         return ret;
       else{
@@ -1412,8 +1413,6 @@ int Vop3562::TryMixSkipPolicy(
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
-
-  int skipCnt = 0;
 
   int iPlaneSize = plane_groups.size();
 
@@ -1446,7 +1445,9 @@ int Vop3562::TryMixSkipPolicy(
   }
 
   if(skip_layer_indices.first != -1){
-    skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+    int skipCnt = skip_layer_indices.second - skip_layer_indices.first + 1;
+    ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, skipCnt = %d, first = %d, second = %d",
+              __FUNCTION__, __LINE__, skipCnt, skip_layer_indices.first, skip_layer_indices.second);
   }else{
     ALOGE_IF(LogLevel(DBG_DEBUG), "%s:line=%d, can't find any skip layer, first = %d, second = %d",
               __FUNCTION__,__LINE__,skip_layer_indices.first,skip_layer_indices.second);
@@ -1558,7 +1559,7 @@ int Vop3562::TryMixVideoPolicy(
       for(++layer_indices.second; layer_indices.second < (layers.size() - 1); layer_indices.second++){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
         OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(!ret)
           return ret;
         else{
@@ -1570,7 +1571,7 @@ int Vop3562::TryMixVideoPolicy(
       for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
         OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(!ret)
           return ret;
         else{
@@ -1629,7 +1630,7 @@ int Vop3562::TryMixUpPolicy(
     for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(!ret)
         return ret;
       else{
@@ -1681,7 +1682,7 @@ int Vop3562::TryMixDownPolicy(
       layer_indices.second = i;
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(!ret)
         return ret;
       else{
@@ -1778,19 +1779,18 @@ void Vop3562::UpdateResevedPlane(DrmCrtc *crtc){
 
   if(strlen(ctx.support.arrayReservedPlaneName) == 0 ||
      strcmp(reserved_plane_name,ctx.support.arrayReservedPlaneName)){
-    int reserved_plane_win_type = 0;
     strncpy(ctx.support.arrayReservedPlaneName,reserved_plane_name,strlen(reserved_plane_name)+1);
     DrmDevice *drm = crtc->getDrmDevice();
     std::vector<PlaneGroup *> all_plane_groups = drm->GetPlaneGroups();
 
     if(strcmp(reserved_plane_name,"NULL")){
-      int reserved_plane_win_type = 0;
       std::string reserved_name;
       std::stringstream ss(reserved_plane_name);
       while(getline(ss, reserved_name, ',')) {
         for(auto &plane_group : all_plane_groups){
           for(auto &p : plane_group->planes){
             if(!strcmp(p->name(),reserved_name.c_str())){
+              int reserved_plane_win_type = 0;
               plane_group->bReserved = true;
               reserved_plane_win_type = plane_group->win_type;
               HWC2_ALOGI("Reserved DrmPlane %s , win_type = 0x%x",

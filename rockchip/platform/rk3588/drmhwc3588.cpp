@@ -158,7 +158,7 @@ int Hwc3588::assignPlaneByPlaneMask(DrmDevice* drm){
 int Hwc3588::TryAssignPlane(DrmDevice* drm){
   int ret = -1;
   bool exist_plane_mask = false;
-  std::set<int> active_display;
+
   for (auto &conn : drm->connectors()) {
     int display_id = conn->display();
     if(conn->state() != DRM_MODE_CONNECTED)

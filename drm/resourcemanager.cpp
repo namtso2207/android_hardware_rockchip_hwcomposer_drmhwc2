@@ -106,7 +106,7 @@ int ResourceManager::AddDrmDevice() {
   std::unique_ptr<DrmDevice> drm = std::make_unique<DrmDevice>();
   int displays_added, ret;
   std::tie(ret, displays_added) = drm->Init(num_displays_);
-  if (ret)
+  if (ret < 0)
     return ret;
 
   //Get soc id
@@ -338,7 +338,6 @@ int ResourceManager::WriteBackUseVop(int display){
 int ResourceManager::WriteBackUseRga(int display){
   // 利用 RGA 进行 WriteBack, RGA alpha blend 要求点对点，不允许缩放
   // 故要求申请内存与系统UI分辨率一致
-  uint32_t fps = 0;
   if(hwc2_->GetDisplayCtxPtr(display) != NULL){
     hwc2_drm_display_t* dpy_ctx = hwc2_->GetDisplayCtxPtr(display);
     iWBWidth_ = dpy_ctx->framebuffer_width;

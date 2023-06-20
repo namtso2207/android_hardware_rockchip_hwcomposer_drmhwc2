@@ -109,7 +109,7 @@ bool hwc_get_bool_property(const char* pcProperty,const char* default_value)
     if(pcProperty == NULL || default_value == NULL)
     {
         ALOGE("hwc_get_int_property: invalid param");
-        return -1;
+        return false;
     }
 
     property_get(pcProperty, value, default_value);

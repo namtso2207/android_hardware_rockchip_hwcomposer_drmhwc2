@@ -298,8 +298,8 @@ int Vop3399::CombineLayer(LayerMap& layer_map,std::vector<DrmHwcLayer*> &layers,
   for (LayerMap::iterator iter = layer_map.begin();
        iter != layer_map.end(); ++iter) {
         if(iter->second.size() > 1) {
-            for(uint32_t i=0;i < iter->second.size()-1;i++) {
-                for(uint32_t j=i+1;j < iter->second.size();j++) {
+            for(i = 0; i < iter->second.size()-1; i++) {
+                for(j = i + 1; j < iter->second.size(); j++) {
                      if(iter->second[i]->display_frame.top > iter->second[j]->display_frame.top) {
                         ALOGD_IF(LogLevel(DBG_DEBUG),"swap %d and %d",iter->second[i]->uId_,iter->second[j]->uId_);
                         std::swap(iter->second[i],iter->second[j]);
@@ -446,9 +446,8 @@ int Vop3399::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
 
   //loop plane groups.
   for (iter = plane_groups.begin();
-     iter != plane_groups.end(); ++iter) {
-     uint32_t combine_layer_count = 0;
-     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
+    iter != plane_groups.end(); ++iter) {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
                                    "current_crtc_=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
                                    (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
@@ -460,6 +459,8 @@ int Vop3399::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
           //find the match combine layer count with plane size.
           if(layer_size <= (*iter)->planes.size())
           {
+              uint32_t combine_layer_count = 0;
+
               //loop layer
               for(std::vector<DrmHwcLayer*>::const_iterator iter_layer= layers.second.begin();
                   iter_layer != layers.second.end();++iter_layer)
@@ -575,8 +576,8 @@ int Vop3399::MatchPlane(std::vector<DrmCompositionPlane> *composition_planes,
                           if(ctx.state.bCommitMirrorMode && ctx.state.pCrtcMirror!=NULL){
 
                             // Output info
-                            int output_w = (*iter_layer)->display_frame_mirror.right - (*iter_layer)->display_frame_mirror.left;
-                            int output_h = (*iter_layer)->display_frame_mirror.bottom - (*iter_layer)->display_frame_mirror.top;
+                            output_w = (*iter_layer)->display_frame_mirror.right - (*iter_layer)->display_frame_mirror.left;
+                            output_h = (*iter_layer)->display_frame_mirror.bottom - (*iter_layer)->display_frame_mirror.top;
 
                             if((*iter_plane)->is_support_output(output_w,output_h)){
                               bNeed = true;
@@ -645,9 +646,8 @@ int Vop3399::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
 
   //loop plane groups.
   for (iter = plane_groups.begin();
-     iter != plane_groups.end(); ++iter) {
-     uint32_t combine_layer_count = 0;
-     ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
+    iter != plane_groups.end(); ++iter) {
+      ALOGD_IF(LogLevel(DBG_DEBUG),"line=%d,last zpos=%d,group(%" PRIu64 ") zpos=%d,group bUse=%d,crtc=0x%x,"
                                    "current_crtc_=0x%x,possible_crtcs=0x%x",
                                    __LINE__, zpos, (*iter)->share_id, (*iter)->zpos, (*iter)->bUse,
                                    (1<<crtc->pipe()), (*iter)->current_crtc_,(*iter)->possible_crtcs);
@@ -659,6 +659,8 @@ int Vop3399::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
           //find the match combine layer count with plane size.
           if(layer_size <= (*iter)->planes.size())
           {
+              uint32_t combine_layer_count = 0;
+
               //loop layer
               for(std::vector<DrmHwcLayer*>::const_iterator iter_layer= layers.second.begin();
                   iter_layer != layers.second.end();++iter_layer)
@@ -774,8 +776,8 @@ int Vop3399::MatchPlaneMirror(std::vector<DrmCompositionPlane> *composition_plan
                           // Must match external display
                           {
                               // Output info
-                              int output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
-                              int output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
+                              output_w = (*iter_layer)->display_frame.right - (*iter_layer)->display_frame.left;
+                              output_h = (*iter_layer)->display_frame.bottom - (*iter_layer)->display_frame.top;
 
                               if((*iter_plane)->is_support_output(output_w,output_h)){
                                 bNeed = true;
@@ -849,12 +851,12 @@ int Vop3399::MatchBestPlanes(
   ResetPlaneGroups(plane_groups);
   composition->clear();
   LayerMap layer_map;
-  int ret = CombineLayer(layer_map, layers, plane_groups.size());
+  CombineLayer(layer_map, layers, plane_groups.size());
 
   // Fill up the remaining planes
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
-    ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+    int ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),zpos, true);
     // We don't have any planes left
     if (ret == -ENOENT){
@@ -895,12 +897,12 @@ int Vop3399::MatchPlanes(
   ResetPlaneGroups(plane_groups);
   composition->clear();
   LayerMap layer_map;
-  int ret = CombineLayer(layer_map, layers, plane_groups.size());
+  CombineLayer(layer_map, layers, plane_groups.size());
 
   // Fill up the remaining planes
   int zpos = 0;
   for (auto i = layer_map.begin(); i != layer_map.end(); i = layer_map.erase(i)) {
-    ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
+    int ret = MatchPlane(composition, plane_groups, DrmCompositionPlane::Type::kLayer,
                       crtc, std::make_pair(i->first, i->second),zpos);
     if (ret) {
       ALOGD_IF(LogLevel(DBG_DEBUG),"Failed to match all layer, try other HWC policy ret = %d, line = %d",ret,__LINE__);
@@ -1170,7 +1172,7 @@ int Vop3399::TryMixSkipPolicy(
     if(first > (layers.size() - 1 - last) && first != 0){
       for(first--; first >= 0; first--){
         OutputMatchLayer(first, last, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
           ResetLayerFromTmpExceptFB(layers,tmp_layers);
@@ -1182,7 +1184,7 @@ int Vop3399::TryMixSkipPolicy(
     }else if(last < layers.size()){
       for(last++; last <= layers.size() - 1; last++){
         OutputMatchLayer(first, last, layers, tmp_layers);
-        int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+        ret = MatchPlanes(composition,layers,crtc,plane_groups);
         if(ret){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d fail match (%d,%d)",__FUNCTION__,__LINE__,first, last);
           ResetLayerFromTmpExceptFB(layers,tmp_layers);
@@ -1217,7 +1219,6 @@ int Vop3399::TryMixVideoPolicy(
   //save fb into tmp_layers
   MoveFbToTmp(layers, tmp_layers);
 
-  int iPlaneSize = plane_groups.size();
   std::pair<int, int> layer_indices(-1, -1);
 
   if((int)layers.size() < 4)
@@ -1236,7 +1237,7 @@ int Vop3399::TryMixVideoPolicy(
       ResetLayerFromTmpExceptFB(layers,tmp_layers);
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(!ret)
         return ret;
       else{
@@ -1295,7 +1296,7 @@ int Vop3399::TryMixUpPolicy(
       ResetLayerFromTmpExceptFB(layers,tmp_layers);
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix video (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-      int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
       if(!ret)
         return ret;
       else{
@@ -1352,7 +1353,7 @@ int Vop3399::TryMixDownPolicy(
     layer_indices.second = layers.size() - iPlaneSize;
     ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix down (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
     OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
-    int ret = MatchPlanes(composition,layers,crtc,plane_groups);
+    ret = MatchPlanes(composition,layers,crtc,plane_groups);
     if(!ret)
       return ret;
     else{
@@ -1596,7 +1597,7 @@ bool Vop3399::CheckGLESLayer(DrmHwcLayer *layer){
       return true;
     }
 
-    int dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
+    dst_w = static_cast<int>(layer->display_frame.right - layer->display_frame.left);
     if(dst_w % 2 == 1 && layer->fHScaleMul_ < 1.0){
       HWC2_ALOGD_IF_DEBUG("[%s]：RK356x Esmart can't overlay dst_w %% 2 == 1 and fHScaleMul_ < 1.0 layer.",
               layer->sLayerName_.c_str());
@@ -1900,10 +1901,9 @@ void Vop3399::InitCrtcMirror(
     uint32_t width, height, flags;
     uint32_t hsync_start, hsync_end, htotal;
     uint32_t vsync_start, vsync_end, vtotal;
-    bool interlaced;
     float vrefresh;
     char val;
-    uint32_t MaxResolution = 0,temp;
+
     property_get("persist.vendor.resolution.aux", resolution, "Auto");
     if(strcmp(resolution,resolution_last)){
       if(!strcmp(resolution,"Auto")){
@@ -1913,8 +1913,8 @@ void Vop3399::InitCrtcMirror(
             break;
           }
         }
-      }else if(strcmp(resolution,"Auto") != 0){
-        int len = sscanf(resolution, "%dx%d@%f-%d-%d-%d-%d-%d-%d-%x",
+      } else {
+        int len = sscanf(resolution, "%ux%u@%f-%u-%u-%u-%u-%u-%u-%x",
                          &width, &height, &vrefresh, &hsync_start,
                          &hsync_end, &htotal, &vsync_start,&vsync_end,
                          &vtotal, &flags);
@@ -1928,7 +1928,8 @@ void Vop3399::InitCrtcMirror(
           }
         }else{
           uint32_t ivrefresh;
-          len = sscanf(resolution, "%dx%d%c%d", &width, &height, &val, &ivrefresh);
+          bool interlaced;
+          len = sscanf(resolution, "%ux%u%c%u", &width, &height, &val, &ivrefresh);
           if (val == 'i')
             interlaced = true;
           else

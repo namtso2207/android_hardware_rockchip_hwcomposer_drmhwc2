@@ -282,7 +282,6 @@ sp<ReleaseFence> DrmDisplayComposition::GetReleaseFence(hwc2_layer_t layer_id) {
   if(comp_layers.empty())
     return ReleaseFence::NO_FENCE;
 
-  char acBuf[32];
   for (DrmHwcLayer *layer : comp_layers) {
     if (!layer){
       continue;
@@ -421,7 +420,8 @@ static void DumpTransform(uint32_t transform, std::ostringstream *out) {
     separator = true;
   }
 
-  uint32_t valid_bits = DrmHwcTransform::kFlipH | DrmHwcTransform::kFlipH |
+  uint32_t valid_bits = DrmHwcTransform::kFlipH |
+                        DrmHwcTransform::kFlipV |
                         DrmHwcTransform::kRotate90 |
                         DrmHwcTransform::kRotate180 |
                         DrmHwcTransform::kRotate270;
@@ -498,8 +498,8 @@ void DrmDisplayComposition::Dump(std::ostringstream *out) const {
     }
 
     *out << " source_layer=";
-    for (auto i : comp_plane.source_layers()) {
-      *out << i << " ";
+    for (auto j : comp_plane.source_layers()) {
+      *out << j << " ";
     }
     *out << "\n";
   }

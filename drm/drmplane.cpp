@@ -186,14 +186,13 @@ int DrmPlane::Init() {
   if (ret)
     ALOGI("Could not get pixel blend mode property");
 
-  bool find_name = false;
   rotate_ = DRM_PLANE_ROTATION_0;
   ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
   if (ret)
     ALOGE("Could not get FEATURE property");
   else{
     for(int i = 0; i < ARRAY_SIZE(plane_rotation_type_names); i++){
-      find_name = false;
+      bool find_name = false;
       int value = 0;
       std::tie(value,find_name) = rotation_property_.bitmask(plane_rotation_type_names[i].name);
       if(find_name){

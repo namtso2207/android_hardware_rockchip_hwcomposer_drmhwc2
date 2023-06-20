@@ -341,7 +341,6 @@ struct DrmHwcLayer {
   bool IsScale(hwc_frect_t &source_crop, hwc_rect_t &display_frame, int transform);
   bool IsAfbcModifier(uint64_t modifier);
   bool IsSkipLayer();
-  bool IsGlesCompose();
 #ifdef RK3528
   void ModifyDisplayFrame();
   bool IsPreScaleVideo(uint64_t usage);

@@ -132,9 +132,7 @@ DrmBuffer::~DrmBuffer(){
   WaitFinishFence();
   WaitReleaseFence();
 
-  if(ptrBuffer_ != NULL){
-    ptrBuffer_ = NULL;
-  }
+  ptrBuffer_ = NULL;
 
   if (uFbId_ > 0){
     if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
@@ -159,7 +157,7 @@ DrmBuffer::~DrmBuffer(){
   }
 
   if(inBuffer_ != NULL){
-    int ret = ptrDrmGralloc_->freeBuffer(buffer_);
+    ret = ptrDrmGralloc_->freeBuffer(buffer_);
     if(ret){
       ALOGE("freeBuffer in_handle=%p, local_handle=%p fail, ret=%d",
             inBuffer_, buffer_, ret);
@@ -408,10 +406,10 @@ void* DrmBuffer::Lock(){
 
   void* cpu_addr = NULL;
   static int frame_cnt =0;
-  int ret = 0;
+
   cpu_addr = ptrDrmGralloc_->hwc_get_handle_lock(buffer_,iWidth_,iHeight_);
-  if(ret){
-    HWC2_ALOGE("buffer-id=%" PRIu64 " lock fail ret = %d ",uId,ret);
+  if(cpu_addr == NULL){
+    HWC2_ALOGE("buffer-id=%" PRIu64 " lock fail",uId);
     return NULL;
   }
 
@@ -447,7 +445,7 @@ int DrmBuffer::SetFinishFence(int fence){
 int DrmBuffer::WaitFinishFence(){
   int ret = 0;
   if(iFinishFence_.get() > 0){
-    int ret = sync_wait(iFinishFence_.get(), 1500);
+    ret = sync_wait(iFinishFence_.get(), 1500);
     if (ret) {
       HWC2_ALOGE("Failed to wait for RGA finish fence %d/%d 1500ms", iFinishFence_.get(), ret);
     }
@@ -468,7 +466,7 @@ int DrmBuffer::SetReleaseFence(int fence){
 int DrmBuffer::WaitReleaseFence(){
   int ret = 0;
   if(iReleaseFence_.get() > 0){
-    int ret = sync_wait(iReleaseFence_.get(), 1500);
+    ret = sync_wait(iReleaseFence_.get(), 1500);
     if (ret) {
       HWC2_ALOGE("Failed to wait for RGA finish fence %d/%d 1500ms", iReleaseFence_.get(), ret);
     }
@@ -487,10 +485,11 @@ int DrmBuffer::DumpData(){
   static int frame_cnt =0;
   int ret = 0;
   cpu_addr = ptrDrmGralloc_->hwc_get_handle_lock(buffer_,iWidth_,iHeight_);
-  if(ret){
-    HWC2_ALOGE("buffer-id=%" PRIu64 " lock fail ret = %d ",uId,ret);
-    return ret;
+  if (cpu_addr == NULL) {
+    HWC2_ALOGE("buffer-id=%" PRIu64 " lock fail", uId);
+    return -1;
   }
+
   FILE * pfile = NULL;
   char data_name[100] ;
   system("mkdir /data/dump/ && chmod /data/dump/ 777 ");
@@ -514,7 +513,6 @@ int DrmBuffer::DumpData(){
           uId,data_name,iWidth_,iStride_,iByteStride_,iSize_,cpu_addr);
   }
 
-
   ret = ptrDrmGralloc_->hwc_get_handle_unlock(buffer_);
   if(ret){
     HWC2_ALOGE("buffer-id=%" PRIu64 " unlock fail ret = %d ",uId,ret);
@@ -532,7 +530,8 @@ bool DrmBuffer::IsPreScaleBuffer(){
 
 int DrmBuffer::SwitchToPreScaleBuffer(){
   metadata_for_rkvdec_scaling_t* metadata = NULL;
-  int ret = ptrDrmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
+
+  ptrDrmGralloc_->lock_rkvdec_scaling_metadata(buffer_, &metadata);
   HWC2_ALOGD_IF_INFO("lock_rkvdec_scaling_metadata buffer_=%p metadata=%p", buffer_, metadata);
   if(metadata != NULL){
     metadata->requestMask = 1;

@@ -226,8 +226,7 @@ int VpContext::SetTimeStamp(int64_t queue_time){
   mQueueFrameTimestamp_ = queue_time;
 
   struct timespec ts;
-  uint64_t timestamp = 0;
-  int ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
   mAcquireFrameTimestamp_ = ts.tv_sec * 1000 * 1000 + ts.tv_nsec / 1000;
   return 0;
 }
@@ -246,8 +245,7 @@ int64_t VpContext::GetAcquireTime(){
 int VpContext::VpPrintTimestamp(){
   std::lock_guard<std::mutex> lock(mtx_);
   struct timespec ts;
-  uint64_t timestamp = 0;
-  int ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
   mCommitFrameTimestamp_ = ts.tv_sec * 1000 * 1000 + ts.tv_nsec / 1000;
 
   HWC2_ALOGD_IF_INFO("Queue->Acquire=%" PRIi64 "ms Queue->Commit=%" PRIi64 "ms",
