@@ -817,9 +817,6 @@ v4l2_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
       return V4L2_COLORSPACE_SRGB;
   }
 
-
-
-
   //ALOGE("Unknow colorspace 0x%x",colorspace);
   return V4L2_COLORSPACE_DEFAULT;
 

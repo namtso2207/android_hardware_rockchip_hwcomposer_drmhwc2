@@ -3113,9 +3113,19 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
   if(layer->bYuv_ &&
     ((layer->eDataSpace_ & HAL_DATASPACE_STANDARD_BT709) > 0) &&
     ((layer->eDataSpace_ & HAL_DATASPACE_RANGE_FULL) > 0) ){
-    HWC2_ALOGD_IF_DEBUG("[%s]:layer->dataspace= 0x%" PRIx32 " is BT709-Full, vop npsupport input.",
-            layer->sLayerName_.c_str(), layer->eDataSpace_);
-    return true;
+    // vop不支持输入bt709，但是sideband又要求vop输入
+    // 故目前的解决方案是强制修改 bt709 full range 为 vop支持的色域空间：
+    // CSC：RGB : BT709 Limit range
+    //      YUV : BT601 limit range
+    if(layer->bSidebandStreamLayer_){
+      HWC2_ALOGD_IF_DEBUG("[%s]:sideband layer->dataspace= 0x%" PRIx32 " is BT709-Full, force cvt BT709-Limit",
+              layer->sLayerName_.c_str(), layer->eDataSpace_);
+      layer->uColorSpace = V4L2_COLORSPACE_REC709;
+    }else{
+      HWC2_ALOGD_IF_DEBUG("[%s]:layer->dataspace= 0x%" PRIx32 " is BT709-Full, vop npsupport input.",
+              layer->sLayerName_.c_str(), layer->eDataSpace_);
+      return true;
+    }
   }
 
   switch(layer->sf_composition){
