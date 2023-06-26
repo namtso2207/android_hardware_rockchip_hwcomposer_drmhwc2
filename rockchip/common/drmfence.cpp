@@ -180,8 +180,9 @@ void ReleaseFence::setFd(int fd, int sync_timeline_fd, std::string name) {
 }
 
 int ReleaseFence::countWithStatus(int status) const {
-    return std::count_if(getInfo().begin(), getInfo().end(),
-                         [status](const auto& info) {
+    auto fenceInfo = getInfo();
+    return std::count_if(fenceInfo.begin(), fenceInfo.end(),
+                         [status](const auto info) {
                             return info.status == status;
                         });
 }
@@ -278,7 +279,9 @@ void AcquireFence::clearFd() {
 }
 
 int AcquireFence::countWithStatus(int status) const {
-    return std::count_if(getInfo().begin(), getInfo().end(),
+
+    auto fenceInfo = getInfo();
+    return std::count_if(fenceInfo.begin(), fenceInfo.end(),
                          [status](const auto& info) {
                             return info.status == status;
                         });
