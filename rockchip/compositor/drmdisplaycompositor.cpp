@@ -42,6 +42,8 @@
 #include "rockchip/utils/drmdebug.h"
 #include "rockchip/producer/drmvideoproducer.h"
 
+#include <rga.h>
+
 #define DRM_DISPLAY_COMPOSITOR_MAX_QUEUE_DEPTH 1
 
 static const uint32_t kWaitWritebackFence = 100;  // ms
