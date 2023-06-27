@@ -312,9 +312,12 @@ class DrmHwcTwo : public hwc2_device_t {
       }
 
       if(mDrawingState.buffer_ != mCurrentState.buffer_){
-          qFrameTimestamp_.push(systemTime());
+          nsecs_t current_time = systemTime();
+          qFrameTimestamp_.push(current_time);
+          qFrameTimestampBack_.push(current_time);
           while(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
             qFrameTimestamp_.pop();
+            qFrameTimestampBack_.pop();
           }
         }
       // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
@@ -362,11 +365,14 @@ class DrmHwcTwo : public hwc2_device_t {
                             pBufferInfo_->sLayerName_.c_str());
 
       if(mDrawingState.buffer_ != mCurrentState.buffer_){
-          qFrameTimestamp_.push(systemTime());
-          if(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
-            qFrameTimestamp_.pop();
-          }
+        nsecs_t current_time = systemTime();
+        qFrameTimestamp_.push(current_time);
+        qFrameTimestampBack_.push(current_time);
+        while(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
+          qFrameTimestamp_.pop();
+          qFrameTimestampBack_.pop();
         }
+      }
     }
 
 
@@ -558,11 +564,21 @@ class DrmHwcTwo : public hwc2_device_t {
         mFps_ =  qFrameTimestamp_.size() * float(s2ns(1)) / (current_time - start_time);
       }else{
         mFps_ = 0;
-        return mFps_;
       }
 
-
       return mFps_;
+    }
+
+    float GetRealFps(){
+      nsecs_t end_time = qFrameTimestampBack_.back();
+      nsecs_t start_time = qFrameTimestampBack_.front();
+      if(qFrameTimestampBack_.size() > 10){
+        mRealFps_ =  qFrameTimestampBack_.size() * float(s2ns(1)) / (end_time - start_time);
+      }else{
+        mRealFps_ = 60;
+      }
+
+      return mRealFps_;
     }
 
     int DoSvep(bool validate, DrmHwcLayer *drmHwcLayer);
@@ -614,7 +630,11 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Hwc2Layer fps, for debug.
     std::queue<nsecs_t> qFrameTimestamp_;
-    float mFps_;
+    std::queue<nsecs_t> qFrameTimestampBack_;
+    // 考虑世界时间的fps, 1s内不刷新则刷新率为0
+    float mFps_ = 0;
+    // 图层更新的fps，不考虑世界时间，提供已刷新的图层刷新率
+    float mRealFps_ = 0;
 
     // DRM Resource
     DrmGralloc *drmGralloc_;

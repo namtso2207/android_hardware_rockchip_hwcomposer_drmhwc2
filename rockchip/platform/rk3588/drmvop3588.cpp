@@ -237,6 +237,12 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
   }
 
+  // HWC内部会计算图层刷新率，若刷新率大于35帧，则关闭SVEP-SR功能
+  if(layer->fRealFps_ > 35){
+    HWC2_ALOGD_IF_DEBUG("disable-svep: video_max_fps=%f name=%s",layer->fRealFps_, layer->sLayerName_.c_str());
+    return false;
+  }
+
   return true;
 }
 
