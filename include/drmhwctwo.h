@@ -50,7 +50,7 @@ class DrmDisplayCompositor;
 static DrmHwcTwo *g_ctx = NULL;
 
 #define MAX_NUM_BUFFER_SLOTS 32
-
+#define MAX_NUM_FRAME_TIMESTAMP_CNT 20
 class DrmHwcTwo : public hwc2_device_t {
  public:
   static int HookDevOpen(const struct hw_module_t *module, const char *name,
@@ -312,11 +312,11 @@ class DrmHwcTwo : public hwc2_device_t {
       }
 
       if(mDrawingState.buffer_ != mCurrentState.buffer_){
-        mFrameCount_++;
-        if(mLastFpsTime_ == 0){
-          mLastFpsTime_ = systemTime();
+          qFrameTimestamp_.push(systemTime());
+          while(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
+            qFrameTimestamp_.pop();
+          }
         }
-      }
       // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
     }
 
@@ -362,11 +362,11 @@ class DrmHwcTwo : public hwc2_device_t {
                             pBufferInfo_->sLayerName_.c_str());
 
       if(mDrawingState.buffer_ != mCurrentState.buffer_){
-        mFrameCount_++;
-        if(mLastFpsTime_ == 0){
-          mLastFpsTime_ = systemTime();
+          qFrameTimestamp_.push(systemTime());
+          if(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
+            qFrameTimestamp_.pop();
+          }
         }
-      }
     }
 
 
@@ -548,13 +548,20 @@ class DrmHwcTwo : public hwc2_device_t {
     int getTunnelId() { return mSidebandInfo_.tunnel_id; }
 
     float GetFps(){
-      nsecs_t now = systemTime();
-      nsecs_t diff = now - mLastFpsTime_;
-      if (diff > s2ns(1)) {
-          mFps_ =  ((mFrameCount_ - mLastFrameCount_) * float(s2ns(1))) / diff;
-          mLastFpsTime_ = now;
-          mLastFrameCount_ = mFrameCount_;
+      nsecs_t current_time = systemTime();
+      nsecs_t start_time = qFrameTimestamp_.front();
+      while( !qFrameTimestamp_.empty() && (current_time - start_time > float(s2ns(1)) )){
+        qFrameTimestamp_.pop();
+        start_time = qFrameTimestamp_.front();
       }
+      if(!qFrameTimestamp_.empty()){
+        mFps_ =  qFrameTimestamp_.size() * float(s2ns(1)) / (current_time - start_time);
+      }else{
+        mFps_ = 0;
+        return mFps_;
+      }
+
+
       return mFps_;
     }
 
@@ -606,11 +613,9 @@ class DrmHwcTwo : public hwc2_device_t {
     std::shared_ptr<bufferInfo_t> pBufferInfo_ = NULL;
 
     // Hwc2Layer fps, for debug.
-    int mFrameCount_;
-    int mLastFrameCount_ = 0;
-    nsecs_t mLastFpsTime_ = 0;
-
+    std::queue<nsecs_t> qFrameTimestamp_;
     float mFps_;
+
     // DRM Resource
     DrmGralloc *drmGralloc_;
     DrmDevice *drm_;
