@@ -3255,22 +3255,44 @@ int DrmDisplayCompositor::WriteBackByRGA() {
             }
           }
         }else{
-          // Set src buffer info
-          src.fd     = layer.iFd_;
-          src.width  = layer.iWidth_;
-          src.height = layer.iHeight_;
-          src.wstride = layer.iStride_;
-          src.hstride = layer.iHeightStride_;
-          src.format = layer.iFormat_;
 
-          // Set src rect info
-          src_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
-          src_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
-          src_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
-          src_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+          // PQ 模式开启后，FbTarget 会被转换为YUV444，此时RGA无法支持输入
+          // 目前做法是采用FbTarget原来的数据，即RGBA8888格式作为RGA的合成输入即可实现录屏需求
+          if(layer.bFbTarget_  && layer.iFormat_ == HAL_PIXEL_FORMAT_YCbCr_444_888){
+              // Set src buffer info
+              src.fd     = layer.storeLayerInfo_.iFd_;
+              src.width  = layer.storeLayerInfo_.iWidth_;
+              src.height = layer.storeLayerInfo_.iHeight_;
+              src.wstride = layer.storeLayerInfo_.iStride_;
+              src.hstride = layer.storeLayerInfo_.iHeightStride_;
+              src.format = layer.storeLayerInfo_.iFormat_;
 
-          if(layer.uModifier_ > 0)
-            src.rd_mode = IM_FBC_MODE;
+              // Set src rect info
+              src_rect.x = ALIGN_DOWN_INT(layer.storeLayerInfo_.source_crop.left, YUV_ALIGN);
+              src_rect.y = ALIGN_DOWN_INT(layer.storeLayerInfo_.source_crop.top, YUV_ALIGN);
+              src_rect.width = ALIGN_DOWN_INT(layer.storeLayerInfo_.source_crop.right - layer.storeLayerInfo_.source_crop.left, YUV_ALIGN);
+              src_rect.height = ALIGN_DOWN_INT(layer.storeLayerInfo_.source_crop.bottom - layer.storeLayerInfo_.source_crop.top, YUV_ALIGN);
+
+              if(layer.storeLayerInfo_.uModifier_ > 0)
+                src.rd_mode = IM_FBC_MODE;
+          }else{
+              // Set src buffer info
+              src.fd     = layer.iFd_;
+              src.width  = layer.iWidth_;
+              src.height = layer.iHeight_;
+              src.wstride = layer.iStride_;
+              src.hstride = layer.iHeightStride_;
+              src.format = layer.iFormat_;
+
+              // Set src rect info
+              src_rect.x = ALIGN_DOWN_INT(layer.source_crop.left, YUV_ALIGN);
+              src_rect.y = ALIGN_DOWN_INT(layer.source_crop.top, YUV_ALIGN);
+              src_rect.width = ALIGN_DOWN_INT(layer.source_crop.right - layer.source_crop.left, YUV_ALIGN);
+              src_rect.height = ALIGN_DOWN_INT(layer.source_crop.bottom - layer.source_crop.top, YUV_ALIGN);
+
+              if(layer.uModifier_ > 0)
+                src.rd_mode = IM_FBC_MODE;
+              }
         }
 
         // Set dst buffer info
