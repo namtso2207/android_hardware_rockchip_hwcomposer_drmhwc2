@@ -174,6 +174,7 @@ std::unique_ptr<DrmDisplayComposition> DrmDisplayCompositor::CreateComposition()
 
 int DrmDisplayCompositor::QueueComposition(
     std::unique_ptr<DrmDisplayComposition> composition) {
+  ATRACE_CALL();
   switch (composition->type()) {
     case DRM_COMPOSITION_TYPE_FRAME:
       if (!active_){
