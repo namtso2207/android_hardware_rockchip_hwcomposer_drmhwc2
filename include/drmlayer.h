@@ -191,6 +191,7 @@ struct DrmLayerInfoStore{
   uint64_t uBufferId_;
   uint32_t uGemHandle_=0;
   std::string sLayerName_;
+  std::vector<uint32_t> uByteStridePlanes_;
 };
 
 struct DrmHwcLayer {
@@ -327,6 +328,7 @@ struct DrmHwcLayer {
   void UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
       int fd, int format, int w, int h, int stride, int h_stride, int size,
       int byte_stride, uint64_t usage, uint32_t fourcc, uint64_t modefier,
+      std::vector<uint32_t> byte_stride_planes,
       std::string name, hwc_frect_t &intput_crop, uint64_t buffer_id,
       uint32_t gemhandle, uint32_t replace_transform);
   void ResetInfoFromStore();

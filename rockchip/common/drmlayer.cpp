@@ -842,6 +842,7 @@ supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){
 void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
       int fd, int format, int w, int h, int stride, int h_stride, int byte_stride,
       int size, uint64_t usage, uint32_t fourcc, uint64_t modefier,
+      std::vector<uint32_t> byte_stride_planes,
       std::string name, hwc_frect_t &intput_crop, uint64_t buffer_id,
       uint32_t gemhandle, uint32_t replace_transform){
 
@@ -864,6 +865,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   storeLayerInfo_.sLayerName_    = sLayerName_;
   storeLayerInfo_.uBufferId_    = uBufferId_;
   storeLayerInfo_.uGemHandle_   = uGemHandle_;
+  storeLayerInfo_.uByteStridePlanes_   = uByteStridePlanes_;
 
   sf_handle      = handle;
   iFd_           = fd;
@@ -880,6 +882,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   sLayerName_    = name;
   uBufferId_     = buffer_id;
   uGemHandle_    = gemhandle;
+  uByteStridePlanes_ = byte_stride_planes;
 
   iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
 
@@ -932,6 +935,7 @@ void DrmHwcLayer::ResetInfoFromStore(){
   sLayerName_    = storeLayerInfo_.sLayerName_;
   uBufferId_     = storeLayerInfo_.uBufferId_;
   uGemHandle_    = storeLayerInfo_.uGemHandle_;
+  uByteStridePlanes_ = storeLayerInfo_.uByteStridePlanes_;
 
   Init();
   HWC2_ALOGD_IF_DEBUG(

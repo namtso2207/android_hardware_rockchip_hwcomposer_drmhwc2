@@ -263,6 +263,12 @@ int DrmBuffer::GetSize(){
 uint64_t DrmBuffer::GetUsage(){
   return iUsage_;
 }
+
+std::vector<uint32_t> DrmBuffer::GetByteStridePlanes(){
+  return uByteStridePlanes_;
+}
+
+
 int DrmBuffer::SetCrop(int left, int top, int right, int bottom){
   iLeft_  = left;
   iTop_   = top;

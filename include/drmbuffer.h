@@ -48,6 +48,7 @@ public:
   int GetByteStride();
   int GetSize();
   uint64_t GetUsage();
+  std::vector<uint32_t> GetByteStridePlanes();
   int SetCrop(int left, int top, int right, int bottom);
   int GetCrop(int *left, int *top, int *right, int *bottom);
   uint32_t GetFourccFormat();

@@ -3953,6 +3953,7 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
                                                   dst_buffer->GetUsage(),
                                                   dst_buffer->GetFourccFormat(),
                                                   dst_buffer->GetModifier(),
+                                                  dst_buffer->GetByteStridePlanes(),
                                                   dst_buffer->GetName(),
                                                   source_crop,
                                                   dst_buffer->GetBufferId(),
