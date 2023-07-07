@@ -1971,6 +1971,15 @@ int Vop3588::TrySvepPolicy(
     std::vector<PlaneGroup *> &plane_groups) {
   ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
 
+  DrmDevice *drm = crtc->getDrmDevice();
+  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+  // 只有主屏可以享受视频 SVEP 效果
+  if(conn && conn->state() == DRM_MODE_CONNECTED &&
+      conn->display() != 0){
+      HWC2_ALOGD_IF_DEBUG("Only Primary Display enable SVEP function. display=%d", conn->display());
+      return -1;
+  }
+
   int ret = -1;
 #ifdef USE_LIBSVEP
   if(hwc_get_int_property(SVEP_MODE_NAME, "0") > 0){
@@ -2027,12 +2036,8 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   bool sr_mode = false;
   // Match policy first
   HWC2_ALOGD_IF_DEBUG("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, svep_mode, bSvepReady_);
-  DrmDevice *drm = crtc->getDrmDevice();
-  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
   // 只有主屏可以享受视频 SVEP 效果
-  if(conn && conn->state() == DRM_MODE_CONNECTED &&
-      conn->display() == 0 &&
-      svep_runtime_disable == 0){
+  if(svep_runtime_disable == 0){
     // Match policy first
     sr_mode = true;
   }
@@ -2422,12 +2427,8 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
   bool memc_mode = false;
   // Match policy first
   HWC2_ALOGD_IF_DEBUG("%s=%d bMemcReady_=%d",MEMC_MODE_NAME, HWC2_SVEP_MEMC, bMemcReady_);
-  DrmDevice *drm = crtc->getDrmDevice();
-  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
   // 只有主屏可以享受视频 SVEP 效果
-  if(conn && conn->state() == DRM_MODE_CONNECTED &&
-      conn->display() == 0 &&
-      svep_runtime_disable == 0){
+  if(svep_runtime_disable == 0){
     // Match policy first
     memc_mode = true;
   }
