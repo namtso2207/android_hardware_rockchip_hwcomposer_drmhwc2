@@ -957,6 +957,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
     }
 
     auto num_modes = static_cast<uint32_t>(sel_modes.size());
+    sf_modes_.swap(sel_modes);
     if (!configs) {
       *num_configs = num_modes;
       return HWC2::Error::None;
@@ -969,9 +970,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
       configs[idx++] = mode.id();
     }
 
-    sf_modes_.swap(sel_modes);
 
-    *num_configs = connector_->modes().size();
+    *num_configs = sf_modes_.size();
   }else{
     UpdateDisplayInfo();
     const DrmMode best_mode = connector_->active_mode();
