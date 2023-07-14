@@ -351,9 +351,6 @@ int DrmCrtc::Init() {
   if (ret)
     ALOGE("Could not get hdr_ext_data_ property");
 
-  b_can_alpha_scale_ = true;
-  b_can_hdr10_ = true;
-  b_can_next_hdr_ = true;
   HWC2_ALOGD_IF_DEBUG("crtc-id=%d b_can_alpha_scale_=%d b_can_hdr10_=%d b_can_next_hdr_=%d",
     id_, b_can_alpha_scale_, b_can_hdr10_, b_can_next_hdr_);
   return 0;
