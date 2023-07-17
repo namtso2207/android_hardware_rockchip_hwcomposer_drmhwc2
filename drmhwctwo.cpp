@@ -2736,9 +2736,9 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
   HWC2_ALOGD_IF_INFO("Id=%d Name=%s ", hdrLayer.uId_, hdrLayer.sLayerName_.c_str());
 
   if(ctx_.display_type == DRM_MODE_CONNECTOR_TV){
-    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s ColorSpace=%d eotf=%d",
+    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s eDataSpace_=0x%x eotf=%d",
                       hdrLayer.uId_, hdrLayer.sLayerName_.c_str(),
-                      hdrLayer.uColorSpace,
+                      hdrLayer.eDataSpace_,
                       hdrLayer.uEOTF);
     return -1;
   }
@@ -2969,9 +2969,9 @@ int DrmHwcTwo::HwcDisplay::EnableMetadataHdrMode(DrmHwcLayer& hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
   }
 
-  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer eDataSpace=0x%x eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
             user_hdr_mode,
-            hdrLayer.uColorSpace,
+            hdrLayer.eDataSpace_,
             hdrLayer.uEOTF,
             hdrLayer.metadataHdrParam_.codec_meta_exist,
             hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim,
@@ -3995,7 +3995,12 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
       }
   }
   drmHwcLayer->Init();
-  drmHwcLayer->uColorSpace = V4L2_COLORSPACE_JPEG;
+  if(gIsDrmVerison6_1()){
+    drmHwcLayer->uColorSpace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
+    drmHwcLayer->uColorSpace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
+  }else{
+    drmHwcLayer->uColorSpace = V4L2_COLORSPACE_JPEG;
+  }
   return 0;
 }
 #endif

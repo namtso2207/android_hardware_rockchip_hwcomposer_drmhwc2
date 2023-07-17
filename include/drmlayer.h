@@ -270,8 +270,9 @@ struct DrmHwcLayer {
   int iShareId_;
   int iSkipLine_;
 
+  // Android definition
   android_dataspace_t eDataSpace_;
-  v4l2_colorspace uColorSpace = V4L2_COLORSPACE_DEFAULT;
+  drm_colorspace uColorSpace;
   uint16_t uEOTF=0;
 
   // Sideband Stream
@@ -353,7 +354,7 @@ struct DrmHwcLayer {
   bool IsHdr(uint64_t usage, android_dataspace_t dataspace);
   bool IsMetadataHdr(uint64_t usage);
   int GetSkipLine();
-  v4l2_colorspace GetColorSpace(android_dataspace_t dataspace);
+  drm_colorspace GetColorSpace(android_dataspace_t dataspace);
   supported_eotf_type GetEOTF(android_dataspace_t dataspace);
   std::string TransformToString(uint32_t transform) const;
   std::string BlendingToString(DrmHwcBlending blending) const;

@@ -201,6 +201,9 @@ bool isDrmVerison419(uint32_t drm_version){
 bool isDrmVerison510(uint32_t drm_version){
   return drm_version == 3;
 }
+bool isDrmVerison6_1(uint32_t drm_version){
+  return drm_version == 4;
+}
 
 static uint32_t g_soc_id = 0;
 static uint32_t g_drm_version = 0;
@@ -242,8 +245,13 @@ bool gIsDrmVerison44(){
 bool gIsDrmVerison419(){
   return g_drm_version == 2;
 }
+
 bool gIsDrmVerison510(){
   return g_drm_version == 3;
+}
+
+bool gIsDrmVerison6_1(){
+  return g_drm_version == 4;
 }
 
 }

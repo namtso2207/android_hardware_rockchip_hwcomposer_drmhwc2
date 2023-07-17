@@ -136,10 +136,6 @@ int DrmPlane::Init() {
   if (ret)
     ALOGI("Could not get eotf property");
 
-  ret = drm_->GetPlaneProperty(*this, "COLOR_SPACE", &colorspace_property_);
-  if (ret)
-    ALOGI("Could not get colorspace property");
-
   ret = drm_->GetPlaneProperty(*this, "ZPOS", &zpos_property_);
   if (ret){
     ALOGE("Could not get ZPOS property, try to get zpos property");
@@ -284,6 +280,25 @@ int DrmPlane::Init() {
   if (ret) {
     ALOGE("Could not get ASYNC_COMMIT property");
   }
+
+  // Kernel 6.1 更名使用 COLOR_ENCODING 与 COLOR_RANGE 替代 COLOR_SPACE
+  if(gIsDrmVerison6_1()){
+    ret = drm_->GetPlaneProperty(*this, "COLOR_ENCODING", &kernel6_1_color_encoding_ );
+    if (ret) {
+      ALOGE("Could not get COLOR_ENCODING property");
+    }
+
+    ret = drm_->GetPlaneProperty(*this, "COLOR_RANGE", &kernel6_1_color_range_);
+    if (ret) {
+      ALOGE("Could not get COLOR_RANGE property");
+    }
+  }else{
+    ret = drm_->GetPlaneProperty(*this, "COLOR_SPACE", &colorspace_property_);
+    if (ret)
+      ALOGI("Could not get colorspace property");
+
+  }
+
 
   return 0;
 }
@@ -827,6 +842,15 @@ bool DrmPlane::is_support_transform_8k(int transform){
 
 const DrmProperty &DrmPlane::async_commit_property() const{
   return async_commit_property_;
+}
+
+const DrmProperty &DrmPlane::kernel6_1_color_encoding() const{
+  return kernel6_1_color_encoding_;
+
+}
+const DrmProperty &DrmPlane::kernel6_1_color_range() const{
+  return kernel6_1_color_range_;
+
 }
 
 }  // namespace android

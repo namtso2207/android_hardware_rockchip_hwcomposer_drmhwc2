@@ -3171,7 +3171,12 @@ bool Vop3588::CheckGLESLayer(DrmHwcLayer *layer){
     if(layer->bSidebandStreamLayer_){
       HWC2_ALOGD_IF_DEBUG("[%s]:sideband layer->dataspace= 0x%" PRIx32 " is BT709-Full, force cvt BT709-Limit",
               layer->sLayerName_.c_str(), layer->eDataSpace_);
-      layer->uColorSpace = V4L2_COLORSPACE_REC709;
+      if(gIsDrmVerison6_1()){
+        layer->uColorSpace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT709;
+        layer->uColorSpace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_LIMITED_RANGE;
+      }else{
+        layer->uColorSpace.colorspace_kernel_510_ = V4L2_COLORSPACE_REC709;
+      }
     }else{
       HWC2_ALOGD_IF_DEBUG("[%s]:layer->dataspace= 0x%" PRIx32 " is BT709-Full, vop npsupport input.",
               layer->sLayerName_.c_str(), layer->eDataSpace_);

@@ -131,6 +131,7 @@ bool isRK3562(uint32_t soc_id);
 bool isDrmVerison44(uint32_t drm_version);
 bool isDrmVerison419(uint32_t drm_version);
 bool isDrmVerison510(uint32_t drm_version);
+bool isDrmVerison6_1(uint32_t drm_version);
 
 void gSetSocId(uint32_t soc_id);
 void gSetDrmVersion(uint32_t drm_version);
@@ -143,6 +144,7 @@ bool gIsRK3562();
 bool gIsDrmVerison44();
 bool gIsDrmVerison419();
 bool gIsDrmVerison510();
+bool gIsDrmVerison6_1();
 
 }
 #endif

@@ -216,6 +216,35 @@ enum v4l2_colorspace {
         V4L2_COLORSPACE_DCI_P3        = 12,
 };
 
+
+// From: kernel 5.10  include/drm/drm_color_mgmt.h
+enum drm_color_encoding {
+	DRM_COLOR_YCBCR_BT601,
+	DRM_COLOR_YCBCR_BT709,
+	DRM_COLOR_YCBCR_BT2020,
+	DRM_COLOR_ENCODING_MAX,
+};
+
+enum drm_color_range {
+	DRM_COLOR_YCBCR_LIMITED_RANGE,
+	DRM_COLOR_YCBCR_FULL_RANGE,
+	DRM_COLOR_RANGE_MAX,
+};
+
+// From: kernel 5.10  include/drm/drm_color_mgmt.h
+
+union drm_colorspace{
+  // kernel 5.10 and before kernel 5.10
+  v4l2_colorspace colorspace_kernel_510_ = V4L2_COLORSPACE_DEFAULT;
+
+  // kernel 6.1
+  struct colorspace_kernel_6_1{
+    drm_color_encoding color_encoding_;
+    drm_color_range    color_range_;
+  }colorspace_kernel_6_1_;
+};
+
+
 typedef enum attribute_flag {
     ATT_WIDTH = 0,
     ATT_HEIGHT,

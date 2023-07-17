@@ -410,6 +410,9 @@ std::tuple<int, int> DrmDevice::Init(int num_displays) {
     drmFreeVersion(version);
   }
 
+  // 更新全局 kernel drm 版本信息
+  gSetDrmVersion(drm_version_);
+
   ret = drmSetClientCap(fd(), DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
   if (ret) {
     ALOGE("Failed to set universal plane cap %d", ret);

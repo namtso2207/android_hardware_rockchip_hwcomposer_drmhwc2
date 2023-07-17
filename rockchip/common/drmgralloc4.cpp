@@ -351,9 +351,10 @@ uint32_t get_fourcc_format(buffer_handle_t handle)
     assert(err == android::NO_ERROR);
 
     // DrmVersion:
+    // 4.0.0 = Kernel 6.1
     // 3.0.0 = Kernel 5.10
     // 2.0.0 = Kernel 4.19
-    if(DrmVersion == 3)
+    if(DrmVersion == 3 || DrmVersion == 4)
       return fourcc;
     else
       return convertToNV12(fourcc);
@@ -560,9 +561,10 @@ int get_byte_stride_workround(buffer_handle_t handle, int* byte_stride)
         }
 
         // DrmVersion:
+        // 4.0.0 = Kernel 6.1
         // 3.0.0 = Kernel 5.10
         // 2.0.0 = Kernel 4.19
-        if(DrmVersion == 3){
+        if(DrmVersion == 3 || DrmVersion == 4){
             *byte_stride = (layouts[0].strideInBytes);
         }else{
             if(format_requested == HAL_PIXEL_FORMAT_YUV420_8BIT_I

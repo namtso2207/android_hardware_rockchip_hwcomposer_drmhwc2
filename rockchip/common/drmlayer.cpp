@@ -792,34 +792,92 @@ int DrmHwcLayer::GetSkipLine(){
 }
 
 #define CONTAIN_VALUE(value,mask) ((dataspace & mask) == value)
-v4l2_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
+drm_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
+
+  drm_colorspace output_colorspace;
   if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT2020, HAL_DATASPACE_STANDARD_MASK)){
-      return V4L2_COLORSPACE_BT2020;
-  }
-  else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT601_625, HAL_DATASPACE_STANDARD_MASK) &&
+      // BT2020
+      if(gIsDrmVerison6_1()){
+        output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT2020;
+      }else{
+        output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_BT2020;
+      }
+      return output_colorspace;
+  }else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT601_625, HAL_DATASPACE_STANDARD_MASK) &&
           CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK)){
-      if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_FULL, HAL_DATASPACE_RANGE_MASK))
-          return V4L2_COLORSPACE_JPEG;
-      else if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK))
-          return V4L2_COLORSPACE_SMPTE170M;
+
+      // BT601 确定，下面判断色彩范围
+      if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_FULL, HAL_DATASPACE_RANGE_MASK)){
+        // BT601 Full range
+        if(gIsDrmVerison6_1()){
+          output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
+          output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
+        }else{
+          output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_JPEG;
+        }
+      }else if (CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK)){
+        // BT601 Limit range
+        if(gIsDrmVerison6_1()){
+          output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
+          output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_LIMITED_RANGE;
+        }else{
+          output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_SMPTE170M;
+        }
+      }
+      return output_colorspace;
   }
   else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT601_525, HAL_DATASPACE_STANDARD_MASK) &&
           CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK) &&
           CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK)){
-      return V4L2_COLORSPACE_SMPTE170M;
+            // BT601 Limit range
+            if(gIsDrmVerison6_1()){
+              output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
+              output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_LIMITED_RANGE;
+            }else{
+              output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_SMPTE170M;
+            }
+            return output_colorspace;
   }
   else if (CONTAIN_VALUE(HAL_DATASPACE_STANDARD_BT709, HAL_DATASPACE_STANDARD_MASK) &&
       CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SMPTE_170M, HAL_DATASPACE_TRANSFER_MASK) &&
       CONTAIN_VALUE(HAL_DATASPACE_RANGE_LIMITED, HAL_DATASPACE_RANGE_MASK)){
-      return V4L2_COLORSPACE_REC709;
+        // BT709 Limit range
+        if(gIsDrmVerison6_1()){
+          output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT709;
+          output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_LIMITED_RANGE;
+        }else{
+          output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_REC709;
+        }
+        return output_colorspace;
   }
   else if (CONTAIN_VALUE(HAL_DATASPACE_TRANSFER_SRGB, HAL_DATASPACE_TRANSFER_MASK)){
-      return V4L2_COLORSPACE_SRGB;
+        // BT709 Limit range
+        if(gIsDrmVerison6_1()){
+          output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT709;
+          output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
+        }else{
+          output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_SRGB;
+        }
+        return output_colorspace;
   }
-
-  //ALOGE("Unknow colorspace 0x%x",colorspace);
-  return V4L2_COLORSPACE_DEFAULT;
-
+  /*
+    * Default colorspace, i.e. let the driver figure it out.
+    * Can only be used with video capture.
+    * CSC：RGB : BT709 Full range
+    *      YUV : BT601 limit range
+    */
+  if(gIsDrmVerison6_1()){
+    if(bYuv_ == true){
+      output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
+      output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_LIMITED_RANGE;
+    }else{
+      output_colorspace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT709;
+      output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
+    }
+  }else{
+    output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_SRGB;
+  }
+  return output_colorspace;
 }
 
 supported_eotf_type DrmHwcLayer::GetEOTF(android_dataspace_t dataspace){

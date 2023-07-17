@@ -526,7 +526,6 @@ int DrmDisplayCompositor::CommitSidebandStream(drmModeAtomicReqPtr pset,
                                                int zpos,
                                                int crtc_id){
   uint16_t eotf       = TRADITIONAL_GAMMA_SDR;
-  uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
   bool     afbcd      = layer.bAfbcd_;
   bool     yuv        = layer.bYuv_;
   uint32_t rotation   = layer.transform;
@@ -539,7 +538,7 @@ int DrmDisplayCompositor::CommitSidebandStream(drmModeAtomicReqPtr pset,
     alpha             = layer.alpha << 8;
 
   eotf                = layer.uEOTF;
-  colorspace          = layer.uColorSpace;
+  drm_colorspace colorspace   = layer.uColorSpace;
 
   // TvInput 暂时不需要这个属性，20220816
   // static char last_prop[100] = {0};
@@ -994,7 +993,7 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     uint64_t alpha = 0xFFFF;
     uint64_t blend = 0;
     uint16_t eotf = TRADITIONAL_GAMMA_SDR;
-    uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
+    drm_colorspace  colorspace;
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
@@ -1077,9 +1076,9 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       source_crop = layer.source_crop;
       if (layer.blending == DrmHwcBlending::kPreMult) alpha = layer.alpha << 8;
       eotf = layer.uEOTF;
-      colorspace = layer.uColorSpace;
       afbcd = layer.bAfbcd_;
       yuv = layer.bYuv_;
+      colorspace = layer.uColorSpace;
       yuv10bit = layer.bYuv10bit_;
       if (plane->blend_property().id()) {
         switch (layer.blending) {
@@ -1258,16 +1257,42 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
       out_log << " eotf=" << std::hex <<  eotf;
     }
 
-    if(plane->colorspace_property().id()) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->colorspace_property().id(),
-                                     colorspace) < 0;
-      if (ret) {
-        ALOGE("Failed to add colorspace property %d to plane %d",
-              plane->colorspace_property().id(), plane->id());
-        break;
+    if(gIsDrmVerison6_1()){
+      if(plane->kernel6_1_color_encoding().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_encoding().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_encoding_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_encoding property %d to plane %d",
+                plane->kernel6_1_color_encoding().id(), plane->id());
+          break;
+        }
+        out_log << " color_encoding=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_encoding_;
       }
-      out_log << " colorspace=" << std::hex <<  colorspace;
+
+      if(plane->kernel6_1_color_range().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_range().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_range_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_range property %d to plane %d",
+                plane->kernel6_1_color_range().id(), plane->id());
+          break;
+        }
+        out_log << " color_range=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_range_;
+      }
+    }else{
+      if(plane->colorspace_property().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->colorspace_property().id(),
+                                      colorspace.colorspace_kernel_510_) < 0;
+        if (ret) {
+          ALOGE("Failed to add colorspace property %d to plane %d",
+                plane->colorspace_property().id(), plane->id());
+          break;
+        }
+        out_log << " colorspace=" << std::hex <<  colorspace.colorspace_kernel_510_;
+      }
     }
 
     if(plane->async_commit_property().id()) {
@@ -1567,7 +1592,7 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
     uint64_t alpha = 0xFFFF;
     uint64_t blend = 0;
     uint16_t eotf = TRADITIONAL_GAMMA_SDR;
-    uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
+    drm_colorspace colorspace;
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
@@ -1793,16 +1818,42 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
       out_log << " eotf=" << std::hex <<  eotf;
     }
 
-    if(plane->colorspace_property().id()) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->colorspace_property().id(),
-                                     colorspace) < 0;
-      if (ret) {
-        ALOGE("Failed to add colorspace property %d to plane %d",
-              plane->colorspace_property().id(), plane->id());
-        break;
+    if(gIsDrmVerison6_1()){
+      if(plane->kernel6_1_color_encoding().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_encoding().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_encoding_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_encoding property %d to plane %d",
+                plane->kernel6_1_color_encoding().id(), plane->id());
+          break;
+        }
+        out_log << " color_encoding=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_encoding_;
       }
-      out_log << " colorspace=" << std::hex <<  colorspace;
+
+      if(plane->kernel6_1_color_range().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_range().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_range_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_range property %d to plane %d",
+                plane->kernel6_1_color_range().id(), plane->id());
+          break;
+        }
+        out_log << " color_range=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_range_;
+      }
+    }else{
+      if(plane->colorspace_property().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->colorspace_property().id(),
+                                      colorspace.colorspace_kernel_510_) < 0;
+        if (ret) {
+          ALOGE("Failed to add colorspace property %d to plane %d",
+                plane->colorspace_property().id(), plane->id());
+          break;
+        }
+        out_log << " colorspace=" << std::hex <<  colorspace.colorspace_kernel_510_;
+      }
     }
 
     ALOGD_IF(LogLevel(DBG_INFO),"%s",out_log.str().c_str());
@@ -2307,7 +2358,7 @@ int DrmDisplayCompositor::CollectVPInfo() {
     uint64_t alpha = 0xFFFF;
     uint64_t blend = 0;
     uint16_t eotf = TRADITIONAL_GAMMA_SDR;
-    uint32_t colorspace = V4L2_COLORSPACE_DEFAULT;
+    drm_colorspace colorspace;
 
     int dst_l,dst_t,dst_w,dst_h;
     int src_l,src_t,src_w,src_h;
@@ -2612,16 +2663,42 @@ int DrmDisplayCompositor::CollectVPInfo() {
       out_log << " eotf=" << std::hex <<  eotf;
     }
 
-    if(plane->colorspace_property().id()) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->colorspace_property().id(),
-                                     colorspace) < 0;
-      if (ret) {
-        ALOGE("Failed to add colorspace property %d to plane %d",
-              plane->colorspace_property().id(), plane->id());
-        break;
+    if(gIsDrmVerison6_1()){
+      if(plane->kernel6_1_color_encoding().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_encoding().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_encoding_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_encoding property %d to plane %d",
+                plane->kernel6_1_color_encoding().id(), plane->id());
+          break;
+        }
+        out_log << " color_encoding=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_encoding_;
       }
-      out_log << " colorspace=" << std::hex <<  colorspace;
+
+      if(plane->kernel6_1_color_range().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->kernel6_1_color_range().id(),
+                                      colorspace.colorspace_kernel_6_1_.color_range_) < 0;
+        if (ret) {
+          ALOGE("Failed to add kernel6_1_color_range property %d to plane %d",
+                plane->kernel6_1_color_range().id(), plane->id());
+          break;
+        }
+        out_log << " color_range=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_range_;
+      }
+    }else{
+      if(plane->colorspace_property().id()) {
+        ret = drmModeAtomicAddProperty(pset, plane->id(),
+                                      plane->colorspace_property().id(),
+                                      colorspace.colorspace_kernel_510_) < 0;
+        if (ret) {
+          ALOGE("Failed to add colorspace property %d to plane %d",
+                plane->colorspace_property().id(), plane->id());
+          break;
+        }
+        out_log << " colorspace=" << std::hex <<  colorspace.colorspace_kernel_510_;
+      }
     }
 
     if(plane->async_commit_property().id()) {
@@ -2667,9 +2744,9 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
   }
 
   if(connector_->type() == DRM_MODE_CONNECTOR_TV){
-    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s ColorSpace=%d eotf=%d",
+    HWC2_ALOGD_IF_INFO("RK3528 TV unsupport HDR2SDR, Id=%d Name=%s eDataSpace_=0x%x eotf=%d",
                       hdrLayer.uId_, hdrLayer.sLayerName_.c_str(),
-                      hdrLayer.uColorSpace,
+                      hdrLayer.eDataSpace_,
                       hdrLayer.uEOTF);
     return -1;
   }
@@ -2872,9 +2949,9 @@ int DrmDisplayCompositor::CollectVPHdrInfo(DrmHwcLayer &hdrLayer){
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.print_input_meta = hwc_get_int_property("vendor.hwc.vivid_print_input_meta", "1");
     hdrLayer.metadataHdrParam_.hdr_user_cfg.hdr_debug_cfg.hdr_log_level = hwc_get_int_property("vendor.hwc.vivid_hdr_log_level", "7");
   }
-  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer colorspace=%d eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
+  HWC2_ALOGD_IF_INFO("hdr_hdmi_meta: user_hdr_mode(%d) layer eDataSpace_=0x%x eotf=%d => codec_meta_exist(%d) hdr_dataspace_info: color_prim=%d eotf=%d range=%d",
             user_hdr_mode,
-            hdrLayer.uColorSpace,
+            hdrLayer.eDataSpace_,
             hdrLayer.uEOTF,
             hdrLayer.metadataHdrParam_.codec_meta_exist,
             hdrLayer.metadataHdrParam_.hdr_dataspace_info.color_prim,

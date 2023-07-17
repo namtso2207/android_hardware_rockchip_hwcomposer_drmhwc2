@@ -305,7 +305,7 @@ int DrmCrtc::Init() {
       }
     }
 
-  }else if(isDrmVerison510(drm_version_)){
+  }else if(isDrmVerison510(drm_version_) || isDrmVerison6_1(drm_version_) ){
 
     // FEATURE: alpha_scale / HDR10 / Next_HDR
     ret = drm_->GetCrtcProperty(*this, "FEATURE", &feature_property_);

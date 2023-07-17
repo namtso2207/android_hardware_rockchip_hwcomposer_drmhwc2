@@ -358,6 +358,8 @@ class DrmPlane {
   const DrmProperty &output_h_property() const;
   const DrmProperty &scale_rate_property() const;
   const DrmProperty &async_commit_property() const;
+  const DrmProperty &kernel6_1_color_encoding() const;
+  const DrmProperty &kernel6_1_color_range() const;
 
   bool is_use();
   void set_use(bool b_use);
@@ -432,6 +434,8 @@ class DrmPlane {
   DrmProperty output_h_property_;
   DrmProperty scale_rate_property_;
   DrmProperty async_commit_property_;
+  DrmProperty kernel6_1_color_encoding_;
+  DrmProperty kernel6_1_color_range_;
 
   // next hdr
   DrmProperty next_hdr_layer_type_property_;
