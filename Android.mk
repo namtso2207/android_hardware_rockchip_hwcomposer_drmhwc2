@@ -212,18 +212,22 @@ endif
 # SR
 # BOARD_USES_LIBSVEP=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
+BOARD_USES_LIBSR=true
+endif
+
+ifeq ($(strip $(BOARD_USES_LIBSR)),true)
 # in order to adapter old version，need include two dir.
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libsvep/include \
   hardware/rockchip/libsvep/include/sr
 
 LOCAL_SHARED_LIBRARIES += \
-	libsvep \
+	libsvepsr \
 	librknnrt-svep \
 	libOpenCL
 
 LOCAL_CFLAGS += \
-	-DUSE_LIBSVEP=1
+	-DUSE_LIBSR=1
 
 LOCAL_REQUIRED_MODULES += \
 	HwcSvepEnv.xml

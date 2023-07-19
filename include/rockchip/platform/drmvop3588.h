@@ -40,11 +40,11 @@
 #include "drmdevice.h"
 #include "drmbufferqueue.h"
 
-#ifdef USE_LIBSVEP
-#include "Svep.h"
+#ifdef USE_LIBSR
+#include "SvepSr.h"
 #endif
 
-#ifdef USE_LIBSVEP_MEMC
+#ifdef USE_LIBSR_MEMC
 #include "Memc.h"
 #endif
 
@@ -68,8 +68,8 @@
 #define MALI_GRALLOC_USAGE_NO_AFBC (1ULL << 29)
 #endif
 
-namespace android {
-class DrmDevice;
+
+using namespace android;
 
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
@@ -79,9 +79,9 @@ class Vop3588 : public Planner::PlanStage {
 typedef std::map<int, std::vector<DrmHwcLayer*>> LayerMap;
 
 typedef enum tagHwcSvepMode{
-  HWC2_SVEP_NONE = 0,
-  HWC2_SVEP_SR   = 1,
-  HWC2_SVEP_MEMC = 2
+  HWC2_SR_NONE = 0,
+  HWC2_SR_SR   = 1,
+  HWC2_SR_MEMC = 2
 } HwcSvepMode;
 
 typedef enum tagComposeMode{
@@ -95,7 +95,7 @@ typedef enum tagComposeMode{
    HWC_GLES_SIDEBAND_LOPICY,
    HWC_GLES_POLICY,
    HWC_RGA_OVERLAY_LOPICY,
-   HWC_SVEP_OVERLAY_LOPICY,
+   HWC_SR_OVERLAY_LOPICY,
    HWC_ACCELERATE_LOPICY,
    HWC_3D_LOPICY,
    HWC_DEBUG_POLICY
@@ -214,14 +214,14 @@ typedef struct DrmVop2Context{
 } Vop2Ctx;
 
 
-struct SvepXmlVersion{
+struct SrXmlVersion{
   int Major;
   int Minor;
   int PatchLevel;
 };
 
-struct SvepXml{
-  SvepXmlVersion mVersion;
+struct SrXml{
+  SrXmlVersion mVersion;
   bool mValid;
   std::vector<std::string> mSvepWhitelist_;
   std::vector<std::string> mSvepBlacklist_;
@@ -230,12 +230,14 @@ struct SvepXml{
  public:
   Vop3588()
     : rgaBufferQueue_((std::make_shared<DrmBufferQueue>()))
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
      ,
+     svep_sr_(std::make_shared<SvepSr>()),
+     bSrReady_(false),
      bufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
 
-#ifdef USE_LIBSVEP_MEMC
+#ifdef USE_LIBSR_MEMC
      ,
      memcBufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
@@ -261,20 +263,20 @@ struct SvepXml{
   int TryMixSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
                     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                     std::vector<PlaneGroup *> &plane_groups);
-#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+#if (defined USE_LIBSR) || (defined USE_LIBSR_MEMC)
   bool TrySvepOverlay();
   int TrySvepPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
 #endif
 
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
   int TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
 #endif
 
-#ifdef USE_LIBSVEP_MEMC
+#ifdef USE_LIBSR_MEMC
   int ClearMemcJob();
   int TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -313,7 +315,7 @@ struct SvepXml{
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
 
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
   int InitSvep();
   bool SvepAllowedByBlacklist(DrmHwcLayer *layer);
   bool SvepAllowedByWhitelist(DrmHwcLayer *layer);
@@ -364,19 +366,20 @@ struct SvepXml{
  private:
   Vop2Ctx ctx;
   std::shared_ptr<DrmBufferQueue> rgaBufferQueue_;
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
   // SR
-  Svep* svep_;
-  bool bSvepReady_;
-  SvepContext svepCtx_;
+  std::shared_ptr<SvepSr> svep_sr_;
+  SrImageInfo mSrSrc_;
+  SrImageInfo mSrDst_;
+  bool bSrReady_;
   std::shared_ptr<DrmBufferQueue> bufferQueue_;
-  SvepXml mSvepEnv_;
-  int mLastMode_;
+  SrXml mSrEnv_;
+  SrMode mLastMode_;
   bool mEnableOnelineMode_;
-  uint64_t mSvepBeginTimeMs_;
+  uint64_t mSrBeginTimeMs_;
 #endif
 
-#ifdef USE_LIBSVEP_MEMC
+#ifdef USE_LIBSR_MEMC
   // MEMC
   Memc* memc_;
   bool bMemcReady_;
@@ -389,6 +392,5 @@ struct SvepXml{
 #endif
 };
 
-}  // namespace android
 #endif
 

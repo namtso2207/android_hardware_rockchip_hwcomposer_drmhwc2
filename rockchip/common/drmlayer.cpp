@@ -26,14 +26,20 @@
 #include <ui/GraphicBufferMapper.h>
 #include <cutils/properties.h>
 
-
 #define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
 #define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
-#define IS_ALIGN(val,align)    (((val)&(align-1))==0)
-#ifndef ALIGN
-#define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
+
+#ifndef IS_ALIGN
+#define IS_ALIGN(val, align) (((val) & (align - 1)) == 0)
 #endif
-#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+
+#ifndef ALIGN
+#define ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
+#endif
+
+#ifndef ALIGN_DOWN
+#define ALIGN_DOWN(value, base) (value & (~(base - 1)))
+#endif
 
 namespace android {
 
@@ -924,7 +930,7 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   storeLayerInfo_.uBufferId_    = uBufferId_;
   storeLayerInfo_.uGemHandle_   = uGemHandle_;
   storeLayerInfo_.uByteStridePlanes_   = uByteStridePlanes_;
-
+  storeLayerInfo_.eDataSpace_   = eDataSpace_;
   sf_handle      = handle;
   iFd_           = fd;
   iFormat_       = format;
@@ -952,8 +958,8 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
   transform = replace_transform;
   Init();
   HWC2_ALOGD_IF_DEBUG(
-        "SvepTransform : LayerId[%u] Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n"
-        "                            Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x)\n",
+        "SrTransform : LayerId[%u] Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x) gemhandle=%d\n"
+        "                            Fourcc=%c%c%c%c Buf[w,h,s,hs,size]=[%4d,%4d,%4d,%4d,%4d]  src=[%5.0f,%5.0f,%5.0f,%5.0f] dis=[%4d,%4d,%4d,%4d] Transform=%-8.8s(0x%x) gemhandle=%d\n",
              uId_,
              storeLayerInfo_.uFourccFormat_,storeLayerInfo_.uFourccFormat_>>8,
              storeLayerInfo_.uFourccFormat_>>16,storeLayerInfo_.uFourccFormat_>>24,
@@ -964,11 +970,13 @@ void DrmHwcLayer::UpdateAndStoreInfoFromDrmBuffer(buffer_handle_t handle,
              storeLayerInfo_.display_frame.left,storeLayerInfo_.display_frame.top,
              storeLayerInfo_.display_frame.right,storeLayerInfo_.display_frame.bottom,
              TransformToString(storeLayerInfo_.transform).c_str(),storeLayerInfo_.transform,
+             storeLayerInfo_.uGemHandle_,
              uFourccFormat_,uFourccFormat_>>8,uFourccFormat_>>16,uFourccFormat_>>24,
              iWidth_,iHeight_,iStride_,iHeightStride_,iSize_,
              source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
              display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,
-             TransformToString(transform).c_str(),transform);
+             TransformToString(transform).c_str(),transform,
+             uGemHandle_);
   return;
 }
 

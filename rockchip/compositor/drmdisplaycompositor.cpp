@@ -51,13 +51,32 @@ static const int64_t kOneSecondNs = 1 * 1000 * 1000 * 1000;
 
 #define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
 #define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
-#define IS_ALIGN(val,align)    (((val)&(align-1))==0)
+
 #ifndef ALIGN
 #define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
 #endif
-#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+
 #define ALIGN_DOWN_INT( value, base)	(((int)(value)) & (~(base-1)) )
+
+#ifndef YUV_ALIGN
 #define YUV_ALIGN 2
+#endif
+
+#ifndef RGB_ALIGN
+#define RGB_ALIGN 1
+#endif
+
+#ifndef IS_ALIGN
+#define IS_ALIGN(val, align) (((val) & (align - 1)) == 0)
+#endif
+
+#ifndef ALIGN_DOWN
+#define ALIGN_DOWN(value, base) (value & (~(base - 1)))
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
 
 
 namespace android {

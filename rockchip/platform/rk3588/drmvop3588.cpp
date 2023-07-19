@@ -46,8 +46,8 @@
 
 //XML prase
 #include <tinyxml2.h>
-namespace android {
 
+using namespace android;
 #define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
 #ifndef ALIGN
 #define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
@@ -68,18 +68,13 @@ void Vop3588::Init(){
                           "rk_handwrite_sf",
                           ctx.state.accelerate_app_name);
 
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
   InitSvep();
 #endif
 }
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
 int Vop3588::InitSvep(){
-
-  if(svep_ == NULL){
-    svep_ = Svep::Get(true);
-  }
-
-  if(mSvepEnv_.mValid)
+  if(mSrEnv_.mValid)
     return 0;
 
   char xml_path[PROPERTY_VALUE_MAX];
@@ -101,8 +96,8 @@ int Vop3588::InitSvep(){
     return -1;
   }
 
-  mSvepEnv_.mSvepWhitelist_.clear();
-  mSvepEnv_.mSvepBlacklist_.clear();
+  mSrEnv_.mSvepWhitelist_.clear();
+  mSrEnv_.mSvepBlacklist_.clear();
 
   const char* verison = "1.1.1";
   ret = HwcSvepEnv->QueryStringAttribute( "Version", &verison);
@@ -111,9 +106,9 @@ int Vop3588::InitSvep(){
     return -1;
   }
 
-  sscanf(verison, "%d.%d.%d", &mSvepEnv_.mVersion.Major,
-                              &mSvepEnv_.mVersion.Minor,
-                              &mSvepEnv_.mVersion.PatchLevel);
+  sscanf(verison, "%d.%d.%d", &mSrEnv_.mVersion.Major,
+                              &mSrEnv_.mVersion.Minor,
+                              &mSrEnv_.mVersion.PatchLevel);
 
 
   tinyxml2::XMLElement* pWhitelist = HwcSvepEnv->FirstChildElement("Whitelist");
@@ -126,9 +121,9 @@ int Vop3588::InitSvep(){
       HWC2_ALOGW("index=%d failed to parse %s\n", iLayerNameCnt, "WhiteKeywords"); \
     }else{
       while (pWhiteKey) {
-        mSvepEnv_.mSvepWhitelist_.emplace_back(pWhiteKey->GetText());
-        HWC2_ALOGI("SVEP Whitelist[%d]=%s",
-                    iLayerNameCnt, mSvepEnv_.mSvepWhitelist_[iLayerNameCnt].c_str());
+        mSrEnv_.mSvepWhitelist_.emplace_back(pWhiteKey->GetText());
+        HWC2_ALOGI("SR Whitelist[%d]=%s",
+                    iLayerNameCnt, mSrEnv_.mSvepWhitelist_[iLayerNameCnt].c_str());
         iLayerNameCnt++;
         pWhiteKey = pWhiteKey->NextSiblingElement();
       }
@@ -145,26 +140,26 @@ int Vop3588::InitSvep(){
       HWC2_ALOGW("index=%d failed to parse %s\n", iLayerNameCnt, "BlackKeywords");
     }else{
       while (pBlackKey) {
-        mSvepEnv_.mSvepBlacklist_.emplace_back(pBlackKey->GetText());
+        mSrEnv_.mSvepBlacklist_.emplace_back(pBlackKey->GetText());
 
-        HWC2_ALOGI("SVEP Blacklist[%d]=%s",
-                    iLayerNameCnt, mSvepEnv_.mSvepBlacklist_[iLayerNameCnt].c_str());
+        HWC2_ALOGI("SR Blacklist[%d]=%s",
+                    iLayerNameCnt, mSrEnv_.mSvepBlacklist_[iLayerNameCnt].c_str());
         iLayerNameCnt++;
         pBlackKey = pBlackKey->NextSiblingElement();
       }
     }
   }
 
-  mSvepEnv_.mValid = true;
+  mSrEnv_.mValid = true;
   return 0;
 }
 
 bool Vop3588::SvepAllowedByBlacklist(DrmHwcLayer* layer){
-  if(mSvepEnv_.mValid){
-    // 此黑名单内的应用名不参与 SVEP 处理
-    for(auto &black_key : mSvepEnv_.mSvepBlacklist_){
+  if(mSrEnv_.mValid){
+    // 此黑名单内的应用名不参与 SR 处理
+    for(auto &black_key : mSrEnv_.mSvepBlacklist_){
       if(layer->sLayerName_.find(black_key) != std::string::npos){
-        HWC2_ALOGD_IF_DEBUG("Svep %s in BlackList! not to SVEP.", layer->sLayerName_.c_str());
+        HWC2_ALOGD_IF_DEBUG("Sr %s in BlackList! not to SR.", layer->sLayerName_.c_str());
         return false;
       }
     }
@@ -173,11 +168,11 @@ bool Vop3588::SvepAllowedByBlacklist(DrmHwcLayer* layer){
 }
 
 bool Vop3588::SvepAllowedByWhitelist(DrmHwcLayer* layer){
-  if(mSvepEnv_.mValid){
-    // 此白名单内的应用名直接参与 SVEP 处理
-    for(auto &white_key : mSvepEnv_.mSvepWhitelist_){
+  if(mSrEnv_.mValid){
+    // 此白名单内的应用名直接参与 SR 处理
+    for(auto &white_key : mSrEnv_.mSvepWhitelist_){
       if(layer->sLayerName_.find(white_key) != std::string::npos){
-        HWC2_ALOGD_IF_DEBUG("Svep %s in Whitelist! force to SVEP.", layer->sLayerName_.c_str());
+        HWC2_ALOGD_IF_DEBUG("Sr %s in Whitelist! force to SR.", layer->sLayerName_.c_str());
         return true;
       }
     }
@@ -187,11 +182,11 @@ bool Vop3588::SvepAllowedByWhitelist(DrmHwcLayer* layer){
 
 
 bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
-  // 视频大于4K则不使用 SVEP.
+  // 视频大于4K则不使用 SR.
   if(layer->iWidth_ > 4096)
     return false;
 
-  // 如果不是视频格式，并且不在白名单内，则不使用SVEP
+  // 如果不是视频格式，并且不在白名单内，则不使用SR
   if(!layer->bYuv_ && !SvepAllowedByWhitelist(layer))
     return false;
 
@@ -208,12 +203,12 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
       break;
   }
 
-  // 10bit 视频不使用SVEP
+  // 10bit 视频不使用SR
   if(yuv_10bit){
     return false;
   }
 
-  // 如果图层本身就是2倍缩小的场景，则不建议使用SVEP.
+  // 如果图层本身就是2倍缩小的场景，则不建议使用SR.
   if(layer->fHScaleMul_ > 2.0 && layer->fVScaleMul_ > 2.0)
     return false;
 
@@ -224,7 +219,7 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
   }
 
-  // // 视频屏幕占比60%以下不使用SVEP
+  // // 视频屏幕占比60%以下不使用SR
   uint64_t allow_rate = hwc_get_int_property("vendor.hwc.disable_svep_dis_area_rate","60");
   uint64_t dis_w = layer->display_frame.right - layer->display_frame.left;
   uint64_t dis_h = layer->display_frame.bottom - layer->display_frame.top;
@@ -237,7 +232,7 @@ bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
   }
 
-  // HWC内部会计算图层刷新率，若刷新率大于35帧，则关闭SVEP-SR功能
+  // HWC内部会计算图层刷新率，若刷新率大于35帧，则关闭SR-SR功能
   if(layer->fRealFps_ > 35){
     HWC2_ALOGD_IF_DEBUG("disable-svep: video_max_fps=%f name=%s",layer->fRealFps_, layer->sLayerName_.c_str());
     return false;
@@ -273,17 +268,17 @@ int Vop3588::TryHwcPolicy(
   // Init context
   InitContext(layers,plane_groups,crtc,gles_policy);
 
-#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+#if (defined USE_LIBSR) || (defined USE_LIBSR_MEMC)
   // Try to match rga policy
-  if(ctx.state.setHwcPolicy.count(HWC_SVEP_OVERLAY_LOPICY)){
+  if(ctx.state.setHwcPolicy.count(HWC_SR_OVERLAY_LOPICY)){
     ret = TrySvepPolicy(composition,layers,crtc,plane_groups);
     if(!ret){
       return 0;
     }else{
       ALOGD_IF(LogLevel(DBG_DEBUG),"Match rga policy fail, try to match other policy.");
 
-#ifdef USE_LIBSVEP
-      mLastMode_ = SvepMode::UN_SUPPORT;
+#ifdef USE_LIBSR
+      mLastMode_ = SrMode::UN_SUPPORT;
 #endif
     }
   }
@@ -1964,7 +1959,7 @@ int Vop3588::TryMixSkipPolicy(
   ResetLayerFromTmp(layers,tmp_layers);
   return ret;
 }
-#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+#if (defined USE_LIBSR) || (defined USE_LIBSVEP_MEMC)
 int Vop3588::TrySvepPolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -1973,16 +1968,16 @@ int Vop3588::TrySvepPolicy(
 
   DrmDevice *drm = crtc->getDrmDevice();
   DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
-  // 只有主屏可以享受视频 SVEP 效果
+  // 只有主屏可以享受视频 SR 效果
   if(conn && conn->state() == DRM_MODE_CONNECTED &&
       conn->display() != 0){
-      HWC2_ALOGD_IF_DEBUG("Only Primary Display enable SVEP function. display=%d", conn->display());
+      HWC2_ALOGD_IF_DEBUG("Only Primary Display enable SR function. display=%d", conn->display());
       return -1;
   }
 
   int ret = -1;
-#ifdef USE_LIBSVEP
-  if(hwc_get_int_property(SVEP_MODE_NAME, "0") > 0){
+#ifdef USE_LIBSR
+  if(hwc_get_int_property(SR_MODE_NAME, "0") > 0){
     ret = TrySrPolicy(composition, layers, crtc, plane_groups);
     if(ret){
       HWC2_ALOGD_IF_DEBUG("TrySrPolicy match fail.");
@@ -1996,7 +1991,7 @@ int Vop3588::TrySvepPolicy(
   }
 #endif
 
-#ifdef USE_LIBSVEP_MEMC
+#ifdef USE_LIBSR_MEMC
   if(hwc_get_int_property(MEMC_MODE_NAME, "0") > 0){
     ret = TryMemcPolicy(composition, layers, crtc, plane_groups);
     if(ret){
@@ -2013,13 +2008,13 @@ int Vop3588::TrySvepPolicy(
 }
 
 bool Vop3588::TrySvepOverlay(){
-  ctx.state.setHwcPolicy.insert(HWC_SVEP_OVERLAY_LOPICY);
+  ctx.state.setHwcPolicy.insert(HWC_SR_OVERLAY_LOPICY);
   return true;
 }
 
 #endif
 
-#ifdef USE_LIBSVEP
+#ifdef USE_LIBSR
 int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
                       std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                       std::vector<PlaneGroup *> &plane_groups){
@@ -2028,15 +2023,15 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
 
-  int svep_mode = HWC2_SVEP_SR;
+  int svep_mode = HWC2_SR_SR;
   char value[PROPERTY_VALUE_MAX];
-  // SVEP_RUNTIME_DISABLE_NAME 主要适用于前端系统服务判断当前场景无法使用SVEP模式才设置为 1
+  // SR_RUNTIME_DISABLE_NAME 主要适用于前端系统服务判断当前场景无法使用SR模式才设置为 1
   // 例如 30帧以上片源 或 低延迟场景
-  int svep_runtime_disable = hwc_get_int_property(SVEP_RUNTIME_DISABLE_NAME,"0");
+  int svep_runtime_disable = hwc_get_int_property(SR_RUNTIME_DISABLE_NAME,"0");
   bool sr_mode = false;
   // Match policy first
-  HWC2_ALOGD_IF_DEBUG("%s=%d bSvepReady_=%d",SVEP_MODE_NAME, svep_mode, bSvepReady_);
-  // 只有主屏可以享受视频 SVEP 效果
+  HWC2_ALOGD_IF_DEBUG("%s=%d bSrReady_=%d",SR_MODE_NAME, svep_mode, bSrReady_);
+  // 只有主屏可以享受视频 SR 效果
   if(svep_runtime_disable == 0){
     // Match policy first
     sr_mode = true;
@@ -2048,15 +2043,15 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
     return -1;
   }
 
-  // 0. SVEP模块初始化
-  if(svep_ == NULL){
-    svep_ = Svep::Get(true);
-    if(svep_ == NULL){
-      HWC2_ALOGD_IF_DEBUG("Svep is NULL, plase check License.");
-      return -1;
-    }else{
-      bSvepReady_ = true;
+  // 0. SR模块初始化
+  if(svep_sr_.get() != NULL){
+    SrError error = svep_sr_->Init(SR_VERSION, true);
+    if (error != SrError::None){
+        HWC2_ALOGD_IF_DEBUG("Sr Init fail, plase check License.\n");
+        return -1;
     }
+  }else{
+    bSrReady_ = true;
   }
 
   bool rga_layer_ready = false;
@@ -2064,15 +2059,15 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   std::shared_ptr<DrmBuffer> dst_buffer;
 
   // 以下参数更新后需要强制触发svep处理更新图像数据
-  property_get(SVEP_ENHANCEMENT_RATE_NAME, value, "0");
+  property_get(SR_ENHANCEMENT_RATE_NAME, value, "0");
   int enhancement_rate = atoi(value);
-  property_get(SVEP_CONTRAST_MODE_NAME, value, "0");
+  property_get(SR_CONTRAST_MODE_NAME, value, "0");
   int contrast_mode = atoi(value);
-  property_get(SVEP_CONTRAST_MODE_OFFSET, value, "50");
+  property_get(SR_CONTRAST_MODE_OFFSET, value, "0");
   int contrast_offset = atoi(value);
-  property_get(SVEP_OSD_VIDEO_ONELINE_MODE, value, "0");
+  property_get(SR_OSD_VIDEO_ONELINE_MODE, value, "0");
   int osd_oneline_mode = atoi(value);
-  property_get(SVEP_OSD_VIDEO_ONELINE_WATI_SEC, value, "12");
+  property_get(SR_OSD_VIDEO_ONELINE_WATI_SEC, value, "12");
   int osd_oneline_wait_second = atoi(value);
   static uint64_t last_buffer_id = 0;
   static int last_enhancement_rate = 0;
@@ -2091,53 +2086,51 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
            last_contrast_mode != contrast_mode ||
            last_contrast_offset != contrast_offset){
           ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
-          // 1. Init Ctx
-          int ret = svep_->InitCtx(svepCtx_);
-          if(ret){
-            HWC2_ALOGE("Svep ctx init fail");
-            continue;
-          }
-          // 2. Set buffer Info
-          SvepImageInfo src;
-          src.mBufferInfo_.iFd_     = drmLayer->iFd_;
-          src.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
-          src.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
-          src.mBufferInfo_.iFormat_ = drmLayer->iFormat_;
-          src.mBufferInfo_.iStride_ = drmLayer->iStride_;
-          src.mBufferInfo_.iSize_   = drmLayer->iSize_;
-          src.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
-          src.mBufferInfo_.uDataSpace_ = (uint64_t)drmLayer->eDataSpace_;
-          if(drmLayer->bAfbcd_){
-            if(drmLayer->iFormat_ == HAL_PIXEL_FORMAT_YUV420_8BIT_I){
-              src.mBufferInfo_.iFormat_ = HAL_PIXEL_FORMAT_YCrCb_NV12;
-            }
-            src.mBufferInfo_.uBufferMask_ = SVEP_AFBC_FORMATE;
+
+          // 2. 设置SR强度
+          SrError error = svep_sr_->SetEnhancementRate(enhancement_rate);
+          if (error != SrError::None)
+          {
+              HWC2_ALOGE("Sr SetEnhancementRate fail.\n");
+              continue;
           }
 
-          src.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
-          src.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
-          src.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
-          src.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
+          // 3. 设置SR对比模式为扫描模式
+          error = svep_sr_->SetContrastMode(contrast_mode, contrast_offset);
+          if (error != SrError::None)
+          {
+              HWC2_ALOGE("Sr SetContrastMode fail.\n");
+              continue;
+          }
+
+          // 4. 设置SR OSD模式与字符串
+          error = svep_sr_->SetOsdMode(SR_OSD_ENABLE_VIDEO, SR_OSD_VIDEO_STR);
+          if (error != SrError::None)
+          {
+              HWC2_ALOGE("Sr SetOsdMode fail.\n");
+              continue;
+          }
 
           // 处理旋转
+          SrRotateMode rotate = SR_ROTATE_0;
           switch(drmLayer->transform){
           case DRM_MODE_ROTATE_0:
-            src.mRotateMode_ = SVEP_ROTATE_0;
+            rotate = SR_ROTATE_0;
             break;
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X :
-            src.mRotateMode_ = SVEP_REFLECT_X;
+            rotate = SR_REFLECT_X;
             break;
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y:
-            src.mRotateMode_ = SVEP_REFLECT_Y;
+            rotate = SR_REFLECT_Y;
             break;
           case DRM_MODE_ROTATE_90:
-            src.mRotateMode_ = SVEP_ROTATE_90;
+            rotate = SR_ROTATE_90;
             break;
           case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y:
-            src.mRotateMode_ = SVEP_ROTATE_180;
+            rotate = SR_ROTATE_180;
             break;
           case DRM_MODE_ROTATE_270:
-            src.mRotateMode_ = SVEP_ROTATE_270;
+            rotate = SR_ROTATE_270;
             break;
           // case DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 :
           //   usage = IM_HAL_TRANSFORM_FLIP_H | IM_HAL_TRANSFORM_ROT_90;
@@ -2146,33 +2139,63 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
           //   usage = IM_HAL_TRANSFORM_FLIP_V | IM_HAL_TRANSFORM_ROT_90;
           //   break;
           default:
-            src.mRotateMode_ = SVEP_ROTATE_0;
+            rotate = SR_ROTATE_0;
             ALOGE_IF(LogLevel(DBG_DEBUG),"Unknow sf transform 0x%x", drmLayer->transform);
           }
 
-          ret = svep_->SetSrcImage(svepCtx_,
-                                   src,
-                                   (ctx.state.b8kMode_ ? SVEP_OUTPUT_8K_MODE : SVEP_MODE_NONE));
+          // 4. 设置SR rotate 模式
+          error = svep_sr_->SetRotateMode(rotate);
+          if (error != SrError::None)
+          {
+              HWC2_ALOGE("Sr SetOsdMode fail.\n");
+              continue;
+          }
+
+          // 2. Set buffer Info
+          mSrSrc_.mBufferInfo_.iFd_     = drmLayer->iFd_;
+          mSrSrc_.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
+          mSrSrc_.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
+          mSrSrc_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
+          mSrSrc_.mBufferInfo_.iStride_ = drmLayer->iStride_;
+          mSrSrc_.mBufferInfo_.iSize_   = drmLayer->iSize_;
+          mSrSrc_.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
+          mSrSrc_.mBufferInfo_.uColorSpace_ = (uint64_t)drmLayer->eDataSpace_;
+          if(drmLayer->bAfbcd_){
+            if(drmLayer->iFormat_ == HAL_PIXEL_FORMAT_YUV420_8BIT_I){
+              mSrSrc_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
+            }
+            mSrSrc_.mBufferInfo_.uMask_ = SR_AFBC_FORMATE;
+          }
+
+          mSrSrc_.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
+          mSrSrc_.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
+          mSrSrc_.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
+          mSrSrc_.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
+
+          SrMode sr_mde = SrMode::UN_SUPPORT;
+          SrError ret = svep_sr_->ChooseSrMode(&mSrSrc_,
+                                   (ctx.state.b8kMode_ ? SR_OUTPUT_8K_MODE : SR_MODE_NONE),
+                                   &sr_mde);
           if(ret){
-            printf("Svep SetSrcImage fail\n");
+            printf("Sr SetSrcImage fail\n");
             continue;
           }
 
           // 3. Get dst info
-          SvepImageInfo require;
-          ret = svep_->GetDstRequireInfo(svepCtx_, require);
-          if(ret){
-            printf("Svep GetDstRequireInfo fail\n");
+          SrImageInfo target_image_info;
+          error = svep_sr_->GetDetImageInfo(&target_image_info);
+          if(error){
+            printf("Sr GetDstRequireInfo fail\n");
             continue;
           }
 
           // 4. Alloc dst_buffer
-            dst_buffer = bufferQueue_->DequeueDrmBuffer(require.mBufferInfo_.iWidth_,
-                                                        require.mBufferInfo_.iHeight_,
-                                                        require.mBufferInfo_.iFormat_,
+            dst_buffer = bufferQueue_->DequeueDrmBuffer(target_image_info.mBufferInfo_.iWidth_,
+                                                        target_image_info.mBufferInfo_.iHeight_,
+                                                        HAL_PIXEL_FORMAT_YCrCb_NV12,
                                                         RK_GRALLOC_USAGE_STRIDE_ALIGN_64 |
                                                         RK_GRALLOC_USAGE_WITHIN_4G,
-                                                        "SVEP-SurfaceView",
+                                                        "SR-SurfaceView",
                                                         drmLayer->uId_);
 
           if(dst_buffer == NULL){
@@ -2180,72 +2203,60 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
             continue;
           }
 
-          // 5. Set buffer Info
-          SvepImageInfo dst;
-          dst.mBufferInfo_.iFd_     = dst_buffer->GetFd();
-          dst.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
-          dst.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
-          dst.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
-          dst.mBufferInfo_.iStride_ = dst_buffer->GetStride();
-          dst.mBufferInfo_.iSize_   = dst_buffer->GetSize();
-          dst.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
-
-          dst.mCrop_.iLeft_  = require.mCrop_.iLeft_;
-          dst.mCrop_.iTop_   = require.mCrop_.iTop_;
-          dst.mCrop_.iRight_ = require.mCrop_.iRight_;
-          dst.mCrop_.iBottom_= require.mCrop_.iBottom_;
-
-          ret = svep_->SetDstImage(svepCtx_, dst);
-          if(ret){
-            printf("Svep SetSrcImage fail\n");
-            continue;
-          }
-
-          ret = svep_->SetEnhancementRate(svepCtx_, enhancement_rate);
-          if(ret){
-            printf("Svep SetEnhancementRate fail\n");
-            continue;
-          }
-
-          SvepOsdMode osd_mode = SVEP_OSD_ENABLE_VIDEO;
-          const wchar_t* osd_str = SVEP_OSD_VIDEO_STR;
+          SrOsdMode osd_mode = SR_OSD_ENABLE_VIDEO;
+          const wchar_t* osd_str = SR_OSD_VIDEO_STR;
           if(osd_oneline_mode > 0){
-            // 视频播放SVEP若干帧后，采用oneline OSD模式
-            if(mLastMode_ != svepCtx_.mSvepMode_){
+            // 视频播放SR若干帧后，采用oneline OSD模式
+            if(mLastMode_ != sr_mde){
               struct timeval tp;
               gettimeofday(&tp, NULL);
-              mLastMode_ = svepCtx_.mSvepMode_;
-              mSvepBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+              mLastMode_ = sr_mde;
+              mSrBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
               mEnableOnelineMode_ = false;
             }
             if(!mEnableOnelineMode_){
               struct timeval tp;
               gettimeofday(&tp, NULL);
               uint64_t current_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-              if((current_time - mSvepBeginTimeMs_) > osd_oneline_wait_second * 1000){
+              if((current_time - mSrBeginTimeMs_) > osd_oneline_wait_second * 1000){
                 mEnableOnelineMode_ = true;
               }
             }else{
-              osd_mode = SVEP_OSD_ENABLE_VIDEO_ONELINE;
-              osd_str = SVEP_OSD_VIDEO_ONELINE_STR;
+              osd_mode = SR_OSD_ENABLE_VIDEO_ONELINE;
+              osd_str = SR_OSD_VIDEO_ONELINE_STR;
             }
           }
 
-          ret = svep_->SetOsdMode(svepCtx_, osd_mode, osd_str);
-          if(ret){
-            printf("Svep SetOsdMode fail\n");
-            continue;
+          error = svep_sr_->SetOsdMode(osd_mode, osd_str);
+          if (error != SrError::None)
+          {
+              HWC2_ALOGE("Sr SetOsdMode fail.\n");
+              continue;
           }
+          // 5. Set buffer Info
+          mSrDst_.mBufferInfo_.iFd_     = dst_buffer->GetFd();
+          mSrDst_.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
+          mSrDst_.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
+          mSrDst_.mBufferInfo_.iFormat_ = dst_buffer->GetFourccFormat();
+          mSrDst_.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+          mSrDst_.mBufferInfo_.iSize_   = dst_buffer->GetSize();
+          mSrDst_.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
+
+          mSrDst_.mCrop_.iLeft_  = target_image_info.mCrop_.iLeft_;
+          mSrDst_.mCrop_.iTop_   = target_image_info.mCrop_.iTop_;
+          mSrDst_.mCrop_.iRight_ = target_image_info.mCrop_.iRight_;
+          mSrDst_.mCrop_.iBottom_= target_image_info.mCrop_.iBottom_;
+
 
           hwc_frect_t source_crop;
-          source_crop.left   = require.mCrop_.iLeft_;
-          source_crop.top    = require.mCrop_.iTop_;
-          source_crop.right  = require.mCrop_.iRight_;
-          source_crop.bottom = require.mCrop_.iBottom_;
-          dst_buffer->SetCrop(require.mCrop_.iLeft_,
-                              require.mCrop_.iTop_,
-                              require.mCrop_.iRight_,
-                              require.mCrop_.iBottom_);
+          source_crop.left   = target_image_info.mCrop_.iLeft_;
+          source_crop.top    = target_image_info.mCrop_.iTop_;
+          source_crop.right  = target_image_info.mCrop_.iRight_;
+          source_crop.bottom = target_image_info.mCrop_.iBottom_;
+          dst_buffer->SetCrop(target_image_info.mCrop_.iLeft_,
+                              target_image_info.mCrop_.iTop_,
+                              target_image_info.mCrop_.iRight_,
+                              target_image_info.mCrop_.iBottom_);
           drmLayer->UpdateAndStoreInfoFromDrmBuffer(dst_buffer->GetHandle(),
                                                     dst_buffer->GetFd(),
                                                     dst_buffer->GetFormat(),
@@ -2265,7 +2276,7 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
                                                     dst_buffer->GetGemHandle(),
                                                     DRM_MODE_ROTATE_0);
           rga_layer_ready = true;
-          drmLayer->bUseSvep_ = true;
+          drmLayer->bUseSr_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
           break;
         }else{
@@ -2303,9 +2314,9 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
                                                     output_buffer->GetGemHandle(),
                                                     DRM_MODE_ROTATE_0);
           use_laster_rga_layer = true;
-          drmLayer->bUseSvep_ = true;
+          drmLayer->bUseSr_ = true;
           drmLayer->iBestPlaneType = PLANE_RK3588_ALL_ESMART_MASK;
-          drmLayer->pSvepBuffer_ = output_buffer;
+          drmLayer->pSrBuffer_ = output_buffer;
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(output_buffer->GetFinishFence()));
           break;
         }
@@ -2324,21 +2335,22 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
     }
     if(!ret){ // Match sucess, to call im2d interface
       for(auto &drmLayer : layers){
-        if(drmLayer->bUseSvep_){
+        if(drmLayer->bUseSr_){
           int output_fence = 0;
-          ret = svep_->RunAsync(svepCtx_, &output_fence);
-          if(ret){
+          // 13. RunAsync
+          SrError error = svep_sr_->RunAsync(&mSrSrc_, &mSrDst_, &output_fence);
+          if (error != SrError::None){
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
-            drmLayer->bUseSvep_ = false;
+            drmLayer->bUseSr_ = false;
           }
-          last_buffer_id = svepCtx_.mSrc_.mBufferInfo_.uBufferId_;
+          last_buffer_id = drmLayer->uBufferId_;
           last_sr_mode = sr_mode;
           last_contrast_mode = contrast_mode;
           last_enhancement_rate = enhancement_rate;
           last_contrast_offset = contrast_offset;
           dst_buffer->SetFinishFence(output_fence);
           bufferQueue_->QueueBuffer(dst_buffer);
-          drmLayer->pSvepBuffer_ = dst_buffer;
+          drmLayer->pSrBuffer_ = dst_buffer;
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(dst_buffer->GetFinishFence()));
           return ret;
         }
@@ -2348,10 +2360,10 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
     }else{ // Match fail, skip rga policy
       HWC2_ALOGD_IF_DEBUG(" MatchPlanes fail! reset DrmHwcLayer.");
       for(auto &drmLayer : layers){
-        if(drmLayer->bUseSvep_){
+        if(drmLayer->bUseSr_){
           bufferQueue_->QueueBuffer(dst_buffer);
           drmLayer->ResetInfoFromStore();
-          drmLayer->bUseSvep_ = false;
+          drmLayer->bUseSr_ = false;
         }
       }
       ResetLayerFromTmp(layers,tmp_layers);
@@ -2373,11 +2385,11 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
       return ret;
     }else{
       for(auto &drmLayer : layers){
-        if(drmLayer->bUseSvep_){
+        if(drmLayer->bUseSr_){
           if(dst_buffer != NULL)
             bufferQueue_->QueueBuffer(dst_buffer);
           drmLayer->ResetInfoFromStore();
-          drmLayer->bUseSvep_ = false;
+          drmLayer->bUseSr_ = false;
         }
       }
 
@@ -2421,13 +2433,13 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
   ResetLayer(layers);
   ResetPlaneGroups(plane_groups);
 
-  // SVEP_RUNTIME_DISABLE_NAME 主要适用于前端系统服务判断当前场景无法使用SVEP模式才设置为 1
+  // SR_RUNTIME_DISABLE_NAME 主要适用于前端系统服务判断当前场景无法使用SR模式才设置为 1
   // 例如 30帧以上片源 或 低延迟场景
   int svep_runtime_disable = hwc_get_int_property(MEMC_RUNTIME_DISABLE_NAME,"0");
   bool memc_mode = false;
   // Match policy first
-  HWC2_ALOGD_IF_DEBUG("%s=%d bMemcReady_=%d",MEMC_MODE_NAME, HWC2_SVEP_MEMC, bMemcReady_);
-  // 只有主屏可以享受视频 SVEP 效果
+  HWC2_ALOGD_IF_DEBUG("%s=%d bMemcReady_=%d",MEMC_MODE_NAME, HWC2_SR_MEMC, bMemcReady_);
+  // 只有主屏可以享受视频 SR 效果
   if(svep_runtime_disable == 0){
     // Match policy first
     memc_mode = true;
@@ -2636,7 +2648,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           }
           dst_buffer = memcBufferQueue_->DequeueDrmBuffer(memcReqInfo.mBufferInfo_.iWidth_,
                                                         memcReqInfo.mBufferInfo_.iHeight_,
-                                                        memcReqInfo.mBufferInfo_.iFormat_,
+                                                        HAL_PIXEL_FORMAT_YCrCb_NV12,
                                                         RK_GRALLOC_USAGE_STRIDE_ALIGN_16 |
                                                         MALI_GRALLOC_USAGE_NO_AFBC |
                                                         RK_GRALLOC_USAGE_WITHIN_4G,
@@ -2651,7 +2663,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           memcDstInfo.mBufferInfo_.iFd_     = dst_buffer->GetFd();
           memcDstInfo.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
           memcDstInfo.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
-          memcDstInfo.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
+          memcDstInfo.mBufferInfo_.iFormat_ = dst_buffer->GetFourccFormat();
           memcDstInfo.mBufferInfo_.iStride_ = dst_buffer->GetStride();
           memcDstInfo.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
@@ -2725,7 +2737,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           }
 
           dst_buffer->SetFinishFence(dup(memc_fence));
-          drmLayer->pSvepBuffer_ = dst_buffer;
+          drmLayer->pSrBuffer_ = dst_buffer;
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(memc_fence));
           memcBufferQueue_->QueueBuffer(dst_buffer);
           uMemcFrameNo_ = ctx.request.frame_no_;
@@ -3503,7 +3515,7 @@ int Vop3588::InitContext(
           ctx.support.iRotateCnt,ctx.support.iHdrCnt,
           __FUNCTION__,__LINE__);
 
-#if (defined USE_LIBSVEP) || (defined USE_LIBSVEP_MEMC)
+#if (defined USE_LIBSR) || (defined USE_LIBSR_MEMC)
   TrySvepOverlay();
 #endif
 
@@ -3526,6 +3538,5 @@ int Vop3588::InitContext(
     TryMix();
 
   return 0;
-}
 }
 

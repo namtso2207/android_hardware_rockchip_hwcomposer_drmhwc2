@@ -37,7 +37,20 @@
 
 namespace android {
 
-#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
+#define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
+#define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
+
+#ifndef IS_ALIGN
+#define IS_ALIGN(val, align) (((val) & (align - 1)) == 0)
+#endif
+
+#ifndef ALIGN
+#define ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
+#endif
+
+#ifndef ALIGN_DOWN
+#define ALIGN_DOWN(value, base) (value & (~(base - 1)))
+#endif
 
 // define from hardware/rockchip/libgralloc/bifrost/src/mali_gralloc_usages.h
 #ifndef RK_GRALLOC_USAGE_WITHIN_4G

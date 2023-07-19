@@ -37,15 +37,6 @@ struct hwc_import_context;
 
 #include "rockchip/drmgralloc.h"
 
-#define hwcMIN(x, y)			(((x) <= (y)) ?  (x) :  (y))
-#define hwcMAX(x, y)			(((x) >= (y)) ?  (x) :  (y))
-#define IS_ALIGN(val,align)    (((val)&(align-1))==0)
-#ifndef ALIGN
-#define ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
-#endif
-#define ALIGN_DOWN( value, base)	(value & (~(base-1)) )
-
-
 int hwc_import_init(struct hwc_import_context **ctx);
 int hwc_import_destroy(struct hwc_import_context *ctx);
 
@@ -190,6 +181,7 @@ struct DrmLayerInfoStore{
   uint64_t uModifier_;
   uint64_t uBufferId_;
   uint32_t uGemHandle_=0;
+  uint64_t eDataSpace_;
   std::string sLayerName_;
   std::vector<uint32_t> uByteStridePlanes_;
 };
@@ -287,8 +279,8 @@ struct DrmHwcLayer {
   bool bUseRga_;
   std::shared_ptr<DrmBuffer> pRgaBuffer_;
 
-  bool bUseSvep_;
-  std::shared_ptr<DrmBuffer> pSvepBuffer_;
+  bool bUseSr_;
+  std::shared_ptr<DrmBuffer> pSrBuffer_;
 
   bool bUseMemc_;
   std::shared_ptr<DrmBuffer> pMemcBuffer_;
