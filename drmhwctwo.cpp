@@ -4254,6 +4254,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   bool primary_change = true;
   PLUG_EVENT_TYPE event_type = DRM_HOTPLUG_NONE;
   for (auto &conn : drm_->connectors()) {
+    ret = 0;
     // RK3528 TV 不需要处理TV的热插拔事件
     if(gIsRK3528() && conn->type() == DRM_MODE_CONNECTOR_TV){
       ALOGI("hwc_hotplug: RK3528 not handle type=%s-%d hotplug event.\n",
@@ -4354,6 +4355,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
     }
 
     // SpiltDisplay Hoplug.
+    ret = 0;
     if(conn->isHorizontalSpilt()){
       display_id = conn->GetSpiltModeId();
       auto &spilt_display = hwc2_->displays_.at(display_id);
@@ -4410,6 +4412,7 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   // 拔出事件，说明存在crtc资源释放
   if(event_type == DRM_HOTPLUG_UNPLUG_EVENT){
     for (auto &conn : drm_->connectors()) {
+      ret = 0;
       drmModeConnection cur_state = conn->state();
       HwcConnnectorStete cur_hwc_state = conn->hwc_state();
       if(cur_state == DRM_MODE_CONNECTED){
