@@ -44,8 +44,8 @@
 #include "SvepSr.h"
 #endif
 
-#ifdef USE_LIBSR_MEMC
-#include "Memc.h"
+#ifdef USE_LIBSVEP_MEMC
+#include "SvepMemc.h"
 #endif
 
 #include <cutils/properties.h>
@@ -237,7 +237,7 @@ struct SrXml{
      bufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
 
-#ifdef USE_LIBSR_MEMC
+#ifdef USE_LIBSVEP_MEMC
      ,
      memcBufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
@@ -263,7 +263,7 @@ struct SrXml{
   int TryMixSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
                     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                     std::vector<PlaneGroup *> &plane_groups);
-#if (defined USE_LIBSR) || (defined USE_LIBSR_MEMC)
+#if (defined USE_LIBSR) || (defined USE_LIBSVEP_MEMC)
   bool TrySvepOverlay();
   int TrySvepPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -276,7 +276,7 @@ struct SrXml{
                         std::vector<PlaneGroup *> &plane_groups);
 #endif
 
-#ifdef USE_LIBSR_MEMC
+#ifdef USE_LIBSVEP_MEMC
   int ClearMemcJob();
   int TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
@@ -379,12 +379,11 @@ struct SrXml{
   uint64_t mSrBeginTimeMs_;
 #endif
 
-#ifdef USE_LIBSR_MEMC
+#ifdef USE_LIBSVEP_MEMC
   // MEMC
-  Memc* memc_;
+  MemcProxyMode* memc_;
   bool bMemcReady_;
   uint64_t uMemcFrameNo_;
-  MemcContext memcCtx_;
   std::shared_ptr<DrmBufferQueue> memcBufferQueue_;
   int mMemcLastMode_;
   bool mMemcEnableOnelineMode_;

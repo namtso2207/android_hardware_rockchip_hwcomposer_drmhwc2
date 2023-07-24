@@ -22,7 +22,7 @@
 #include <queue>
 namespace android {
 
-#define DRM_BUFFERQUEUE_MAX_SIZE 4
+#define DRM_BUFFERQUEUE_MAX_SIZE 6
 
 class DrmBufferQueue{
 public:
