@@ -2173,7 +2173,7 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
           mSrSrc_.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
 
           SrMode sr_mde = SrMode::UN_SUPPORT;
-          SrError ret = svep_sr_->ChooseSrMode(&mSrSrc_,
+          SrError ret = svep_sr_->MatchSrMode(&mSrSrc_,
                                    (ctx.state.b8kMode_ ? SR_OUTPUT_8K_MODE : SR_MODE_NONE),
                                    &sr_mde);
           if(ret){
