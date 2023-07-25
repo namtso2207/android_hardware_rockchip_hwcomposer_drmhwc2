@@ -320,6 +320,16 @@ int DrmCrtc::Init() {
     std::tie(ret,b_can_next_hdr_) = feature_property_.value_bitmask("NEXT_HDR");
   }
 
+  // Workround: rk3528
+  if(isRK3528(soc_id_)){
+    b_can_alpha_scale_ = true;
+    b_can_hdr10_ = false;
+    b_can_next_hdr_ = false;
+    if(port_id_ == 0){
+      b_can_hdr10_ = true;
+    }
+  }
+
   int variable_refresh_rate = 0;
   int max_refresh_rate = 0;
   int min_refresh_rate = 0;
