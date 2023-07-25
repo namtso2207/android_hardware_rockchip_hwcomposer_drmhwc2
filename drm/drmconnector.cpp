@@ -1430,6 +1430,15 @@ bool DrmConnector::isCropSpilt() const {
   return bCropSpilt_;
 }
 
+int DrmConnector::setCropSpiltPrimary(){
+  bSpiltPrimary_ = true;
+  return 0;
+}
+
+bool DrmConnector::IsSpiltPrimary(){
+  return bSpiltPrimary_;
+}
+
 int DrmConnector::setCropSpilt(int32_t fbWidth,
                                int32_t fbHeight,
                                int32_t srcX,

@@ -1868,6 +1868,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
     return PresentVirtualDisplay(retire_fence);;
   }
 
+  int32_t merge_retire_fence = -1;
+  // 拼接主屏需要遍历其他拼接子屏幕
+  if(connector_->IsSpiltPrimary()){
+    DoMirrorDisplay(&merge_retire_fence);
+  }
+
   if(!init_success_){
     HWC2_ALOGD_IF_ERR("init_success_=%d skip.",init_success_);
     return HWC2::Error::None;
@@ -1894,8 +1900,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
       return ret;
   }
 
-  int32_t merge_retire_fence = -1;
-  DoMirrorDisplay(&merge_retire_fence);
   if(merge_retire_fence > 0){
     if(d_retire_fence_.get()->isValid()){
       char acBuf[32];
@@ -2114,6 +2118,20 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SyncPowerMode() {
 HWC2::Error DrmHwcTwo::HwcDisplay::SetPowerMode(int32_t mode_in) {
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ", mode_in=%d",handle_,mode_in);
 
+  // 拼接屏幕主屏需要更新拼接副屏的电源状态
+  if(connector_->IsSpiltPrimary()){
+    for (auto &conn : drm_->connectors()) {
+      if(!conn->isCropSpilt()){
+        continue;
+      }
+      int display_id = conn->display();
+      if(!conn->IsSpiltPrimary()){
+        auto &display = resource_manager_->GetHwc2()->displays_.at(display_id);
+        display.SetPowerMode(mode_in);
+      }
+    }
+  }
+
   uint64_t dpms_value = 0;
   mPowerMode_ = static_cast<HWC2::PowerMode>(mode_in);
   switch (mPowerMode_) {
@@ -2328,8 +2346,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
 
   if(!init_success_){
     HWC2_ALOGD_IF_ERR("init_success_=%d skip.",init_success_);
-    for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
-        l.second.set_validated_type(l.second.sf_type());
+    if(connector_->IsSpiltPrimary()){
+      for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+          l.second.set_validated_type(HWC2::Composition::Client);
+      }
+    }else{
+      for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+          l.second.set_validated_type(l.second.sf_type());
+      }
     }
     return HWC2::Error::None;
   }
@@ -3259,13 +3283,11 @@ int DrmHwcTwo::HwcDisplay::InvalidateControl(uint64_t refresh, int refresh_cnt){
 }
 
 int DrmHwcTwo::HwcDisplay::DoMirrorDisplay(int32_t *retire_fence){
-  ResourceManager *rm = ResourceManager::getInstance();
-  int crop_spilt_display_id = rm->GetCropSpiltConnectedId();
-  if(crop_spilt_display_id != -1 &&
-     handle_ != rm->GetCropSpiltConnectedId())
-    return 0;
-
   if(!connector_->isCropSpilt()){
+    return 0;
+  }
+
+  if(!connector_->IsSpiltPrimary()){
     return 0;
   }
 
@@ -3276,7 +3298,7 @@ int DrmHwcTwo::HwcDisplay::DoMirrorDisplay(int32_t *retire_fence){
       continue;
     }
     int display_id = conn->display();
-    if(display_id != crop_spilt_display_id){
+    if(!conn->IsSpiltPrimary()){
       auto &display = resource_manager_->GetHwc2()->displays_.at(display_id);
       if (conn->state() == DRM_MODE_CONNECTED) {
         static hwc2_layer_t layer_id = 0;
@@ -4163,12 +4185,11 @@ void DrmHwcTwo::HandleInitialHotplugState(DrmDevice *drmDevice) {
         }
         // SpiltDisplay Hotplug
         if(conn->isCropSpilt()){
-          ResourceManager *rm = ResourceManager::getInstance();
-          if(rm->GetCropSpiltConnectedId() == -1){
+          if(conn->IsSpiltPrimary()){
             HandleDisplayHotplug(conn->display(), conn->state());
-            rm->AddCropSpiltConnectedId(conn->display());
             ALOGI("HWC2 Init: SF register connector %u type=%s, type_id=%d display-id=%d\n",
               conn->id(),drmDevice->connector_type_str(conn->type()),conn->type_id(),conn->display());
+              continue;
           }else{
             // CropSpilt
             HWC2_ALOGI("HWC2 Init: not to register connector %u type=%s, type_id=%d isCropSpilt=%d\n",
@@ -4300,21 +4321,10 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
       }else if(conn->isCropSpilt()){
-        ResourceManager *rm = ResourceManager::getInstance();
-        if(rm->GetCropSpiltConnectedId() == -1){
-          HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
-                      cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
-                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-          hwc2_->HandleDisplayHotplug(display_id, cur_state);
-          display.SyncPowerMode();
-          rm->AddCropSpiltConnectedId(display_id);
-        }else{
           HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d isCropSpilt skip hotplug.",
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                     conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-          rm->AddCropSpiltConnectedId(display_id);
           display.SetPowerMode(HWC2_POWER_MODE_ON);
-        }
       }else{
         HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
@@ -4330,21 +4340,9 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
                    cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                    conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
       }else if(conn->isCropSpilt()){
-        ResourceManager *rm = ResourceManager::getInstance();
-        int crop_spilt_connected_id_old = rm->GetCropSpiltConnectedId();
-        rm->RemoveCropSpiltConnectedId(display_id);
-        int crop_spilt_connected_id_new = rm->GetCropSpiltConnectedId();
-        if(crop_spilt_connected_id_new == -1){
-          HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",
-                      cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
-                      conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-          hwc2_->HandleDisplayHotplug(crop_spilt_connected_id_old, cur_state);
-          display.SyncPowerMode();
-        }else{
           HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d isCropSpilt skip hotplug.",
                     cur_state == DRM_MODE_CONNECTED ? "Plug" : "Unplug",
                     conn->id(),drm_->connector_type_str(conn->type()),conn->type_id());
-        }
         // display.SetPowerMode(HWC2_POWER_MODE_OFF);
       }else{
         HWC2_ALOGI("hwc_hotplug: %s connector %u type=%s type_id=%d send hotplug event to SF.",

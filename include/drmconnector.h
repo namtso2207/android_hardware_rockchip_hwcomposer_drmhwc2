@@ -144,6 +144,8 @@ class DrmConnector {
   bool isHorizontalSpilt() const;
   int setHorizontalSpilt();
 
+  int setCropSpiltPrimary();
+  bool IsSpiltPrimary();
   bool isCropSpilt() const;
   int setCropSpilt(int32_t fbWidth,
                    int32_t fbHeight,
@@ -255,6 +257,7 @@ class DrmConnector {
   // Horizontal mode
   bool bHorizontalSpilt_=false;
   // Crop mode
+  bool bSpiltPrimary_=false;
   bool bCropSpilt_=false;
   int32_t FbWidth_=0;
   int32_t FbHeight_=0;

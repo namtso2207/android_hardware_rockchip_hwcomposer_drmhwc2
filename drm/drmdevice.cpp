@@ -286,6 +286,11 @@ int DrmDevice::UpdateInfoFromXml(){
       if(!strncmp(conn_name, DmXml_.ConnectorInfo[i].Type, strlen(conn_name)) &&
           DmXml_.ConnectorInfo[i].TypeId == conn->type_id()){
         if(DmXml_.Mode == DRM_DISPLAY_MODE_SPLICE){
+          static bool spilt_main_connector = false;
+          if(!spilt_main_connector){
+            spilt_main_connector = true;
+            conn->setCropSpiltPrimary();
+          }
           if(conn->setCropSpilt(DmXml_.FbWidth,
                                 DmXml_.FbHeight,
                                 DmXml_.ConnectorInfo[i].SrcX,
@@ -295,8 +300,9 @@ int DrmDevice::UpdateInfoFromXml(){
             HWC2_ALOGW("%s-%d enter CropSpilt Mode fail.",
                         connector_type_str(conn->type()), conn->type_id());
           }else{
-            HWC2_ALOGI("%s-%d enter CropSpilt Mode.",
-                        connector_type_str(conn->type()), conn->type_id());
+            HWC2_ALOGI("%s-%d enter %s CropSpilt Mode.",
+                        connector_type_str(conn->type()), conn->type_id(),
+                        conn->IsSpiltPrimary() ? "Primary" : "External");
           }
         }else if(DmXml_.Mode == DRM_DISPLAY_MODE_HORIZONTAL_SPILT){
           if(conn->setHorizontalSpilt()){

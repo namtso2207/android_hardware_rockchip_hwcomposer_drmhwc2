@@ -114,11 +114,6 @@ class ResourceManager {
   bool IsSidebandStream2Mode() const;
   int GetCacheBufferLimitSize() const;
 
-  // 拼接模式相关信息记录
-  int GetCropSpiltConnectedId() const;
-  int AddCropSpiltConnectedId(int display_id);
-  int RemoveCropSpiltConnectedId(int display_id);
-
  private:
   ResourceManager();
   ResourceManager(const ResourceManager &) = delete;
@@ -168,9 +163,6 @@ class ResourceManager {
   bool mSidebandStream2Mode_;
   // cache buffer max size limit enable
   int mCacheBufferLimitSize_ = 0;
-  // 拼接模式热插拔注册id信息
-  int mCropSpiltConnectedId_ = -1;
-  std::set<int> mCropSpiltHasConnectedId_;
 
   mutable std::recursive_mutex mRecursiveMutex;
 };
