@@ -3589,7 +3589,7 @@ void DrmHwcTwo::HwcLayer::PopulateSidebandLayer(DrmHwcLayer *drmHwcLayer,
       drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
 
       if(mCurrentState.sidebandStreamHandle_){
-        drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+        drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
         drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
         drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
         drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
@@ -3630,7 +3630,7 @@ void DrmHwcTwo::HwcLayer::PopulateNormalLayer(DrmHwcLayer *drmHwcLayer,
 
     if(buffer_){
       drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
-      drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+      drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
       drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
       drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
       drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
@@ -3805,7 +3805,7 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetTransform(mCurrentState.transform_);
 
   if(buffer_ && !validate){
-    drmHwcLayer->iFd_     = pBufferInfo_->iFd_;
+    drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
     drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
     drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
     drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
