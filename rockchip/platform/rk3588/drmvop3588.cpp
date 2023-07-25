@@ -2404,16 +2404,15 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
 #ifdef USE_LIBSVEP_MEMC
 int Vop3588::ClearMemcJob(){
   // memc初始化
-  if(memc_ == NULL){
-    memc_ = new MemcProxyMode();
-    if(memc_->Init(MEMC_VERSION, true)){
+  if(svep_memc_.get() != NULL){
+    if(svep_memc_->Init(MEMC_VERSION, true)){
       HWC2_ALOGD_IF_DEBUG("Memc init failed.");
       return -1;
     }
   }
 
   // 创建ctx参数
-  int ret = memc_->ClearResource();
+  int ret = svep_memc_->ClearResource();
   if(ret){
     HWC2_ALOGD_IF_ERR("Memc MpClearResource failed. ret=%d", ret);
     return ret;
@@ -2452,9 +2451,8 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
   }
 
   // memc初始化
-  if(memc_ == NULL){
-    memc_ = new MemcProxyMode();
-    if(memc_->Init(MEMC_VERSION, true)){
+  if(svep_memc_.get() != NULL){
+    if(svep_memc_->Init(MEMC_VERSION, true)){
       HWC2_ALOGD_IF_DEBUG("Memc init failed.");
       return -1;
     }else{
@@ -2476,12 +2474,6 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
   MemcImageInfo memcSrcInfo;
   MemcImageInfo memcReqInfo;
   MemcImageInfo memcDstInfo;
-  memset(&memcSrcInfo, 0x00, sizeof(MemcImageInfo));
-  memset(&memcDstInfo, 0x00, sizeof(MemcImageInfo));
-  memset(&memcDstInfo, 0x00, sizeof(MemcImageInfo));
-
-  memcSrcInfo.mAcquireFence_.Set(-1);
-  memcDstInfo.mAcquireFence_.Set(-1);
 
   bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") == 1);
   for(auto &drmLayer : layers){
@@ -2518,7 +2510,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
 
 
           MEMC_MODE memc_mode = MEMC_MODE::MEMC_UN_SUPPORT;
-          int ret = memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
+          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("MatchMemcMode fail!, skip this policy. ret=%d", ret);
             drmLayer->bUseMemc_ = false;
@@ -2526,7 +2518,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           }
 
           //get dst info
-          ret = memc_->GetDstImageInfo(&memcReqInfo);
+          ret = svep_memc_->GetDstImageInfo(&memcReqInfo);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("GetDstImageInfo fail!, skip this policy. ret=%d", ret);
             continue;
@@ -2617,7 +2609,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           memcSrcInfo.mCrop_.iBottom_= drmLayer->source_crop.bottom;
 
           MEMC_MODE memc_mode = MEMC_MODE::MEMC_UN_SUPPORT;
-          int ret = memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
+          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("MatchMemcMode fail!, skip this policy. ret=%d", ret);
             drmLayer->bUseMemc_ = false;
@@ -2625,7 +2617,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           }
 
           //get dst info
-          ret = memc_->GetDstImageInfo(&memcReqInfo);
+          ret = svep_memc_->GetDstImageInfo(&memcReqInfo);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("GetDstImageInfo fail!, skip this policy. ret=%d", ret);
             continue;
@@ -2702,10 +2694,10 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
     if(!ret){ // Match sucess, to call im2d interface
       for(auto &drmLayer : layers){
         if(drmLayer->bUseMemc_){
-          memc_->SetOsdMode(MEMC_OSD_ENABLE_VIDEO, NULL);
-          memc_->SetContrastMode(enableMemcComparation);
+          svep_memc_->SetOsdMode(MEMC_OSD_ENABLE_VIDEO, NULL);
+          svep_memc_->SetContrastMode(enableMemcComparation);
           int memc_fence = -1;
-          int ret = memc_->RunAsync(&memcSrcInfo, &memcDstInfo, &memc_fence);
+          int ret = svep_memc_->RunAsync(&memcSrcInfo, &memcDstInfo, &memc_fence);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("MpRunAsync fail!, skip this policy. ret=%d", ret);
             memcBufferQueue_->QueueBuffer(dst_buffer);

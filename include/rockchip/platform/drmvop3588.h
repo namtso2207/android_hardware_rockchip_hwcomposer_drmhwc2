@@ -239,6 +239,7 @@ struct SrXml{
 
 #ifdef USE_LIBSVEP_MEMC
      ,
+     svep_memc_(std::make_shared<MemcProxyMode>()),
      memcBufferQueue_((std::make_shared<DrmBufferQueue>()))
 #endif
   {
@@ -381,7 +382,7 @@ struct SrXml{
 
 #ifdef USE_LIBSVEP_MEMC
   // MEMC
-  MemcProxyMode* memc_;
+  std::shared_ptr<MemcProxyMode> svep_memc_;
   bool bMemcReady_;
   uint64_t uMemcFrameNo_;
   std::shared_ptr<DrmBufferQueue> memcBufferQueue_;
