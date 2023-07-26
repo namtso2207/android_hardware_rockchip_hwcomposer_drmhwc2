@@ -210,7 +210,7 @@ endif
 endif
 
 # SR
-BOARD_USES_LIBSVEP=true
+# BOARD_USES_LIBSVEP=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
 BOARD_USES_LIBSR=true
 endif
@@ -234,7 +234,7 @@ LOCAL_REQUIRED_MODULES += \
 endif
 
 # MEMC
-BOARD_USES_LIBSVEP_MEMC=true
+# BOARD_USES_LIBSVEP_MEMC=true
 ifeq ($(strip $(BOARD_USES_LIBSVEP_MEMC)),true)
 LOCAL_C_INCLUDES += \
   hardware/rockchip/libsvep/include/memc

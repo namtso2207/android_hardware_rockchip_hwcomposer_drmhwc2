@@ -40,7 +40,7 @@
 #include <utils/CallStack.h>
 
 /*hwc version*/
-#define GHWC_VERSION                    "HWC2-1.5.113"
+#define GHWC_VERSION                    "HWC2-1.5.114"
 #define GHWC_VERSION_NOTES              ""
 
 //Print call statck when you call ALOGD_CALLSTACK.
