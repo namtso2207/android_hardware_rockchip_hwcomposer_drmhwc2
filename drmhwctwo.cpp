@@ -3919,7 +3919,7 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
         src.mBufferInfo_.iStride_ = drmHwcLayer->iStride_;
         // src.mBufferInfo_.iSize_   = drmHwcLayer->iSize_;
         src.mBufferInfo_.uBufferId_ = drmHwcLayer->uBufferId_;
-        src.mBufferInfo_.uColorSpace_ = (uint64_t)drmHwcLayer->eDataSpace_;
+        src.mBufferInfo_.uDataSpace_ = (uint64_t)drmHwcLayer->eDataSpace_;
 
         src.mCrop_.iLeft_  = (int)drmHwcLayer->source_crop.left;
         src.mCrop_.iTop_   = (int)drmHwcLayer->source_crop.top;
@@ -4038,7 +4038,7 @@ int DrmHwcTwo::HwcLayer::DoPq(bool validate, DrmHwcLayer *drmHwcLayer, hwc2_drm_
     drmHwcLayer->uColorSpace.colorspace_kernel_6_1_.color_encoding_ = DRM_COLOR_YCBCR_BT601;
     drmHwcLayer->uColorSpace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
   }else{
-    drmHwcLayer->uColorSpace = V4L2_COLORSPACE_JPEG;
+    drmHwcLayer->uColorSpace.colorspace_kernel_510_ = V4L2_COLORSPACE_JPEG;
   }
   return 0;
 }
