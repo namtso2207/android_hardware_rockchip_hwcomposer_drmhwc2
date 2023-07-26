@@ -2068,6 +2068,8 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   int contrast_mode = atoi(value);
   property_get(SR_CONTRAST_MODE_OFFSET, value, "0");
   int contrast_offset = atoi(value);
+  property_get(SR_OSD_DISABLE_MODE, value, "0");
+  int diable_osd_mode = atoi(value);
   property_get(SR_OSD_VIDEO_ONELINE_MODE, value, "0");
   int osd_oneline_mode = atoi(value);
   property_get(SR_OSD_VIDEO_ONELINE_WATI_SEC, value, "12");
@@ -2208,25 +2210,29 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
 
           SrOsdMode osd_mode = SR_OSD_ENABLE_VIDEO;
           const wchar_t* osd_str = SR_OSD_VIDEO_STR;
-          if(osd_oneline_mode > 0){
-            // 视频播放SR若干帧后，采用oneline OSD模式
-            if(mLastMode_ != sr_mde){
-              struct timeval tp;
-              gettimeofday(&tp, NULL);
-              mLastMode_ = sr_mde;
-              mSrBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-              mEnableOnelineMode_ = false;
-            }
-            if(!mEnableOnelineMode_){
-              struct timeval tp;
-              gettimeofday(&tp, NULL);
-              uint64_t current_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-              if((current_time - mSrBeginTimeMs_) > osd_oneline_wait_second * 1000){
-                mEnableOnelineMode_ = true;
+          if(diable_osd_mode > 0){
+            osd_mode = SR_OSD_DISABLE;
+          }else{
+            if(osd_oneline_mode > 0){
+              // 视频播放SR若干帧后，采用oneline OSD模式
+              if(mLastMode_ != sr_mde){
+                struct timeval tp;
+                gettimeofday(&tp, NULL);
+                mLastMode_ = sr_mde;
+                mSrBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+                mEnableOnelineMode_ = false;
               }
-            }else{
-              osd_mode = SR_OSD_ENABLE_VIDEO_ONELINE;
-              osd_str = SR_OSD_VIDEO_ONELINE_STR;
+              if(!mEnableOnelineMode_){
+                struct timeval tp;
+                gettimeofday(&tp, NULL);
+                uint64_t current_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+                if((current_time - mSrBeginTimeMs_) > osd_oneline_wait_second * 1000){
+                  mEnableOnelineMode_ = true;
+                }
+              }else{
+                osd_mode = SR_OSD_ENABLE_VIDEO_ONELINE;
+                osd_str = SR_OSD_VIDEO_ONELINE_STR;
+              }
             }
           }
 
