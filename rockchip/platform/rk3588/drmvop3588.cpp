@@ -2058,6 +2058,9 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   bool use_laster_rga_layer = false;
   std::shared_ptr<DrmBuffer> dst_buffer;
 
+  SrImageInfo sr_src_;
+  SrImageInfo sr_dst_;
+
   // 以下参数更新后需要强制触发svep处理更新图像数据
   property_get(SR_ENHANCEMENT_RATE_NAME, value, "0");
   int enhancement_rate = atoi(value);
@@ -2073,7 +2076,6 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   static int last_enhancement_rate = 0;
   static int last_contrast_mode = 0;
   static int last_contrast_offset = 0;
-
 
   for(auto &drmLayer : layers){
     if(SvepAllowedByLocalPolicy(drmLayer) &&
@@ -2152,28 +2154,28 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
           }
 
           // 2. Set buffer Info
-          mSrSrc_.mBufferInfo_.iFd_     = drmLayer->iFd_;
-          mSrSrc_.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
-          mSrSrc_.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
-          mSrSrc_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
-          mSrSrc_.mBufferInfo_.iStride_ = drmLayer->iStride_;
-          mSrSrc_.mBufferInfo_.iSize_   = drmLayer->iSize_;
-          mSrSrc_.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
-          mSrSrc_.mBufferInfo_.uColorSpace_ = (uint64_t)drmLayer->eDataSpace_;
+          sr_src_.mBufferInfo_.iFd_     = drmLayer->iFd_;
+          sr_src_.mBufferInfo_.iWidth_  = drmLayer->iWidth_;
+          sr_src_.mBufferInfo_.iHeight_ = drmLayer->iHeight_;
+          sr_src_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
+          sr_src_.mBufferInfo_.iStride_ = drmLayer->iStride_;
+          sr_src_.mBufferInfo_.iSize_   = drmLayer->iSize_;
+          sr_src_.mBufferInfo_.uBufferId_ = drmLayer->uBufferId_;
+          sr_src_.mBufferInfo_.uColorSpace_ = (uint64_t)drmLayer->eDataSpace_;
           if(drmLayer->bAfbcd_){
             if(drmLayer->iFormat_ == HAL_PIXEL_FORMAT_YUV420_8BIT_I){
-              mSrSrc_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
+              sr_src_.mBufferInfo_.iFormat_ = drmLayer->uFourccFormat_;
             }
-            mSrSrc_.mBufferInfo_.uMask_ = SR_AFBC_FORMATE;
+            sr_src_.mBufferInfo_.uMask_ = SR_AFBC_FORMATE;
           }
 
-          mSrSrc_.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
-          mSrSrc_.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
-          mSrSrc_.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
-          mSrSrc_.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
+          sr_src_.mCrop_.iLeft_  = (int)drmLayer->source_crop.left;
+          sr_src_.mCrop_.iTop_   = (int)drmLayer->source_crop.top;
+          sr_src_.mCrop_.iRight_ = (int)drmLayer->source_crop.right;
+          sr_src_.mCrop_.iBottom_= (int)drmLayer->source_crop.bottom;
 
           SrMode sr_mde = SrMode::UN_SUPPORT;
-          SrError ret = svep_sr_->MatchSrMode(&mSrSrc_,
+          SrError ret = svep_sr_->MatchSrMode(&sr_src_,
                                    (ctx.state.b8kMode_ ? SR_OUTPUT_8K_MODE : SR_MODE_NONE),
                                    &sr_mde);
           if(ret){
@@ -2194,7 +2196,8 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
                                                         target_image_info.mBufferInfo_.iHeight_,
                                                         HAL_PIXEL_FORMAT_YCrCb_NV12,
                                                         RK_GRALLOC_USAGE_STRIDE_ALIGN_64 |
-                                                        RK_GRALLOC_USAGE_WITHIN_4G,
+                                                        RK_GRALLOC_USAGE_WITHIN_4G |
+                                                        MALI_GRALLOC_USAGE_NO_AFBC,
                                                         "SR-SurfaceView",
                                                         drmLayer->uId_);
 
@@ -2234,18 +2237,18 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
               continue;
           }
           // 5. Set buffer Info
-          mSrDst_.mBufferInfo_.iFd_     = dst_buffer->GetFd();
-          mSrDst_.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
-          mSrDst_.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
-          mSrDst_.mBufferInfo_.iFormat_ = dst_buffer->GetFourccFormat();
-          mSrDst_.mBufferInfo_.iStride_ = dst_buffer->GetStride();
-          mSrDst_.mBufferInfo_.iSize_   = dst_buffer->GetSize();
-          mSrDst_.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
+          sr_dst_.mBufferInfo_.iFd_     = dst_buffer->GetFd();
+          sr_dst_.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
+          sr_dst_.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
+          sr_dst_.mBufferInfo_.iFormat_ = dst_buffer->GetFourccFormat();
+          sr_dst_.mBufferInfo_.iStride_ = dst_buffer->GetStride();
+          sr_dst_.mBufferInfo_.iSize_   = dst_buffer->GetSize();
+          sr_dst_.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
-          mSrDst_.mCrop_.iLeft_  = target_image_info.mCrop_.iLeft_;
-          mSrDst_.mCrop_.iTop_   = target_image_info.mCrop_.iTop_;
-          mSrDst_.mCrop_.iRight_ = target_image_info.mCrop_.iRight_;
-          mSrDst_.mCrop_.iBottom_= target_image_info.mCrop_.iBottom_;
+          sr_dst_.mCrop_.iLeft_  = target_image_info.mCrop_.iLeft_;
+          sr_dst_.mCrop_.iTop_   = target_image_info.mCrop_.iTop_;
+          sr_dst_.mCrop_.iRight_ = target_image_info.mCrop_.iRight_;
+          sr_dst_.mCrop_.iBottom_= target_image_info.mCrop_.iBottom_;
 
 
           hwc_frect_t source_crop;
@@ -2338,7 +2341,7 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
         if(drmLayer->bUseSr_){
           int output_fence = 0;
           // 13. RunAsync
-          SrError error = svep_sr_->RunAsync(&mSrSrc_, &mSrDst_, &output_fence);
+          SrError error = svep_sr_->RunAsync(&sr_src_, &sr_dst_, &output_fence);
           if (error != SrError::None){
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
             drmLayer->bUseSr_ = false;

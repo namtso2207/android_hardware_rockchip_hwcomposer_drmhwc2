@@ -1484,7 +1484,6 @@ int DrmHwcTwo::HwcDisplay::ImportBuffers() {
       // 如果图层没有采用Overlay,则不需要获取GemHandle
       if(!drm_hwc_layer.bMatch_)
         continue;
-      HWC2_ALOGI("rk-debug %s sr=%d", drm_hwc_layer.sLayerName_.c_str(), drm_hwc_layer.bUseSr_);
 #if (defined USE_LIBSR) || (defined USE_LIBSVEP_MEMC)
       // 如果是超分处理后的图层，已经更新了GemHandle参数，则不再获取GemHandle
       if(drm_hwc_layer.bUseSr_)

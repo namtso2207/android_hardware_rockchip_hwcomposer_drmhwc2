@@ -370,8 +370,6 @@ struct SrXml{
 #ifdef USE_LIBSR
   // SR
   std::shared_ptr<SvepSr> svep_sr_;
-  SrImageInfo mSrSrc_;
-  SrImageInfo mSrDst_;
   bool bSrReady_;
   std::shared_ptr<DrmBufferQueue> bufferQueue_;
   SrXml mSrEnv_;
