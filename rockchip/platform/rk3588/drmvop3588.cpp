@@ -2352,7 +2352,7 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
             drmLayer->bUseSr_ = false;
           }
-          last_buffer_id = drmLayer->uBufferId_;
+          last_buffer_id = drmLayer->storeLayerInfo_.uBufferId_;
           last_sr_mode = sr_mode;
           last_contrast_mode = contrast_mode;
           last_enhancement_rate = enhancement_rate;
@@ -2395,8 +2395,12 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
     }else{
       for(auto &drmLayer : layers){
         if(drmLayer->bUseSr_){
-          if(dst_buffer != NULL)
-            bufferQueue_->QueueBuffer(dst_buffer);
+          last_buffer_id = drmLayer->storeLayerInfo_.uBufferId_;
+          last_sr_mode = sr_mode;
+          last_contrast_mode = contrast_mode;
+          last_enhancement_rate = enhancement_rate;
+          last_contrast_offset = contrast_offset;
+          bufferQueue_->QueueBuffer(dst_buffer);
           drmLayer->ResetInfoFromStore();
           drmLayer->bUseSr_ = false;
         }
