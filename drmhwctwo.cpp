@@ -3678,6 +3678,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->IsMetadataHdr_ = false;
   drmHwcLayer->bSideband2_ = false;
   drmHwcLayer->fRealFps_ = GetRealFps();
+  drmHwcLayer->fRealMaxFps_ = GetRealMaxFps();
 
 #ifdef RK3528
   // RK3528 仅 VOP支持AFBC格式，如果遇到以下两个问题需要启用解码预缩小功能：

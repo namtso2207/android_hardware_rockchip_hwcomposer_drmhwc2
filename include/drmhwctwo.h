@@ -579,11 +579,22 @@ class DrmHwcTwo : public hwc2_device_t {
       nsecs_t start_time = qFrameTimestampBack_.front();
       if(qFrameTimestampBack_.size() > 10){
         mRealFps_ =  qFrameTimestampBack_.size() * float(s2ns(1)) / (end_time - start_time);
+        if(mRealMaxFps_ < mRealFps_){
+          mRealMaxFps_ = (int)mRealFps_;
+        }
       }else{
         mRealFps_ = 60;
       }
 
       return mRealFps_;
+    }
+
+    int GetRealMaxFps(){
+      if(mRealMaxFps_ != -1){
+        return mRealMaxFps_;
+      }
+
+      return 60;
     }
 
     int DoSvep(bool validate, DrmHwcLayer *drmHwcLayer);
@@ -640,6 +651,8 @@ class DrmHwcTwo : public hwc2_device_t {
     float mFps_ = 0;
     // 图层更新的fps，不考虑世界时间，提供已刷新的图层刷新率
     float mRealFps_ = 0;
+    // 记录图层真实最高刷新率
+    int mRealMaxFps_ = -1;
 
     // DRM Resource
     DrmGralloc *drmGralloc_;
