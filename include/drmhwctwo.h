@@ -693,6 +693,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
 #if PLATFORM_SDK_VERSION > 29
 	HWC2::Error GetDisplayConnectionType(uint32_t *outType);
+	HWC2::Error GetDisplayVsyncPeriod(hwc2_vsync_period_t *outVsyncPeriod);
 #endif
 
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){

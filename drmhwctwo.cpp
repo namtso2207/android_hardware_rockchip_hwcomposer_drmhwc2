@@ -2458,6 +2458,20 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConnectionType(uint32_t *outType) {
 
 	return HWC2::Error::None;
 }
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayVsyncPeriod(
+				hwc2_vsync_period_t *outVsyncPeriod /* ns */) {
+	supported(__func__);
+
+	DrmMode const &mode = connector_->active_mode();
+
+	if (mode.id() == 0)
+		return HWC2::Error::BadConfig;
+
+	*outVsyncPeriod = 1E9 / mode.v_refresh();
+
+	return HWC2::Error::None;
+}
 #endif
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
@@ -4682,11 +4696,17 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+
 #if PLATFORM_SDK_VERSION > 29
 	case HWC2::FunctionDescriptor::GetDisplayConnectionType:
 	  return ToHook<HWC2_PFN_GET_DISPLAY_CONNECTION_TYPE>(
 		  DisplayHook<decltype(&HwcDisplay::GetDisplayConnectionType),
 					  &HwcDisplay::GetDisplayConnectionType, uint32_t *>);
+	case HWC2::FunctionDescriptor::GetDisplayVsyncPeriod:
+	  return ToHook<HWC2_PFN_GET_DISPLAY_VSYNC_PERIOD>(
+		  DisplayHook<decltype(&HwcDisplay::GetDisplayVsyncPeriod),
+					  &HwcDisplay::GetDisplayVsyncPeriod,
+					  hwc2_vsync_period_t *>);
 #endif
 
     // Layer functions
