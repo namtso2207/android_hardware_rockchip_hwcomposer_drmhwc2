@@ -691,6 +691,10 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
     HWC2::Error ValidateVirtualDisplay(uint32_t *num_types, uint32_t *num_requests);
 
+#if PLATFORM_SDK_VERSION > 29
+	HWC2::Error GetDisplayConnectionType(uint32_t *outType);
+#endif
+
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){
         return layers_;
     }

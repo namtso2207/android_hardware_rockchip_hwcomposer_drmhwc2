@@ -2447,6 +2447,19 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 
+#if PLATFORM_SDK_VERSION > 29
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConnectionType(uint32_t *outType) {
+	if (connector_->internal())
+		*outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::Internal);
+	else if (connector_->external())
+		*outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::External);
+	else
+		return HWC2::Error::BadConfig;
+
+	return HWC2::Error::None;
+}
+#endif
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", x=%d, y=%d" ,id_,x,y);
   mCurrentState.cursor_x_ = x;
@@ -4669,6 +4682,12 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
+#if PLATFORM_SDK_VERSION > 29
+	case HWC2::FunctionDescriptor::GetDisplayConnectionType:
+	  return ToHook<HWC2_PFN_GET_DISPLAY_CONNECTION_TYPE>(
+		  DisplayHook<decltype(&HwcDisplay::GetDisplayConnectionType),
+					  &HwcDisplay::GetDisplayConnectionType, uint32_t *>);
+#endif
 
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
