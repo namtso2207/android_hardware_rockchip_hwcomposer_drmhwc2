@@ -154,7 +154,7 @@ int Vop3588::InitSvep(){
   return 0;
 }
 
-bool Vop3588::SvepAllowedByBlacklist(DrmHwcLayer* layer){
+bool Vop3588::SvepSrAllowedByBlacklist(DrmHwcLayer* layer){
   if(mSrEnv_.mValid){
     // 此黑名单内的应用名不参与 SR 处理
     for(auto &black_key : mSrEnv_.mSvepBlacklist_){
@@ -167,7 +167,7 @@ bool Vop3588::SvepAllowedByBlacklist(DrmHwcLayer* layer){
   return true;
 }
 
-bool Vop3588::SvepAllowedByWhitelist(DrmHwcLayer* layer){
+bool Vop3588::SvepSrAllowedByWhitelist(DrmHwcLayer* layer){
   if(mSrEnv_.mValid){
     // 此白名单内的应用名直接参与 SR 处理
     for(auto &white_key : mSrEnv_.mSvepWhitelist_){
@@ -181,13 +181,13 @@ bool Vop3588::SvepAllowedByWhitelist(DrmHwcLayer* layer){
 }
 
 #define SVEP_SUPPORT_MAX_FPS 45
-bool Vop3588::SvepAllowedByLocalPolicy(DrmHwcLayer* layer){
+bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   // 视频大于4K则不使用 SR.
   if(layer->iWidth_ > 4096)
     return false;
 
   // 如果不是视频格式，并且不在白名单内，则不使用SR
-  if(!layer->bYuv_ && !SvepAllowedByWhitelist(layer))
+  if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer))
     return false;
 
   bool yuv_10bit = false;
@@ -2080,8 +2080,8 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
   static int last_contrast_offset = 0;
 
   for(auto &drmLayer : layers){
-    if(SvepAllowedByLocalPolicy(drmLayer) &&
-       SvepAllowedByBlacklist(drmLayer)){
+    if(SvepSrAllowedByLocalPolicy(drmLayer) &&
+       SvepSrAllowedByBlacklist(drmLayer)){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
         // 部分参数变化后需要强制更新
         if(last_sr_mode != sr_mode ||
@@ -2490,7 +2490,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
 
   bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") == 1);
   for(auto &drmLayer : layers){
-    if((drmLayer->bYuv_)){
+    if(drmLayer->bYuv_){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
         if(last_buffer_id != drmLayer->uBufferId_ ||
            last_memc_mode != memc_mode){

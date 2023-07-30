@@ -318,9 +318,9 @@ struct SrXml{
 
 #ifdef USE_LIBSR
   int InitSvep();
-  bool SvepAllowedByBlacklist(DrmHwcLayer *layer);
-  bool SvepAllowedByWhitelist(DrmHwcLayer *layer);
-  bool SvepAllowedByLocalPolicy(DrmHwcLayer *layer);
+  bool SvepSrAllowedByBlacklist(DrmHwcLayer *layer);
+  bool SvepSrAllowedByWhitelist(DrmHwcLayer *layer);
+  bool SvepSrAllowedByLocalPolicy(DrmHwcLayer *layer);
 #endif
 
   void TryMix();
