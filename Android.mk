@@ -247,7 +247,7 @@ LOCAL_CFLAGS += \
 	-DUSE_LIBSVEP_MEMC=1
 
 LOCAL_REQUIRED_MODULES += \
-	HwcSvepEnv.xml
+	HwcSvepMemcEnv.xml
 endif
 
 # BOARD_USES_LIBPQ=true
@@ -310,6 +310,17 @@ LOCAL_MODULE := HwcSvepEnv.xml
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_CLASS := ETC
 LOCAL_SRC_FILES := res/HwcSvepEnv.xml
+include $(BUILD_PREBUILT)
+endif
+
+
+ifeq ($(strip $(BOARD_USES_LIBSVEP_MEMC)),true)
+## copy res/*.xml from etc to /vendor/etc/init/hw
+include $(CLEAR_VARS)
+LOCAL_MODULE := HwcSvepMemcEnv.xml
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_CLASS := ETC
+LOCAL_SRC_FILES := res/HwcSvepMemcEnv.xml
 include $(BUILD_PREBUILT)
 endif
 

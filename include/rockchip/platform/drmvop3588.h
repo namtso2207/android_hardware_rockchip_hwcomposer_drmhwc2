@@ -214,14 +214,14 @@ typedef struct DrmVop2Context{
 } Vop2Ctx;
 
 
-struct SrXmlVersion{
+struct SvepXmlVersion{
   int Major;
   int Minor;
   int PatchLevel;
 };
 
-struct SrXml{
-  SrXmlVersion mVersion;
+struct SvepXml{
+  SvepXmlVersion mVersion;
   bool mValid;
   std::vector<std::string> mSvepWhitelist_;
   std::vector<std::string> mSvepBlacklist_;
@@ -316,11 +316,19 @@ struct SrXml{
                       std::vector<PlaneGroup *> &plane_groups);
   bool TryOverlay();
 
-#ifdef USE_LIBSR
   int InitSvep();
+#ifdef USE_LIBSR
+  int InitSvepSrEnv();
   bool SvepSrAllowedByBlacklist(DrmHwcLayer *layer);
   bool SvepSrAllowedByWhitelist(DrmHwcLayer *layer);
   bool SvepSrAllowedByLocalPolicy(DrmHwcLayer *layer);
+#endif
+
+#ifdef USE_LIBSVEP_MEMC
+  int InitSvepMemcEnv();
+  bool SvepMemcAllowedByBlacklist(DrmHwcLayer *layer);
+  bool SvepMemcAllowedByWhitelist(DrmHwcLayer *layer);
+  bool SvepMemcAllowedByLocalPolicy(DrmHwcLayer *layer);
 #endif
 
   void TryMix();
@@ -372,7 +380,7 @@ struct SrXml{
   std::shared_ptr<SvepSr> svep_sr_;
   bool bSrReady_;
   std::shared_ptr<DrmBufferQueue> bufferQueue_;
-  SrXml mSrEnv_;
+  SvepXml mSrEnv_;
   SrMode mLastMode_;
   bool mEnableOnelineMode_;
   uint64_t mSrBeginTimeMs_;
@@ -384,6 +392,7 @@ struct SrXml{
   bool bMemcReady_;
   uint64_t uMemcFrameNo_;
   std::shared_ptr<DrmBufferQueue> memcBufferQueue_;
+  SvepXml mMemcEnv_;
   int mMemcLastMode_;
   bool mMemcEnableOnelineMode_;
   uint64_t mMemcBeginTimeMs_;

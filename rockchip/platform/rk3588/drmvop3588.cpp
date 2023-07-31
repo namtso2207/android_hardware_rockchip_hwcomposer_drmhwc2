@@ -67,13 +67,23 @@ void Vop3588::Init(){
   hwc_get_string_property("vendor.hwc.accelerate_app_name",
                           "rk_handwrite_sf",
                           ctx.state.accelerate_app_name);
+  // SVEP 配置参数初始化
+  InitSvep();
+}
+int Vop3588::InitSvep(){
 
 #ifdef USE_LIBSR
-  InitSvep();
+  InitSvepSrEnv();
 #endif
+
+#ifdef USE_LIBSVEP_MEMC
+  InitSvepMemcEnv();
+#endif
+  return 0;
 }
+
 #ifdef USE_LIBSR
-int Vop3588::InitSvep(){
+int Vop3588::InitSvepSrEnv(){
   if(mSrEnv_.mValid)
     return 0;
 
@@ -240,8 +250,161 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
 
   return true;
 }
-
 #endif
+
+#ifdef USE_LIBSVEP_MEMC
+int Vop3588::InitSvepMemcEnv(){
+  if(mMemcEnv_.mValid)
+    return 0;
+
+  char xml_path[PROPERTY_VALUE_MAX];
+  property_get("vendor.hwc.svep_memc_xml_path", xml_path, "/vendor/etc/HwcSvepMemcEnv.xml");
+
+  tinyxml2::XMLDocument doc;
+  int ret = doc.LoadFile(xml_path);
+  if(ret){
+    HWC2_ALOGW("Can't find %s file. ret=%d", xml_path, ret);
+    return -1;
+  }
+
+  HWC2_ALOGI("Load %s success.", xml_path);
+
+  tinyxml2::XMLElement* HwcSvepEnv = doc.RootElement();
+  /* usr tingxml2 to parse resolution.xml */
+  if (!HwcSvepEnv){
+    HWC2_ALOGW("Can't %s:RootElement fail.", xml_path);
+    return -1;
+  }
+
+  mMemcEnv_.mSvepWhitelist_.clear();
+  mMemcEnv_.mSvepBlacklist_.clear();
+
+  const char* verison = "1.1.1";
+  ret = HwcSvepEnv->QueryStringAttribute( "Version", &verison);
+  if(ret){
+    HWC2_ALOGW("Can't find %s verison info. ret=%d", xml_path, ret);
+    return -1;
+  }
+
+  sscanf(verison, "%d.%d.%d", &mMemcEnv_.mVersion.Major,
+                              &mMemcEnv_.mVersion.Minor,
+                              &mMemcEnv_.mVersion.PatchLevel);
+
+
+  tinyxml2::XMLElement* pWhitelist = HwcSvepEnv->FirstChildElement("Whitelist");
+  if (!pWhitelist){
+    HWC2_ALOGW("Can't %s:Whitelist fail. Maybe not set.", xml_path);
+  }else{
+    int iLayerNameCnt = 0;
+    tinyxml2::XMLElement* pWhiteKey = pWhitelist->FirstChildElement("WhiteKeywords");
+    if (!pWhiteKey) {
+      HWC2_ALOGW("index=%d failed to parse %s\n", iLayerNameCnt, "WhiteKeywords"); \
+    }else{
+      while (pWhiteKey) {
+        mMemcEnv_.mSvepWhitelist_.emplace_back(pWhiteKey->GetText());
+        HWC2_ALOGI("MEMC Whitelist[%d]=%s",
+                    iLayerNameCnt, mMemcEnv_.mSvepWhitelist_[iLayerNameCnt].c_str());
+        iLayerNameCnt++;
+        pWhiteKey = pWhiteKey->NextSiblingElement();
+      }
+    }
+  }
+
+  tinyxml2::XMLElement* pBlacklist = HwcSvepEnv->FirstChildElement("Blacklist");
+  if (!pBlacklist){
+    HWC2_ALOGW("Can't %s:Blacklist fail. Maybe not set.", xml_path);
+  }else{
+    int iLayerNameCnt = 0;
+    tinyxml2::XMLElement* pBlackKey = pBlacklist->FirstChildElement("BlackKeywords");
+    if (!pBlackKey) {
+      HWC2_ALOGW("index=%d failed to parse %s\n", iLayerNameCnt, "BlackKeywords");
+    }else{
+      while (pBlackKey) {
+        mMemcEnv_.mSvepBlacklist_.emplace_back(pBlackKey->GetText());
+
+        HWC2_ALOGI("MEMC Blacklist[%d]=%s",
+                    iLayerNameCnt, mMemcEnv_.mSvepBlacklist_[iLayerNameCnt].c_str());
+        iLayerNameCnt++;
+        pBlackKey = pBlackKey->NextSiblingElement();
+      }
+    }
+  }
+
+  mMemcEnv_.mValid = true;
+  return 0;
+}
+
+bool Vop3588::SvepMemcAllowedByBlacklist(DrmHwcLayer* layer){
+  if(mMemcEnv_.mValid){
+    // 此黑名单内的应用名不参与 SR 处理
+    for(auto &black_key : mMemcEnv_.mSvepBlacklist_){
+      if(layer->sLayerName_.find(black_key) != std::string::npos){
+        HWC2_ALOGD_IF_DEBUG("Sr %s in BlackList! not to SR.", layer->sLayerName_.c_str());
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool Vop3588::SvepMemcAllowedByWhitelist(DrmHwcLayer* layer){
+  if(mMemcEnv_.mValid){
+    // 此白名单内的应用名直接参与 SR 处理
+    for(auto &white_key : mMemcEnv_.mSvepWhitelist_){
+      if(layer->sLayerName_.find(white_key) != std::string::npos){
+        HWC2_ALOGD_IF_DEBUG("Sr %s in Whitelist! force to SR.", layer->sLayerName_.c_str());
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+#define SVEP_MEMC_SUPPORT_MAX_FPS 40
+bool Vop3588::SvepMemcAllowedByLocalPolicy(DrmHwcLayer* layer){
+  // 视频大于4K则不使用 SR.
+  if(layer->iWidth_ > 4096)
+    return false;
+
+  // 如果不是视频格式，并且不在白名单内，则不使用SR
+  if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer))
+    return false;
+
+  bool yuv_10bit = false;
+  switch(layer->iFormat_){
+    case HAL_PIXEL_FORMAT_YCrCb_NV12_10 :
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP_10 :
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP_10 :
+    case HAL_PIXEL_FORMAT_YUV420_10BIT_I :
+      yuv_10bit = true;
+      break;
+    default:
+      yuv_10bit = false;
+      break;
+  }
+
+  // 10bit 视频不使用SR
+  if(yuv_10bit){
+    return false;
+  }
+
+  // 开机动画不使用超分
+  char value[PROPERTY_VALUE_MAX];
+  property_get("service.bootanim.exit", value, "0");
+  if(atoi(value) == 0){
+    return false;
+  }
+
+  // HWC内部会计算图层刷新率，若刷新率大于40帧，则关闭SR-MEMC功能
+  if(layer->fRealMaxFps_ > SVEP_MEMC_SUPPORT_MAX_FPS){
+    HWC2_ALOGD_IF_DEBUG("disable-memc: video_max_fps=%d name=%s",layer->fRealMaxFps_, layer->sLayerName_.c_str());
+    return false;
+  }
+
+  return true;
+}
+#endif
+
 bool Vop3588::SupportPlatform(uint32_t soc_id){
   switch(soc_id){
     case 0x3588:
@@ -2490,7 +2653,8 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
 
   bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") == 1);
   for(auto &drmLayer : layers){
-    if(drmLayer->bYuv_){
+    if(SvepMemcAllowedByLocalPolicy(drmLayer) &&
+       SvepMemcAllowedByBlacklist(drmLayer)){
         ALOGD_IF(LogLevel(DBG_DEBUG), "%s:line=%d",__FUNCTION__,__LINE__);
         if(last_buffer_id != drmLayer->uBufferId_ ||
            last_memc_mode != memc_mode){
