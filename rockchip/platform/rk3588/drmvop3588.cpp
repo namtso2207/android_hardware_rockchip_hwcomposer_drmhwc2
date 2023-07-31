@@ -2651,7 +2651,8 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
   MemcImageInfo memcReqInfo;
   MemcImageInfo memcDstInfo;
 
-  bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") == 1);
+  bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") > 0);
+  bool enableMemcOsd = (hwc_get_int_property(MEMC_OSD_DISABLE_MODE, "0") == 0);
   for(auto &drmLayer : layers){
     if(SvepMemcAllowedByLocalPolicy(drmLayer) &&
        SvepMemcAllowedByBlacklist(drmLayer)){
@@ -2871,7 +2872,11 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
     if(!ret){ // Match sucess, to call im2d interface
       for(auto &drmLayer : layers){
         if(drmLayer->bUseMemc_){
-          svep_memc_->SetOsdMode(MEMC_OSD_ENABLE_VIDEO, NULL);
+          if(enableMemcOsd){
+            svep_memc_->SetOsdMode(MEMC_OSD_ENABLE_VIDEO, MEMC_OSD_VIDEO_STR);
+          }else{
+            svep_memc_->SetOsdMode(MEMC_OSD_DISABLE, NULL);
+          }
           svep_memc_->SetContrastMode(enableMemcComparation);
           int memc_fence = -1;
           int ret = svep_memc_->RunAsync(&memcSrcInfo, &memcDstInfo, &memc_fence);
