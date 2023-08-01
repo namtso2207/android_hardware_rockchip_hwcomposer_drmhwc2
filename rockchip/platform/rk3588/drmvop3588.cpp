@@ -2563,7 +2563,6 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
           last_contrast_mode = contrast_mode;
           last_enhancement_rate = enhancement_rate;
           last_contrast_offset = contrast_offset;
-          bufferQueue_->QueueBuffer(dst_buffer);
           drmLayer->ResetInfoFromStore();
           drmLayer->bUseSr_ = false;
         }
