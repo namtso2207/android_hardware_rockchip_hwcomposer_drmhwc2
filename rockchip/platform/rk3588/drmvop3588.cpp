@@ -218,6 +218,26 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
   }
 
+  // SR 不支持所有YUV p变种格式
+  bool unsupport_yuv_p = false;
+  switch(layer->uFourccFormat_){
+    case DRM_FORMAT_YUV420:
+    case DRM_FORMAT_YVU420:
+    case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YVU422:
+    case DRM_FORMAT_YUV444:
+    case DRM_FORMAT_YVU444:
+      unsupport_yuv_p = true;
+      break;
+    default:
+      break;
+  }
+
+  if(unsupport_yuv_p){
+    HWC2_ALOGD_IF_DEBUG("disable-svep: unsupport yuv p format. fourcc=%x", layer->uFourccFormat_);
+    return false;
+  }
+
   // 如果图层本身就是2倍缩小的场景，则不建议使用SR.
   if(layer->fHScaleMul_ > 2.0 && layer->fVScaleMul_ > 2.0)
     return false;
@@ -385,6 +405,26 @@ bool Vop3588::SvepMemcAllowedByLocalPolicy(DrmHwcLayer* layer){
 
   // 10bit 视频不使用SR
   if(yuv_10bit){
+    return false;
+  }
+
+  // SR 不支持所有YUV p变种格式
+  bool unsupport_yuv_p = false;
+  switch(layer->uFourccFormat_){
+    case DRM_FORMAT_YUV420:
+    case DRM_FORMAT_YVU420:
+    case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YVU422:
+    case DRM_FORMAT_YUV444:
+    case DRM_FORMAT_YVU444:
+      unsupport_yuv_p = true;
+      break;
+    default:
+      break;
+  }
+
+  if(unsupport_yuv_p){
+    HWC2_ALOGD_IF_DEBUG("disable-memc: unsupport yuv p format. fourcc=%x", layer->uFourccFormat_);
     return false;
   }
 
