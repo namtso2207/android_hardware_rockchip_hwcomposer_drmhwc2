@@ -234,7 +234,7 @@ struct SvepXml{
      ,
      svep_sr_(std::make_shared<SvepSr>()),
      bSrReady_(false),
-     bufferQueue_((std::make_shared<DrmBufferQueue>()))
+     bufferQueue_((std::make_shared<DrmBufferQueue>(4)))
 #endif
 
 #ifdef USE_LIBSVEP_MEMC
