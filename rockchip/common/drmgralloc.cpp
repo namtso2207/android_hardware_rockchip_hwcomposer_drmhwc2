@@ -796,7 +796,8 @@ uint32_t DrmGralloc::hwc_get_fourcc_from_hal_format(int hal_format){
         return DRM_FORMAT_NV12_10;
       }
     case HAL_PIXEL_FORMAT_YCbCr_422_I:    // MALI_GRALLOC_FORMAT_INTERNAL_YUV422_8BIT
-      return DRM_FORMAT_NV16;
+      // RK3528 Android 13 + kernel 5.10 版本，修正使用 DRM_FORMAT_YUYV
+      return DRM_FORMAT_YUYV;
     // case HAL_PIXEL_FORMAT_Y210:           // MALI_GRALLOC_FORMAT_INTERNAL_Y210
     //   return DRM_FORMAT_Y210;
     default:
