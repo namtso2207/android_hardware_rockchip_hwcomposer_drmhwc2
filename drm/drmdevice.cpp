@@ -1347,7 +1347,6 @@ int DrmDevice::UpdateDisplayMode(int display_id){
 
   hotplug_timeline++;
 
-  FlipResolutionSwitchHandler(display_id);
   return 0;
 }
 
@@ -2530,6 +2529,10 @@ bool DrmDevice::GetHdrPanelMetadata(DrmConnector *conn, struct drm_hdr_static_me
   drmModeFreeObjectProperties(props);
 
   return found;
+}
+
+void DrmDevice::FlipResolutionSwitchHandler(int display_id) {
+  event_listener_.FlipResolutionSwitchHandler(display_id);
 }
 
 bool DrmDevice::is_hdr_panel_support_st2084(DrmConnector *conn) const {

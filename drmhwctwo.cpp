@@ -369,6 +369,17 @@ int DrmHwcTwo::HwcDisplay::ClearDisplay() {
   return 0;
 }
 
+int DrmHwcTwo::HwcDisplay::ActiveModeChange(bool change) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  bActiveModeChange_ = change;
+  return 0;
+}
+
+bool DrmHwcTwo::HwcDisplay::IsActiveModeChange() {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  return bActiveModeChange_;
+}
+
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
   HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
@@ -1924,6 +1935,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   ++frame_no_;
 
   UpdateTimerState(!static_screen_opt_);
+
+  if(IsActiveModeChange())
+    drm_->FlipResolutionSwitchHandler((int)handle_);
   return HWC2::Error::None;
 }
 
@@ -2588,8 +2602,11 @@ int DrmHwcTwo::HwcDisplay::UpdateDisplayMode(){
       const DrmMode best_mode = connector_->best_mode();
       connector_->set_current_mode(best_mode);
       // will change display resolution, to clear all display.
-      if(!(connector_->current_mode() == connector_->active_mode()))
+      if(!(connector_->current_mode() == connector_->active_mode())){
         ClearDisplay();
+        // 标识 Display mode 发生改变
+        ActiveModeChange(true);
+      }
     }
 
     if(isRK3566(resource_manager_->getSocId())){
@@ -4457,25 +4474,26 @@ void DrmHwcTwo::DrmHotplugHandler::HandleResolutionSwitchEvent(int display_id) {
   }
 
   auto &display = hwc2_->displays_.at(display_id);
-  display.ChosePreferredConfig();
-  ALOGI("hwc_resolution_switch: connector %u type=%s, type_id=%d\n",
-                connector->id(),
-                drm_->connector_type_str(connector->type()),
-                connector->type_id());
-  hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
-
-  auto &primary = hwc2_->displays_.at(0);
-  primary.InvalidateControl(5,20);
-
-  if(display_id == 0){
-    for (auto &conn : drm_->connectors()) {
-      int display_id = conn->display();
-      drmModeConnection state = conn->state();
-      if (display_id != 0 && state == DRM_MODE_CONNECTED) {
-        hwc2_->HandleDisplayHotplug(display_id, state);
-      }
-    }
+  HWC2::Error error = display.ChosePreferredConfig();
+  if(error != HWC2::Error::None){
+    HWC2_ALOGE("hwc_resolution_switch: connector %u type=%s, type_id=%d ChosePreferredConfig fail.\n",
+                  connector->id(),
+                  drm_->connector_type_str(connector->type()),
+                  connector->type_id());
+    return;
   }
+
+  if(display.IsActiveModeChange()){
+    HWC2_ALOGI("hwc_resolution_switch: connector %u type=%s, type_id=%d\n",
+                  connector->id(),
+                  drm_->connector_type_str(connector->type()),
+                  connector->type_id());
+    hwc2_->HandleDisplayHotplug(display_id, DRM_MODE_CONNECTED);
+    auto &primary = hwc2_->displays_.at(0);
+    primary.InvalidateControl(5,20);
+    display.ActiveModeChange(false);
+  }
+
   return;
 }
 

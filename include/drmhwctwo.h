@@ -770,6 +770,8 @@ class DrmHwcTwo : public hwc2_device_t {
    int EnableMetadataHdrMode(DrmHwcLayer& hdrLayer);
    int EnableHdrMode(DrmHwcLayer& hdrLayer);
    void UpdateSvepState();
+   int ActiveModeChange(bool change);
+   bool IsActiveModeChange();
 
    hwc2_drm_display_t* GetDisplayCtxPtr();
    // Static Screen opt function
@@ -836,6 +838,7 @@ class DrmHwcTwo : public hwc2_device_t {
     bool bDropFrame_;
     bool bLastSvepState_;
     bool bVrrDisplay_;
+    bool bActiveModeChange_;
 
     bool bUseWriteBack_;
     int iLastTunnelId_=0;
