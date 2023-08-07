@@ -881,7 +881,7 @@ drm_colorspace DrmHwcLayer::GetColorSpace(android_dataspace_t dataspace){
       output_colorspace.colorspace_kernel_6_1_.color_range_ = DRM_COLOR_YCBCR_FULL_RANGE;
     }
   }else{
-    output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_SRGB;
+    output_colorspace.colorspace_kernel_510_ = V4L2_COLORSPACE_DEFAULT;
   }
   return output_colorspace;
 }
