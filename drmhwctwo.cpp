@@ -1886,6 +1886,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   if(!init_success_){
     HWC2_ALOGD_IF_ERR("init_success_=%d skip.",init_success_);
+    *retire_fence = merge_retire_fence;
     return HWC2::Error::None;
   }
 
@@ -1903,11 +1904,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
     ret = CreateComposition();
     if (ret == HWC2::Error::BadLayer) {
       // Can we really have no client or device layers?
-      *retire_fence = -1;
+      *retire_fence = merge_retire_fence;
       return HWC2::Error::None;
     }
-    if (ret != HWC2::Error::None)
-      return ret;
   }
 
   if(merge_retire_fence > 0){
