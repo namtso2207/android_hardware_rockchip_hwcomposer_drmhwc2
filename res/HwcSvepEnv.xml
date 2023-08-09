@@ -33,7 +33,7 @@
     <!-- 爱奇艺：标准、Lite、巴布版本适用如下白名单 -->
     <WhiteKeywords>SurfaceView[com.qiyi.video</WhiteKeywords>
     <!-- 抖音 -->
-    <WhiteKeywords>ViewRootImpl[SplashActivity]</WhiteKeywords>
+    <WhiteKeywords>SurfaceView[com.ss.android.ugc</WhiteKeywords>
     <!-- 优酷视频 -->
     <WhiteKeywords>SurfaceView[com.youku.phone/</WhiteKeywords>
     <!-- 哔哩哔哩 -->
