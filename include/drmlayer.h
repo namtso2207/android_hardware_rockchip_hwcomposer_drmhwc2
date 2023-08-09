@@ -181,7 +181,7 @@ struct DrmLayerInfoStore{
   uint64_t uModifier_;
   uint64_t uBufferId_;
   uint32_t uGemHandle_=0;
-  uint64_t eDataSpace_;
+  android_dataspace_t eDataSpace_;
   std::string sLayerName_;
   std::vector<uint32_t> uByteStridePlanes_;
 };

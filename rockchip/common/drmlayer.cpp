@@ -1002,6 +1002,7 @@ void DrmHwcLayer::ResetInfoFromStore(){
   uBufferId_     = storeLayerInfo_.uBufferId_;
   uGemHandle_    = storeLayerInfo_.uGemHandle_;
   uByteStridePlanes_ = storeLayerInfo_.uByteStridePlanes_;
+  eDataSpace_ = storeLayerInfo_.eDataSpace_;
 
   Init();
   HWC2_ALOGD_IF_DEBUG(

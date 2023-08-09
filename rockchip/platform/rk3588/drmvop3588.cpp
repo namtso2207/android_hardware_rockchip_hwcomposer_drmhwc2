@@ -2554,17 +2554,19 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
           if (error != SrError::None){
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
             drmLayer->bUseSr_ = false;
+            drmLayer->ResetInfoFromStore();
+          }else{
+            last_buffer_id = drmLayer->storeLayerInfo_.uBufferId_;
+            last_sr_mode = sr_mode;
+            last_contrast_mode = contrast_mode;
+            last_enhancement_rate = enhancement_rate;
+            last_contrast_offset = contrast_offset;
+            dst_buffer->SetFinishFence(output_fence);
+            drmLayer->pSrBuffer_ = dst_buffer;
+            drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(dst_buffer->GetFinishFence()));
           }
-          last_buffer_id = drmLayer->storeLayerInfo_.uBufferId_;
-          last_sr_mode = sr_mode;
-          last_contrast_mode = contrast_mode;
-          last_enhancement_rate = enhancement_rate;
-          last_contrast_offset = contrast_offset;
-          dst_buffer->SetFinishFence(output_fence);
           bufferQueue_->QueueBuffer(dst_buffer);
-          drmLayer->pSrBuffer_ = dst_buffer;
-          drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(dst_buffer->GetFinishFence()));
-          return ret;
+          return -1;
         }
       }
       ResetLayerFromTmp(layers,tmp_layers);
