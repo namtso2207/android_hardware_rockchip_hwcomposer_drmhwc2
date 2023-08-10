@@ -25,7 +25,7 @@
 #include "rockchip/invalidateworker.h"
 #include "utils/drmfence.h"
 #include "rockchip/producer/drmvideoproducer.h"
-
+#include "resources/resourcescache.h"
 
 #include <android-base/unique_fd.h>
 #include "drmbufferqueue.h"
@@ -108,67 +108,6 @@ class DrmHwcTwo : public hwc2_device_t {
     uint32_t z_order() const {
       return mCurrentState.z_order_;
     }
-
-    class GemHandle {
-      public:
-        GemHandle():drm_(NULL), drmGralloc_(NULL), name_(NULL){};
-        ~GemHandle(){
-          if(drm_ == NULL || drmGralloc_ == NULL || name_ == NULL)
-            return;
-
-          if(uBufferId_ == 0 || uGemHandle_ == 0)
-            return;
-          int ret = drmGralloc_->hwc_free_gemhandle(uBufferId_);
-          if(ret){
-            HWC2_ALOGE("%s hwc_free_gemhandle fail, buffer_id =%" PRIx64, name_, uBufferId_);
-          }
-
-        };
-
-        int InitGemHandle(DrmDevice *drm,
-                          DrmGralloc *drm_gralloc,
-                          const char *name,
-                          uint64_t buffer_fd,
-                          uint64_t buffer_id){
-            drm_ = drm;
-            drmGralloc_ = drm_gralloc;
-            name_ = name;
-            uBufferId_ = buffer_id;
-            int ret = drmGralloc_->hwc_get_gemhandle_from_fd(buffer_fd, uBufferId_, &uGemHandle_);
-            if(ret){
-              HWC2_ALOGE("%s hwc_get_gemhandle_from_fd fail, buffer_id =%" PRIx64, name_, uBufferId_);
-            }
-            return ret;
-        };
-        uint32_t GetGemHandle(){ return uGemHandle_;};
-        bool isValid(){ return uGemHandle_ != 0;};
-      private:
-        DrmDevice *drm_;
-        DrmGralloc *drmGralloc_;
-        uint64_t uBufferId_=0;
-        uint32_t uGemHandle_=0;
-        const char *name_;
-    };
-
-    typedef struct bufferInfo{
-      bufferInfo(): gemHandle_(GemHandle()){};
-      base::unique_fd iFd_;
-      int iFormat_=0;
-      int iWidth_=0;
-      int iHeight_=0;
-      int iStride_=0;
-      int iHeightStride_=0;
-      int iSize_=0;
-      int iByteStride_=0;
-      std::vector<uint32_t> uByteStridePlanes_;
-      uint64_t iUsage_=0;
-      uint32_t uFourccFormat_=0;
-      uint32_t uGemHandle_=0;
-      uint64_t uModifier_=0;
-      uint64_t uBufferId_;
-      GemHandle gemHandle_;
-      std::string sLayerName_;
-    }bufferInfo_t;
 
     typedef struct Hwc2LayerState{
       Hwc2LayerState& operator=(Hwc2LayerState& rhs){
@@ -274,12 +213,16 @@ class DrmHwcTwo : public hwc2_device_t {
           bufferInfoMap_.clear();
         }
 
-        auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<bufferInfo_t>(bufferInfo())));
+        auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<LayerInfoCache>()));
         if(ret.second == false){
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",buffer_);
         }else{
           pBufferInfo_ = ret.first->second;
           pBufferInfo_->uBufferId_ = buffer_id;
+          int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
+          if(ret){
+            HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
+          }
           // Bug:#426310
           // 多路视频同时输出，SurfaceFlinger可能会频繁触发 buffer_handle_t import/release行为
           // 可能会导致HWC本地cache的fd失效，故需要本地dup dma-buffer-fd副本，确保fd有效
@@ -339,8 +282,12 @@ class DrmHwcTwo : public hwc2_device_t {
       // Bufferinfo Cache
       uint64_t buffer_id;
       drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
-      pBufferInfo_ = std::make_shared<bufferInfo_t>(bufferInfo());
+      pBufferInfo_ = std::make_shared<LayerInfoCache>();
       pBufferInfo_->uBufferId_ = buffer_id;
+      int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
+      if(ret){
+        HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
+      }
       pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
       pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
       pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
@@ -388,7 +335,11 @@ class DrmHwcTwo : public hwc2_device_t {
       // Bufferinfo Cache
       uint64_t buffer_id;
       drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
-      pBufferInfo_ = std::make_shared<bufferInfo_t>(bufferInfo());
+      pBufferInfo_ = std::make_shared<LayerInfoCache>();
+      int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
+      if(ret){
+        HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
+      }
       pBufferInfo_->uBufferId_ = buffer_id;
       pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
       pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
@@ -428,11 +379,9 @@ class DrmHwcTwo : public hwc2_device_t {
       // Bufferinfo Cache
       uint64_t buffer_id = pBufferInfo_->uBufferId_;
       if(!pBufferInfo_->gemHandle_.isValid()){
-        pBufferInfo_->gemHandle_.InitGemHandle(drm_,
-                                                drmGralloc_,
-                                                pBufferInfo_->sLayerName_.c_str(),
-                                                pBufferInfo_->iFd_.get(),
-                                                buffer_id);
+        pBufferInfo_->gemHandle_.InitGemHandle(pBufferInfo_->sLayerName_.c_str(),
+                                               pBufferInfo_->iFd_.get(),
+                                               buffer_id);
         pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
         drmHwcLayer->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
         HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ init GemHandle success! BufferId=%" PRIx64 " Name=%s GemHandle=%d ptr=%p",
@@ -475,7 +424,7 @@ class DrmHwcTwo : public hwc2_device_t {
       drmGralloc_->hwc_get_handle_buffer_id(sidebandStreamHandle_, &buffer_id);
 
       bufferInfoMap_.clear();
-      auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<bufferInfo_t>(bufferInfo())));
+      auto ret = bufferInfoMap_.emplace(std::make_pair(buffer_id, std::make_shared<LayerInfoCache>()));
       if(ret.second == false){
         HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ emplace fail! BufferHandle=%p",sidebandStreamHandle_);
       }else{
@@ -493,7 +442,7 @@ class DrmHwcTwo : public hwc2_device_t {
         pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(sidebandStreamHandle_);
         drmGralloc_->hwc_get_handle_name(sidebandStreamHandle_,pBufferInfo_->sLayerName_);
         layer_name_ = pBufferInfo_->sLayerName_;
-        pBufferInfo_->gemHandle_.InitGemHandle(drm_, drmGralloc_, pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->iFd_, buffer_id);
+        pBufferInfo_->gemHandle_.InitGemHandle(pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->iFd_, buffer_id);
         pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
         HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64 " Name=%s",
                             bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
@@ -538,7 +487,7 @@ class DrmHwcTwo : public hwc2_device_t {
                     uint32_t frame_no,
                     bool validate);
 
-    const std::shared_ptr<bufferInfo_t> GetBufferInfo() { return pBufferInfo_;};
+    const std::shared_ptr<LayerInfoCache> GetBufferInfo() { return pBufferInfo_;};
     void DumpLayerInfo(String8 &output);
 
     int DumpData();
@@ -637,12 +586,12 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Buffer info map
     bool bHasCache_ = false;
-    std::map<uint64_t, std::shared_ptr<bufferInfo_t>> bufferInfoMap_;
+    std::map<uint64_t, std::shared_ptr<LayerInfoCache>> bufferInfoMap_;
     std::string layer_name_;
     bool is_afbc_;
 
     // Buffer info point
-    std::shared_ptr<bufferInfo_t> pBufferInfo_ = NULL;
+    std::shared_ptr<LayerInfoCache> pBufferInfo_ = NULL;
 
     // Hwc2Layer fps, for debug.
     std::queue<nsecs_t> qFrameTimestamp_;

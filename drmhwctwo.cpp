@@ -1652,7 +1652,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
      resource_manager_->isWBMode() &&
      !resource_manager_->IsDisableHwVirtualDisplay()){
     if(resource_manager_->isWBMode()){
-      const std::shared_ptr<HwcLayer::bufferInfo_t>
+      const std::shared_ptr<LayerInfoCache>
         bufferinfo = output_layer_.GetBufferInfo();
 
       // 每个目标的Buffer都需要初始化YUV数据
@@ -3636,7 +3636,6 @@ void DrmHwcTwo::HwcLayer::PopulateSidebandLayer(DrmHwcLayer *drmHwcLayer,
 
 void DrmHwcTwo::HwcLayer::PopulateNormalLayer(DrmHwcLayer *drmHwcLayer,
                                               hwc2_drm_display_t* ctx) {
-    drmHwcLayer->sf_handle = buffer_;
     drmHwcLayer->SetDisplayFrame(mCurrentState.display_frame_, ctx);
     drmHwcLayer->SetSourceCrop(mCurrentState.source_crop_);
     drmHwcLayer->SetTransform(mCurrentState.transform_);
@@ -3644,6 +3643,7 @@ void DrmHwcTwo::HwcLayer::PopulateNormalLayer(DrmHwcLayer *drmHwcLayer,
     drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
 
     if(buffer_){
+      drmHwcLayer->sf_handle =  pBufferInfo_->native_buffer_;
       drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
       drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
       drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;

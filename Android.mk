@@ -91,6 +91,7 @@ LOCAL_SRC_FILES := \
   drm/drmproperty.cpp \
   drm/drmcompositorworker.cpp \
   resources/resourcemanager.cpp \
+  resources/resourcescache.cpp \
   drm/vsyncworker.cpp \
   drm/invalidateworker.cpp \
   utils/autolock.cpp \
