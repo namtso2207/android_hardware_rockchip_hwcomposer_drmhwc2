@@ -20,7 +20,7 @@
 #include "drmdisplaycomposition.h"
 #include "drmframebuffer.h"
 #include "drmlayer.h"
-#include "resourcemanager.h"
+#include "resources/resourcemanager.h"
 #include "vsyncworker.h"
 #include "drmcompositorworker.h"
 #ifdef USE_LIBPQ

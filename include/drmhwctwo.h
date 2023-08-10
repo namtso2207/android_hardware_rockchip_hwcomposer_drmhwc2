@@ -18,7 +18,7 @@
 #define DRM_HWC_TWO_H
 #include "drmdisplaycompositor.h"
 #include "drmlayer.h"
-#include "resourcemanager.h"
+#include "resources/resourcemanager.h"
 #include "vsyncworker.h"
 #include "platform.h"
 #include "rockchip/drmgralloc.h"

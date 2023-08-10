@@ -16,7 +16,7 @@
 
 #define LOG_TAG "hwc-resource-manager"
 
-#include "resourcemanager.h"
+#include "resources/resourcemanager.h"
 #include "drmlayer.h"
 
 #include <cutils/properties.h>

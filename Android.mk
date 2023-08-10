@@ -90,7 +90,7 @@ LOCAL_SRC_FILES := \
   drm/drmplane.cpp \
   drm/drmproperty.cpp \
   drm/drmcompositorworker.cpp \
-  drm/resourcemanager.cpp \
+  resources/resourcemanager.cpp \
   drm/vsyncworker.cpp \
   drm/invalidateworker.cpp \
   utils/autolock.cpp \
@@ -295,32 +295,32 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_SUFFIX := $(TARGET_SHLIB_SUFFIX)
 include $(BUILD_SHARED_LIBRARY)
 
-## copy res/*.xml from etc to /vendor/etc/init/hw
+## copy configs/*.xml from etc to /vendor/etc/init/hw
 include $(CLEAR_VARS)
 LOCAL_MODULE := HwComposerEnv.xml
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_CLASS := ETC
-LOCAL_SRC_FILES := res/HwComposerEnv.xml
+LOCAL_SRC_FILES := configs/HwComposerEnv.xml
 include $(BUILD_PREBUILT)
 
 ifeq ($(strip $(BOARD_USES_LIBSVEP)),true)
-## copy res/*.xml from etc to /vendor/etc/init/hw
+## copy configs/*.xml from etc to /vendor/etc/init/hw
 include $(CLEAR_VARS)
 LOCAL_MODULE := HwcSvepEnv.xml
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_CLASS := ETC
-LOCAL_SRC_FILES := res/HwcSvepEnv.xml
+LOCAL_SRC_FILES := configs/HwcSvepEnv.xml
 include $(BUILD_PREBUILT)
 endif
 
 
 ifeq ($(strip $(BOARD_USES_LIBSVEP_MEMC)),true)
-## copy res/*.xml from etc to /vendor/etc/init/hw
+## copy configs/*.xml from etc to /vendor/etc/init/hw
 include $(CLEAR_VARS)
 LOCAL_MODULE := HwcSvepMemcEnv.xml
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_CLASS := ETC
-LOCAL_SRC_FILES := res/HwcSvepMemcEnv.xml
+LOCAL_SRC_FILES := configs/HwcSvepMemcEnv.xml
 include $(BUILD_PREBUILT)
 endif
 
