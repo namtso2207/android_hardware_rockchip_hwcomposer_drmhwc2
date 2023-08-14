@@ -2568,6 +2568,8 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
             HWC2_ALOGD_IF_DEBUG("RunAsync fail!");
             drmLayer->bUseSr_ = false;
             drmLayer->ResetInfoFromStore();
+            bufferQueue_->QueueBuffer(dst_buffer);
+            return -1;
           }else{
             last_buffer_id = drmLayer->storeLayerInfo_.uBufferId_;
             last_sr_mode = sr_mode;
@@ -2577,9 +2579,9 @@ int Vop3588::TrySrPolicy(std::vector<DrmCompositionPlane> *composition,
             dst_buffer->SetFinishFence(output_fence);
             drmLayer->pSrBuffer_ = dst_buffer;
             drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(dst_buffer->GetFinishFence()));
+            bufferQueue_->QueueBuffer(dst_buffer);
+            return 0;
           }
-          bufferQueue_->QueueBuffer(dst_buffer);
-          return -1;
         }
       }
       ResetLayerFromTmp(layers,tmp_layers);
