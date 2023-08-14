@@ -225,6 +225,7 @@ struct SvepXml{
   bool mValid;
   std::vector<std::string> mSvepWhitelist_;
   std::vector<std::string> mSvepBlacklist_;
+  std::set<uint32_t> mSvepWhitelistUid_;
 };
 
  public:

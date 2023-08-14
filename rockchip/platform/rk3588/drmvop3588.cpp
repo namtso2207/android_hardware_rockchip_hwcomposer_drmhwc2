@@ -183,9 +183,22 @@ bool Vop3588::SvepSrAllowedByWhitelist(DrmHwcLayer* layer){
     for(auto &white_key : mSrEnv_.mSvepWhitelist_){
       if(layer->sLayerName_.find(white_key) != std::string::npos){
         HWC2_ALOGD_IF_DEBUG("Sr %s in Whitelist! force to SR.", layer->sLayerName_.c_str());
+        if(mSrEnv_.mSvepWhitelistUid_.size() > 3){
+          mSrEnv_.mSvepWhitelistUid_.clear();
+        }
+        // 使用LayerId主要因为在部分场景，LayerName可能会发生变化，例如：
+        // 视频解码LayerName可能为：
+        //  SurfaceView[com.youdao.hw.videoplayer..
+        //  SurfaceTexture-1-6467-0..
+        // 测试过程发现，LayerId是没有变化的，故可以通过LayerId来找到白名单图层
+        mSrEnv_.mSvepWhitelistUid_.insert(layer->uId_);
         return true;
       }
     }
+  }
+  if(mSrEnv_.mSvepWhitelistUid_.count(layer->uId_) > 0){
+        HWC2_ALOGD_IF_DEBUG("Sr uid=%d is %s in Whitelist! force to SR.", layer->uId_, layer->sLayerName_.c_str());
+        return true;
   }
   return false;
 }
