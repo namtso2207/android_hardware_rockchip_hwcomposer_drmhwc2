@@ -213,6 +213,11 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer))
     return false;
 
+  // 如果SurfaceFlinger 请求Client合成，则不采用SR策略
+  // 例如高斯模糊效果
+  if(layer->sf_composition == HWC2::Composition::Client)
+    return false;
+
   bool yuv_10bit = false;
   switch(layer->iFormat_){
     case HAL_PIXEL_FORMAT_YCrCb_NV12_10 :
