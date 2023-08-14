@@ -739,8 +739,9 @@ std::tuple<int, int> DrmDevice::Init(int num_displays) {
   for (std::vector<DrmPlane*>::const_iterator iter= sort_planes_.begin();
      iter != sort_planes_.end(); ++iter) {
      uint64_t share_id,zpos;
-     std::tie(ret, share_id) = (*iter)->share_id_property().value();
-     std::tie(ret, zpos) = (*iter)->zpos_property().value();
+     int error = 0;
+     std::tie(error, share_id) = (*iter)->share_id_property().value();
+     std::tie(error, zpos) = (*iter)->zpos_property().value();
      ALOGD_IF(LogLevel(DBG_DEBUG),"sort_planes_ share_id=%" PRIu64 ",zpos=%" PRIu64 "",share_id,zpos);
   }
 

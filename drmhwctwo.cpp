@@ -1894,7 +1894,9 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   HWC2::Error ret;
   ret = CheckDisplayState();
-  if(ret != HWC2::Error::None || !validate_success_){
+  if(ret != HWC2::Error::None ||
+     !validate_success_ ||
+     connector_->type() == DRM_MODE_CONNECTOR_VIRTUAL){
     ALOGE_IF(LogLevel(DBG_ERROR),"Check display %" PRIu64 " state fail %s, %s,line=%d", handle_,
           validate_success_? "" : "or validate fail.",__FUNCTION__, __LINE__);
     if(ret == HWC2::Error::BadLayer){
@@ -2382,6 +2384,14 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
       drm_->UpdateDisplayMode(display_id);
     }
     UpdateDisplayInfo();
+  }
+
+  // 虚拟屏幕
+  if(connector_->type() == DRM_MODE_CONNECTOR_VIRTUAL){
+      for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_){
+          l.second.set_validated_type(l.second.sf_type());
+      }
+      return HWC2::Error::None;
   }
 
   // update sideband mode

@@ -361,6 +361,10 @@ int DrmCrtc::Init() {
   if (ret)
     ALOGE("Could not get hdr_ext_data_ property");
 
+  ret = drm_->GetCrtcProperty(*this, "IS_VIRTUAL", &is_virtual_);
+  if (ret)
+    ALOGE("Could not get IS_VIRTUAL property");
+
   HWC2_ALOGD_IF_DEBUG("crtc-id=%d b_can_alpha_scale_=%d b_can_hdr10_=%d b_can_next_hdr_=%d",
     id_, b_can_alpha_scale_, b_can_hdr10_, b_can_next_hdr_);
   return 0;
@@ -457,6 +461,10 @@ const DrmProperty &DrmCrtc::min_refresh_rate() const{
 }
 const DrmProperty &DrmCrtc::hdr_ext_data() const{
   return hdr_ext_data_;
+}
+
+const DrmProperty &DrmCrtc::is_virtual() const{
+  return is_virtual_;
 }
 
 bool DrmCrtc::get_afbc() const {
