@@ -4423,6 +4423,10 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
       if(gIsRK3528()){
         continue;
       }
+      // 多屏拼接不需要重新注册屏幕
+      if(conn->isCropSpilt()){
+        continue;
+      }
       int display_id = conn->display();
       drmModeConnection state = conn->state();
       if (display_id != 0 && state == DRM_MODE_CONNECTED) {
@@ -4436,6 +4440,10 @@ void DrmHwcTwo::DrmHotplugHandler::HandleEvent(uint64_t timestamp_us) {
   // 拔出事件，说明存在crtc资源释放
   if(event_type == DRM_HOTPLUG_UNPLUG_EVENT){
     for (auto &conn : drm_->connectors()) {
+      // 多屏拼接不需要重新注册屏幕
+      if(conn->isCropSpilt()){
+        continue;
+      }
       ret = 0;
       drmModeConnection cur_state = conn->state();
       HwcConnnectorStete cur_hwc_state = conn->hwc_state();
