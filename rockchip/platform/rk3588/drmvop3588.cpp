@@ -405,7 +405,7 @@ bool Vop3588::SvepMemcAllowedByLocalPolicy(DrmHwcLayer* layer){
     return false;
 
   // 如果不是视频格式，并且不在白名单内，则不使用SR
-  if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer))
+  if(!layer->bYuv_ && !SvepMemcAllowedByWhitelist(layer))
     return false;
 
   bool yuv_10bit = false;
@@ -2878,7 +2878,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           memcDstInfo.mBufferInfo_.iFd_     = dst_buffer->GetFd();
           memcDstInfo.mBufferInfo_.iWidth_  = dst_buffer->GetWidth();
           memcDstInfo.mBufferInfo_.iHeight_ = dst_buffer->GetHeight();
-          memcDstInfo.mBufferInfo_.iFormat_ = dst_buffer->GetFourccFormat();
+          memcDstInfo.mBufferInfo_.iFormat_ = dst_buffer->GetFormat();
           memcDstInfo.mBufferInfo_.iStride_ = dst_buffer->GetStride();
           memcDstInfo.mBufferInfo_.uBufferId_ = dst_buffer->GetBufferId();
 
