@@ -691,9 +691,11 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
     HWC2::Error ValidateVirtualDisplay(uint32_t *num_types, uint32_t *num_requests);
 
+#ifdef ANDROID_S
 	//composer 2.4
 	HWC2::Error GetDisplayConnectionType(uint32_t *outType);
 	HWC2::Error GetDisplayVsyncPeriod(hwc2_vsync_period_t *outVsyncPeriod);
+#endif
 
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){
         return layers_;
