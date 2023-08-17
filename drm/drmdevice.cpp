@@ -1883,6 +1883,8 @@ int DrmDevice::DisableAllPlaneForCrtc(int display_id,
             drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
                                       0) < 0;
       if (ret) {
+        drmModeAtomicFree(pset);
+        pset=NULL;
         HWC2_ALOGE("Failed to add plane %d disable to pset", plane->id());
         return ret;
       }
