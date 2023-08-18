@@ -3730,6 +3730,14 @@ int Vop3588::InitContext(
 
 #if (defined USE_LIBSR) || (defined USE_LIBSVEP_MEMC)
   TrySvepOverlay();
+
+  // YouDao need sr init.
+  if(svep_sr_.get() != NULL){
+    SrError error = svep_sr_->Init(SR_VERSION, true);
+    if (error != SrError::None){
+        HWC2_ALOGD_IF_DEBUG("Sr Init fail, plase check License.\n");
+    }
+  }
 #endif
 
 #ifdef USE_LIBPQ
