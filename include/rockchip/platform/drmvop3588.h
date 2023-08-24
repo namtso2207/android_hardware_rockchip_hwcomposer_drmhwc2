@@ -288,7 +288,7 @@ struct SvepXml{
   int TryGlesSidebandPolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
-  int TryGlesAcceleratePolicy(std::vector<DrmCompositionPlane> *composition,
+  int TryAcceleratePolicy(std::vector<DrmCompositionPlane> *composition,
                         std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
                         std::vector<PlaneGroup *> &plane_groups);
   int TryMixSkipPolicy(std::vector<DrmCompositionPlane> *composition,

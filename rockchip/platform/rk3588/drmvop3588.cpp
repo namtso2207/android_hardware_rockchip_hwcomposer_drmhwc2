@@ -516,6 +516,13 @@ int Vop3588::TryHwcPolicy(
     }
   }
 
+  // Try to match GLES Accelerate policy
+  if(ctx.state.setHwcPolicy.count(HWC_ACCELERATE_LOPICY)){
+    ret = TryAcceleratePolicy(composition,layers,crtc,plane_groups);
+    if(!ret)
+      return 0;
+  }
+
   // Try to match mix policy
   if(ctx.state.setHwcPolicy.count(HWC_MIX_LOPICY)){
     ret = TryMixPolicy(composition,layers,crtc,plane_groups);
@@ -534,12 +541,6 @@ int Vop3588::TryHwcPolicy(
       return 0;
   }
 
-  // Try to match GLES Accelerate policy
-  if(ctx.state.setHwcPolicy.count(HWC_ACCELERATE_LOPICY)){
-    ret = TryGlesAcceleratePolicy(composition,layers,crtc,plane_groups);
-    if(!ret)
-      return 0;
-  }
 
   // Try to match GLES policy
   if(ctx.state.setHwcPolicy.count(HWC_GLES_POLICY)){
@@ -1991,7 +1992,7 @@ int Vop3588::TryGlesSidebandPolicy(
 }
 
 
-/*************************mix SidebandStream*************************
+/*************************AcceleratePolicy*************************
    DisplayId=0, Connector 345, Type = HDMI-A-1, Connector state = DRM_MODE_CONNECTED , frame_no = 6611
   ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
     id  |  z  |  sf-type  |  hwc-type |       handle       |  transform  |    blnd    |     source crop (l,t,r,b)      |          frame         | dataspace  | name
@@ -2001,7 +2002,7 @@ int Vop3588::TryGlesSidebandPolicy(
    0071 | 002 |    Device |    Device | 00b40000751ec403d0 | None        | Premultipl |    0.0,    0.0,  412.0, 1080.0 | 1508,    0, 1920, 1080 |          0 | rk_handwrite_sf
   ------+-----+-----------+-----------+--------------------+-------------+------------+--------------------------------+------------------------+------------+------------
 ************************************************************/
-int Vop3588::TryGlesAcceleratePolicy(
+int Vop3588::TryAcceleratePolicy(
     std::vector<DrmCompositionPlane> *composition,
     std::vector<DrmHwcLayer*> &layers, DrmCrtc *crtc,
     std::vector<PlaneGroup *> &plane_groups) {
@@ -2014,25 +2015,46 @@ int Vop3588::TryGlesAcceleratePolicy(
 
   std::pair<int, int> layer_indices(-1, -1);
 
+  // 找到
   int accelerate_index = -1;
   for(auto& layer : layers){
     if(layer->bAccelerateLayer_){
       accelerate_index = layer->iDrmZpos_;
+      break;
     }
   }
 
-  if((layers.size() - 1) > 1){
-    layer_indices.first = 0;
-    layer_indices.second = accelerate_index - 1;
+  // 两层及以上的手写加速图层
+  if(layers.size() >= 2){
+    // 取手写图层下一层作为 mix 初始图层
+    layer_indices.first = accelerate_index - 2;
+    if(layers.size() == 2){
+      // 若只有两个图层，则取第
+      layer_indices.second = layer_indices.first;
+    }else{
+      layer_indices.second = accelerate_index - 1;
+    }
   }
 
-  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:accelerate layer (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+  ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix accelerate layer (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
   OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
   int ret = MatchPlanes(composition,layers,crtc,plane_groups);
-  if(!ret){
+  if(!ret)
     return ret;
+  else{
+    ResetLayerFromTmpExceptFB(layers,tmp_layers);
+    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+      ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix accelerate layer (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
+      OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
+      ret = MatchPlanes(composition,layers,crtc,plane_groups);
+      if(!ret)
+        return ret;
+      else{
+        ResetLayerFromTmpExceptFB(layers,tmp_layers);
+        continue;
+      }
+    }
   }
-
   ResetLayerFromTmp(layers,tmp_layers);
   return ret;
 }
@@ -3689,6 +3711,11 @@ void Vop3588::TryMix(){
     ctx.state.setHwcPolicy.insert(HWC_MIX_SKIP_LOPICY);
   if(ctx.request.bSidebandStreamMode)
     ctx.state.setHwcPolicy.insert(HWC_SIDEBAND_LOPICY);
+
+  if(ctx.request.accelerate_app_exist_){
+    ALOGD_IF(LogLevel(DBG_DEBUG),"accelerate_app_exist_ , soc_id=%x", ctx.state.iSocId);
+    ctx.state.setHwcPolicy.insert(HWC_ACCELERATE_LOPICY);
+  }
 }
 
 int Vop3588::InitContext(
