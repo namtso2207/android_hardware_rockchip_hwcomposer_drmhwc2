@@ -59,7 +59,7 @@ void Vop3588::Init(){
 
   ctx.state.bMultiAreaScaleEnable = hwc_get_bool_property("vendor.hwc.multi_area_scale_mode","true");
 
-  ctx.state.bRgaPolicyEnable = hwc_get_int_property("vendor.hwc.enable_rga_policy","0") > 0;
+  ctx.state.bRgaPolicyEnable = hwc_get_int_property("vendor.hwc.enable_rga_policy","1") > 0;
 
   ctx.state.iVopMaxOverlay4KPlane = hwc_get_int_property("vendor.hwc.vop_max_overlay_4k_plane","0");
 
@@ -1656,14 +1656,15 @@ int Vop3588::TryRgaOverlayPolicy(
     if(drmLayer->bYuv_){
         if(last_buffer_id != drmLayer->uBufferId_){
           // TODO: afbc 暂时不支持 crop 裁剪，目前会出现RGA输出花屏问题
-          if(drmLayer->bAfbcd_){
-            int crop_w =  (int)(drmLayer->source_crop.right - drmLayer->source_crop.left);
-            if(crop_w != drmLayer->iStride_){
-              HWC2_ALOGD_IF_DEBUG("RGA can't handle crop_w=%d stride=%d afbc yuv layer.",
-                         crop_w, drmLayer->iStride_);
-              continue;
-            }
-          }
+          // 2023/08/24 删除这部分限制, 最新版本可能已经支持
+          // if(drmLayer->bAfbcd_){
+          //   int crop_w =  (int)(drmLayer->source_crop.right - drmLayer->source_crop.left);
+          //   if(crop_w != drmLayer->iStride_){
+          //     HWC2_ALOGD_IF_DEBUG("RGA can't handle crop_w=%d stride=%d afbc yuv layer.",
+          //                crop_w, drmLayer->iStride_);
+          //     continue;
+          //   }
+          // }
 
           // TODO: RGA 最大宽度仅支持8176
           if(drmLayer->iWidth_ > 8176){
@@ -3624,10 +3625,14 @@ void Vop3588::InitStateContext(
     std::vector<DrmHwcLayer*> &layers,
     std::vector<PlaneGroup *> &plane_groups,
     DrmCrtc *crtc){
-  ALOGI_IF(LogLevel(DBG_DEBUG),"%s,line=%d bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d",
-            __FUNCTION__,__LINE__,ctx.state.bMultiAreaEnable,ctx.state.bMultiAreaScaleEnable);
 
   ctx.state.iVopMaxOverlay4KPlane = hwc_get_int_property("vendor.hwc.vop_max_overlay_4k_plane","0");
+  ctx.state.bRgaPolicyEnable = hwc_get_int_property("vendor.hwc.enable_rga_policy","1") > 0;
+
+  HWC2_ALOGD_IF_DEBUG("bMultiAreaEnable=%d, bMultiAreaScaleEnable=%d iVopMaxOverlay4KPlane=%d bRgaPolicyEnable=%d",
+            ctx.state.bMultiAreaEnable,
+            ctx.state.bMultiAreaScaleEnable,
+            ctx.state.iVopMaxOverlay4KPlane, ctx.state.bRgaPolicyEnable);
 
   // Check dispaly Mode : 8K Mode or 4K 120 Mode
   DrmDevice *drm = crtc->getDrmDevice();
