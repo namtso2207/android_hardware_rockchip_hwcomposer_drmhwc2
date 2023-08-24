@@ -206,17 +206,29 @@ bool Vop3588::SvepSrAllowedByWhitelist(DrmHwcLayer* layer){
 #define SVEP_SUPPORT_MAX_FPS 45
 bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   // 视频大于4K则不使用 SR.
-  if(layer->iWidth_ > 4096)
+  if(layer->iWidth_ > 4096){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: intput too big, input-info (%d,%d) name=%s",
+                        layer->iWidth_,
+                        layer->iHeight_,
+                        layer->sLayerName_.c_str());
     return false;
+  }
 
   // 如果不是视频格式，并且不在白名单内，则不使用SR
-  if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer))
+  if(!layer->bYuv_ && !SvepSrAllowedByWhitelist(layer)){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: %s-YUV, can't find in Whitelist name=%s",
+                        (layer->bYuv_ ? "Is" : "Not"),
+                        layer->sLayerName_.c_str());
     return false;
+  }
 
   // 如果SurfaceFlinger 请求Client合成，则不采用SR策略
   // 例如高斯模糊效果
-  if(layer->sf_composition == HWC2::Composition::Client)
+  if(layer->sf_composition == HWC2::Composition::Client){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: SF request Client, name=%s",
+                        layer->sLayerName_.c_str());
     return false;
+  }
 
   bool yuv_10bit = false;
   switch(layer->iFormat_){
@@ -233,6 +245,8 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
 
   // 10bit 视频不使用SR
   if(yuv_10bit){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: is 10bit YUV, SR unsupport, name=%s",
+                        layer->sLayerName_.c_str());
     return false;
   }
 
@@ -252,18 +266,25 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   // }
 
   // if(unsupport_yuv_p){
-  //   HWC2_ALOGD_IF_DEBUG("disable-svep: unsupport yuv p format. fourcc=%x", layer->uFourccFormat_);
+  //   HWC2_ALOGD_IF_DEBUG("disable-sr: unsupport yuv p format. fourcc=%x", layer->uFourccFormat_);
   //   return false;
   // }
 
   // 如果图层本身就是2倍缩小的场景，则不建议使用SR.
-  if(layer->fHScaleMul_ > 2.0 && layer->fVScaleMul_ > 2.0)
+  if(layer->fHScaleMul_ > 2.0 && layer->fVScaleMul_ > 2.0){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: scale-rate is too big fHScaleMul_=%f fVScaleMul_=%f SR unsupport, name=%s",
+                        layer->fHScaleMul_,
+                        layer->fVScaleMul_,
+                        layer->sLayerName_.c_str());
     return false;
+  }
 
   // 开机动画不使用超分
   char value[PROPERTY_VALUE_MAX];
   property_get("service.bootanim.exit", value, "0");
   if(atoi(value) == 0){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: during bootanim disable SR, name=%s",
+                        layer->sLayerName_.c_str());
     return false;
   }
 
@@ -276,13 +297,13 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   // 100 表示屏占比 100%，
   uint64_t video_area_rate = dis_area_size * 100 / screen_size;
   if(video_area_rate < allow_rate){
-    HWC2_ALOGD_IF_DEBUG("disable-svep: video_area_rate=%" PRIu64 " name=%s",video_area_rate, layer->sLayerName_.c_str());
+    HWC2_ALOGD_IF_DEBUG("disable-sr: video_area_rate=%" PRIu64 "%% name=%s",video_area_rate, layer->sLayerName_.c_str());
     return false;
   }
 
   // HWC内部会计算图层刷新率，若刷新率大于35帧，则关闭SR-SR功能
   if(layer->fRealMaxFps_ > SVEP_SUPPORT_MAX_FPS){
-    HWC2_ALOGD_IF_DEBUG("disable-svep: video_max_fps=%d name=%s",layer->fRealMaxFps_, layer->sLayerName_.c_str());
+    HWC2_ALOGD_IF_DEBUG("disable-sr: video_max_fps=%d name=%s",layer->fRealMaxFps_, layer->sLayerName_.c_str());
     return false;
   }
 
