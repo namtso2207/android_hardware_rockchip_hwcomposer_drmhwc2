@@ -50,7 +50,7 @@ uint32_t GemHandle::GetGemHandle(){ return uGemHandle_;}
 bool GemHandle::isValid(){ return uGemHandle_ != 0;}
 
 
-LayerInfoCache::LayerInfoCache(): native_buffer_(NULL), gemHandle_(GemHandle()){};
+LayerInfoCache::LayerInfoCache(): native_buffer_(NULL){};
 LayerInfoCache::~LayerInfoCache(){
   if(native_buffer_!=NULL){
     DrmGralloc* drmgralloc = DrmGralloc::getInstance();
