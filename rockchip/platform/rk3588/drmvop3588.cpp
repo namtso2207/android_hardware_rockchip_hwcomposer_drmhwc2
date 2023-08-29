@@ -3810,12 +3810,21 @@ int Vop3588::InitContext(
 
 #if (defined USE_LIBSR) || (defined USE_LIBSVEP_MEMC)
   TrySvepOverlay();
+#endif
 
-  // YouDao need sr init.
-  if(svep_sr_.get() != NULL){
-    SrError error = svep_sr_->Init(SR_VERSION, true);
-    if (error != SrError::None){
-        HWC2_ALOGD_IF_DEBUG("Sr Init fail, plase check License.\n");
+#ifdef USE_LIBSR
+  DrmDevice *drm = crtc->getDrmDevice();
+  DrmConnector *conn = drm->GetConnectorForDisplay(crtc->display());
+  // 只有主屏可以享受视频 SR 效果
+  if(conn && conn->state() == DRM_MODE_CONNECTED &&
+      conn->display() == 0){
+      HWC2_ALOGD_IF_DEBUG("Only Primary Display enable SR function. display=%d", conn->display());
+    // YouDao need sr init.
+    if(svep_sr_.get() != NULL){
+      SrError error = svep_sr_->Init(SR_VERSION, true);
+      if (error != SrError::None){
+          HWC2_ALOGD_IF_DEBUG("Sr Init fail, plase check License.\n");
+      }
     }
   }
 #endif
