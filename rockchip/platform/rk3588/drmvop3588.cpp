@@ -2758,6 +2758,9 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
 
   bool enableMemcComparation = (hwc_get_int_property(MEMC_CONTRAST_MODE_NAME, "0") > 0);
   bool enableMemcOsd = (hwc_get_int_property(MEMC_OSD_DISABLE_MODE, "0") == 0);
+  bool enableMemcOsdOneline = (hwc_get_int_property(MEMC_OSD_VIDEO_ONELINE_MODE, "0") > 0);
+  int osd_oneline_wait_second = hwc_get_int_property(MEMC_OSD_VIDEO_ONELINE_WATI_SEC, "12");
+  MEMC_MODE memc_match_mode = MEMC_MODE::MEMC_UN_SUPPORT;
   for(auto &drmLayer : layers){
     if(SvepMemcAllowedByLocalPolicy(drmLayer) &&
        SvepMemcAllowedByBlacklist(drmLayer)){
@@ -2793,7 +2796,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
 
 
           MEMC_MODE memc_mode = MEMC_MODE::MEMC_UN_SUPPORT;
-          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
+          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_match_mode);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("MatchMemcMode fail!, skip this policy. ret=%d", ret);
             drmLayer->bUseMemc_ = false;
@@ -2892,7 +2895,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           memcSrcInfo.mCrop_.iBottom_= drmLayer->source_crop.bottom;
 
           MEMC_MODE memc_mode = MEMC_MODE::MEMC_UN_SUPPORT;
-          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_mode);
+          int ret = svep_memc_->MatchMemcMode(&memcSrcInfo, &memc_match_mode);
           if(ret != MEMC_ERROR::MEMC_NO_ERROR){
             HWC2_ALOGD_IF_DEBUG("MatchMemcMode fail!, skip this policy. ret=%d", ret);
             drmLayer->bUseMemc_ = false;
@@ -2978,7 +2981,30 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
       for(auto &drmLayer : layers){
         if(drmLayer->bUseMemc_){
           if(enableMemcOsd){
-            svep_memc_->SetOsdMode(MEMC_OSD_ENABLE_VIDEO, MEMC_OSD_VIDEO_STR);
+            MEMC_OSD_MODE osd_mode = MEMC_OSD_ENABLE_VIDEO;
+            const wchar_t* osd_str = MEMC_OSD_VIDEO_STR;
+            if(enableMemcOsdOneline > 0){
+              // 视频播放SR若干帧后，采用oneline OSD模式
+              if(mMemcLastMode_ != memc_match_mode){
+                struct timeval tp;
+                gettimeofday(&tp, NULL);
+                mMemcLastMode_ = memc_match_mode;
+                mMemcBeginTimeMs_ = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+                mMemcEnableOnelineMode_ = false;
+              }
+              if(!mMemcEnableOnelineMode_){
+                struct timeval tp;
+                gettimeofday(&tp, NULL);
+                uint64_t current_time = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+                if((current_time - mMemcBeginTimeMs_) > osd_oneline_wait_second * 1000){
+                  mMemcEnableOnelineMode_ = true;
+                }
+              }else{
+                osd_mode = MEMC_OSD_ENABLE_VIDEO_ONELINE;
+                osd_str = MEMC_OSD_VIDEO_ONELINE_STR;
+              }
+            }
+            svep_memc_->SetOsdMode(osd_mode, osd_str);
           }else{
             svep_memc_->SetOsdMode(MEMC_OSD_DISABLE, NULL);
           }
@@ -2998,6 +3024,7 @@ int Vop3588::TryMemcPolicy(std::vector<DrmCompositionPlane> *composition,
           drmLayer->acquire_fence = sp<AcquireFence>(new AcquireFence(memc_fence));
           memcBufferQueue_->QueueBuffer(dst_buffer);
           uMemcFrameNo_ = ctx.request.frame_no_;
+          mMemcLastMode_ = memc_match_mode;
           return 0;
         }
       }
