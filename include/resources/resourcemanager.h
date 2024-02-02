@@ -32,6 +32,11 @@
 #include <set>
 #include <map>
 #include <mutex>
+
+#ifdef USE_HWC_PROXY_SERVICE
+#include "rockchip/platform/RkHwcProxyClient.h"
+#endif
+
 namespace android {
 class DrmDisplayCompositor;
 class DrmHwcTwo;
@@ -128,6 +133,12 @@ class ResourceManager {
   std::map<int,int> displays_;
   DrmGralloc *drmGralloc_;
   DrmHwcTwo *hwc2_;
+
+#ifdef USE_HWC_PROXY_SERVICE
+  // As the client of rkdisplay aidl service, HWC executes hw_output related functions
+  RkHwcProxyClientWorker hwc_proxy_client_worker_;
+#endif
+
   int fb0_fd;
   int soc_id_;
   int drmVersion_;

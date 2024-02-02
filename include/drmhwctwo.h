@@ -76,6 +76,11 @@ class DrmHwcTwo : public hwc2_device_t {
       bSideband2_=false;
       sidebandStreamHandle_ = NULL;
       memset(&mSidebandInfo_, 0x00, sizeof(vt_sideband_data_t));
+      uFrameCnt_ = 0;
+      uLastFrameCnt_ = 0;
+      lastTimeRecod_ = 0;
+      last_buffer_id_ = 0;
+      mSvepFps_ = 0;
     };
 
     void clear(){
@@ -187,6 +192,68 @@ class DrmHwcTwo : public hwc2_device_t {
       return buffer_;
     }
 
+    void CacheBufferInfoBySlot(buffer_handle_t buffer, bool use_cache, uint32_t slot) {
+      buffer_ = buffer;
+      mCurrentState.buffer_ = buffer;
+      uint64_t local_cache_slot = static_cast<uint64_t>(slot);
+      bool success = false;
+      if(use_cache){
+        // Get Buffer info
+        const auto mapBuffer = bufferInfoMap_.find(local_cache_slot);
+        if(mapBuffer != bufferInfoMap_.end()){
+          pBufferInfo_ = mapBuffer->second;
+          HWC2_ALOGD_IF_DEBUG("bufferInfoMap_ size = %zu has cache! Slot=%" PRIu64 " Name=%s",
+                              bufferInfoMap_.size(),
+                              local_cache_slot,
+                              pBufferInfo_->sLayerName_.c_str());
+          success = true;
+        }
+      }
+
+      if(success == false){
+        bufferInfoMap_[local_cache_slot] = std::make_shared<LayerInfoCache>();
+        pBufferInfo_ = bufferInfoMap_[local_cache_slot];
+        uint64_t buffer_id;
+        drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
+        pBufferInfo_->uBufferId_ = buffer_id;
+        // Bug:#426310
+        // 多路视频同时输出，SurfaceFlinger可能会频繁触发 buffer_handle_t import/release行为
+        // 可能会导致HWC本地cache的fd失效，故需要本地dup dma-buffer-fd副本，确保fd有效
+        pBufferInfo_->uniqueFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
+        pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
+        pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
+        pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
+        pBufferInfo_->iSize_   = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_SIZE);
+        pBufferInfo_->iHeightStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT_STRIDE);
+        pBufferInfo_->iByteStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_BYTE_STRIDE_WORKROUND);
+        pBufferInfo_->iFormat_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_FORMAT);
+        pBufferInfo_->iUsage_   = drmGralloc_->hwc_get_handle_usage(buffer_);
+        pBufferInfo_->uFourccFormat_ = drmGralloc_->hwc_get_handle_fourcc_format(buffer_);
+        pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
+        drmGralloc_->hwc_get_handle_plane_bytes_stride(buffer_, pBufferInfo_->uByteStridePlanes_);
+        drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
+        layer_name_ = pBufferInfo_->sLayerName_;
+        pBufferInfo_->bFbIdCached_ = true;
+        drmGralloc_->hwc_fbid_add_layer_ref_count(buffer_id);
+        HWC2_ALOGD_IF_DEBUG("bufferInfoMap_ size = %zu insert success! slot=%" PRIu64
+                              "w=%d h=%d format=%d fourcc=%c%c%c%c Name=%s",
+                              bufferInfoMap_.size(), local_cache_slot,
+                              pBufferInfo_->iWidth_,
+                              pBufferInfo_->iHeight_,
+                              pBufferInfo_->iFormat_,
+                              pBufferInfo_->uFourccFormat_,
+                              pBufferInfo_->uFourccFormat_ >> 8,
+                              pBufferInfo_->uFourccFormat_ >> 16,
+                              pBufferInfo_->uFourccFormat_ >> 24,
+                              pBufferInfo_->sLayerName_.c_str());
+        success = true;
+      }
+
+      calculateFPS(pBufferInfo_->uBufferId_);
+
+      // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
+    }
+
     void CacheBufferInfo(buffer_handle_t buffer) {
       buffer_ = buffer;
       mCurrentState.buffer_ = buffer;
@@ -219,14 +286,10 @@ class DrmHwcTwo : public hwc2_device_t {
         }else{
           pBufferInfo_ = ret.first->second;
           pBufferInfo_->uBufferId_ = buffer_id;
-          int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
-          if(ret){
-            HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
-          }
           // Bug:#426310
           // 多路视频同时输出，SurfaceFlinger可能会频繁触发 buffer_handle_t import/release行为
           // 可能会导致HWC本地cache的fd失效，故需要本地dup dma-buffer-fd副本，确保fd有效
-          pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
+          pBufferInfo_->uniqueFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
           pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
           pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
           pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
@@ -240,6 +303,8 @@ class DrmHwcTwo : public hwc2_device_t {
           drmGralloc_->hwc_get_handle_plane_bytes_stride(buffer_, pBufferInfo_->uByteStridePlanes_);
           drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
           layer_name_ = pBufferInfo_->sLayerName_;
+          pBufferInfo_->bFbIdCached_ = true;
+          drmGralloc_->hwc_fbid_add_layer_ref_count(buffer_id);
           HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64
                                 "w=%d h=%d format=%d fourcc=%c%c%c%c Name=%s",
                                bufferInfoMap_.size(),buffer_id,
@@ -259,15 +324,8 @@ class DrmHwcTwo : public hwc2_device_t {
                              bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
       }
 
-      if(mDrawingState.buffer_ != mCurrentState.buffer_){
-          nsecs_t current_time = systemTime();
-          qFrameTimestamp_.push(current_time);
-          qFrameTimestampBack_.push(current_time);
-          while(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
-            qFrameTimestamp_.pop();
-            qFrameTimestampBack_.pop();
-          }
-        }
+
+      calculateFPS(buffer_id);
       // ALOGI("rk-debug Name=%s mFps=%f", pBufferInfo_->sLayerName_.c_str(), GetFps());;
     }
 
@@ -284,11 +342,7 @@ class DrmHwcTwo : public hwc2_device_t {
       drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
       pBufferInfo_ = std::make_shared<LayerInfoCache>();
       pBufferInfo_->uBufferId_ = buffer_id;
-      int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
-      if(ret){
-        HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
-      }
-      pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
+      pBufferInfo_->uniqueFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
       pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
       pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
       pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
@@ -301,10 +355,12 @@ class DrmHwcTwo : public hwc2_device_t {
       pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(buffer_);
       drmGralloc_->hwc_get_handle_name(buffer_,pBufferInfo_->sLayerName_);
       layer_name_ = pBufferInfo_->sLayerName_;
+      pBufferInfo_->bFbIdCached_ = true;
+      drmGralloc_->hwc_fbid_add_layer_ref_count(buffer_id);
       HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64
                             " fd=%d w=%d h=%d format=%d fourcc=%c%c%c%c usage=%" PRIx64 " modifier=%" PRIx64 " Name=%s",
                             bufferInfoMap_.size(),buffer_id,
-                            pBufferInfo_->iFd_.get(),
+                            pBufferInfo_->uniqueFd_.get(),
                             pBufferInfo_->iWidth_,
                             pBufferInfo_->iHeight_,
                             pBufferInfo_->iFormat_,
@@ -316,14 +372,9 @@ class DrmHwcTwo : public hwc2_device_t {
                             pBufferInfo_->uModifier_,
                             pBufferInfo_->sLayerName_.c_str());
 
-      if(mDrawingState.buffer_ != mCurrentState.buffer_){
-        nsecs_t current_time = systemTime();
-        qFrameTimestamp_.push(current_time);
-        qFrameTimestampBack_.push(current_time);
-        while(qFrameTimestamp_.size() > MAX_NUM_FRAME_TIMESTAMP_CNT){
-          qFrameTimestamp_.pop();
-          qFrameTimestampBack_.pop();
-        }
+      if(last_buffer_id_ != buffer_id){
+          uFrameCnt_++;
+          last_buffer_id_ = buffer_id;
       }
     }
 
@@ -336,12 +387,8 @@ class DrmHwcTwo : public hwc2_device_t {
       uint64_t buffer_id;
       drmGralloc_->hwc_get_handle_buffer_id(buffer_, &buffer_id);
       pBufferInfo_ = std::make_shared<LayerInfoCache>();
-      int ret = drmGralloc_->importBuffer(buffer_, &pBufferInfo_->native_buffer_);
-      if(ret){
-        HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " importBuffer fail.", buffer_id);
-      }
       pBufferInfo_->uBufferId_ = buffer_id;
-      pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
+      pBufferInfo_->uniqueFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(buffer_)));
       pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_WIDTH);
       pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_HEIGHT);
       pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(buffer_,ATT_STRIDE);
@@ -357,7 +404,7 @@ class DrmHwcTwo : public hwc2_device_t {
       HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64
                             " fd=%d w=%d h=%d format=%d fourcc=%c%c%c%c usage=%" PRIx64 " modifier=%" PRIx64 " Name=%s",
                             bufferInfoMap_.size(),buffer_id,
-                            pBufferInfo_->iFd_.get(),
+                            pBufferInfo_->uniqueFd_.get(),
                             pBufferInfo_->iWidth_,
                             pBufferInfo_->iHeight_,
                             pBufferInfo_->iFormat_,
@@ -368,6 +415,10 @@ class DrmHwcTwo : public hwc2_device_t {
                             pBufferInfo_->iUsage_,
                             pBufferInfo_->uModifier_,
                             pBufferInfo_->sLayerName_.c_str());
+      if(last_buffer_id_ != buffer_id){
+          uFrameCnt_++;
+          last_buffer_id_ = buffer_id;
+      }
     }
 
     int initOrGetGemhanleFromCache(DrmHwcLayer* drmHwcLayer) {
@@ -380,7 +431,7 @@ class DrmHwcTwo : public hwc2_device_t {
       uint64_t buffer_id = pBufferInfo_->uBufferId_;
       if(!pBufferInfo_->gemHandle_.isValid()){
         pBufferInfo_->gemHandle_.InitGemHandle(pBufferInfo_->sLayerName_.c_str(),
-                                               pBufferInfo_->iFd_.get(),
+                                               pBufferInfo_->uniqueFd_.get(),
                                                buffer_id);
         pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
         drmHwcLayer->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
@@ -430,7 +481,7 @@ class DrmHwcTwo : public hwc2_device_t {
       }else{
         pBufferInfo_ = ret.first->second;
         pBufferInfo_->uBufferId_ = buffer_id;
-        pBufferInfo_->iFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(sidebandStreamHandle_)));
+        pBufferInfo_->uniqueFd_     = base::unique_fd(dup(drmGralloc_->hwc_get_handle_primefd(sidebandStreamHandle_)));
         pBufferInfo_->iWidth_  = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_WIDTH);
         pBufferInfo_->iHeight_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_HEIGHT);
         pBufferInfo_->iStride_ = drmGralloc_->hwc_get_handle_attibute(sidebandStreamHandle_,ATT_STRIDE);
@@ -442,7 +493,7 @@ class DrmHwcTwo : public hwc2_device_t {
         pBufferInfo_->uModifier_ = drmGralloc_->hwc_get_handle_format_modifier(sidebandStreamHandle_);
         drmGralloc_->hwc_get_handle_name(sidebandStreamHandle_,pBufferInfo_->sLayerName_);
         layer_name_ = pBufferInfo_->sLayerName_;
-        pBufferInfo_->gemHandle_.InitGemHandle(pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->iFd_, buffer_id);
+        pBufferInfo_->gemHandle_.InitGemHandle(pBufferInfo_->sLayerName_.c_str(), pBufferInfo_->uniqueFd_.get(), buffer_id);
         pBufferInfo_->uGemHandle_ = pBufferInfo_->gemHandle_.GetGemHandle();
         HWC2_ALOGD_IF_VERBOSE("bufferInfoMap_ size = %zu insert success! BufferId=%" PRIx64 " Name=%s",
                             bufferInfoMap_.size(),buffer_id,pBufferInfo_->sLayerName_.c_str());
@@ -507,43 +558,41 @@ class DrmHwcTwo : public hwc2_device_t {
     bool isSidebandLayer() { return bSideband2_; }
     int getTunnelId() { return mSidebandInfo_.tunnel_id; }
 
-    float GetFps(){
-      nsecs_t current_time = systemTime();
-      nsecs_t start_time = qFrameTimestamp_.front();
-      while( !qFrameTimestamp_.empty() && (current_time - start_time > float(s2ns(1)) )){
-        qFrameTimestamp_.pop();
-        start_time = qFrameTimestamp_.front();
-      }
-      if(!qFrameTimestamp_.empty()){
-        mFps_ =  qFrameTimestamp_.size() * float(s2ns(1)) / (current_time - start_time);
-      }else{
-        mFps_ = 0;
+    int calculateFPS(uint64_t buffer_id){
+      // 若BufferId一致，则认为图层没有更新
+      if(last_buffer_id_ == buffer_id){
+          return 0;
       }
 
+      uFrameCnt_++;
+      last_buffer_id_ = buffer_id;
+
+      if(uLastFrameCnt_ == 0){
+        mSvepFps_ = 60;
+      }
+
+      // 如果图层更新间隔大于300ms仅计算实时fps，不计算active fps
+      nsecs_t current_time = systemTime();
+      if((current_time - last_buffer_id_timestamp_) > float(ms2ns(300))){
+        mFps_ = (uFrameCnt_ - uLastFrameCnt_) * float(s2ns(1)) / ((current_time - lastTimeRecod_));
+        uLastFrameCnt_ = uFrameCnt_;
+        lastTimeRecod_ = current_time;
+      }else if((uFrameCnt_ - uLastFrameCnt_) > MAX_NUM_FRAME_TIMESTAMP_CNT){
+        mFps_ = (uFrameCnt_ - uLastFrameCnt_) * float(s2ns(1)) / ((current_time - lastTimeRecod_));
+        mSvepFps_ = mFps_;
+        uLastFrameCnt_ = uFrameCnt_;
+        lastTimeRecod_ = current_time;
+      }
+      last_buffer_id_timestamp_ = current_time;
+      return 0;
+    }
+
+    float GetFps(){
       return mFps_;
     }
 
-    float GetRealFps(){
-      nsecs_t end_time = qFrameTimestampBack_.back();
-      nsecs_t start_time = qFrameTimestampBack_.front();
-      if(qFrameTimestampBack_.size() > 10){
-        mRealFps_ =  qFrameTimestampBack_.size() * float(s2ns(1)) / (end_time - start_time);
-        if(mRealMaxFps_ < mRealFps_){
-          mRealMaxFps_ = (int)mRealFps_;
-        }
-      }else{
-        mRealFps_ = 60;
-      }
-
-      return mRealFps_;
-    }
-
-    int GetRealMaxFps(){
-      if(mRealMaxFps_ != -1){
-        return mRealMaxFps_;
-      }
-
-      return 60;
+    float GetActiveFps(){
+      return mSvepFps_;
     }
 
     int DoSvep(bool validate, DrmHwcLayer *drmHwcLayer);
@@ -586,6 +635,11 @@ class DrmHwcTwo : public hwc2_device_t {
 
     // Buffer info map
     bool bHasCache_ = false;
+
+    // Slot cache
+    bool bUseSlotCache = false;
+    uint32_t uCacheSlot = -1;
+
     std::map<uint64_t, std::shared_ptr<LayerInfoCache>> bufferInfoMap_;
     std::string layer_name_;
     bool is_afbc_;
@@ -594,14 +648,15 @@ class DrmHwcTwo : public hwc2_device_t {
     std::shared_ptr<LayerInfoCache> pBufferInfo_ = NULL;
 
     // Hwc2Layer fps, for debug.
-    std::queue<nsecs_t> qFrameTimestamp_;
-    std::queue<nsecs_t> qFrameTimestampBack_;
+    uint64_t uFrameCnt_;
+    uint64_t uLastFrameCnt_;
+    nsecs_t lastTimeRecod_;
+    nsecs_t last_buffer_id_timestamp_;
+    uint64_t last_buffer_id_;
     // 考虑世界时间的fps, 1s内不刷新则刷新率为0
     float mFps_ = 0;
-    // 图层更新的fps，不考虑世界时间，提供已刷新的图层刷新率
-    float mRealFps_ = 0;
-    // 记录图层真实最高刷新率
-    int mRealMaxFps_ = -1;
+    // SVEP 使用的帧率估计
+    float mSvepFps_ = 0;
 
     // DRM Resource
     DrmGralloc *drmGralloc_;
@@ -691,10 +746,34 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error ValidateDisplay(uint32_t *num_types, uint32_t *num_requests);
     HWC2::Error ValidateVirtualDisplay(uint32_t *num_types, uint32_t *num_requests);
 
-#ifdef ANDROID_S
-	//composer 2.4
-	HWC2::Error GetDisplayConnectionType(uint32_t *outType);
-	HWC2::Error GetDisplayVsyncPeriod(hwc2_vsync_period_t *outVsyncPeriod);
+#if PLATFORM_SDK_VERSION > 27
+    HWC2::Error GetRenderIntents(int32_t mode, uint32_t *outNumIntents,
+                                 int32_t *outIntents);
+    HWC2::Error SetColorModeWithIntent(int32_t mode, int32_t intent);
+#endif
+#if PLATFORM_SDK_VERSION > 28
+    HWC2::Error GetDisplayIdentificationData(uint8_t *outPort,
+                                             uint32_t *outDataSize,
+                                             uint8_t *outData);
+    HWC2::Error GetDisplayCapabilities(uint32_t *outNumCapabilities,
+                                       uint32_t *outCapabilities);
+    HWC2::Error GetDisplayBrightnessSupport(bool *supported);
+    HWC2::Error SetDisplayBrightness(float);
+#endif
+#if PLATFORM_SDK_VERSION > 29
+    HWC2::Error GetDisplayConnectionType(uint32_t *outType);
+    HWC2::Error GetDisplayVsyncPeriod(hwc2_vsync_period_t *outVsyncPeriod);
+
+    HWC2::Error SetActiveConfigWithConstraints(
+        hwc2_config_t config,
+        hwc_vsync_period_change_constraints_t *vsyncPeriodChangeConstraints,
+        hwc_vsync_period_change_timeline_t *outTimeline);
+    HWC2::Error SetAutoLowLatencyMode(bool on);
+    HWC2::Error GetSupportedContentTypes(
+        uint32_t *outNumSupportedContentTypes,
+        const uint32_t *outSupportedContentTypes);
+
+    HWC2::Error SetContentType(int32_t contentType);
 #endif
 
     std::map<hwc2_layer_t, HwcLayer> &get_layers(){
@@ -820,6 +899,35 @@ class DrmHwcTwo : public hwc2_device_t {
     DrmDevice *drm_;
   };
 
+  enum DrmEventType{
+    UNKNOW_EVENT = 0,
+    HOTPLUG_EVENT,
+  };
+
+  struct DrmEvent{
+    DrmEventType type;
+    int display_id;
+    drmModeConnection connection;
+  };
+
+  class EventWorker : public Worker {
+  public:
+    EventWorker();
+    ~EventWorker() override;
+
+    int Init(DrmHwcTwo *hwc2);
+    int SendDrmEvent(DrmEvent event);
+
+  protected:
+    void Routine() override;
+    int SendHotplugEvent(DrmEvent event);
+
+  private:
+    DrmHwcTwo *hwc2_;
+    std::queue<DrmEvent> mPendingEvent_;
+  };
+
+
   static DrmHwcTwo *toDrmHwcTwo(hwc2_device_t *dev) {
     return static_cast<DrmHwcTwo *>(dev);
   }
@@ -901,6 +1009,7 @@ class DrmHwcTwo : public hwc2_device_t {
   std::atomic<int> mVirtualDisplayCount_;
   // 通过 mHasRegisterDisplay_ 存储已向SurfaceFlinger注册的display
   std::set<hwc2_display_t> mHasRegisterDisplay_;
+  EventWorker eventWorker_;
 };
 }  // namespace android
 #endif // DRM_HWC_TWO_H

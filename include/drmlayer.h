@@ -25,6 +25,7 @@
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer2.h>
+#include <android-base/unique_fd.h>
 
 #include "utils/autofd.h"
 #include "drmhwcgralloc.h"
@@ -95,7 +96,7 @@ class DrmHwcBuffer {
 
   int ImportBuffer(buffer_handle_t handle, Importer *importer);
 
-  int SetBoInfo(uint32_t fd, uint32_t width,
+  int SetBoInfo(uint64_t buffer_id, uint32_t fd, uint32_t width,
                 uint32_t height, uint32_t height_stride,
                 uint32_t format, uint32_t hal_format,
                 uint64_t modifier,
@@ -167,7 +168,7 @@ struct DrmLayerInfoStore{
   hwc_frect_t source_crop;
   hwc_rect_t display_frame;
 
-  // Buffer info
+  // BufferId fd, 值为 uniqueFd_.get()
   int iFd_;
   int iFormat_;
   int iWidth_;
@@ -234,6 +235,7 @@ struct DrmHwcLayer {
 
   // Buffer info
   uint64_t uBufferId_;
+  // fd, 值为 uniqueFd_.get()
   int iFd_;
   int iFormat_;
   int iWidth_;
@@ -296,8 +298,7 @@ struct DrmHwcLayer {
   rk_hdr_fmt_info_t metadataHdrFmtInfo_;
 
   // fps
-  float fRealFps_;
-  int fRealMaxFps_;
+  float fFps_;
 
 #ifdef RK3528
   // RK3528 vpu prescale info.

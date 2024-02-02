@@ -62,7 +62,9 @@ LOCAL_SHARED_LIBRARIES := \
   libsync_vendor \
   libtinyxml2 \
   libbaseparameter \
-  librga
+  librga \
+  libbase \
+  libbinder_ndk \
 
 LOCAL_STATIC_LIBRARIES := \
   libdrmhwcutils
@@ -77,7 +79,6 @@ LOCAL_C_INCLUDES := \
   hardware/rockchip/libbaseparameter \
   hardware/rockchip/librga/include \
   hardware/rockchip/librga/im2d_api
-
 
 LOCAL_SRC_FILES := \
   drmhwctwo.cpp \
@@ -132,12 +133,15 @@ LOCAL_CPPFLAGS += \
   -DUSE_NO_ASPECT_RATIO \
   -fPIC
 
+ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 32)))
+LOCAL_CPPFLAGS += -DANDROID_T
+endif
+
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 31)))
 LOCAL_CFLAGS += -DANDROID_S
 LOCAL_HEADER_LIBRARIES += \
   libhardware_rockchip_headers
 endif
-
 
 # API 30 -> Android 11.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 30)))
@@ -165,6 +169,10 @@ LOCAL_C_INCLUDES += \
   hardware/rockchip/hwcomposer/include
 endif
 
+# HWC3-AIDL config
+ifeq ($(TARGET_USES_HWC3_AIDL), true)
+LOCAL_CPPFLAGS += -DUSE_HWC3_AIDL=1
+endif
 
 # Mali config:
 # API 29 -> Android 10.0
@@ -263,6 +271,22 @@ LOCAL_CFLAGS += \
 	-DUSE_LIBPQ=1
 endif
 
+# HwProxy aidl (hw_output)
+ifeq ($(strip $(BOARD_USES_HWC_PROXY_SERVICE)),true)
+LOCAL_SHARED_LIBRARIES += \
+	rockchip.hwc.proxy.aidl-V1-ndk \
+	librkhwcproxy \
+
+LOCAL_C_INCLUDES += \
+	hardware/rockchip/hwc_proxy_service/rockchip/hwc/proxy/drm_api
+
+LOCAL_SRC_FILES += \
+	rockchip/platform/common/RkHwcProxyClient.cpp
+
+LOCAL_CFLAGS += \
+	-DUSE_HWC_PROXY_SERVICE=1
+endif
+
 # GKI compile is true
 # BOARD_BUILD_GKI=true
 ifeq ($(strip $(BOARD_BUILD_GKI)),true)
@@ -289,7 +313,8 @@ LOCAL_CFLAGS += \
   -Wno-unused-variable \
   -Wno-unused-parameter \
   -fPIC \
-  -Wno-sign-compare
+  -Wno-sign-compare \
+  -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES

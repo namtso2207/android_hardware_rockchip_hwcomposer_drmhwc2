@@ -19,7 +19,7 @@
 #include "drmconnector.h"
 #include "drmdevice.h"
 #include "rockchip/utils/drmdebug.h"
-
+#include "DrmUnique.h"
 #include <errno.h>
 #include <stdint.h>
 
@@ -249,6 +249,27 @@ uint32_t DrmConnector::possible_displays() const {
 
 void DrmConnector::set_possible_displays(uint32_t possible_displays) {
   possible_displays_ = possible_displays;
+}
+
+int DrmConnector::UpdateEdidProperty() {
+  return drm_->GetConnectorProperty(*this, "EDID", &edid_property_)
+             ? -EINVAL
+             : 0;
+}
+
+auto DrmConnector::GetEdidBlob() -> DrmModePropertyBlobUnique {
+  uint64_t blob_id = 0;
+  int ret = UpdateEdidProperty();
+  if (ret != 0) {
+    return {};
+  }
+
+  std::tie(ret, blob_id) = GetEdidProperty().value();
+  if (ret != 0) {
+    return {};
+  }
+
+  return MakeDrmModePropertyBlobUnique(drm_->fd(), blob_id);
 }
 
 bool DrmConnector::internal() const {

@@ -113,6 +113,9 @@ int VSyncWorker::SyntheticWaitVBlank(int64_t *timestamp) {
   return 0;
 }
 
+//TODO: AIDI dynamic to adjust vsync period
+#define VSYNC_PERIOD_60FPS 16666666
+
 void VSyncWorker::Routine() {
   int ret;
 
@@ -168,8 +171,14 @@ void VSyncWorker::Routine() {
    * the hook. However, in practice, callback_ is only updated once, so it's not
    * worth the overhead.
    */
-  if (callback)
+  if (callback) {
+#if USE_HWC3_AIDL
+    callback->Callback(display, timestamp, VSYNC_PERIOD_60FPS);
+#else
     callback->Callback(display, timestamp);
+#endif
+  }
+
   last_timestamp_ = timestamp;
 }
 }  // namespace android

@@ -21,6 +21,7 @@
 
 #define HWC_DRM_BO_MAX_PLANES 4
 typedef struct hwc_drm_bo {
+  uint64_t buffer_id;
   uint32_t fd;
   uint32_t width;
   uint32_t height;

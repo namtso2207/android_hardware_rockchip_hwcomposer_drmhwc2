@@ -130,8 +130,8 @@ class DrmCompositionPlane {
   const std::vector<size_t> &source_layers() const {
     return source_layers_;
   }
- int get_zpos() { return zpos_; }
- void set_zpos(int zpos) { zpos_ =  zpos; }
+  int get_zpos() { return zpos_; }
+  void set_zpos(int zpos) { zpos_ =  zpos; }
 
  private:
   int zpos_;

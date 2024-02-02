@@ -48,8 +48,83 @@
 #include <map>
 #include <vector>
 #include <mutex>
+#include <list>
 
 namespace android {
+
+typedef uint64_t buffer_id_t;
+typedef uint32_t fb_id_t;
+
+struct DrmFbIdInfo {
+#ifndef MEMSET_0_ARRAY_4
+#define MEMSET_0_ARRAY_4(x) memset(x, 0x00, sizeof(uint32_t) * 4)
+#endif
+#ifndef COPY_ARRAY_4
+#define COPY_ARRAY_4(x,y) {x[0]=y[0];x[1]=y[1];x[2]=y[2];x[3]=y[3];}
+#endif
+#ifndef COMP_ARRAY_4
+#define COMP_ARRAY_4(x,y) ((x[0]==y[0])&&(x[1]==y[1])&&(x[2]==y[2])&&(x[3]==y[3]))
+#endif
+  DrmFbIdInfo() :
+      width_(0),
+      height_(0),
+      fourcc_format_(0),
+      flags_(0){
+      MEMSET_0_ARRAY_4(bo_handles_);
+      MEMSET_0_ARRAY_4(pitches_);
+      MEMSET_0_ARRAY_4(offsets_);
+      MEMSET_0_ARRAY_4(modifier_);
+  };
+
+  DrmFbIdInfo(uint32_t width, uint32_t height, uint32_t fourcc_format,
+      const uint32_t bo_handles[4], const uint32_t pitches[4],
+      const uint32_t offsets[4], const uint64_t modifier[4],
+      uint32_t flags) {
+    width_ = width;
+    height_ = height;
+    fourcc_format_ = fourcc_format;
+    COPY_ARRAY_4(bo_handles_,bo_handles)
+    COPY_ARRAY_4(pitches_,pitches)
+    COPY_ARRAY_4(offsets_,offsets)
+    COPY_ARRAY_4(modifier_,modifier)
+    flags_ = flags;
+  }
+
+  uint32_t width_;
+  uint32_t height_;
+  uint32_t fourcc_format_;
+  uint32_t bo_handles_[4];
+  uint32_t pitches_[4];
+  uint32_t offsets_[4];
+  uint64_t modifier_[4];
+  uint32_t flags_;
+
+  bool operator==(DrmFbIdInfo& b) {
+    return width_ == b.width_ && height_ == b.height_ &&
+           fourcc_format_ == b.fourcc_format_ &&
+           COMP_ARRAY_4(bo_handles_, b.bo_handles_) &&
+           COMP_ARRAY_4(pitches_, b.pitches_) &&
+           COMP_ARRAY_4(offsets_, b.offsets_) &&
+           COMP_ARRAY_4(modifier_, b.modifier_) && flags_ == b.flags_;
+  }
+};
+
+struct DrmFbIdCache{
+  DrmFbIdCache(): mFbId(0){};
+  DrmFbIdCache(DrmFbIdInfo info, uint32_t fb_id)
+      : mFbId(fb_id), mInfo(info) {}
+
+  uint32_t mFbId;
+  DrmFbIdInfo mInfo;
+  int iRefCount = 0;
+};
+struct DrmFbIdCaches{
+  std::map<fb_id_t, DrmFbIdCache> mapCacheInfo;
+  // Hwc2Layer 的引用计数，若SurfaceFlinger未销毁此layer
+  // 则此引用计数非 0
+  int iLayerRefCount = 0;
+};
+
 
 class DrmGralloc{
 public:
@@ -132,6 +207,16 @@ public:
   int unlock_rkvdec_scaling_metadata(buffer_handle_t hnd);
 #endif
 
+  int hwc_fbid_get_and_cached(buffer_id_t buffer_id,
+    int fd, uint32_t width, uint32_t height, uint32_t fourcc_format,
+    const uint32_t bo_handles[4], const uint32_t pitches[4],
+    const uint32_t offsets[4], const uint64_t modifier[4], uint32_t* fb_id,
+    uint32_t flags);
+  int hwc_fbid_rm_cache(int fd, uint32_t fb_id);
+  int hwc_fbid_add_layer_ref_count(uint64_t buffer_id);
+  int hwc_fbid_dec_layer_ref_count(uint64_t buffer_id);
+
+
 private:
 	DrmGralloc();
 	~DrmGralloc();
@@ -139,7 +224,13 @@ private:
 	DrmGralloc& operator=(const DrmGralloc&) = delete;
   int drmDeviceFd_;
   int drmVersion_;
-  std::map<uint64_t, std::shared_ptr<GemHandle>> mapGemHandles_;
+  std::map<buffer_id_t, std::shared_ptr<GemHandle>> mapGemHandles_;
+
+  // 通过BufferId查询 FbIdCacheMap
+  std::map<buffer_id_t, DrmFbIdCaches> mapFbIdCacheMap_;
+  // 通过 FbId 反查 BufferId
+  std::map<fb_id_t, buffer_id_t> mapFbIdBufferId_;
+
 #if USE_GRALLOC_4
 #else
   const gralloc_module_t *gralloc_;

@@ -1021,6 +1021,14 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
 
     crtc = comp_plane.crtc();
 
+
+    // 来源于BYD Coverty 分析，分析后续处理可能存在空指针问题
+    // 针对此问题，进行修复
+    if(plane == NULL){
+        ALOGE("plane is null");
+        continue;
+    }
+
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
 
       if(source_layers.empty()){
@@ -1214,21 +1222,23 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
     size_t index=0;
     std::ostringstream out_log;
 
-    out_log << "DrmDisplayCompositor[" << index << "]"
-            << " frame_no=" << display_comp->frame_no()
-            << " display=" << display_comp->display()
-            << " plane=" << (plane ? plane->name() : "Unknow")
-            << " crct id=" << crtc->id()
-            << " fb id=" << fb_id
-            << " display_frame[" << dst_l << ","
-            << dst_t << "," << dst_w
-            << "," << dst_h << "]"
-            << " source_crop[" << src_l << ","
-            << src_t << "," << src_w
-            << "," << src_h << "]"
-            << ", zpos=" << zpos
-            ;
-    index++;
+    if(LogLevel(DBG_DEBUG)){
+      out_log << "DrmDisplayCompositor[" << index << "]"
+              << " frame_no=" << display_comp->frame_no()
+              << " display=" << display_comp->display()
+              << " plane=" <<  plane->name()
+              << " crct id=" << crtc->id()
+              << " fb id=" << fb_id
+              << " display_frame[" << dst_l << ","
+              << dst_t << "," << dst_w
+              << "," << dst_h << "]"
+              << " source_crop[" << src_l << ","
+              << src_t << "," << src_w
+              << "," << src_h << "]"
+              << ", zpos=" << zpos
+              ;
+      index++;
+    }
 
     if (plane->rotation_property().id()) {
       ret = drmModeAtomicAddProperty(pset, plane->id(),
@@ -1239,7 +1249,9 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
               plane->rotation_property().id(), plane->id());
         break;
       }
-      out_log << " rotation=" << rotation;
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " rotation=" << rotation;
+      }
     }
 
     if (plane->alpha_property().id()) {
@@ -1250,7 +1262,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
               plane->alpha_property().id(), plane->id());
         break;
       }
-      out_log << " alpha=" << std::hex <<  alpha;
+
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " alpha=" << std::hex <<  alpha;
+      }
     }
 
     if (plane->blend_property().id()) {
@@ -1261,7 +1276,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
               plane->blend_property().id(), plane->id());
         break;
       }
-      out_log << " blend mode =" << blend;
+
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " blend mode =" << blend;
+      }
     }
 
     if(plane->get_hdr2sdr() && plane->eotf_property().id()) {
@@ -1273,7 +1291,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
               plane->eotf_property().id(), plane->id());
         break;
       }
-      out_log << " eotf=" << std::hex <<  eotf;
+
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " eotf=" << std::hex <<  eotf;
+      }
     }
 
     if(gIsDrmVerison6_1()){
@@ -1286,7 +1307,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                 plane->kernel6_1_color_encoding().id(), plane->id());
           break;
         }
-        out_log << " color_encoding=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_encoding_;
+
+        if(LogLevel(DBG_DEBUG)){
+          out_log << " color_encoding=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_encoding_;
+        }
       }
 
       if(plane->kernel6_1_color_range().id()) {
@@ -1298,7 +1322,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                 plane->kernel6_1_color_range().id(), plane->id());
           break;
         }
-        out_log << " color_range=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_range_;
+
+        if(LogLevel(DBG_DEBUG)){
+          out_log << " color_range=" << std::hex <<  colorspace.colorspace_kernel_6_1_.color_range_;
+        }
       }
     }else{
       if(plane->colorspace_property().id()) {
@@ -1310,7 +1337,10 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
                 plane->colorspace_property().id(), plane->id());
           break;
         }
-        out_log << " colorspace=" << std::hex <<  colorspace.colorspace_kernel_510_;
+
+        if(LogLevel(DBG_DEBUG)){
+          out_log << " colorspace=" << std::hex <<  colorspace.colorspace_kernel_510_;
+        }
       }
     }
 
@@ -1324,12 +1354,17 @@ int DrmDisplayCompositor::CollectCommitInfo(drmModeAtomicReqPtr pset,
         break;
       }
 
-      out_log << " async_commit=" << sideband;
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " async_commit=" << sideband;
+      }
     }
 
     // Next hdr base layer
     if(is_metadata_hdr) {
-      out_log << " is_metadata_hdr=" << is_metadata_hdr;
+
+      if(LogLevel(DBG_DEBUG)){
+        out_log << " is_metadata_hdr=" << is_metadata_hdr;
+      }
     }
 
     HWC2_ALOGD_IF_DEBUG("%s",out_log.str().c_str());

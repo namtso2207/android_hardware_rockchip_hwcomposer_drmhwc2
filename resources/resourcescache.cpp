@@ -50,15 +50,13 @@ uint32_t GemHandle::GetGemHandle(){ return uGemHandle_;}
 bool GemHandle::isValid(){ return uGemHandle_ != 0;}
 
 
-LayerInfoCache::LayerInfoCache(): native_buffer_(NULL){};
+LayerInfoCache::LayerInfoCache(){};
 LayerInfoCache::~LayerInfoCache(){
-  if(native_buffer_!=NULL){
-    DrmGralloc* drmgralloc = DrmGralloc::getInstance();
-    int ret = drmgralloc->freeBuffer(native_buffer_);
-    if(ret){
-      HWC2_ALOGD_IF_WARN("buffer-id=0x%" PRIx64 " freeBuffer fail.", uBufferId_);
-    }
+  if(bFbIdCached_){
+    bFbIdCached_ = false;
+    DrmGralloc::getInstance()->hwc_fbid_dec_layer_ref_count(uBufferId_);
   }
+
 }
 
 };

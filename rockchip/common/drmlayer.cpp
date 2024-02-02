@@ -73,7 +73,8 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
-int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
+int DrmHwcBuffer::SetBoInfo(uint64_t buffer_id,
+                            uint32_t fd, uint32_t width,
                             uint32_t height, uint32_t height_stride,
                             uint32_t format, uint32_t hal_format,
                             uint64_t modifier,
@@ -81,6 +82,7 @@ int DrmHwcBuffer::SetBoInfo(uint32_t fd, uint32_t width,
                             uint32_t gem_handle, uint32_t offset[4],
                             std::vector<uint32_t> &plane_byte_stride){
   memset(&bo_,0x00,sizeof(struct hwc_drm_bo));
+  bo_.buffer_id = buffer_id;
   bo_.fd = fd;
   bo_.width = width;
   bo_.height = height;
@@ -157,7 +159,7 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
     offsets[3] = mMetadata_.offset[3];
   }
 #endif
-  buffer.SetBoInfo(iFd_, iWidth_, iHeight_, iHeightStride_, uFourccFormat_,
+  buffer.SetBoInfo(uBufferId_, iFd_, iWidth_, iHeight_, iHeightStride_, uFourccFormat_,
                    iFormat_, uModifier_, iUsage, iByteStride_, uGemHandle_,
                    offsets, uByteStridePlanes_);
   int ret = buffer.ImportBuffer(sf_handle, importer);
@@ -166,12 +168,15 @@ int DrmHwcLayer::ImportBuffer(Importer *importer) {
 
   const hwc_drm_bo *bo = buffer.operator->();
 
+#if 0
+  // F0:本地缓存 buffer_handle 比较占用CPU，故删除，仅采用
   // Fix YUV can't importBuffer bug.
   // layerCount is always 1 and pixel_stride is always 0.
   ret = handle.CopyBufferHandle(sf_handle, bo->width, bo->height, 1/*bo->layer_cnt*/,
                                 bo->hal_format, bo->usage, 0/*bo->pixel_stride*/);
   if (ret)
     return ret;
+#endif
 
   gralloc_buffer_usage = bo->usage;
 
@@ -1064,7 +1069,7 @@ int DrmHwcLayer::DumpInfo(String8 &out){
                    TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                    source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                    display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bAfbcd_,
-                   bHdr_, fRealFps_);
+                   bHdr_, fFps_);
     else
       out.appendFormat( "DrmHwcLayer[%4u] Buffer[w/h/s/bs/format]=[%4d,%4d,%4d,%4d,%4d,%4d] Fourcc=%c%c%c%c Transform=%-8.8s(0x%x) Blend[a=%d]=%-8.8s "
                         "source_crop[l,t,r,b]=[%5.0f,%5.0f,%5.0f,%5.0f] display_frame[l,t,r,b]=[%4d,%4d,%4d,%4d],skip=%d,afbcd=%d hdr=%d fps=%f \n",
@@ -1072,7 +1077,7 @@ int DrmHwcLayer::DumpInfo(String8 &out){
                        TransformToString(transform).c_str(),transform,alpha,BlendingToString(blending).c_str(),
                        source_crop.left,source_crop.top,source_crop.right,source_crop.bottom,
                        display_frame.left,display_frame.top,display_frame.right,display_frame.bottom,bSkipLayer_,bAfbcd_,
-                       bHdr_, fRealFps_);
+                       bHdr_, fFps_);
     return 0;
 }
 

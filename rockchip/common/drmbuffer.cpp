@@ -135,7 +135,7 @@ DrmBuffer::~DrmBuffer(){
   ptrBuffer_ = NULL;
 
   if (uFbId_ > 0){
-    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
+    if (ptrDrmGralloc_->hwc_fbid_rm_cache(ptrDrmGralloc_->get_drm_device(), uFbId_)){
       HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uFbId_ %d", uBufferId_ , uFbId_);
     }
     uFbId_ = 0;
@@ -143,7 +143,7 @@ DrmBuffer::~DrmBuffer(){
 
 #ifdef RK3528
   if (uPreScaleFbId_ > 0){
-    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
+    if (ptrDrmGralloc_->hwc_fbid_rm_cache(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
       HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uPreScaleFbId_ %d", uBufferId_ , uPreScaleFbId_);
     }
 
@@ -320,7 +320,7 @@ uint32_t DrmBuffer::GetFbId(){
 
 #ifdef RK3528
   if (uPreScaleFbId_ > 0){
-    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
+    if (ptrDrmGralloc_->hwc_fbid_rm_cache(ptrDrmGralloc_->get_drm_device(), uPreScaleFbId_)){
       HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uPreScaleFbId_ %d", uBufferId_ , uPreScaleFbId_);
     }
 
@@ -374,7 +374,8 @@ uint32_t DrmBuffer::GetFbId(){
   if(DrmFormatToPlaneNum(uFourccFormat_) == 2)
     modifier[1] = uModifier_;
 
-  int ret = drmModeAddFB2WithModifiers(ptrDrmGralloc_->get_drm_device(),
+  int ret = ptrDrmGralloc_->hwc_fbid_get_and_cached(uBufferId_,
+                                       ptrDrmGralloc_->get_drm_device(),
                                        iWidth_,
                                        iHeight_,
                                        uFourccFormat_,
@@ -626,7 +627,7 @@ uint32_t DrmBuffer::GetPreScaleFbId(){
   }
 
   if (uFbId_ > 0){
-    if (drmModeRmFB(ptrDrmGralloc_->get_drm_device(), uFbId_)){
+    if (ptrDrmGralloc_->hwc_fbid_rm_cache(ptrDrmGralloc_->get_drm_device(), uFbId_)){
       HWC2_ALOGE("BufferId=0x%" PRIx64 " Failed to rm uFbId_ %d", uBufferId_ , uFbId_);
     }
     uFbId_ = 0;
@@ -680,7 +681,8 @@ uint32_t DrmBuffer::GetPreScaleFbId(){
     iWidth_ = ALIGN_DOWN(iWidth_,2);
   }
 
-  int ret = drmModeAddFB2WithModifiers(ptrDrmGralloc_->get_drm_device(),
+int ret = ptrDrmGralloc_->hwc_fbid_get_and_cached(uBufferId_,
+                                       ptrDrmGralloc_->get_drm_device(),
                                        iWidth_,
                                        iHeight_,
                                        uFourccFormat_,

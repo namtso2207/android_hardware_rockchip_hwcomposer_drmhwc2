@@ -35,7 +35,7 @@ class DrmCompositorWorker : public Worker {
 
   DrmDisplayCompositor *compositor_;
   int64_t kWaitTimeOut_ = 2000000LL; //2ms
-  bool bSchedFifoEnable_;
+  bool bSchedFifoOnce_;
 };
 }
 

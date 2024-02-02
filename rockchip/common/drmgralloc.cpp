@@ -974,4 +974,198 @@ bool DrmGralloc::is_yuv_format(int hal_format, uint32_t fourcc_format){
   return false;
 }
 
+int DrmGralloc::hwc_fbid_get_and_cached(
+    buffer_id_t buffer_id, int fd, uint32_t width, uint32_t height,
+    uint32_t fourcc_format, const uint32_t bo_handles[4],
+    const uint32_t pitches[4], const uint32_t offsets[4],
+    const uint64_t modifier[4], uint32_t *out_fb_id, uint32_t flags) {
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  if(buffer_id <= 0){
+      HWC2_ALOGE("FbIdCache: Invalid buffer_id = 0x%" PRIx64 ", get fb_id fail!",
+                          buffer_id);
+      *out_fb_id = 0;
+      return -1;
+  }
+
+  // 创建 DrmFbIdInfo 信息
+  DrmFbIdInfo fb_id_info(width, height, fourcc_format, bo_handles, pitches, offsets,
+                         modifier, flags);
+
+  // 若 cache 中找到 BufferId
+  if (mapFbIdCacheMap_.count(buffer_id)) {
+    // 遍历已Cache的fbid资源
+    for (auto &cache_info : mapFbIdCacheMap_[buffer_id].mapCacheInfo) {
+      //对fb_id的参数与cache进行比对
+      if (cache_info.second.mInfo == fb_id_info) {
+        cache_info.second.iRefCount++;
+        *out_fb_id = cache_info.first;
+        HWC2_ALOGD_IF_DEBUG("FbIdCache: Has cached! buffer_id=0x%" PRIx64 ", fb_id=%u ref=%d",
+                            buffer_id, *out_fb_id, cache_info.second.iRefCount);
+        return 0;
+      }
+    }
+  }else{ // 若没有找到，则创建对应cache资源
+    DrmFbIdCaches buffer_cache_info;
+    buffer_cache_info.iLayerRefCount = 0;
+    mapFbIdCacheMap_[buffer_id] = buffer_cache_info;
+  }
+
+  //如果找不到cache，则进行import
+  uint32_t fb_id = 0;
+  int ret = drmModeAddFB2WithModifiers(fd, width, height, fourcc_format, bo_handles,
+                                   pitches, offsets, modifier, &fb_id, flags);
+  HWC2_ALOGD_IF_DEBUG("FbIdCache: import : buffer_id=0x%" PRIx64 " fd=%d,w=%d,h=%d, "
+             "bo->format=%c%c%c%c,gem_handle=%d %d %d %d, pitches[0]=%d %d %d %d, "
+             "offset[0]=%d %d %d %d fb_id=%d, modifier=0x%" PRIx64,
+    buffer_id, fd, width, height,
+    fourcc_format, fourcc_format >> 8, fourcc_format >> 16, fourcc_format >> 24,
+    bo_handles[0], bo_handles[1], bo_handles[2], bo_handles[3],
+    pitches[0], pitches[1], pitches[2], pitches[3],
+    offsets[0], offsets[1], offsets[2], offsets[3],
+    fb_id, modifier[0]);
+  if (ret) {
+    HWC2_ALOGE("FbIdCache: import failed: buffer_id=0x%" PRIx64 " fd=%d,w=%d,h=%d, "
+              "bo->format=%c%c%c%c,gem_handle=%d %d %d %d, pitches[0]=%d %d %d %d, "
+              "offset[0]=%d %d %d %d fb_id=%d, modifier=0x%" PRIx64 " ret=%d" ,
+      buffer_id, fd, width, height,
+      fourcc_format, fourcc_format >> 8, fourcc_format >> 16, fourcc_format >> 24,
+      bo_handles[0], bo_handles[1], bo_handles[2], bo_handles[3],
+      pitches[0], pitches[1], pitches[2], pitches[3],
+      offsets[0], offsets[1], offsets[2], offsets[3],
+      fb_id, modifier[0], ret);
+    return ret;
+  }
+
+  HWC2_ALOGD_IF_DEBUG("FbIdCache: Import buffer_id=0x%" PRIx64 ", fb_id:%u", buffer_id,
+                      fb_id);
+  DrmFbIdCache cache_info(fb_id_info, fb_id);
+  cache_info.iRefCount = 1;
+  mapFbIdCacheMap_[buffer_id].mapCacheInfo[fb_id] = cache_info;
+  //增加fb_id到buffer_id反向查询map，提高 hwc_fbid_rm_cache 效率
+  mapFbIdBufferId_[fb_id] = buffer_id;
+  *out_fb_id = fb_id;
+  return 0;
+}
+
+int DrmGralloc::hwc_fbid_rm_cache(int fd, uint32_t fb_id){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  int ret;
+  //从 fb_id 反查 buffer_id
+  if(!mapFbIdBufferId_.count(fb_id)){
+    HWC2_ALOGE("FbIdCache: fb_id=%u is not in list, please check!",fb_id);
+    return -1;
+  }
+
+  // 若没有找到 buffer_id 则说明异常
+  uint64_t buffer_id = mapFbIdBufferId_[fb_id];
+  if(mapFbIdCacheMap_.count(buffer_id) == 0){
+    HWC2_ALOGE("FbIdCache: fbid=%d buffer_id=0x%" PRIx64 " is not in list, please check! ",
+                fb_id, buffer_id);
+    return -1;
+  }
+
+  auto &fb_id_caches = mapFbIdCacheMap_[buffer_id];
+  if(fb_id_caches.mapCacheInfo.count(fb_id) == 0){
+    HWC2_ALOGE("FbIdCache: fb_id=%" PRIu32 " can't find any cache, please check!", fb_id);
+    return -1;
+  }
+
+  auto &cache_info = fb_id_caches.mapCacheInfo[fb_id];
+  cache_info.iRefCount--;
+  HWC2_ALOGD_IF_DEBUG("FbIdCache: buffer_id=0x%" PRIx64 " fb_id=%u, Hwc2LayerdRef = %d , ref = %d",
+                        buffer_id, fb_id,
+                        mapFbIdCacheMap_[buffer_id].iLayerRefCount,
+                        cache_info.iRefCount);
+
+  // 若 fbid 引用计数非0,对应 hwc2Layer 引用计数非0
+  // 则直接返回，完成减引用操作
+  if(cache_info.iRefCount == 0 &&
+     fb_id_caches.iLayerRefCount == 0){
+    //如果 fb_id_list 无 Hwc2Layer引用且 fb_id 无引用，则删除对应 cache 资源
+    HWC2_ALOGD_IF_DEBUG("remove fb_id=%" PRIu32, fb_id);
+    int ret = drmModeRmFB(fd, fb_id);
+    if(ret){
+      HWC2_ALOGE("FbIdCache: drmModeRmFB fail ret = %d, fb_id=%d ", ret, fb_id);
+    }
+
+    fb_id_caches.mapCacheInfo.erase(fb_id);
+    mapFbIdBufferId_.erase(fb_id);
+
+    if(fb_id_caches.mapCacheInfo.size() == 0){
+      //如果无图层引用此buffer_id且此buffer_id下无有效fb_id，则删除buffer_id
+      mapFbIdCacheMap_.erase(buffer_id);
+      HWC2_ALOGD_IF_DEBUG("FbIdCache: remove buffer_id=0x%" PRIx64 , buffer_id);
+    }
+  }
+
+  return 0;
+}
+
+int DrmGralloc::hwc_fbid_add_layer_ref_count(uint64_t buffer_id){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+  if(mapFbIdCacheMap_.count(buffer_id) == 0){
+      DrmFbIdCaches buffer_cache_info;
+      buffer_cache_info.iLayerRefCount = 0;
+      mapFbIdCacheMap_[buffer_id] = buffer_cache_info;
+  }
+
+  mapFbIdCacheMap_[buffer_id].iLayerRefCount++;
+  HWC2_ALOGD_IF_DEBUG("FbIdCache: buffer_id=0x%" PRIx64 " LayerRefCount=%d",
+                      buffer_id, mapFbIdCacheMap_[buffer_id].iLayerRefCount);
+  return 0;
+}
+
+int DrmGralloc::hwc_fbid_dec_layer_ref_count(uint64_t buffer_id){
+  std::unique_lock<std::recursive_mutex> lock(mRecursiveMutex);
+
+  if(mapFbIdCacheMap_.count(buffer_id)==0){
+    HWC2_ALOGE("FbIdCache: buffer_id=0x%" PRIx64 " is not in list.",buffer_id);
+    return -1;
+  }
+
+  mapFbIdCacheMap_[buffer_id].iLayerRefCount--;
+
+  if(mapFbIdCacheMap_[buffer_id].iLayerRefCount == 0){
+    std::vector<int> fb_id_to_delete;
+    for (const auto& cache_info : mapFbIdCacheMap_[buffer_id].mapCacheInfo) {
+        if(cache_info.second.iRefCount==0){
+            fb_id_to_delete.push_back(cache_info.second.mFbId);
+        }
+    }
+
+    if(fb_id_to_delete.size() > 0){
+      for (const int fb_id : fb_id_to_delete) {
+        int ret = drmModeRmFB(get_drm_device(), fb_id);
+        if(ret){
+          HWC2_ALOGE("FbIdCache: drmModeRmFB failed, ret = %d",ret);
+        }
+        HWC2_ALOGD_IF_DEBUG("FbIdCache: drmModeRmFB fbid = %u", fb_id);
+        mapFbIdCacheMap_[buffer_id].mapCacheInfo.erase(fb_id);
+        mapFbIdBufferId_.erase(fb_id);
+      }
+    }
+
+    if(mapFbIdCacheMap_[buffer_id].mapCacheInfo.size()==0){
+      mapFbIdCacheMap_.erase(buffer_id);
+      HWC2_ALOGD_IF_DEBUG("FbIdCache: remove buffer_id:%" PRIu64 ,buffer_id);
+    }
+  }
+
+  if(LogLevel(DBG_VERBOSE)){
+    HWC2_ALOGD_IF_VERBOSE("FbIdCache-dump: mapFbIdCacheMap_ size=%zu", mapFbIdCacheMap_.size());
+    for(auto &fb_id_caches : mapFbIdCacheMap_){
+        HWC2_ALOGD_IF_VERBOSE("FbIdCache-dump: \t buffer-id=0x%" PRIx64 " hwc2LayerRef=%d fb_id_map size=%zu",
+                             fb_id_caches.first,
+                             fb_id_caches.second.iLayerRefCount,
+                             fb_id_caches.second.mapCacheInfo.size());
+      for(auto &fb_id_cache : fb_id_caches.second.mapCacheInfo){
+        HWC2_ALOGD_IF_VERBOSE("FbIdCache-dump: \t\t fb_id=%" PRIu32 ", ref=%d",
+                            fb_id_cache.second.mFbId,
+                            fb_id_cache.second.iRefCount);
+      }
+    }
+  }
+  return 0;
+}
+
 }

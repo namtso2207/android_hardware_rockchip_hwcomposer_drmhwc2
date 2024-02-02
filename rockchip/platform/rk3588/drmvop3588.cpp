@@ -203,7 +203,7 @@ bool Vop3588::SvepSrAllowedByWhitelist(DrmHwcLayer* layer){
   return false;
 }
 
-#define SVEP_SUPPORT_MAX_FPS 45
+#define SVEP_SUPPORT_MAX_FPS 35
 bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   // 视频大于4K则不使用 SR.
   if(layer->iWidth_ > 4096){
@@ -302,8 +302,8 @@ bool Vop3588::SvepSrAllowedByLocalPolicy(DrmHwcLayer* layer){
   }
 
   // HWC内部会计算图层刷新率，若刷新率大于35帧，则关闭SR-SR功能
-  if(layer->fRealMaxFps_ > SVEP_SUPPORT_MAX_FPS){
-    HWC2_ALOGD_IF_DEBUG("disable-sr: video_max_fps=%d name=%s",layer->fRealMaxFps_, layer->sLayerName_.c_str());
+  if(layer->fFps_ > SVEP_SUPPORT_MAX_FPS){
+    HWC2_ALOGD_IF_DEBUG("disable-sr: video_max_fps=%f name=%s",layer->fFps_, layer->sLayerName_.c_str());
     return false;
   }
 
@@ -475,8 +475,8 @@ bool Vop3588::SvepMemcAllowedByLocalPolicy(DrmHwcLayer* layer){
   }
 
   // HWC内部会计算图层刷新率，若刷新率大于40帧，则关闭SR-MEMC功能
-  if(layer->fRealMaxFps_ > SVEP_MEMC_SUPPORT_MAX_FPS){
-    HWC2_ALOGD_IF_DEBUG("disable-memc: video_max_fps=%d name=%s",layer->fRealMaxFps_, layer->sLayerName_.c_str());
+  if(layer->fFps_ > SVEP_MEMC_SUPPORT_MAX_FPS){
+    HWC2_ALOGD_IF_DEBUG("disable-memc: video_max_fps=%f name=%s",layer->fFps_, layer->sLayerName_.c_str());
     return false;
   }
 
@@ -2065,7 +2065,7 @@ int Vop3588::TryAcceleratePolicy(
     return ret;
   else{
     ResetLayerFromTmpExceptFB(layers,tmp_layers);
-    for(--layer_indices.first; layer_indices.first > 0; --layer_indices.first){
+    for(--layer_indices.first; layer_indices.first >= 0; --layer_indices.first){
       ALOGD_IF(LogLevel(DBG_DEBUG), "%s:mix accelerate layer (%d,%d)",__FUNCTION__,layer_indices.first, layer_indices.second);
       OutputMatchLayer(layer_indices.first, layer_indices.second, layers, tmp_layers);
       ret = MatchPlanes(composition,layers,crtc,plane_groups);
@@ -3839,6 +3839,11 @@ int Vop3588::InitContext(
     ctx.state.setHwcPolicy.insert(HWC_GLES_POLICY);
     if(ctx.request.bSidebandStreamMode){
       ctx.state.setHwcPolicy.insert(HWC_GLES_SIDEBAND_LOPICY);
+    }
+
+    if(ctx.request.accelerate_app_exist_){
+      ALOGD_IF(LogLevel(DBG_DEBUG),"accelerate_app_exist_ , soc_id=%x", ctx.state.iSocId);
+      ctx.state.setHwcPolicy.insert(HWC_ACCELERATE_LOPICY);
     }
     return 0;
   }

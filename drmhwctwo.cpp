@@ -85,6 +85,13 @@ class DrmVsyncCallback : public VsyncCallback {
     }
   }
 
+  void Callback(int display, int64_t timestamp, hwc2_vsync_period_t vsyncPeriodNanos) {
+    auto hook = reinterpret_cast<HWC2_PFN_VSYNC_2_4>(hook_);
+    if(hook){
+      hook(data_, display, timestamp, vsyncPeriodNanos);
+    }
+  }
+
  private:
   hwc2_callback_data_t data_;
   hwc2_function_pointer_t hook_;
@@ -157,6 +164,11 @@ HWC2::Error DrmHwcTwo::Init() {
   auto &drmDevices = resource_manager_->GetDrmDevices();
   for (auto &device : drmDevices) {
     device->RegisterHotplugHandler(new DrmHotplugHandler(this, device.get()));
+  }
+
+  // drm event 异步消息处理线程
+  if(eventWorker_.Init(this)){
+    HWC2_ALOGE("EventWorker init fail.");
   }
   return ret;
 }
@@ -271,6 +283,7 @@ static bool isValid(HWC2::Callback descriptor) {
     switch (descriptor) {
         case HWC2::Callback::Hotplug: // Fall-through
         case HWC2::Callback::Refresh: // Fall-through
+        case HWC2::Callback::Vsync_2_4:
         case HWC2::Callback::Vsync: return true;
         default: return false;
     }
@@ -290,6 +303,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
   if (!function) {
     callbacks_.erase(callback);
     switch (callback) {
+      case HWC2::Callback::Vsync_2_4:
       case HWC2::Callback::Vsync: {
         for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
              displays_)
@@ -322,6 +336,7 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
         HandleInitialHotplugState(device.get());
       break;
     }
+    case HWC2::Callback::Vsync_2_4:
     case HWC2::Callback::Vsync: {
       for (std::pair<const hwc2_display_t, DrmHwcTwo::HwcDisplay> &d :
            displays_)
@@ -382,7 +397,7 @@ bool DrmHwcTwo::HwcDisplay::IsActiveModeChange() {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::Init() {
 
-  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64,handle_);
+  HWC2_ALOGD_IF_VERBOSE("HwcDisplay::Init display-id=%" PRIu64,handle_);
 
   int display = static_cast<int>(handle_);
 
@@ -528,6 +543,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::InitVirtual() {
 
   init_success_ = true;
   frame_no_ = 0;
+  wb_frame_no_ = 0;
   return HWC2::Error::None;
 }
 
@@ -860,6 +876,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
         // Dots per 1000 inches
         *value = mm_height ? (mode->v_display() * kUmPerInch) / mm_height : -1;
         break;
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+      case HWC2::Attribute::ConfigGroup:
+        *value = 0; /* TODO: Add support for config groups */
+        break;
+#endif
       default:
         *value = -1;
         return HWC2::Error::BadConfig;
@@ -898,6 +920,12 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
         // Dots per 1000 inches
         *value = mm_height ? (h * kUmPerInch) / mm_height : -1;
         break;
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+      case HWC2::Attribute::ConfigGroup:
+        *value = 0; /* TODO: Add support for config groups */
+        break;
+#endif
       default:
         *value = -1;
         return HWC2::Error::BadConfig;
@@ -1688,7 +1716,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
         src_rect.height = resetBuffer->GetHeight();
 
         // Set dst buffer info
-        dst.fd      = bufferinfo->iFd_;
+        dst.fd      = bufferinfo->uniqueFd_.get();
         dst.width   = bufferinfo->iWidth_;
         dst.height  = bufferinfo->iHeight_;
         dst.wstride = bufferinfo->iStride_;
@@ -1771,7 +1799,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentVirtualDisplay(int32_t *retire_fence) 
       memset(&dst_rect, 0x00, sizeof(im_rect));
 
       // Set dst buffer info
-      dst.fd      = bufferinfo->iFd_;
+      dst.fd      = bufferinfo->uniqueFd_.get();
       dst.width   = bufferinfo->iWidth_;
       dst.height  = bufferinfo->iHeight_;
       dst.wstride = bufferinfo->iStride_;
@@ -1937,8 +1965,27 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
 
   UpdateTimerState(!static_screen_opt_);
 
-  if(IsActiveModeChange())
-    drm_->FlipResolutionSwitchHandler((int)handle_);
+  /* 解决 DynamicDisplayMode 导致SurfaceFlinger奔溃问题, Crash Log如下:
+        F DEBUG   : id: 2873, tid: 2873, name: surfaceflinger  >>> /system/bin/surfaceflinger
+        F DEBUG   : backtrace:
+        F DEBUG   :       #00 pc 00000000000c1848  /system/lib64/libsurfaceflinger.so (android::sp<android::Fence>::operator=(android::Fence*)+68) (BuildId: cf81f72dadf878a95979872a8edad889)
+        F DEBUG   :       #01 pc 00000000000c17d4  /system/lib64/libsurfaceflinger.so (android::HWC2::impl::Display::present(android::sp<android::Fence>*)+104) (BuildId: cf81f72dadf878a95979872a8edad889)
+        F DEBUG   :       #02 pc 00000000000ca2fc  /system/lib64/libsurfaceflinger.so (android::impl::HWComposer::presentAndGetReleaseFences(android::DisplayId)+568) (BuildId: cf81f72dadf878a95979872a8edad889)
+        F DEBUG   :       #03 pc 0000000000141330  /system/lib64/libsurfaceflinger.so (android::compositionengine::impl::Display::presentAndGetFrameFences()+132) (BuildId: cf81f72dadf878a95979872a8edad889)
+
+     问题主要原因在于原方案，会导致 main_thread callback 回 SurfaceFlinger，直接将当前Display资源删除，
+     导致PresentDisplay接口返回后，相关资源被删除，引发空指针crash.
+
+     解决方案为单独创建 eventWorker_ 线程调用SurfaceFlinger callback，不使用 main_thread 则不会删除 display 资源
+  */
+  if(IsActiveModeChange()){
+    DrmEvent event;
+    event.type = HOTPLUG_EVENT;
+    event.display_id = (int)handle_;
+    event.connection = DRM_MODE_CONNECTED;
+    g_ctx->eventWorker_.SendDrmEvent(event);
+    ActiveModeChange(false);
+  }
   return HWC2::Error::None;
 }
 
@@ -2322,10 +2369,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateVirtualDisplay(uint32_t *num_types,
           bUseWriteBack_ = false;
         }
 
-        if(resource_manager_->GetFinishWBBufferSize() == 0){
-          HWC2_ALOGD_IF_DEBUG("WB buffer not ready, display=%" PRIu64 " wb-display %d frame_no=%d", handle_, WBDisplayId, frame_no_);
-          bUseWriteBack_ = false;
-        }
+        // if(resource_manager_->GetFinishWBBufferSize() == 0){
+        //   HWC2_ALOGD_IF_DEBUG("WB buffer not ready, display=%" PRIu64 " wb-display %d frame_no=%d", handle_, WBDisplayId, frame_no_);
+        //   bUseWriteBack_ = false;
+        // }
       }
     }else{
       bUseWriteBack_ = false;
@@ -2438,6 +2485,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
       layer.set_validated_type(HWC2::Composition::Client);
       ++*num_types;
     }
+    layer.StateChange();
   }
 
   if(!client_layer_.isAfbc()){
@@ -2447,32 +2495,179 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
   return *num_types ? HWC2::Error::HasChanges : HWC2::Error::None;
 }
 
-#ifdef ANDROID_S
-HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConnectionType(uint32_t *outType) {
-	if (connector_->internal())
-		*outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::Internal);
-	else if (connector_->external())
-		*outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::External);
-	else
-		return HWC2::Error::BadConfig;
 
-	return HWC2::Error::None;
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConnectionType(uint32_t *outType) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  if (connector_->internal())
+    *outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::Internal);
+  else if (connector_->external())
+    *outType = static_cast<uint32_t>(HWC2::DisplayConnectionType::External);
+  else
+    return HWC2::Error::BadConfig;
+
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayVsyncPeriod(
-				hwc2_vsync_period_t *outVsyncPeriod /* ns */) {
-	supported(__func__);
+    hwc2_vsync_period_t *outVsyncPeriod /* ns */) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  supported(__func__);
+  DrmMode const &mode = connector_->active_mode();
+  if (mode.id() == 0)
+    return HWC2::Error::BadConfig;
 
-	DrmMode const &mode = connector_->active_mode();
-
-	if (mode.id() == 0)
-		return HWC2::Error::BadConfig;
-
-	*outVsyncPeriod = 1E9 / mode.v_refresh();
-
-	return HWC2::Error::None;
+  *outVsyncPeriod = 1E9 / mode.v_refresh();
+  return HWC2::Error::None;
 }
-#endif //ANDROID_S
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfigWithConstraints(
+    hwc2_config_t config,
+    hwc_vsync_period_change_constraints_t *vsyncPeriodChangeConstraints,
+    hwc_vsync_period_change_timeline_t *outTimeline) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  supported(__func__);
+
+  if (vsyncPeriodChangeConstraints == nullptr || outTimeline == nullptr) {
+    return HWC2::Error::BadParameter;
+  }
+
+  if(config > 0){
+    return HWC2::Error::BadConfig;
+  }else{
+    return HWC2::Error::None;
+  }
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetAutoLowLatencyMode(bool /*on*/) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  return HWC2::Error::Unsupported;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetSupportedContentTypes(
+    uint32_t *outNumSupportedContentTypes,
+    const uint32_t *outSupportedContentTypes) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  if (outSupportedContentTypes == nullptr)
+    *outNumSupportedContentTypes = 0;
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetContentType(int32_t contentType) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  supported(__func__);
+
+  if (contentType != HWC2_CONTENT_TYPE_NONE)
+    return HWC2::Error::Unsupported;
+
+  /* TODO: Map to the DRM Connector property:
+   * https://elixir.bootlin.com/linux/v5.4-rc5/source/drivers/gpu/drm/drm_connector.c#L809
+   */
+
+  return HWC2::Error::None;
+}
+#endif
+
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayIdentificationData(
+    uint8_t *outPort, uint32_t *outDataSize, uint8_t *outData) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  supported(__func__);
+
+  auto blob = connector_->GetEdidBlob();
+
+  *outPort = connector_->id();
+
+  if (!blob) {
+    if (outData == nullptr) {
+      *outDataSize = 0;
+    }
+    return HWC2::Error::None;
+  }
+
+  if (outData) {
+    *outDataSize = std::min(*outDataSize, blob->length);
+    memcpy(outData, blob->data, *outDataSize);
+  } else {
+    *outDataSize = blob->length;
+  }
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayCapabilities(
+    uint32_t *outNumCapabilities, uint32_t *outCapabilities) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  unsupported(__func__, outCapabilities);
+
+  if (outNumCapabilities == nullptr) {
+    return HWC2::Error::BadParameter;
+  }
+
+  *outNumCapabilities = 0;
+
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayBrightnessSupport(
+    bool *supported) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  *supported = false;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetDisplayBrightness(
+    float /* brightness */) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  return HWC2::Error::Unsupported;
+}
+
+#endif /* PLATFORM_SDK_VERSION > 28 */
+
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+
+HWC2::Error DrmHwcTwo::HwcDisplay::GetRenderIntents(
+    int32_t mode, uint32_t *outNumIntents,
+    int32_t * /*android_render_intent_v1_1_t*/ outIntents) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  if (mode != HAL_COLOR_MODE_NATIVE) {
+    return HWC2::Error::BadParameter;
+  }
+
+  if (outIntents == nullptr) {
+    *outNumIntents = 1;
+    return HWC2::Error::None;
+  }
+  *outNumIntents = 1;
+  outIntents[0] = HAL_RENDER_INTENT_COLORIMETRIC;
+  return HWC2::Error::None;
+}
+
+HWC2::Error DrmHwcTwo::HwcDisplay::SetColorModeWithIntent(int32_t mode,
+                                                          int32_t intent) {
+  HWC2_ALOGD_IF_VERBOSE("display-id=%" PRIu64 ,handle_);
+  if (intent < HAL_RENDER_INTENT_COLORIMETRIC ||
+      intent > HAL_RENDER_INTENT_TONE_MAP_ENHANCE)
+    return HWC2::Error::BadParameter;
+
+  if (mode < HAL_COLOR_MODE_NATIVE || mode > HAL_COLOR_MODE_BT2100_HLG)
+    return HWC2::Error::BadParameter;
+
+  if (mode != HAL_COLOR_MODE_NATIVE)
+    return HWC2::Error::Unsupported;
+
+  if (intent != HAL_RENDER_INTENT_COLORIMETRIC)
+    return HWC2::Error::Unsupported;
+
+  color_mode_ = mode;
+  return HWC2::Error::None;
+}
+
+#endif /* PLATFORM_SDK_VERSION >= 34 */
 
 HWC2::Error DrmHwcTwo::HwcLayer::SetCursorPosition(int32_t x, int32_t y) {
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", x=%d, y=%d" ,id_,x,y);
@@ -3294,6 +3489,7 @@ int DrmHwcTwo::HwcDisplay::SelfRefreshEnable(){
   }
 
   if(resource_manager_->isWBMode()){
+    enable_self_refresh = true;
     if(self_fps < 30)
       self_fps = 30;
   }
@@ -3413,6 +3609,14 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBlendMode(int32_t mode) {
   return HWC2::Error::None;
 }
 
+// 此定义位于 hardware/interfaces/graphics/composer/2.1/utils/hal/include/composer-hal/2.1/ComposerCommandEngine.h
+#define RK_BUFFER_SLOT_SHIFT 8
+#define RK_BUFFER_CACHE_SHIFT 16
+#define RK_BUFFER_USE_CACHE_FLAG 1
+#define RK_BUFFER_USE_UNCACHE_FLAG (1 << 1)
+#define RK_DECODING_CALCULATION(value, shift) \
+   (((value * (-1)) >> shift) & 0xff)
+
 HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
                                                 int32_t acquire_fence) {
   HWC2_ALOGD_IF_VERBOSE("layer-id=%d"", buffer=%p, acq_fence=%d" ,id_,buffer,acquire_fence);
@@ -3431,6 +3635,24 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
   bSideband2Valid_ = false;
   sidebandStreamHandle_ = NULL;
 
+  /* RK 内部实现 cache 方法：
+   * acquire_fence 原则上是只会出现 -1 或者 > 0 的数值，目前 RK 利用 < -1 的值范围
+   * 传递 cache 信息，具体方法如下：
+   * 1. 如果 acquire_fence 出现 小于 -1 的值，则说明 RK 内部实现的cache方法生效
+   * 2. acquire_fence 通过如下方法构造：
+   *    2.1. acquire_fence |= CACHE_SLOT << RK_BUFFER_SLOT_SHIFT
+   *    2.2. acquire_fence |= (USE_CACHE or USE_UNCACHE) << RK_BUFFER_CACHE_SHIFT
+   *    2.3  acquire_fence = acquire_fence * (-1)
+   */
+  if(acquire_fence < -1){
+    bUseSlotCache = RK_DECODING_CALCULATION(acquire_fence, RK_BUFFER_CACHE_SHIFT) == RK_BUFFER_USE_CACHE_FLAG;
+    uCacheSlot = RK_DECODING_CALCULATION(acquire_fence, RK_BUFFER_SLOT_SHIFT);
+    if(uCacheSlot > 0){
+      HWC2_ALOGD_IF_DEBUG("use_cache=%d cache_slot=%d",bUseSlotCache, uCacheSlot);
+      return HWC2::Error::None;
+    }
+  }
+
   // 部分video不希望使用cache逻辑，因为可能会导致oom问题
   bool need_cache = true;
   ResourceManager* rm = ResourceManager::getInstance();
@@ -3448,11 +3670,17 @@ HWC2::Error DrmHwcTwo::HwcLayer::SetLayerBuffer(buffer_handle_t buffer,
   }
 
   if(need_cache){
-    CacheBufferInfo(buffer);
+    if(uCacheSlot > 0){
+      CacheBufferInfoBySlot(buffer, bUseSlotCache, uCacheSlot);
+    }else{
+      CacheBufferInfo(buffer);
+    }
   }else{
     NoCacheBufferInfo(buffer);
   }
   acquire_fence_ = sp<AcquireFence>(new AcquireFence(acquire_fence));
+  bUseSlotCache = false;
+  uCacheSlot = -1;
   return HWC2::Error::None;
 }
 
@@ -3641,7 +3869,7 @@ void DrmHwcTwo::HwcLayer::PopulateSidebandLayer(DrmHwcLayer *drmHwcLayer,
       drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
 
       if(mCurrentState.sidebandStreamHandle_){
-        drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
+        drmHwcLayer->iFd_     = pBufferInfo_->uniqueFd_.get();
         drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
         drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
         drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
@@ -3680,9 +3908,11 @@ void DrmHwcTwo::HwcLayer::PopulateNormalLayer(DrmHwcLayer *drmHwcLayer,
     drmHwcLayer->SetDisplayFrameMirror(mCurrentState.display_frame_);
 
     if(buffer_){
-      drmHwcLayer->sf_handle =  pBufferInfo_->native_buffer_;
+      drmHwcLayer->sf_handle  = buffer_;
       drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
-      drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
+      // 利用 dup dma-buffer-fd 来增加对 dma-buffer 的引用计数
+      // 避免 dma-buffer 被提前释放
+      drmHwcLayer->iFd_     = pBufferInfo_->uniqueFd_.get();
       drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
       drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
       drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
@@ -3730,8 +3960,7 @@ void DrmHwcTwo::HwcLayer::PopulateDrmLayer(hwc2_layer_t layer_id, DrmHwcLayer *d
   drmHwcLayer->bMatch_ = false;
   drmHwcLayer->IsMetadataHdr_ = false;
   drmHwcLayer->bSideband2_ = false;
-  drmHwcLayer->fRealFps_ = GetRealFps();
-  drmHwcLayer->fRealMaxFps_ = GetRealMaxFps();
+  drmHwcLayer->fFps_ = GetActiveFps();
 
 #ifdef RK3528
   // RK3528 仅 VOP支持AFBC格式，如果遇到以下两个问题需要启用解码预缩小功能：
@@ -3858,7 +4087,10 @@ void DrmHwcTwo::HwcLayer::PopulateFB(hwc2_layer_t layer_id, DrmHwcLayer *drmHwcL
   drmHwcLayer->SetTransform(mCurrentState.transform_);
 
   if(buffer_ && !validate){
-    drmHwcLayer->iFd_     = pBufferInfo_->iFd_.get();
+    // 利用 dup dma-buffer-fd 来增加对 dma-buffer 的引用计数
+    // 避免 dma-buffer 被提前释放
+    drmHwcLayer->uBufferId_ = pBufferInfo_->uBufferId_;
+    drmHwcLayer->iFd_     = pBufferInfo_->uniqueFd_.get();
     drmHwcLayer->iWidth_  = pBufferInfo_->iWidth_;
     drmHwcLayer->iHeight_ = pBufferInfo_->iHeight_;
     drmHwcLayer->iStride_ = pBufferInfo_->iStride_;
@@ -4102,21 +4334,21 @@ void DrmHwcTwo::HwcLayer::DumpLayerInfo(String8 &output) {
                        " %-11.11s | %-10.10s |%7.1f,%7.1f,%7.1f,%7.1f |%5d,%5d,%5d,%5d |"
                        " %10x | %5.1f  | %s | 0x%" PRIx64 "\n",
                     id_,
-                    mCurrentState.z_order_,
-                    to_string(mCurrentState.sf_type_).c_str(),
-                    to_string(mCurrentState.validated_type_).c_str(),
+                    mDrawingState.z_order_,
+                    to_string(mDrawingState.sf_type_).c_str(),
+                    to_string(mDrawingState.validated_type_).c_str(),
                     intptr_t(buffer_),
-                    to_string(mCurrentState.transform_).c_str(),
-                    to_string(mCurrentState.blending_).c_str(),
-                    mCurrentState.source_crop_.left,
-                    mCurrentState.source_crop_.top,
-                    mCurrentState.source_crop_.right,
-                    mCurrentState.source_crop_.bottom,
-                    mCurrentState.display_frame_.left,
-                    mCurrentState.display_frame_.top,
-                    mCurrentState.display_frame_.right,
-                    mCurrentState.display_frame_.bottom,
-                    mCurrentState.dataspace_,
+                    to_string(mDrawingState.transform_).c_str(),
+                    to_string(mDrawingState.blending_).c_str(),
+                    mDrawingState.source_crop_.left,
+                    mDrawingState.source_crop_.top,
+                    mDrawingState.source_crop_.right,
+                    mDrawingState.source_crop_.bottom,
+                    mDrawingState.display_frame_.left,
+                    mDrawingState.display_frame_.top,
+                    mDrawingState.display_frame_.right,
+                    mDrawingState.display_frame_.bottom,
+                    mDrawingState.dataspace_,
                     GetFps(),
                     layer_name_.c_str(),
                     pBufferInfo_ != NULL ? pBufferInfo_->uBufferId_ : -1);
@@ -4542,6 +4774,102 @@ void DrmHwcTwo::DrmHotplugHandler::HandleResolutionSwitchEvent(int display_id) {
 }
 
 
+DrmHwcTwo::EventWorker::EventWorker()
+    : Worker("hwc2-event", HAL_PRIORITY_URGENT_DISPLAY),
+      hwc2_(NULL){
+}
+
+DrmHwcTwo::EventWorker::~EventWorker() {
+}
+
+int DrmHwcTwo::EventWorker::Init(DrmHwcTwo *hwc2) {
+  hwc2_ = hwc2;
+  return InitWorker();
+}
+
+int DrmHwcTwo::EventWorker::SendDrmEvent(DrmEvent event){
+  Lock();
+  mPendingEvent_.push(event);
+  Unlock();
+  Signal();
+  return 0;
+}
+
+int DrmHwcTwo::EventWorker::SendHotplugEvent(DrmEvent event){
+  // 若系统没有设置为动态更新模式的话，则不进行分辨率更新
+  ResourceManager* rm = ResourceManager::getInstance();
+  if(!rm->IsDynamicDisplayMode()){
+    return 0;
+  }
+
+  int primary_id = 0;
+  DrmDevice* drm = rm->GetDrmDevice(primary_id);
+  if(drm == NULL){
+    HWC2_ALOGE("Failed to get DrmDevice for display %d", event.display_id);
+    return -1;
+  }
+
+  DrmConnector *connector = drm->GetConnectorForDisplay(event.display_id);
+  if (!connector) {
+    HWC2_ALOGE("Failed to get connector for display %d", event.display_id);
+    return -1;
+  }
+
+  if(hwc2_->displays_.count(event.display_id)){
+    auto &display = hwc2_->displays_.at(event.display_id);
+    HWC2::Error error = display.ChosePreferredConfig();
+    if(error != HWC2::Error::None){
+      HWC2_ALOGE("hwc_resolution_switch: connector %u type=%s, type_id=%d ChosePreferredConfig fail.\n",
+                    connector->id(),
+                    drm->connector_type_str(connector->type()),
+                    connector->type_id());
+      return -1;
+    }
+
+    HWC2_ALOGI("hwc_resolution_switch: display_id=%d connector %u type=%s, type_id=%d\n",
+                  event.display_id,
+                  connector->id(),
+                  drm->connector_type_str(connector->type()),
+                  connector->type_id());
+    hwc2_->HandleDisplayHotplug(event.display_id, DRM_MODE_CONNECTED);
+  }
+
+  if(hwc2_->displays_.count(primary_id)){
+    auto &primary = hwc2_->displays_.at(primary_id);
+    primary.InvalidateControl(5,20);
+  }
+
+  return 0;
+}
+
+void DrmHwcTwo::EventWorker::Routine() {
+  ATRACE_CALL();
+  Lock();
+  int ret = WaitForSignalOrExitLocked();
+  if (ret == -EINTR) {
+    Unlock();
+    return;
+  }
+
+  if(mPendingEvent_.empty()){
+    return;
+  }
+
+  DrmEvent event = mPendingEvent_.front();
+  mPendingEvent_.pop();
+  Unlock();
+
+  if(event.type == HOTPLUG_EVENT){
+    if(SendHotplugEvent(event)){
+      HWC2_ALOGE("SendHotplugEvent fail event.display=%d connection=%d, ret = %d",
+                  event.display_id, event.connection, ret);
+      return;
+    }
+  }
+
+  return;
+}
+
 // static
 int DrmHwcTwo::HookDevClose(hw_device_t * /*dev*/) {
   unsupported(__func__);
@@ -4696,19 +5024,64 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_VALIDATE_DISPLAY>(
           DisplayHook<decltype(&HwcDisplay::ValidateDisplay),
                       &HwcDisplay::ValidateDisplay, uint32_t *, uint32_t *>);
-
-#ifdef ANDROID_S
-	case HWC2::FunctionDescriptor::GetDisplayConnectionType:
-	  return ToHook<HWC2_PFN_GET_DISPLAY_CONNECTION_TYPE>(
-		  DisplayHook<decltype(&HwcDisplay::GetDisplayConnectionType),
-					  &HwcDisplay::GetDisplayConnectionType, uint32_t *>);
-	case HWC2::FunctionDescriptor::GetDisplayVsyncPeriod:
-	  return ToHook<HWC2_PFN_GET_DISPLAY_VSYNC_PERIOD>(
-		  DisplayHook<decltype(&HwcDisplay::GetDisplayVsyncPeriod),
-					  &HwcDisplay::GetDisplayVsyncPeriod,
-					  hwc2_vsync_period_t *>);
-#endif //ANDROID_S
-
+// Only Android 14 Support
+#if PLATFORM_SDK_VERSION >= 34
+    case HWC2::FunctionDescriptor::GetRenderIntents:
+      return ToHook<HWC2_PFN_GET_RENDER_INTENTS>(
+          DisplayHook<decltype(&HwcDisplay::GetRenderIntents),
+                      &HwcDisplay::GetRenderIntents, int32_t, uint32_t *,
+                      int32_t *>);
+    case HWC2::FunctionDescriptor::SetColorModeWithRenderIntent:
+      return ToHook<HWC2_PFN_SET_COLOR_MODE_WITH_RENDER_INTENT>(
+          DisplayHook<decltype(&HwcDisplay::SetColorModeWithIntent),
+                      &HwcDisplay::SetColorModeWithIntent, int32_t, int32_t>);
+    case HWC2::FunctionDescriptor::GetDisplayIdentificationData:
+      return ToHook<HWC2_PFN_GET_DISPLAY_IDENTIFICATION_DATA>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayIdentificationData),
+                      &HwcDisplay::GetDisplayIdentificationData, uint8_t *,
+                      uint32_t *, uint8_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayCapabilities:
+      return ToHook<HWC2_PFN_GET_DISPLAY_CAPABILITIES>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayCapabilities),
+                      &HwcDisplay::GetDisplayCapabilities, uint32_t *,
+                      uint32_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayBrightnessSupport:
+      return ToHook<HWC2_PFN_GET_DISPLAY_BRIGHTNESS_SUPPORT>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayBrightnessSupport),
+                      &HwcDisplay::GetDisplayBrightnessSupport, bool *>);
+    case HWC2::FunctionDescriptor::SetDisplayBrightness:
+      return ToHook<HWC2_PFN_SET_DISPLAY_BRIGHTNESS>(
+          DisplayHook<decltype(&HwcDisplay::SetDisplayBrightness),
+                      &HwcDisplay::SetDisplayBrightness, float>);
+    case HWC2::FunctionDescriptor::GetDisplayConnectionType:
+      return ToHook<HWC2_PFN_GET_DISPLAY_CONNECTION_TYPE>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayConnectionType),
+                      &HwcDisplay::GetDisplayConnectionType, uint32_t *>);
+    case HWC2::FunctionDescriptor::GetDisplayVsyncPeriod:
+      return ToHook<HWC2_PFN_GET_DISPLAY_VSYNC_PERIOD>(
+          DisplayHook<decltype(&HwcDisplay::GetDisplayVsyncPeriod),
+                      &HwcDisplay::GetDisplayVsyncPeriod,
+                      hwc2_vsync_period_t *>);
+    case HWC2::FunctionDescriptor::SetActiveConfigWithConstraints:
+      return ToHook<HWC2_PFN_SET_ACTIVE_CONFIG_WITH_CONSTRAINTS>(
+          DisplayHook<decltype(&HwcDisplay::SetActiveConfigWithConstraints),
+                      &HwcDisplay::SetActiveConfigWithConstraints,
+                      hwc2_config_t, hwc_vsync_period_change_constraints_t *,
+                      hwc_vsync_period_change_timeline_t *>);
+    case HWC2::FunctionDescriptor::SetAutoLowLatencyMode:
+      return ToHook<HWC2_PFN_SET_AUTO_LOW_LATENCY_MODE>(
+          DisplayHook<decltype(&HwcDisplay::SetAutoLowLatencyMode),
+                      &HwcDisplay::SetAutoLowLatencyMode, bool>);
+    case HWC2::FunctionDescriptor::GetSupportedContentTypes:
+      return ToHook<HWC2_PFN_GET_SUPPORTED_CONTENT_TYPES>(
+          DisplayHook<decltype(&HwcDisplay::GetSupportedContentTypes),
+                      &HwcDisplay::GetSupportedContentTypes, uint32_t *,
+                      uint32_t *>);
+    case HWC2::FunctionDescriptor::SetContentType:
+      return ToHook<HWC2_PFN_SET_CONTENT_TYPE>(
+          DisplayHook<decltype(&HwcDisplay::SetContentType),
+                      &HwcDisplay::SetContentType, int32_t>);
+#endif
     // Layer functions
     case HWC2::FunctionDescriptor::SetCursorPosition:
       return ToHook<HWC2_PFN_SET_CURSOR_POSITION>(

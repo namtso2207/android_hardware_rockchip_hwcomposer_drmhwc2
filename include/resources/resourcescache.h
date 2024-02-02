@@ -47,8 +47,7 @@ class LayerInfoCache{
   LayerInfoCache(const LayerInfoCache&) = delete;
   LayerInfoCache& operator=(const LayerInfoCache&) = delete;
 
-  buffer_handle_t native_buffer_ = NULL;
-  base::unique_fd iFd_;
+  base::unique_fd uniqueFd_;
   int iFormat_=0;
   int iWidth_=0;
   int iHeight_=0;
@@ -64,6 +63,7 @@ class LayerInfoCache{
   uint64_t uBufferId_;
   GemHandle gemHandle_;
   std::string sLayerName_;
+  bool bFbIdCached_ = false;
 };
 
 };

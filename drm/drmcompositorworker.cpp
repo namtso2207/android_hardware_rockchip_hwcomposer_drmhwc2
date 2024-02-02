@@ -36,7 +36,7 @@ DrmCompositorWorker::~DrmCompositorWorker() {
 }
 
 int DrmCompositorWorker::Init() {
-  bSchedFifoEnable_ = false;
+  bSchedFifoOnce_ = false;
   return InitWorker();
 }
 
@@ -44,7 +44,9 @@ void DrmCompositorWorker::Routine() {
   int ret;
 
   // 需要将此线程设置为实时线程，为了让底层调用CPU计时器可以获得更准确的计时
-  if(gIsRK3588() && bSchedFifoEnable_ == false){
+  // 所有平台的提交线程需要设置为实时线程
+  if(bSchedFifoOnce_ == false){
+    bSchedFifoOnce_ = true;
     static constexpr int kFifoPriority = 2;
     struct sched_param param = {0};
     int sched_policy;
@@ -52,9 +54,10 @@ void DrmCompositorWorker::Routine() {
     param.sched_priority = kFifoPriority;
 
     if (sched_setscheduler(0, sched_policy, &param) != 0) {
-        return;
+        HWC2_ALOGE("DrmCompositorWorker set SCHED_FIFO fail!");
+    }else{
+        HWC2_ALOGI("DrmCompositorWorker set SCHED_FIFO success!");
     }
-    bSchedFifoEnable_ = true;
   }
 
 

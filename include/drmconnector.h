@@ -22,6 +22,7 @@
 #include "drmproperty.h"
 #include "rockchip/drmtype.h"
 #include "rockchip/drmbaseparameter.h"
+#include "DrmUnique.h"
 
 #include <stdint.h>
 #include <xf86drmMode.h>
@@ -53,6 +54,9 @@ class DrmConnector {
   DrmConnector &operator=(const DrmProperty &) = delete;
 
   int Init();
+
+  int UpdateEdidProperty();
+  auto GetEdidBlob() -> DrmModePropertyBlobUnique;
 
   uint32_t id() const;
   uint32_t type() { return type_; }
@@ -167,6 +171,9 @@ class DrmConnector {
   const DrmProperty &color_format_property() const;
   const DrmProperty &color_depth_property() const;
 
+  auto &GetEdidProperty() const {
+    return edid_property_;
+  }
   const std::vector<DrmHdr> &get_hdr_support_list() const { return drmHdr_; }
   struct drm_hdr_static_metadata_infoframe* get_hdr_metadata_ptr(){ return &hdr_metadata_; };
   const struct disp_info* baseparameter_info(){ return baseparameter_ready_ ? &baseparameter_ : NULL; }
@@ -205,6 +212,7 @@ class DrmConnector {
 
   DrmProperty dpms_property_;
   DrmProperty crtc_id_property_;
+  DrmProperty edid_property_;
   DrmProperty writeback_pixel_formats_;
   DrmProperty writeback_fb_id_;
   DrmProperty writeback_out_fence_;

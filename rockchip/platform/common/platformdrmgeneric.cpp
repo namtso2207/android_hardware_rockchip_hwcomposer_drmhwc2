@@ -209,9 +209,6 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
     }
   }
 
-  // set gem_handle and offsets
-  bo->gem_handles[0] = gem_handle;
-
   if(DrmFormatToPlaneNum(bo->format) == 2){
     if(bo->format == DRM_FORMAT_NV24 ||
        bo->format == DRM_FORMAT_NV42){
@@ -246,27 +243,13 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   }
 #endif
 
-  int ret = drmModeAddFB2WithModifiers(drm_->fd(), bo->width, bo->height, bo->format,
+  int ret = drmGralloc_->hwc_fbid_get_and_cached(bo->buffer_id, drm_->fd(),
+                      bo->width, bo->height, bo->format,
                       bo->gem_handles, bo->pitches, bo->offsets, modifier,
 		                  &bo->fb_id, DRM_MODE_FB_MODIFIERS);
 
-  ALOGD_IF(LogLevel(DBG_DEBUG),"ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d %d %d %d,"
-                               "pitches[0]=%d %d %d %d , offset[0]=%d %d %d %d fb_id=%d, modifier=0x%" PRIx64 ,
-      drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-      bo->gem_handles[0], bo->gem_handles[1], bo->gem_handles[2], bo->gem_handles[3],
-      bo->pitches[0], bo->pitches[1], bo->pitches[2], bo->pitches[3],
-      bo->offsets[0], bo->offsets[1], bo->offsets[2], bo->offsets[3],
-      bo->fb_id,bo->modifier);
-
   if (ret) {
     ALOGE("could not create drm fb %d", ret);
-    HWC2_ALOGE("ImportBuffer fd=%d,w=%d,h=%d,bo->format=%c%c%c%c,gem_handle=%d %d %d %d,"
-               "pitches[0]=%d %d %d %d , offset[0]=%d %d %d %d fb_id=%d,modifier=0x%" PRIx64 ,
-      drm_->fd(), bo->width, bo->height, bo->format, bo->format >> 8, bo->format >> 16, bo->format >> 24,
-      bo->gem_handles[0], bo->gem_handles[1], bo->gem_handles[2], bo->gem_handles[3],
-      bo->pitches[0], bo->pitches[1], bo->pitches[2], bo->pitches[3],
-      bo->offsets[0], bo->offsets[1], bo->offsets[2], bo->offsets[3],
-      bo->fb_id,bo->modifier);
     return ret;
   }
 
@@ -304,7 +287,7 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
 
 int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
   if (bo->fb_id)
-    if (drmModeRmFB(drm_->fd(), bo->fb_id))
+    if (drmGralloc_->hwc_fbid_rm_cache(drm_->fd(), bo->fb_id))
       ALOGE("Failed to rm fb");
 #if 0
   struct drm_gem_close gem_close;
