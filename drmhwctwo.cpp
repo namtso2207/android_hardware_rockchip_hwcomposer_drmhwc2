@@ -1053,6 +1053,10 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
           ctx_.framebuffer_width = ctx_.framebuffer_width * (2160.0 / ctx_.framebuffer_height);
           ctx_.framebuffer_height = 2160;
         }
+		if(ctx_.framebuffer_height == 2160){
+          ctx_.framebuffer_width = ctx_.framebuffer_width * (1080.0 / ctx_.framebuffer_height);
+          ctx_.framebuffer_height = 1080;
+		}
       }else{
         if (ctx_.framebuffer_height >= 2160 && ctx_.framebuffer_width >= ctx_.framebuffer_height) {
           ctx_.framebuffer_width = ctx_.framebuffer_width * (1080.0 / ctx_.framebuffer_height);
